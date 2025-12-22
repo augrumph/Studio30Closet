@@ -1,0 +1,468 @@
+// Studio 30 Closet - Product Catalog Mock Data
+// Categories: Vestidos, Blusas, Calças, Saias, Conjuntos, Blazers, Acessórios
+
+export const categories = [
+    { id: 'vestidos', name: 'Vestidos', icon: '👗' },
+    { id: 'blusas', name: 'Blusas', icon: '👚' },
+    { id: 'calcas', name: 'Calças', icon: '👖' },
+    { id: 'saias', name: 'Saias', icon: '🩳' },
+    { id: 'conjuntos', name: 'Conjuntos', icon: '✨' },
+    { id: 'blazers', name: 'Blazers', icon: '🧥' },
+]
+
+export const sizes = ['PP', 'P', 'M', 'G', 'GG']
+
+export const colors = [
+    { id: 'terracota', name: 'Terracota', hex: '#C75D3B' },
+    { id: 'nude', name: 'Nude', hex: '#E8D4C6' },
+    { id: 'preto', name: 'Preto', hex: '#1A1A1A' },
+    { id: 'branco', name: 'Branco', hex: '#FFFFFF' },
+    { id: 'coral', name: 'Coral', hex: '#E07B5D' },
+    { id: 'caramelo', name: 'Caramelo', hex: '#B8860B' },
+    { id: 'verde', name: 'Verde Oliva', hex: '#6B8E23' },
+    { id: 'azul', name: 'Azul Petróleo', hex: '#2F4F4F' },
+]
+
+export const products = [
+    // VESTIDOS
+    {
+        id: 1,
+        name: 'Vestido Midi Terracota',
+        category: 'vestidos',
+        price: 389.90,
+        originalPrice: 489.90,
+        description: 'Vestido midi elegante em tecido fluido, perfeito para ocasiões especiais. Modelagem soltinha que valoriza todos os tipos de corpo.',
+        color: 'terracota',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600',
+        ],
+        isNew: true,
+        isFeatured: true,
+    },
+    {
+        id: 2,
+        name: 'Vestido Longo Floral',
+        category: 'vestidos',
+        price: 459.90,
+        description: 'Vestido longo com estampa floral exclusiva. Ideal para eventos ao ar livre e ocasiões românticas.',
+        color: 'coral',
+        sizes: ['PP', 'P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=600',
+        ],
+        isNew: false,
+        isFeatured: true,
+    },
+    {
+        id: 3,
+        name: 'Vestido Tubinho Preto',
+        category: 'vestidos',
+        price: 349.90,
+        description: 'O clássico pretinho básico reinventado. Corte moderno e tecido premium.',
+        color: 'preto',
+        sizes: ['P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=600',
+        ],
+        isNew: false,
+        isFeatured: false,
+    },
+    {
+        id: 4,
+        name: 'Vestido Chemise Nude',
+        category: 'vestidos',
+        price: 299.90,
+        description: 'Vestido chemise versátil que vai do trabalho ao happy hour. Tecido leve e confortável.',
+        color: 'nude',
+        sizes: ['PP', 'P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+
+    // BLUSAS
+    {
+        id: 5,
+        name: 'Blusa de Seda Coral',
+        category: 'blusas',
+        price: 259.90,
+        description: 'Blusa em seda pura com caimento impecável. Perfeita para looks sofisticados.',
+        color: 'coral',
+        sizes: ['PP', 'P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1551489186-cf8726f514f8?w=600',
+        ],
+        isNew: true,
+        isFeatured: true,
+    },
+    {
+        id: 6,
+        name: 'Camisa Linho Off-White',
+        category: 'blusas',
+        price: 229.90,
+        description: 'Camisa em puro linho com textura natural. Frescor e elegância para os dias quentes.',
+        color: 'branco',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1604006852748-903fccbc4019?w=600',
+        ],
+        isNew: false,
+        isFeatured: true,
+    },
+    {
+        id: 7,
+        name: 'Regata Básica Preta',
+        category: 'blusas',
+        price: 129.90,
+        description: 'Regata essencial com corte alongado. Base perfeita para qualquer composição.',
+        color: 'preto',
+        sizes: ['PP', 'P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=600',
+        ],
+        isNew: false,
+        isFeatured: false,
+    },
+    {
+        id: 8,
+        name: 'Blusa Cropped Terracota',
+        category: 'blusas',
+        price: 189.90,
+        description: 'Cropped elegante com mangas bufantes. Tendência e sofisticação em uma peça.',
+        color: 'terracota',
+        sizes: ['PP', 'P', 'M'],
+        images: [
+            'https://images.unsplash.com/photo-1562157873-818bc0726f68?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+
+    // CALÇAS
+    {
+        id: 9,
+        name: 'Calça Pantalona Caramelo',
+        category: 'calcas',
+        price: 329.90,
+        description: 'Pantalona fluida com cintura alta. Elegância e conforto em todos os movimentos.',
+        color: 'caramelo',
+        sizes: ['P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600',
+        ],
+        isNew: false,
+        isFeatured: true,
+    },
+    {
+        id: 10,
+        name: 'Calça Reta Preta',
+        category: 'calcas',
+        price: 289.90,
+        description: 'Calça reta clássica com alfaiataria impecável. Básico essencial do guarda-roupa.',
+        color: 'preto',
+        sizes: ['PP', 'P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600',
+        ],
+        isNew: false,
+        isFeatured: false,
+    },
+    {
+        id: 11,
+        name: 'Calça Jogger Nude',
+        category: 'calcas',
+        price: 249.90,
+        description: 'Jogger moderna e confortável. Athleisure com toque premium.',
+        color: 'nude',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1509551388413-e18d0ac5d495?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+
+    // SAIAS
+    {
+        id: 12,
+        name: 'Saia Midi Plissada',
+        category: 'saias',
+        price: 279.90,
+        description: 'Saia plissada com movimento fluido. Feminilidade e elegância em cada passo.',
+        color: 'terracota',
+        sizes: ['PP', 'P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1583496661160-fb5886a0afe0?w=600',
+        ],
+        isNew: true,
+        isFeatured: true,
+    },
+    {
+        id: 13,
+        name: 'Saia Lápis Preta',
+        category: 'saias',
+        price: 259.90,
+        description: 'Saia lápis clássica com fenda traseira. Sofisticação para o ambiente corporativo.',
+        color: 'preto',
+        sizes: ['P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1577900232427-18219b9166a0?w=600',
+        ],
+        isNew: false,
+        isFeatured: false,
+    },
+    {
+        id: 14,
+        name: 'Saia Evasê Verde Oliva',
+        category: 'saias',
+        price: 239.90,
+        description: 'Saia evasê com comprimento midi. Cor tendência que combina com tudo.',
+        color: 'verde',
+        sizes: ['PP', 'P', 'M'],
+        images: [
+            'https://images.unsplash.com/photo-1592301933927-35b597393571?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+
+    // CONJUNTOS
+    {
+        id: 15,
+        name: 'Conjunto Alfaiataria Terracota',
+        category: 'conjuntos',
+        price: 599.90,
+        originalPrice: 749.90,
+        description: 'Conjunto de blazer e calça em alfaiataria premium. Poder e elegância em uma combinação perfeita.',
+        color: 'terracota',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?w=600',
+        ],
+        isNew: true,
+        isFeatured: true,
+    },
+    {
+        id: 16,
+        name: 'Conjunto Short e Blazer Nude',
+        category: 'conjuntos',
+        price: 529.90,
+        description: 'Conjunto moderno de short e blazer. Perfeito para eventos de verão.',
+        color: 'nude',
+        sizes: ['PP', 'P', 'M'],
+        images: [
+            'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=600',
+        ],
+        isNew: false,
+        isFeatured: true,
+    },
+    {
+        id: 17,
+        name: 'Conjunto Linho Natural',
+        category: 'conjuntos',
+        price: 479.90,
+        description: 'Conjunto de blusa e calça em linho puro. Frescor e sofisticação para dias quentes.',
+        color: 'branco',
+        sizes: ['P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+
+    // BLAZERS
+    {
+        id: 18,
+        name: 'Blazer Oversized Preto',
+        category: 'blazers',
+        price: 449.90,
+        description: 'Blazer oversized com ombros estruturados. Atitude e elegância em uma peça statement.',
+        color: 'preto',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1591369822096-ffd140ec948f?w=600',
+        ],
+        isNew: false,
+        isFeatured: true,
+    },
+    {
+        id: 19,
+        name: 'Blazer Cropped Coral',
+        category: 'blazers',
+        price: 389.90,
+        description: 'Blazer cropped moderno com cores vibrantes. Destaque em qualquer ocasião.',
+        color: 'coral',
+        sizes: ['PP', 'P', 'M'],
+        images: [
+            'https://images.unsplash.com/photo-1550614000-4895a10e1bfd?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+    {
+        id: 20,
+        name: 'Blazer Clássico Caramelo',
+        category: 'blazers',
+        price: 429.90,
+        description: 'Blazer clássico com corte impecável. Versatilidade que vai do escritório ao jantar.',
+        color: 'caramelo',
+        sizes: ['P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600',
+        ],
+        isNew: false,
+        isFeatured: false,
+    },
+
+    // Mais produtos para completar o catálogo
+    {
+        id: 21,
+        name: 'Vestido Wrap Estampado',
+        category: 'vestidos',
+        price: 379.90,
+        description: 'Vestido wrap com estampa exclusiva. Ajuste perfeito e feminilidade atemporal.',
+        color: 'coral',
+        sizes: ['PP', 'P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+    {
+        id: 22,
+        name: 'Blusa Manga Longa Verde',
+        category: 'blusas',
+        price: 219.90,
+        description: 'Blusa em tecido fluido com mangas longas. Elegância para dias frescos.',
+        color: 'verde',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=600',
+        ],
+        isNew: false,
+        isFeatured: false,
+    },
+    {
+        id: 23,
+        name: 'Calça Wide Leg Azul',
+        category: 'calcas',
+        price: 339.90,
+        description: 'Calça wide leg com cintura alta. Tendência e conforto em um só look.',
+        color: 'azul',
+        sizes: ['P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+    {
+        id: 24,
+        name: 'Saia Assimétrica Nude',
+        category: 'saias',
+        price: 289.90,
+        description: 'Saia com barra assimétrica moderna. Design contemporâneo e sofisticado.',
+        color: 'nude',
+        sizes: ['PP', 'P', 'M'],
+        images: [
+            'https://images.unsplash.com/photo-1449247666642-264389f5f5b1?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+    {
+        id: 25,
+        name: 'Vestido Slip Dress',
+        category: 'vestidos',
+        price: 319.90,
+        description: 'Slip dress em cetim com alças finas. Sensualidade e elegância minimalista.',
+        color: 'nude',
+        sizes: ['PP', 'P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1612336307429-8a898d10e223?w=600',
+        ],
+        isNew: false,
+        isFeatured: true,
+    },
+    {
+        id: 26,
+        name: 'Blazer Alongado Verde',
+        category: 'blazers',
+        price: 469.90,
+        description: 'Blazer alongado com cinto. Peça statement para looks poderosos.',
+        color: 'verde',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+    {
+        id: 27,
+        name: 'Conjunto Tricot Coral',
+        category: 'conjuntos',
+        price: 549.90,
+        description: 'Conjunto de tricot em fio premium. Conforto e sofisticação para dias frios.',
+        color: 'coral',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=600',
+        ],
+        isNew: false,
+        isFeatured: false,
+    },
+    {
+        id: 28,
+        name: 'Calça Skinny Preta Premium',
+        category: 'calcas',
+        price: 299.90,
+        description: 'Calça skinny com modelagem impecável. Básico essencial em versão luxo.',
+        color: 'preto',
+        sizes: ['PP', 'P', 'M', 'G', 'GG'],
+        images: [
+            'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600',
+        ],
+        isNew: false,
+        isFeatured: false,
+    },
+    {
+        id: 29,
+        name: 'Blusa Ombro a Ombro',
+        category: 'blusas',
+        price: 199.90,
+        description: 'Blusa cigana com elástico nos ombros. Romantismo e leveza para o verão.',
+        color: 'branco',
+        sizes: ['PP', 'P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?w=600',
+        ],
+        isNew: true,
+        isFeatured: false,
+    },
+    {
+        id: 30,
+        name: 'Vestido Maxi Boho',
+        category: 'vestidos',
+        price: 499.90,
+        description: 'Vestido maxi com detalhes bordados. Boho chic em sua forma mais elegante.',
+        color: 'terracota',
+        sizes: ['P', 'M', 'G'],
+        images: [
+            'https://images.unsplash.com/photo-1518622358385-8ea7d0794bf6?w=600',
+        ],
+        isNew: true,
+        isFeatured: true,
+    },
+]
+
+// Helper functions
+export const getFeaturedProducts = () => products.filter(p => p.isFeatured)
+export const getNewProducts = () => products.filter(p => p.isNew)
+export const getProductsByCategory = (categoryId) => products.filter(p => p.category === categoryId)
+export const getProductById = (id) => products.find(p => p.id === parseInt(id))

@@ -1,0 +1,66 @@
+{
+  "nextId": 4,
+  "customers": [
+    {
+      "id": 1,
+      "name": "Mariana Silva",
+      "phone": "(11) 98888-7777",
+      "email": "mariana.silva@email.com",
+      "addresses": [
+        {
+          "street": "Rua Oscar Freire, 1234",
+          "complement": "Apto 52",
+          "isDefault": true
+        }
+      ],
+      "orders": [
+        101,
+        103
+      ],
+      "totalOrders": 2,
+      "totalSpent": 639.8,
+      "createdAt": "2024-03-01T10:00:00.000Z",
+      "lastOrderAt": "2024-03-21T10:30:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Fernanda Oliveira",
+      "phone": "(11) 97777-6666",
+      "email": "fernanda.o@email.com",
+      "addresses": [
+        {
+          "street": "Al. Lorena, 500",
+          "complement": "",
+          "isDefault": true
+        }
+      ],
+      "orders": [
+        102
+      ],
+      "totalOrders": 1,
+      "totalSpent": 589.8,
+      "createdAt": "2024-03-10T15:00:00.000Z",
+      "lastOrderAt": "2024-03-20T16:45:00.000Z"
+    },
+    {
+      "id": 3,
+      "name": "Beatriz Santos",
+      "phone": "(11) 96666-5555",
+      "email": "bea.santos@email.com",
+      "addresses": [
+        {
+          "street": "Av. Paulista, 1000",
+          "complement": "",
+          "isDefault": true
+        }
+      ],
+      "orders": [
+        104
+      ],
+      "totalOrders": 1,
+      "totalSpent": 599.9,
+      "createdAt": "2024-03-15T09:00:00.000Z",
+      "lastOrderAt": "2024-03-18T14:30:00.000Z"
+    }
+  ]
+}

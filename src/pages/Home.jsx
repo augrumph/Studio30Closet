@@ -128,7 +128,7 @@ export function Home() {
                                 A Boutique vai <br />
                                 <span className="text-[#C75D3B] italic">até você.</span>
                             </h2>
-                            <p className="text-[#4A3B32]/70 text-lg leading-relaxed">
+                            <p className="text-[#4A3B32]/90 text-lg leading-relaxed">
                                 Esqueça a iluminação ruim dos provadores e a pressa.
                                 Com a Malinha Delivery, sua casa se torna o cenário perfeito para suas escolhas.
                             </p>
@@ -142,7 +142,7 @@ export function Home() {
                                         <span className="text-[#C75D3B] font-display text-3xl font-light">0{idx + 1}</span>
                                         <div>
                                             <h4 className="font-bold text-[#4A3B32] text-lg mb-1 uppercase tracking-wide">{step.title}</h4>
-                                            <p className="text-[#4A3B32]/80">{step.desc}</p>
+                                            <p className="text-[#4A3B32]/90">{step.desc}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -180,7 +180,7 @@ export function Home() {
                         <h2 className="font-display text-6xl md:text-7xl text-[#C75D3B] opacity-90 mb-4" style={{ fontFamily: 'serif', fontStyle: 'italic' }}>
                             Love Notes
                         </h2>
-                        <p className="text-[#4A3B32]/80 uppercase tracking-widest text-xs font-medium">
+                        <p className="text-[#4A3B32]/90 uppercase tracking-widest text-xs font-medium">
                             O que nossas clientes dizem
                         </p>
                     </div>
@@ -202,10 +202,10 @@ export function Home() {
                         ))}
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* ================= INSTAGRAM SECTION (NOVO) ================= */}
-            <section className="py-20 bg-white">
+            < section className="py-20 bg-white" >
                 <div className="container-custom">
                     {/* Header do Instagram */}
                     <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-4">
@@ -253,10 +253,10 @@ export function Home() {
                         ))}
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* ================= FINAL CTA (FUNDO CLARO) ================= */}
-            <section className="py-24 bg-[#FDFBF7] border-t border-[#4A3B32]/5">
+            < section className="py-24 bg-[#FDFBF7] border-t border-[#4A3B32]/5" >
                 <div className="container-custom text-center px-4">
                     {/* Elemento decorativo discreto */}
                     <div className="w-16 h-1 bg-[#C75D3B]/20 mx-auto mb-8 rounded-full" />
@@ -264,7 +264,7 @@ export function Home() {
                     <h2 className="font-display text-4xl md:text-5xl text-[#4A3B32] mb-6">
                         Pronta para montar sua malinha?
                     </h2>
-                    <p className="text-[#4A3B32]/70 max-w-xl mx-auto mb-10 text-lg font-light leading-relaxed">
+                    <p className="text-[#4A3B32]/90 max-w-xl mx-auto mb-10 text-lg font-light leading-relaxed">
                         Selecione suas peças favoritas e receba em casa. <br className="hidden md:block" /> Simples, seguro e sem compromisso.
                     </p>
 
@@ -277,7 +277,7 @@ export function Home() {
                         </Link>
                     </div>
                 </div>
-            </section>
-        </div>
+            </section >
+        </div >
     )
 }

@@ -45,7 +45,10 @@ export function Home() {
                             <div className="flex justify-center lg:justify-end animate-fade-in order-1">
                                 <img
                                     src="/marcacompleta.PNG"
-                                    alt="Studio 30 Closet"
+                                    alt="Studio 30 Closet - Logo Completa"
+                                    width="640"
+                                    height="360"
+                                    fetchpriority="high"
                                     className="w-72 sm:w-96 md:w-[28rem] lg:w-[32rem] xl:w-[40rem] h-auto object-contain drop-shadow-xl hover:scale-[1.02] transition-transform duration-700"
                                 />
                             </div>
@@ -58,7 +61,7 @@ export function Home() {
                                     <span className="text-[#C75D3B] italic font-light">sua casa.</span>
                                 </h1>
 
-                                <p className="text-lg md:text-xl lg:text-2xl text-[#4A3B32]/80 leading-relaxed max-w-xl mx-auto lg:mx-0">
+                                <p className="text-lg md:text-xl lg:text-2xl text-[#4A3B32]/90 leading-relaxed max-w-xl mx-auto lg:mx-0">
                                     Receba nossa curadoria de luxo, experimente sem pressa no seu ambiente e pague apenas pelo que amar.
                                 </p>
 
@@ -139,7 +142,7 @@ export function Home() {
                                         <span className="text-[#C75D3B] font-display text-3xl font-light">0{idx + 1}</span>
                                         <div>
                                             <h4 className="font-bold text-[#4A3B32] text-lg mb-1 uppercase tracking-wide">{step.title}</h4>
-                                            <p className="text-[#4A3B32]/60">{step.desc}</p>
+                                            <p className="text-[#4A3B32]/80">{step.desc}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -177,7 +180,7 @@ export function Home() {
                         <h2 className="font-display text-6xl md:text-7xl text-[#C75D3B] opacity-90 mb-4" style={{ fontFamily: 'serif', fontStyle: 'italic' }}>
                             Love Notes
                         </h2>
-                        <p className="text-[#4A3B32]/60 uppercase tracking-widest text-xs font-medium">
+                        <p className="text-[#4A3B32]/80 uppercase tracking-widest text-xs font-medium">
                             O que nossas clientes dizem
                         </p>
                     </div>
@@ -212,7 +215,7 @@ export function Home() {
                             </div>
                             <div>
                                 <h3 className="text-xl font-display text-[#4A3B32]">@studio30closet</h3>
-                                <p className="text-sm text-[#4A3B32]/60">Siga para inspirações diárias</p>
+                                <p className="text-sm text-[#4A3B32]/80">Siga para inspirações diárias</p>
                             </div>
                         </div>
                         <a
@@ -234,6 +237,7 @@ export function Home() {
                                 href="https://www.instagram.com/studio30closet/"
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                aria-label={`Ver postagem ${idx + 1} no Instagram`}
                                 className="group relative aspect-square overflow-hidden cursor-pointer bg-[#FDFBF7]"
                             >
                                 <img

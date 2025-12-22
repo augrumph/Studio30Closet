@@ -93,6 +93,7 @@ export function Header() {
                         {/* Malinha Button - Premium Design */}
                         <Link
                             to="/malinha"
+                            aria-label="Minha Malinha"
                             className={cn(
                                 'relative flex items-center gap-2 sm:gap-2.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-xs sm:text-sm transition-all duration-500 shadow-md hover:shadow-lg hover:-translate-y-0.5',
                                 itemsCount > 0

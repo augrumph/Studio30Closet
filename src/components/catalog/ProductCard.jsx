@@ -56,6 +56,8 @@ export function ProductCard({ product, onQuickView }) {
                 <img
                     src={displayImage}
                     alt={product.name}
+                    width="300"
+                    height="400"
                     loading="lazy"
                     decoding="async"
                     fetchpriority="low"
@@ -82,6 +84,7 @@ export function ProductCard({ product, onQuickView }) {
                         e.stopPropagation()
                         onQuickView?.(product)
                     }}
+                    aria-label="Visualização rápida"
                     className={cn(
                         "absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-sm text-brand-brown transition-all duration-300",
                         "md:opacity-0 md:group-hover:opacity-100",
@@ -113,6 +116,7 @@ export function ProductCard({ product, onQuickView }) {
                                     e.stopPropagation()
                                     setSelectedSize(size)
                                 }}
+                                aria-label={`Selecionar tamanho ${size}`}
                                 className={cn(
                                     'w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full text-[10px] sm:text-xs font-medium transition-all duration-200',
                                     selectedSize === size
@@ -166,7 +170,7 @@ export function ProductCard({ product, onQuickView }) {
 
             {/* Info - Alinhado e Clean */}
             <div className="pt-4 pb-2">
-                <h3 className="text-[10px] font-bold text-[#4A3B32]/40 uppercase tracking-[0.2em] mb-1">
+                <h3 className="text-[10px] font-bold text-[#4A3B32]/60 uppercase tracking-[0.2em] mb-1">
                     {product.brand || 'Studio 30'}
                 </h3>
                 <h3 className="font-display text-lg text-[#4A3B32] mb-2 px-0 line-clamp-1">
@@ -177,7 +181,7 @@ export function ProductCard({ product, onQuickView }) {
                         {formatPrice(product.price)}
                     </span>
                     {hasDiscount && (
-                        <span className="text-xs text-[#4A3B32]/40 line-through mt-1">
+                        <span className="text-xs text-[#4A3B32]/60 line-through mt-1">
                             {formatPrice(product.originalPrice)}
                         </span>
                     )}

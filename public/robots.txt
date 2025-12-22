@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://studio30closet.com.br/sitemap.xml

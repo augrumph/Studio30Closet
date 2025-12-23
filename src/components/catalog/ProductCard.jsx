@@ -60,7 +60,7 @@ export function ProductCard({ product, onQuickView }) {
                     height="400"
                     loading="lazy"
                     decoding="async"
-                    fetchpriority="low"
+                    fetchPriority="low"
                     className="w-full h-full object-cover transition-all duration-700 ease-luxury"
                 />
 

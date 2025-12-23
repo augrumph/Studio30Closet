@@ -3,17 +3,29 @@ import { persist } from 'zustand/middleware'
 
 const MAX_ITEMS = 20
 
+const initialCustomerData = {
+    name: '',
+    phone: '',
+    email: '',
+    cpf: '',
+    addresses: [{
+        street: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
+        city: 'Santos',
+        state: 'SP',
+        zipCode: '',
+        isDefault: true
+    }],
+    notes: ''
+}
+
 export const useMalinhaStore = create(
     persist(
         (set, get) => ({
             items: [],
-            customerData: {
-                name: '',
-                phone: '',
-                address: '',
-                complement: '',
-                notes: '',
-            },
+            customerData: initialCustomerData,
 
             // Add item to malinha
             addItem: (product, size) => {
@@ -45,19 +57,19 @@ export const useMalinhaStore = create(
 
             // Update customer data
             setCustomerData: (data) =>
-                set({ customerData: { ...get().customerData, ...data } }),
+                set((state) => ({ customerData: { ...state.customerData, ...data } })),
+            
+            // Update address data
+            setAddressData: (data) =>
+                set((state) => {
+                    const newAddresses = [...state.customerData.addresses]
+                    newAddresses[0] = { ...newAddresses[0], ...data }
+                    return { customerData: { ...state.customerData, addresses: newAddresses } }
+                }),
 
             // Reset customer data
             resetCustomerData: () =>
-                set({
-                    customerData: {
-                        name: '',
-                        phone: '',
-                        address: '',
-                        complement: '',
-                        notes: '',
-                    }
-                }),
+                set({ customerData: initialCustomerData }),
 
             // Get total items count
             getItemsCount: () => get().items.length,

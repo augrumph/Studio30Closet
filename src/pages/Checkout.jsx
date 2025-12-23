@@ -7,7 +7,7 @@ import { useAdminStore } from '@/store/admin-store'
 import { Badge } from '@/components/ui/Badge'
 
 export function Checkout() {
-    const { items, removeItem, clearItems, customerData, setCustomerData } = useMalinhaStore()
+    const { items, removeItem, clearItems, customerData, setCustomerData, setAddressData } = useMalinhaStore()
     const { addOrder } = useAdminStore()
     const [step, setStep] = useState(items.length > 0 ? 1 : 0) // 0: empty, 1: review, 2: form
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -32,28 +32,35 @@ export function Checkout() {
         const { name, value } = e.target
         setCustomerData({ [name]: value })
     }
+    
+    const handleAddressChange = (e) => {
+        const { name, value } = e.target
+        setAddressData({ [name]: value })
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        if (!customerData.name || !customerData.phone || !customerData.address) {
+        const address = customerData?.addresses?.[0] || {};
+        if (!customerData.name || !customerData.phone || !address.street || !address.number || !address.neighborhood || !address.city || !address.zipCode) {
             return
         }
 
         setIsSubmitting(true)
 
         try {
-            // 1. Save order to Admin System (JSON/LocalStorage)
+            // 1. Save order to Admin System
             const orderPayload = {
                 customer: {
                     name: customerData.name,
                     phone: customerData.phone,
-                    email: customerData.email || '',
-                    address: customerData.address,
-                    complement: customerData.complement || ''
+                    email: customerData.email,
+                    cpf: customerData.cpf,
+                    addresses: customerData.addresses,
                 },
                 items: items,
-                itemsCount: items.length
+                itemsCount: items.length,
+                notes: customerData.notes
             }
 
             const result = await addOrder(orderPayload)
@@ -70,15 +77,15 @@ export function Checkout() {
             // 3. Open WhatsApp
             window.open(whatsappLink, '_blank')
 
-            // 4. Optional: clear cart after success
-            // clearItems()
-
             setIsSubmitting(false)
         } catch (error) {
             console.error("Falha no checkout:", error)
             setIsSubmitting(false)
         }
     }
+    
+    const address = customerData?.addresses?.[0] || {};
+    const isFormValid = !!(customerData.name && customerData.phone && address.street && address.number && address.neighborhood && address.city && address.zipCode);
 
     // Empty state
     if (items.length === 0) {
@@ -160,7 +167,7 @@ export function Checkout() {
                     <div className="lg:col-span-2">
                         {step === 1 ? (
                             // Step 1: Review items
-                            <div className="bg-white rounded-2xl shadow-sm border border-[#4A3B32]/5 p-4 sm:p-6">
+                            <div className="bg-white rounded-2xl shadow-xl shadow-black/5 border border-[#4A3B32]/5 p-4 sm:p-6">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                                     {groupedItems.map((item) => (
                                         <div key={item.itemIds[0]} className="group relative">
@@ -199,82 +206,66 @@ export function Checkout() {
                         ) : (
                             // Step 2: Customer Form
                             <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#4A3B32]/5">
-                                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                                <form onSubmit={handleSubmit} className="p-6 space-y-4">
                                     <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-4">
                                         Seus Dados
                                     </h2>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#4A3B32] mb-2">
-                                            Nome completo *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="name"
-                                            value={customerData.name}
-                                            onChange={handleInputChange}
-                                            required
-                                            className="w-full px-4 py-3 rounded-xl border border-[#E8C4B0] focus:border-[#C75D3B] focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
-                                            placeholder="Seu nome"
-                                        />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Nome completo *</label>
+                                            <input type="text" name="name" value={customerData.name || ''} onChange={handleInputChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" placeholder="Seu nome" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">WhatsApp *</label>
+                                            <input type="tel" name="phone" value={customerData.phone || ''} onChange={handleInputChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" placeholder="(11) 99999-9999" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">E-mail</label>
+                                            <input type="email" name="email" value={customerData.email || ''} onChange={handleInputChange} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" placeholder="seu@email.com" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">CPF (Opcional)</label>
+                                            <input type="text" name="cpf" value={customerData.cpf || ''} onChange={handleInputChange} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" placeholder="000.000.000-00" />
+                                        </div>
+                                    </div>
+                                    
+                                    <hr className="my-4 border-gray-100" />
+
+                                    <h3 className="font-display text-lg font-semibold text-[#4A3B32] pt-2">Endereço de Entrega</h3>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                                        <div className="md:col-span-4">
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Rua *</label>
+                                            <input type="text" name="street" value={address.street || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Número *</label>
+                                            <input type="text" name="number" value={address.number || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                        </div>
+                                         <div className="md:col-span-3">
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Bairro *</label>
+                                            <input type="text" name="neighborhood" value={address.neighborhood || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                        </div>
+                                        <div className="md:col-span-3">
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Complemento</label>
+                                            <input type="text" name="complement" value={address.complement || ''} onChange={handleAddressChange} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                        </div>
+                                        <div className="md:col-span-3">
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Cidade *</label>
+                                            <input type="text" name="city" value={address.city || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                        </div>
+                                        <div className="md:col-span-3">
+                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">CEP *</label>
+                                            <input type="text" name="zipCode" value={address.zipCode || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                        </div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#4A3B32] mb-2">
-                                            WhatsApp *
-                                        </label>
-                                        <input
-                                            type="tel"
-                                            name="phone"
-                                            value={customerData.phone}
-                                            onChange={handleInputChange}
-                                            required
-                                            className="w-full px-4 py-3 rounded-xl border border-[#E8C4B0] focus:border-[#C75D3B] focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
-                                            placeholder="(11) 99999-9999"
-                                        />
-                                    </div>
+                                    <hr className="my-4 border-gray-100" />
 
                                     <div>
-                                        <label className="block text-sm font-medium text-[#4A3B32] mb-2">
-                                            Endereço de entrega *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="address"
-                                            value={customerData.address}
-                                            onChange={handleInputChange}
-                                            required
-                                            className="w-full px-4 py-3 rounded-xl border border-[#E8C4B0] focus:border-[#C75D3B] focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
-                                            placeholder="Rua, número, bairro, cidade"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#4A3B32] mb-2">
-                                            Complemento
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="complement"
-                                            value={customerData.complement}
-                                            onChange={handleInputChange}
-                                            className="w-full px-4 py-3 rounded-xl border border-[#E8C4B0] focus:border-[#C75D3B] focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
-                                            placeholder="Apartamento, bloco..."
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#4A3B32] mb-2">
-                                            Observações
-                                        </label>
-                                        <textarea
-                                            name="notes"
-                                            value={customerData.notes}
-                                            onChange={handleInputChange}
-                                            rows={3}
-                                            className="w-full px-4 py-3 rounded-xl border border-[#E8C4B0] focus:border-[#C75D3B] focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all resize-none"
-                                            placeholder="Preferência de horário, instruções de entrega..."
-                                        />
+                                        <label className="block text-sm font-medium text-[#4A3B32] mb-1">Observações</label>
+                                        <textarea name="notes" value={customerData.notes || ''} onChange={handleInputChange} rows={2} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1 resize-none" placeholder="Preferência de horário, instruções..."></textarea>
                                     </div>
                                 </form>
                             </div>
@@ -292,7 +283,7 @@ export function Checkout() {
 
                     {/* Summary */}
                     <div className="lg:col-span-1">
-                        <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24 border border-[#4A3B32]/5">
+                        <div className="bg-white rounded-2xl shadow-xl shadow-black/5 p-6 sticky top-24 border border-[#4A3B32]/5">
                             {step === 1 ? (
                                 <>
                                     <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-4 text-center">
@@ -340,18 +331,18 @@ export function Checkout() {
                                 <>
                                     <button
                                         onClick={handleSubmit}
-                                        disabled={isSubmitting || !customerData.name || !customerData.phone || !customerData.address}
+                                        disabled={isSubmitting || !isFormValid}
                                         className={cn(
                                             'w-full px-8 py-3 bg-[#C75D3B] text-white rounded-full font-medium tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 flex items-center justify-center gap-2',
-                                            (isSubmitting || !customerData.name || !customerData.phone || !customerData.address) && 'opacity-50 cursor-not-allowed'
+                                            (isSubmitting || !isFormValid) && 'opacity-50 cursor-not-allowed'
                                         )}
                                     >
                                         {isSubmitting ? (
                                             <span className="animate-pulse">Enviando...</span>
                                         ) : (
                                             <>
-                                                <MessageCircle className="w-5 h-5" />
-                                                Enviar meus dados
+                                                <Gift className="w-5 h-5" />
+                                                Quero minha malinha!
                                             </>
                                         )}
                                     </button>

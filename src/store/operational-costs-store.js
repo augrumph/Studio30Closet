@@ -5,7 +5,8 @@ import {
     getMaterialsStock,
     createMaterial,
     updateMaterial,
-    deleteMaterial
+    deleteMaterial,
+    deleteAllPaymentFees
 } from '@/lib/api'
 
 export const useOperationalCostsStore = create((set, get) => ({
@@ -43,20 +44,18 @@ export const useOperationalCostsStore = create((set, get) => ({
 
     updatePaymentFees: async (fees) => {
         try {
-            // Update each fee individually
-            const updatedFees = []
+            // First, delete all existing payment fees
+            await deleteAllPaymentFees()
+
+            // Then, create all new fees
+            const createdFees = []
             for (const fee of fees) {
-                if (fee.id) {
-                    const updated = await updatePaymentFee(fee.id, fee)
-                    updatedFees.push(updated)
-                } else {
-                    // If no ID, it's a new fee
-                    const newFee = await createPaymentFee(fee)
-                    updatedFees.push(newFee)
-                }
+                const newFee = await createPaymentFee(fee)
+                createdFees.push(newFee)
             }
-            set({ paymentFees: updatedFees })
-            return { success: true, fees: updatedFees }
+
+            set({ paymentFees: createdFees })
+            return { success: true, fees: createdFees }
         } catch (error) {
             console.error("Erro ao atualizar taxas de pagamento:", error)
             return { success: false, error: error.message }

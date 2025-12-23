@@ -48,17 +48,57 @@ export function OperationalCosts() {
 
     useEffect(() => {
         // Convert the array of fee objects to a map for easier handling in the UI
+        // Group fees by payment method and card brand
         const feesMap = {}
+
+        // Initialize default values
+        feesMap.pix = 0.99
+        feesMap.debit = 1.99
+        feesMap.creditVista = 3.49
+        feesMap.creditParcelado2x = 4.99
+        feesMap.creditParcelado3x = 5.49
+        feesMap.creditParcelado4x = 5.99
+        feesMap.creditParcelado5x = 6.49
+        feesMap.creditParcelado6x = 6.99
+
+        // Initialize brand-specific defaults
+        const cardBrands = ['visa', 'mastercard', 'amex', 'elo'];
+        const paymentMethods = ['credito_vista', 'credito_parcelado'];
+
+        cardBrands.forEach(brand => {
+            paymentMethods.forEach(method => {
+                feesMap[`${brand}_${method}`] = 0; // Default to 0 for brand-specific fees
+            });
+        });
+
+        // Override with actual values from the database
         paymentFees.forEach(fee => {
-            if (fee.payment_type === 'debit') feesMap.debit = fee.fee_percentage
-            else if (fee.payment_type === 'credit_vista') feesMap.creditVista = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_2x') feesMap.creditParcelado2x = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_3x') feesMap.creditParcelado3x = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_4x') feesMap.creditParcelado4x = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_5x') feesMap.creditParcelado5x = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_6x') feesMap.creditParcelado6x = fee.fee_percentage
-            else if (fee.payment_type === 'pix') feesMap.pix = fee.fee_percentage
+            if (fee.payment_method === 'pix' && fee.card_brand === null) {
+                feesMap.pix = fee.fee_percentage
+            } else if ((fee.payment_method === 'debit' || fee.payment_method === 'debito') && fee.card_brand === null) {
+                feesMap.debit = fee.fee_percentage
+            } else if ((fee.payment_method === 'credito_vista' || fee.payment_method === 'credit_vista') && fee.card_brand === null) {
+                feesMap.creditVista = fee.fee_percentage
+            } else if ((fee.payment_method === 'credito_parcelado' || fee.payment_method === 'credit_parcelado') && fee.card_brand === null) {
+                if (fee.description && fee.description.includes('2x')) {
+                    feesMap.creditParcelado2x = fee.fee_percentage
+                } else if (fee.description && fee.description.includes('3x')) {
+                    feesMap.creditParcelado3x = fee.fee_percentage
+                } else if (fee.description && fee.description.includes('4x')) {
+                    feesMap.creditParcelado4x = fee.fee_percentage
+                } else if (fee.description && fee.description.includes('5x')) {
+                    feesMap.creditParcelado5x = fee.fee_percentage
+                } else {
+                    feesMap.creditParcelado6x = fee.fee_percentage // 6x+
+                }
+            } else if (fee.card_brand) {
+                // Handle brand-specific fees
+                const brand = fee.card_brand;
+                const method = fee.payment_method;
+                feesMap[`${brand}_${method}`] = fee.fee_percentage;
+            }
         })
+
         setFees(feesMap)
     }, [paymentFees])
 
@@ -80,18 +120,41 @@ export function OperationalCosts() {
         setFees(prev => ({ ...prev, [name]: parseFloat(value) || 0 }))
     }
 
+    const handleBrandFeeChange = (brand, method, value) => {
+        const feeKey = `${brand}_${method}`;
+        setFees(prev => ({ ...prev, [feeKey]: value }));
+    }
+
     const handleSaveFees = async () => {
         // Convert the fees object back to an array of fee objects for the API
-        const feesArray = [
-            { payment_type: 'debit', fee_percentage: fees.debit, description: 'Taxa para pagamentos com débito à vista' },
-            { payment_type: 'credit_vista', fee_percentage: fees.creditVista, description: 'Taxa para pagamentos com crédito à vista' },
-            { payment_type: 'credit_parcelado_2x', fee_percentage: fees.creditParcelado2x, description: 'Taxa para pagamentos com crédito em 2x' },
-            { payment_type: 'credit_parcelado_3x', fee_percentage: fees.creditParcelado3x, description: 'Taxa para pagamentos com crédito em 3x' },
-            { payment_type: 'credit_parcelado_4x', fee_percentage: fees.creditParcelado4x, description: 'Taxa para pagamentos com crédito em 4x' },
-            { payment_type: 'credit_parcelado_5x', fee_percentage: fees.creditParcelado5x, description: 'Taxa para pagamentos com crédito em 5x' },
-            { payment_type: 'credit_parcelado_6x', fee_percentage: fees.creditParcelado6x, description: 'Taxa para pagamentos com crédito de 6x a 12x' },
-            { payment_type: 'pix', fee_percentage: fees.pix, description: 'Taxa para pagamentos com PIX' }
+        let feesArray = [
+            { payment_method: 'pix', card_brand: null, fee_percentage: fees.pix, description: 'Taxa para pagamentos com PIX' },
+            { payment_method: 'debit', card_brand: null, fee_percentage: fees.debit, description: 'Taxa para pagamentos com débito à vista' },
+            { payment_method: 'credito_vista', card_brand: null, fee_percentage: fees.creditVista, description: 'Taxa para pagamentos com crédito à vista' },
+            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado2x, description: 'Taxa para pagamentos com crédito em 2x' },
+            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado3x, description: 'Taxa para pagamentos com crédito em 3x' },
+            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado4x, description: 'Taxa para pagamentos com crédito em 4x' },
+            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado5x, description: 'Taxa para pagamentos com crédito em 5x' },
+            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado6x, description: 'Taxa para pagamentos com crédito de 6x a 12x' }
         ]
+
+        // Add brand-specific fees
+        const cardBrands = ['visa', 'mastercard', 'amex', 'elo'];
+        const paymentMethods = ['credito_vista', 'credito_parcelado'];
+
+        cardBrands.forEach(brand => {
+            paymentMethods.forEach(method => {
+                const feeValue = fees[`${brand}_${method}`];
+                if (feeValue !== undefined && feeValue !== null) {
+                    feesArray.push({
+                        payment_method: method,
+                        card_brand: brand,
+                        fee_percentage: feeValue,
+                        description: `Taxa para pagamentos com ${method} na bandeira ${brand}`
+                    });
+                }
+            });
+        });
 
         const result = await updatePaymentFees(feesArray)
         if (result.success) {
@@ -228,125 +291,170 @@ export function OperationalCosts() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-5 md:p-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                        <div className="space-y-2">
-                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                PIX (%)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="pix"
-                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.pix || 0.99}
-                                onChange={handleFeesChange}
-                            />
-                        </div>
+                    <Tabs defaultValue="general" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 mb-6">
+                            <TabsTrigger value="general">Geral</TabsTrigger>
+                            <TabsTrigger value="brands">Por Bandeira</TabsTrigger>
+                        </TabsList>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                Débito (%)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="debit"
-                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.debit || 1.99}
-                                onChange={handleFeesChange}
-                            />
-                        </div>
+                        <TabsContent value="general">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        PIX (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        name="pix"
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        value={fees.pix || 0.99}
+                                        onChange={handleFeesChange}
+                                    />
+                                </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                Crédito à Vista (%)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="creditVista"
-                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditVista || 3.49}
-                                onChange={handleFeesChange}
-                            />
-                        </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Débito (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        name="debit"
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        value={fees.debit || 1.99}
+                                        onChange={handleFeesChange}
+                                    />
+                                </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                Crédito 2x (%)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="creditParcelado2x"
-                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado2x || 4.99}
-                                onChange={handleFeesChange}
-                            />
-                        </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Crédito à Vista (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        name="creditVista"
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        value={fees.creditVista || 3.49}
+                                        onChange={handleFeesChange}
+                                    />
+                                </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                Crédito 3x (%)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="creditParcelado3x"
-                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado3x || 5.49}
-                                onChange={handleFeesChange}
-                            />
-                        </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Crédito 2x (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        name="creditParcelado2x"
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        value={fees.creditParcelado2x || 4.99}
+                                        onChange={handleFeesChange}
+                                    />
+                                </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                Crédito 4x (%)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="creditParcelado4x"
-                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado4x || 5.99}
-                                onChange={handleFeesChange}
-                            />
-                        </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Crédito 3x (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        name="creditParcelado3x"
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        value={fees.creditParcelado3x || 5.49}
+                                        onChange={handleFeesChange}
+                                    />
+                                </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                Crédito 5x (%)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="creditParcelado5x"
-                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado5x || 6.49}
-                                onChange={handleFeesChange}
-                            />
-                        </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Crédito 4x (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        name="creditParcelado4x"
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        value={fees.creditParcelado4x || 5.99}
+                                        onChange={handleFeesChange}
+                                    />
+                                </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                Crédito 6x+ (%)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="creditParcelado6x"
-                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado6x || 6.99}
-                                onChange={handleFeesChange}
-                            />
-                        </div>
-                    </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Crédito 5x (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        name="creditParcelado5x"
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        value={fees.creditParcelado5x || 6.49}
+                                        onChange={handleFeesChange}
+                                    />
+                                </div>
 
-                    <div className="mt-6 p-4 bg-blue-50 rounded-xl">
-                        <p className="text-sm text-blue-800 font-medium">
-                            💡 <strong>Dica:</strong> Essas taxas serão calculadas automaticamente quando você registrar uma venda com cartão.
-                        </p>
-                    </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Crédito 6x+ (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        name="creditParcelado6x"
+                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        value={fees.creditParcelado6x || 6.99}
+                                        onChange={handleFeesChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-6 p-4 bg-blue-50 rounded-xl">
+                                <p className="text-sm text-blue-800 font-medium">
+                                    💡 <strong>Dica:</strong> Essas taxas serão calculadas automaticamente quando você registrar uma venda com cartão.
+                                </p>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="brands">
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {['visa', 'mastercard', 'amex', 'elo'].map((brand) => (
+                                        <div key={brand} className="space-y-4 p-4 bg-gray-50 rounded-xl">
+                                            <h4 className="font-bold text-[#4A3B32] capitalize">{brand}</h4>
+                                            {['credito_vista', 'credito_parcelado'].map((method) => (
+                                                <div key={method} className="space-y-2">
+                                                    <label className="text-sm text-gray-600 font-medium">
+                                                        {method === 'credito_vista' ? 'Crédito à Vista' : 'Crédito Parcelado'}
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        max="100"
+                                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                                        placeholder="0.00"
+                                                        value={fees[`${brand}_${method}`] || 0}
+                                                        onChange={(e) => handleBrandFeeChange(brand, method, parseFloat(e.target.value) || 0)}
+                                                    />
+                                                    <span className="text-sm text-gray-400">Taxa percentual</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="p-4 bg-yellow-50 rounded-xl">
+                                    <p className="text-sm text-yellow-800 font-medium">
+                                        ⚠️ <strong>Importante:</strong> As taxas por bandeira substituem as taxas gerais quando uma bandeira específica é selecionada em uma venda.
+                                    </p>
+                                </div>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </CardContent>
             </Card>
 

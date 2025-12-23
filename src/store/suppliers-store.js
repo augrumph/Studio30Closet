@@ -1,117 +1,22 @@
 import { create } from 'zustand'
+import {
+    getSuppliers,
+    getSupplierById,
+    createSupplier,
+    updateSupplier,
+    deleteSupplier,
+    getPurchases,
+    getPurchaseById,
+    createPurchase,
+    updatePurchase,
+    deletePurchase,
+    getFixedExpenses,
+    getFixedExpenseById,
+    createFixedExpense,
+    updateFixedExpense,
+    deleteFixedExpense
+} from '@/lib/api'
 
-// Simulação de API (localStorage) - seguindo o padrão do projeto
-const STORAGE_KEY = 'studio30_suppliers'
-const PURCHASES_KEY = 'studio30_purchases'
-const EXPENSES_KEY = 'studio30_fixed_expenses'
-
-const getSuppliers = async () => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const data = localStorage.getItem(STORAGE_KEY)
-    return data ? JSON.parse(data) : []
-}
-
-const createSupplier = async (supplierData) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const suppliers = await getSuppliers()
-    const newSupplier = {
-        id: Date.now(),
-        ...supplierData,
-        createdAt: new Date().toISOString()
-    }
-    const updated = [...suppliers, newSupplier]
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-    return newSupplier
-}
-
-const updateSupplier = async (id, supplierData) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const suppliers = await getSuppliers()
-    const updated = suppliers.map(s => s.id === id ? { ...s, ...supplierData, updatedAt: new Date().toISOString() } : s)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-    return updated.find(s => s.id === id)
-}
-
-const deleteSupplier = async (id) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const suppliers = await getSuppliers()
-    const updated = suppliers.filter(s => s.id !== id)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-    return { success: true }
-}
-
-// Compras
-const getPurchases = async () => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const data = localStorage.getItem(PURCHASES_KEY)
-    return data ? JSON.parse(data) : []
-}
-
-const createPurchase = async (purchaseData) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const purchases = await getPurchases()
-    const newPurchase = {
-        id: Date.now(),
-        ...purchaseData,
-        createdAt: new Date().toISOString(),
-        status: purchaseData.status || 'pendente'
-    }
-    const updated = [...purchases, newPurchase]
-    localStorage.setItem(PURCHASES_KEY, JSON.stringify(updated))
-    return newPurchase
-}
-
-const updatePurchase = async (id, purchaseData) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const purchases = await getPurchases()
-    const updated = purchases.map(p => p.id === id ? { ...p, ...purchaseData, updatedAt: new Date().toISOString() } : p)
-    localStorage.setItem(PURCHASES_KEY, JSON.stringify(updated))
-    return updated.find(p => p.id === id)
-}
-
-const deletePurchase = async (id) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const purchases = await getPurchases()
-    const updated = purchases.filter(p => p.id !== id)
-    localStorage.setItem(PURCHASES_KEY, JSON.stringify(updated))
-    return { success: true }
-}
-
-// Gastos Fixos
-const getExpenses = async () => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const data = localStorage.getItem(EXPENSES_KEY)
-    return data ? JSON.parse(data) : []
-}
-
-const createExpense = async (expenseData) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const expenses = await getExpenses()
-    const newExpense = {
-        id: Date.now(),
-        ...expenseData,
-        createdAt: new Date().toISOString()
-    }
-    const updated = [...expenses, newExpense]
-    localStorage.setItem(EXPENSES_KEY, JSON.stringify(updated))
-    return newExpense
-}
-
-const updateExpense = async (id, expenseData) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const expenses = await getExpenses()
-    const updated = expenses.map(e => e.id === id ? { ...e, ...expenseData, updatedAt: new Date().toISOString() } : e)
-    localStorage.setItem(EXPENSES_KEY, JSON.stringify(updated))
-    return updated.find(e => e.id === id)
-}
-
-const deleteExpense = async (id) => {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    const expenses = await getExpenses()
-    const updated = expenses.filter(e => e.id !== id)
-    localStorage.setItem(EXPENSES_KEY, JSON.stringify(updated))
-    return { success: true }
-}
 
 export const useSuppliersStore = create((set, get) => ({
     // ==================== ESTADO ====================
@@ -131,44 +36,63 @@ export const useSuppliersStore = create((set, get) => ({
     expensesLoading: false,
     expensesError: null,
 
+    // ==================== INITIALIZATION ====================
+
+    initialize: async () => {
+        await Promise.all([
+            get().loadSuppliers(),
+            get().loadPurchases(),
+            get().loadExpenses()
+        ])
+    },
+
     // ==================== FORNECEDORES ====================
 
     loadSuppliers: async () => {
+        console.log('Store: Loading suppliers...');
         set({ suppliersLoading: true, suppliersError: null })
         try {
             const suppliers = await getSuppliers()
+            console.log('Store: Loaded suppliers:', suppliers);
             const sorted = [...suppliers].sort((a, b) => b.id - a.id)
             set({ suppliers: sorted, suppliersLoading: false })
         } catch (error) {
+            console.error('Store: Error loading suppliers:', error);
             set({ suppliersError: error.message, suppliersLoading: false })
         }
     },
 
     addSupplier: async (supplierData) => {
+        console.log('Store: Adding supplier with data:', supplierData);
         set({ suppliersLoading: true, suppliersError: null })
         try {
             const newSupplier = await createSupplier(supplierData)
+            console.log('Store: Supplier added successfully:', newSupplier);
             set(state => ({
                 suppliers: [newSupplier, ...state.suppliers],
                 suppliersLoading: false
             }))
             return { success: true, supplier: newSupplier }
         } catch (error) {
+            console.error('Store: Error adding supplier:', error);
             set({ suppliersError: error.message, suppliersLoading: false })
             return { success: false, error: error.message }
         }
     },
 
     editSupplier: async (id, supplierData) => {
+        console.log('Store: Editing supplier with id:', id, 'and data:', supplierData);
         set({ suppliersLoading: true, suppliersError: null })
         try {
             const updated = await updateSupplier(id, supplierData)
+            console.log('Store: Supplier updated successfully:', updated);
             set(state => ({
-                suppliers: state.suppliers.map(s => s.id === id ? updated : s),
+                suppliers: state.suppliers.map(s => s.id === parseInt(id) ? updated : s),
                 suppliersLoading: false
             }))
             return { success: true, supplier: updated }
         } catch (error) {
+            console.error('Store: Error editing supplier:', error);
             set({ suppliersError: error.message, suppliersLoading: false })
             return { success: false, error: error.message }
         }
@@ -179,7 +103,7 @@ export const useSuppliersStore = create((set, get) => ({
         try {
             await deleteSupplier(id)
             set(state => ({
-                suppliers: state.suppliers.filter(s => s.id !== id),
+                suppliers: state.suppliers.filter(s => s.id !== parseInt(id)),
                 suppliersLoading: false
             }))
             return { success: true }
@@ -190,7 +114,11 @@ export const useSuppliersStore = create((set, get) => ({
     },
 
     getSupplierById: (id) => {
-        return get().suppliers.find(s => s.id === parseInt(id))
+        const suppliers = get().suppliers;
+        console.log('Store: Looking for supplier with id:', id, 'in suppliers list:', suppliers);
+        const supplier = suppliers.find(s => s.id === parseInt(id))
+        console.log('Store: Found supplier:', supplier);
+        return supplier
     },
 
     // ==================== COMPRAS ====================
@@ -226,7 +154,7 @@ export const useSuppliersStore = create((set, get) => ({
         try {
             const updated = await updatePurchase(id, purchaseData)
             set(state => ({
-                purchases: state.purchases.map(p => p.id === id ? updated : p),
+                purchases: state.purchases.map(p => p.id === parseInt(id) ? updated : p),
                 purchasesLoading: false
             }))
             return { success: true, purchase: updated }
@@ -241,7 +169,7 @@ export const useSuppliersStore = create((set, get) => ({
         try {
             await deletePurchase(id)
             set(state => ({
-                purchases: state.purchases.filter(p => p.id !== id),
+                purchases: state.purchases.filter(p => p.id !== parseInt(id)),
                 purchasesLoading: false
             }))
             return { success: true }
@@ -260,7 +188,7 @@ export const useSuppliersStore = create((set, get) => ({
     loadExpenses: async () => {
         set({ expensesLoading: true, expensesError: null })
         try {
-            const expenses = await getExpenses()
+            const expenses = await getFixedExpenses()
             const sorted = [...expenses].sort((a, b) => b.id - a.id)
             set({ expenses: sorted, expensesLoading: false })
         } catch (error) {
@@ -271,7 +199,7 @@ export const useSuppliersStore = create((set, get) => ({
     addExpense: async (expenseData) => {
         set({ expensesLoading: true, expensesError: null })
         try {
-            const newExpense = await createExpense(expenseData)
+            const newExpense = await createFixedExpense(expenseData)
             set(state => ({
                 expenses: [newExpense, ...state.expenses],
                 expensesLoading: false
@@ -286,9 +214,9 @@ export const useSuppliersStore = create((set, get) => ({
     editExpense: async (id, expenseData) => {
         set({ expensesLoading: true, expensesError: null })
         try {
-            const updated = await updateExpense(id, expenseData)
+            const updated = await updateFixedExpense(id, expenseData)
             set(state => ({
-                expenses: state.expenses.map(e => e.id === id ? updated : e),
+                expenses: state.expenses.map(e => e.id === parseInt(id) ? updated : e),
                 expensesLoading: false
             }))
             return { success: true, expense: updated }
@@ -301,9 +229,9 @@ export const useSuppliersStore = create((set, get) => ({
     removeExpense: async (id) => {
         set({ expensesLoading: true, expensesError: null })
         try {
-            await deleteExpense(id)
+            await deleteFixedExpense(id)
             set(state => ({
-                expenses: state.expenses.filter(e => e.id !== id),
+                expenses: state.expenses.filter(e => e.id !== parseInt(id)),
                 expensesLoading: false
             }))
             return { success: true }

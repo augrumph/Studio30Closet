@@ -12,6 +12,7 @@ export function VendasList() {
     const { vendas, loadVendas, vendasLoading, removeVenda } = useAdminStore()
     const [searchTerm, setSearchTerm] = useState('')
     const [filterType, setFilterType] = useState('all')
+    const [filterPaymentStatus, setFilterPaymentStatus] = useState('all') // Novo filtro
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, vendaId: null, customerName: '' })
 
     useEffect(() => {
@@ -21,12 +22,22 @@ export function VendasList() {
     const filteredVendas = vendas.filter(venda => {
         const matchesSearch = venda.customerName.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesType = filterType === 'all' || venda.paymentMethod === filterType
-        return matchesSearch && matchesType
+        const matchesPaymentStatus =
+            filterPaymentStatus === 'all' ||
+            (filterPaymentStatus === 'pending' && venda.paymentStatus === 'pending') ||
+            (filterPaymentStatus === 'paid' && venda.paymentStatus === 'paid')
+        return matchesSearch && matchesType && matchesPaymentStatus
     })
 
     const totalRevenue = filteredVendas.reduce((acc, curr) => acc + curr.totalValue, 0)
     const pendingFiado = filteredVendas
         .filter(v => v.paymentMethod === 'fiado' && v.paymentStatus === 'pending')
+        .reduce((acc, curr) => acc + curr.totalValue, 0)
+
+    // Calcular total de devedores (qualquer método com status pendente)
+    const totalDevedores = vendas.filter(v => v.paymentStatus === 'pending').length
+    const valorDevedores = vendas
+        .filter(v => v.paymentStatus === 'pending')
         .reduce((acc, curr) => acc + curr.totalValue, 0)
 
     const paymentMethods = {
@@ -67,7 +78,7 @@ export function VendasList() {
             </div>
 
             {/* Quick Insights - Bento Style Cards */}
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-4 gap-6">
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                     <Card className="border-emerald-50 bg-white">
                         <CardHeader className="pb-2">
@@ -116,6 +127,34 @@ export function VendasList() {
                         </CardContent>
                     </Card>
                 </motion.div>
+
+                {/* Card de Devedores - DESTAQUE */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                    <Card className="border-red-100 bg-gradient-to-br from-red-50 to-white cursor-pointer hover:shadow-lg transition-all"
+                        onClick={() => setFilterPaymentStatus('pending')}>
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-red-100 rounded-xl"><CreditCard className="w-5 h-5 text-red-600" /></div>
+                                    <span className="text-xs font-bold text-red-600 uppercase tracking-widest">⚠️ Devedores</span>
+                                </div>
+                                {totalDevedores > 0 && (
+                                    <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
+                                        {totalDevedores}
+                                    </span>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-display font-bold text-red-600">
+                                R$ {valorDevedores.toLocaleString('pt-BR')}
+                            </div>
+                            <p className="text-xs text-red-500 font-medium mt-1">
+                                {totalDevedores} {totalDevedores === 1 ? 'venda pendente' : 'vendas pendentes'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                </motion.div>
             </div>
 
             {/* Premium Table Area */}
@@ -135,21 +174,61 @@ export function VendasList() {
                         </div>
                     </div>
 
-                    <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl">
-                        {['all', 'pix', 'card', 'fiado'].map(type => (
+                    <div className="flex flex-col md:flex-row gap-3">
+                        {/* Filtro de Método de Pagamento */}
+                        <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl">
+                            {['all', 'pix', 'card', 'fiado'].map(type => (
+                                <button
+                                    key={type}
+                                    onClick={() => setFilterType(type)}
+                                    className={cn(
+                                        "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all",
+                                        filterType === type
+                                            ? "bg-white text-[#4A3B32] shadow-sm"
+                                            : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
+                                    )}
+                                >
+                                    {type === 'all' ? 'Todos' : type === 'fiado' ? 'Crediário' : type}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Filtro de Status de Pagamento */}
+                        <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl">
                             <button
-                                key={type}
-                                onClick={() => setFilterType(type)}
+                                onClick={() => setFilterPaymentStatus('all')}
                                 className={cn(
                                     "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all",
-                                    filterType === type
+                                    filterPaymentStatus === 'all'
                                         ? "bg-white text-[#4A3B32] shadow-sm"
                                         : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
                                 )}
                             >
-                                {type === 'all' ? 'Ver Tudo' : type === 'fiado' ? 'Crediário' : type}
+                                Todos
                             </button>
-                        ))}
+                            <button
+                                onClick={() => setFilterPaymentStatus('paid')}
+                                className={cn(
+                                    "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all",
+                                    filterPaymentStatus === 'paid'
+                                        ? "bg-emerald-500 text-white shadow-sm"
+                                        : "text-emerald-600/40 hover:text-emerald-600"
+                                )}
+                            >
+                                ✓ Pagos
+                            </button>
+                            <button
+                                onClick={() => setFilterPaymentStatus('pending')}
+                                className={cn(
+                                    "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all",
+                                    filterPaymentStatus === 'pending'
+                                        ? "bg-red-500 text-white shadow-sm"
+                                        : "text-red-600/40 hover:text-red-600"
+                                )}
+                            >
+                                ⚠ Pendentes
+                            </button>
+                        </div>
                     </div>
                 </CardHeader>
 

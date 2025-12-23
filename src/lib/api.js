@@ -1,680 +1,796 @@
-// API Helper - Funções CRUD para manipular JSONs
-// Durante desenvolvimento: usa localStorage como cache
-// Em produção: substituir por chamadas fetch para API REST real
+import { supabase } from './supabase'
 
-const STORAGE_KEYS = {
-    products: 'studio30_admin_products',
-    orders: 'studio30_admin_orders',
-    customers: 'studio30_admin_customers',
-    vendas: 'studio30_admin_vendas',
-    settings: 'studio30_admin_settings',
-    coupons: 'studio30_admin_coupons'
-}
+// ==================== HELPER FUNCTIONS ====================
 
-// ==================== HELPERS ====================
+// Converter camelCase para snake_case
+function toSnakeCase(obj) {
+    if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
 
-async function loadData(key, fallbackPath) {
-    try {
-        // Tentar localStorage primeiro
-        const cached = localStorage.getItem(STORAGE_KEYS[key])
-        if (cached) {
-            return JSON.parse(cached)
-        }
-
-        // Se não, buscar JSON
-        const response = await fetch(fallbackPath)
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-
-        const contentType = response.headers.get("content-type")
-        if (!contentType || !contentType.includes("application/json")) {
-            console.error(`Resposta não é JSON para ${key}:`, await response.text())
-            // Retornar estrutura básica para evitar quebra do app
-            const defaultData = { nextId: 1 }
-            defaultData[key] = []
-            return defaultData
-        }
-
-        const data = await response.json()
-
-        // Salvar em cache
-        localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data))
-        return data
-    } catch (error) {
-        console.error(`Erro ao carregar ${key}:`, error)
-        throw error
+    if (Array.isArray(obj)) {
+        return obj.map(item => toSnakeCase(item));
     }
+
+    const snakeObj = {};
+    for (const [key, value] of Object.entries(obj)) {
+        const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        snakeObj[snakeKey] = typeof value === 'object' && !Array.isArray(value) && value !== null
+            ? toSnakeCase(value)
+            : value;
+    }
+    return snakeObj;
 }
 
-async function saveData(key, data) {
-    localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data))
-    // Simular latência de rede
-    await new Promise(resolve => setTimeout(resolve, 300))
-}
+// Converter snake_case para camelCase
+function toCamelCase(obj) {
+    if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
 
-function generateOrderNumber() {
-    const date = new Date()
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0')
-    return `ORD-${year}${month}${day}-${random}`
+    if (Array.isArray(obj)) {
+        return obj.map(item => toCamelCase(item));
+    }
+
+    const camelObj = {};
+    for (const [key, value] of Object.entries(obj)) {
+        const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+        camelObj[camelKey] = typeof value === 'object' && !Array.isArray(value) && value !== null
+            ? toCamelCase(value)
+            : value;
+    }
+    return camelObj;
 }
 
 // ==================== PRODUCTS ====================
 
 export async function getProducts() {
-    const data = await loadData('products', '/data/products.json')
-    return data.products
+    const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data.map(toCamelCase);
 }
 
 export async function getProductById(id) {
-    const products = await getProducts()
-    return products.find(p => p.id === parseInt(id))
+    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+    if (error) throw error;
+    return toCamelCase(data);
 }
 
 export async function createProduct(productData) {
-    const data = await loadData('products', '/data/products.json')
+    const snakeData = toSnakeCase(productData);
 
-    const newProduct = {
-        ...productData,
-        id: data.nextId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+    // Log para debug
+    console.log('Dados sendo enviados:', snakeData);
+
+    const { data, error } = await supabase
+        .from('products')
+        .insert([snakeData])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Erro ao criar produto:', error);
+        throw error;
     }
 
-    data.products.unshift(newProduct)
-    data.nextId++
-
-    await saveData('products', data)
-    return newProduct
+    return toCamelCase(data);
 }
 
 export async function updateProduct(id, productData) {
-    const data = await loadData('products', '/data/products.json')
-    const index = data.products.findIndex(p => p.id === parseInt(id))
-
-    if (index === -1) throw new Error('Produto não encontrado')
-
-    data.products[index] = {
-        ...data.products[index],
-        ...productData,
-        id: parseInt(id),
-        updatedAt: new Date().toISOString()
-    }
-
-    await saveData('products', data)
-    return data.products[index]
+    const snakeData = toSnakeCase(productData);
+    const { data, error } = await supabase.from('products').update(snakeData).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamelCase(data);
 }
 
 export async function deleteProduct(id) {
-    const data = await loadData('products', '/data/products.json')
-    const index = data.products.findIndex(p => p.id === parseInt(id))
-
-    if (index === -1) throw new Error('Produto não encontrado')
-
-    data.products.splice(index, 1)
-    await saveData('products', data)
-    return true
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) throw error;
+    return true;
 }
 
 export async function deleteMultipleProducts(productIds) {
-    const data = await loadData('products', '/data/products.json')
-    
-    const idsToDelete = productIds.map(id => parseInt(id, 10));
-    data.products = data.products.filter(p => !idsToDelete.includes(p.id))
-    
-    await saveData('products', data)
-    return true
-}
-
-// ==================== ORDERS ====================
-
-export async function getOrders() {
-    const data = await loadData('orders', '/data/orders.json')
-    return data.orders
-}
-
-export async function getOrderById(id) {
-    const orders = await getOrders()
-    return orders.find(o => o.id === parseInt(id))
-}
-
-async function getOrCreateCustomerId(customerData) {
-    const data = await loadData('customers', '/data/customers.json')
-
-    // Busca por telefone para evitar duplicidade (removendo caracteres não numéricos)
-    const cleanPhone = customerData.phone.replace(/\D/g, '')
-    const index = data.customers.findIndex(c =>
-        c.phone.replace(/\D/g, '') === cleanPhone
-    )
-
-    if (index !== -1) {
-        // Atualiza endereço se necessário e data do último pedido
-        data.customers[index] = {
-            ...data.customers[index],
-            address: customerData.address || data.customers[index].address,
-            complement: customerData.complement || data.customers[index].complement,
-            lastOrderAt: new Date().toISOString()
-        }
-        await saveData('customers', data)
-        return data.customers[index].id
-    }
-
-    // Se não existir, cria um novo
-    return await createCustomer(customerData)
-}
-
-export async function createOrder(orderData) {
-    const data = await loadData('orders', '/data/orders.json')
-
-    const customerId = await getOrCreateCustomerId(orderData.customer)
-
-    // Buscar produtos para garantir o costPrice correto (não confiar no front público)
-    const productsData = await loadData('products', '/data/products.json')
-    const products = productsData.products || []
-
-    const newOrder = {
-        id: data.nextId,
-        orderNumber: generateOrderNumber(),
-        status: orderData.status || 'pending',
-        customer: {
-            ...orderData.customer,
-            id: customerId
-        },
-        items: orderData.items.map(item => {
-            const product = products.find(p => p.id === (item.productId || item.id))
-            return {
-                productId: item.productId || item.id,
-                productName: item.productName || item.name,
-                selectedSize: item.selectedSize,
-                price: item.price,
-                costPrice: product ? product.costPrice : 0,
-                image: item.image || item.images?.[0]
-            }
-        }),
-        totalValue: orderData.totalValue,
-        itemsCount: orderData.itemsCount,
-        deliveryDate: orderData.deliveryDate || null,
-        pickupDate: orderData.pickupDate || null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        statusHistory: [{
-            status: orderData.status || 'pending',
-            timestamp: new Date().toISOString()
-        }]
-    }
-
-    data.orders.unshift(newOrder)
-    data.nextId++
-
-    await saveData('orders', data)
-
-    // Atualizar dados do cliente
-    await updateCustomerOrders(customerId, newOrder.id, newOrder.totalValue)
-
-    // Baixa de estoque para malinhas pendentes
-    if (newOrder.status === 'pending') {
-        await updateStock(newOrder.items.map(item => ({ productId: item.productId, quantity: 1 })), 'decrease')
-    }
-
-    return newOrder
-}
-
-export async function updateOrder(id, orderData) {
-    const data = await loadData('orders', '/data/orders.json')
-    const index = data.orders.findIndex(o => o.id === parseInt(id))
-
-    if (index === -1) throw new Error('Malinha não encontrada')
-
-    const currentOrder = data.orders[index]
-    const newStatus = orderData.status || currentOrder.status
-
-    // Lógica de ajuste de estoque para malinhas PENDENTES
-    if (currentOrder.status === 'pending' && orderData.items) {
-        const currentItems = currentOrder.items || []
-        const newItems = orderData.items || []
-
-        // Contar IDs para facilitar a comparação
-        const currentItemIds = currentItems.map(item => item.productId)
-        const newItemIds = newItems.map(item => item.productId)
-
-        const addedItems = newItems
-            .filter(item => !currentItemIds.includes(item.productId))
-            .map(item => ({ productId: item.productId, quantity: 1 }))
-
-        const removedItems = currentItems
-            .filter(item => !newItemIds.includes(item.productId))
-            .map(item => ({ productId: item.productId, quantity: 1 }))
-
-        if (addedItems.length > 0) {
-            await updateStock(addedItems, 'decrease')
-        }
-        if (removedItems.length > 0) {
-            await updateStock(removedItems, 'increase')
-        }
-    }
-
-
-    // Se status mudou, adiciona ao histórico
-    const statusHistory = [...(currentOrder.statusHistory || [])]
-    if (newStatus !== currentOrder.status) {
-        statusHistory.push({
-            status: newStatus,
-            timestamp: new Date().toISOString()
-        })
-    }
-
-    data.orders[index] = {
-        ...currentOrder,
-        ...orderData,
-        id: parseInt(id), // Garantir ID numérico
-        status: newStatus,
-        statusHistory,
-        updatedAt: new Date().toISOString(),
-        customer: {
-            ...orderData.customer,
-            id: orderData.customer?.id || currentOrder.customer.id
-        },
-        items: orderData.items ? orderData.items.map(item => ({
-            productId: item.productId,
-            productName: item.productName,
-            selectedSize: item.selectedSize,
-            price: item.price,
-            image: item.image
-        })) : currentOrder.items
-    }
-
-    await saveData('orders', data)
-    return data.orders[index]
-}
-
-export async function updateOrderStatus(id, newStatus) {
-    const data = await loadData('orders', '/data/orders.json')
-    const index = data.orders.findIndex(o => o.id === parseInt(id))
-
-    if (index === -1) throw new Error('Malinha não encontrada')
-
-    const order = data.orders[index]
-    const oldStatus = order.status
-
-    // Se o status não mudou, não faz nada
-    if (oldStatus === newStatus) return order;
-
-    const stockItems = order.items.map(item => ({
-        productId: item.productId,
-        quantity: 1
-    }));
-
-    // Lógica de ESTORNO de estoque
-    // 1. Se uma malinha PENDENTE for CANCELADA, devolve o estoque que foi reservado.
-    if (oldStatus === 'pending' && newStatus === 'cancelled') {
-        await updateStock(stockItems, 'increase');
-    }
-    // 2. Se uma malinha ENVIADA for CANCELADA ou voltar a ser PENDENTE, devolve o estoque.
-    // (No nosso fluxo novo, o estoque já foi baixado no pending, então não há dupla baixa)
-    else if (oldStatus === 'shipped' && (newStatus === 'cancelled' || newStatus === 'pending')) {
-        // Esta lógica pode precisar de revisão dependendo do fluxo exato,
-        // mas por segurança, vamos garantir que o estoque seja devolvido se sair de 'shipped'.
-        // No fluxo atual, onde 'pending' já baixa o estoque, uma transição 'shipped' -> 'pending'
-        // não deveria fazer nada, mas 'shipped' -> 'cancelled' sim.
-        // Vamos unificar: se sai de 'shipped' para um estado não final, devolve.
-        await updateStock(stockItems, 'increase');
-    }
-
-    // Lógica de BAIXA de estoque
-    // 1. Se uma malinha estava PENDENTE e virou ENVIADA, o estoque JÁ FOI BAIXADO. Nenhuma ação.
-    // 2. Se uma malinha foi criada e já vai direto para ENVIADA (não passa por pending no form),
-    // a função createOrder não teria baixado. Mas o form sempre cria como 'pending' primeiro.
-    // A única transição que precisa de baixa é de um estado que não baixa estoque (ex: 'completed' revertido) para 'shipped',
-    // o que é um caso de borda raro. A lógica atual focada em `pending` é mais segura.
-
-    order.status = newStatus
-    order.updatedAt = new Date().toISOString()
-
-    if (!order.statusHistory) order.statusHistory = []
-    order.statusHistory.push({
-        status: newStatus,
-        timestamp: new Date().toISOString()
-    })
-
-    await saveData('orders', data)
-    return order
-}
-
-export async function finalizeMalinhaAsSale(id, keptItemsIndexes, vendaData) {
-    const data = await loadData('orders', '/data/orders.json')
-    const index = data.orders.findIndex(o => o.id === parseInt(id))
-    if (index === -1) throw new Error('Malinha não encontrada')
-
-    const order = data.orders[index]
-
-    // 1. Identificar itens devolvidos e estornar o estoque.
-    // O estoque de todos os itens da malinha já foi baixado quando ela estava 'pending'.
-    const returnedItems = order.items
-        .filter((_, idx) => !keptItemsIndexes.includes(idx))
-        .map(item => ({ productId: item.productId, quantity: 1 }))
-
-    if (returnedItems.length > 0) {
-        await updateStock(returnedItems, 'increase')
-    }
-
-    // 2. Cria a venda. A função createVenda foi modificada para NÃO baixar o estoque
-    // se a venda vier de uma 'malinha', evitando dupla baixa.
-    const newVenda = await createVenda({
-        ...vendaData,
-        malinhaId: order.id,
-        source: 'malinha'
-    })
-
-    // 3. Marca a malinha como concluída
-    order.status = 'completed'
-    order.updatedAt = new Date().toISOString()
-
-    // Salvar quais itens ficaram para histórico da malinha
-    order.items = order.items.map((item, idx) => ({
-        ...item,
-        isKept: keptItemsIndexes.includes(idx)
-    }))
-
-    if (!order.statusHistory) order.statusHistory = []
-    order.statusHistory.push({
-        status: 'completed',
-        timestamp: new Date().toISOString(),
-        details: `Venda gerada (${keptItemsIndexes.length} itens)`
-    })
-
-    await saveData('orders', data)
-
-    return { order, venda: newVenda }
-}
-
-export async function updateOrderSchedule(id, scheduleData) {
-    const data = await loadData('orders', '/data/orders.json')
-    const index = data.orders.findIndex(o => o.id === parseInt(id))
-
-    if (index === -1) throw new Error('Pedido não encontrado')
-
-    data.orders[index] = {
-        ...data.orders[index],
-        ...scheduleData,
-        updatedAt: new Date().toISOString()
-    }
-
-    await saveData('orders', data)
-    return data.orders[index]
-}
-
-export async function deleteOrder(id) {
-    const data = await loadData('orders', '/data/orders.json')
-    const index = data.orders.findIndex(o => o.id === parseInt(id))
-
-    if (index === -1) throw new Error('Pedido não encontrado')
-
-    data.orders.splice(index, 1)
-    await saveData('orders', data)
-    return true
-}
-
-// ==================== VENDAS ====================
-
-export async function getVendas() {
-    const data = await loadData('vendas', '/data/vendas.json')
-    return data.vendas
-}
-
-export async function createVenda(vendaData) {
-    const data = await loadData('vendas', '/data/vendas.json')
-
-    // Se não tiver data real no arquivo, inicializa estrutura
-    if (!data.vendas) data.vendas = []
-    if (!data.nextId) data.nextId = 1
-
-    const newVenda = {
-        ...vendaData,
-        id: data.nextId,
-        costPrice: vendaData.costPrice || 0, // Custo total da venda
-        totalValue: vendaData.totalValue, // Valor faturado
-        createdAt: new Date().toISOString()
-    }
-
-    data.vendas.unshift(newVenda)
-    data.nextId++
-
-    // Baixa de estoque apenas se não for uma venda originada de uma malinha
-    // (o estoque da malinha já foi baixado no estado 'pending' ou 'shipped')
-    if (vendaData.source !== 'malinha' && vendaData.items && vendaData.items.length > 0) {
-        await updateStock(vendaData.items, 'decrease')
-    }
-
-    // Atualiza estatísticas do cliente se houver ID
-    if (vendaData.customerId) {
-        await updateCustomerSalesStats(vendaData.customerId, vendaData.totalValue)
-    }
-
-    return newVenda
-}
-
-async function updateStock(items, type) {
-    const data = await loadData('products', '/data/products.json')
-
-    items.forEach(item => {
-        const productIndex = data.products.findIndex(p => p.id === parseInt(item.productId))
-        if (productIndex !== -1) {
-            const currentStock = data.products[productIndex].stock || 0
-            const quantity = item.quantity || 1
-
-            if (type === 'decrease') {
-                data.products[productIndex].stock = Math.max(0, currentStock - quantity)
-            } else {
-                data.products[productIndex].stock = currentStock + quantity
-            }
-        }
-    })
-
-    await saveData('products', data)
-}
-
-async function updateCustomerSalesStats(customerId, amount) {
-    const data = await loadData('customers', '/data/customers.json')
-    const index = data.customers.findIndex(c => c.id === parseInt(customerId))
-    if (index === -1) return
-
-    const customer = data.customers[index]
-    if (!customer.vendas) customer.vendas = []
-    customer.totalSpent = (customer.totalSpent || 0) + amount
-
-    await saveData('customers', data)
-}
-
-export async function updateVenda(id, vendaData) {
-    const data = await loadData('vendas', '/data/vendas.json')
-    const index = data.vendas.findIndex(v => v.id === parseInt(id))
-
-    if (index === -1) throw new Error('Venda não encontrada')
-
-    const oldVenda = data.vendas[index]
-
-    // Se os itens mudaram, precisamos ajustar o estoque
-    // 1. Devolve o estoque antigo
-    if (oldVenda.items && oldVenda.items.length > 0) {
-        await updateStock(oldVenda.items, 'increase')
-    }
-    // 2. Tira o estoque novo
-    if (vendaData.items && vendaData.items.length > 0) {
-        await updateStock(vendaData.items, 'decrease')
-    }
-
-    data.vendas[index] = {
-        ...data.vendas[index],
-        ...vendaData,
-        updatedAt: new Date().toISOString()
-    }
-
-    await saveData('vendas', data)
-    return data.vendas[index]
-}
-
-export async function deleteVenda(id) {
-    const data = await loadData('vendas', '/data/vendas.json')
-    const index = data.vendas.findIndex(v => v.id === parseInt(id))
-
-    if (index === -1) throw new Error('Venda não encontrada')
-
-    const venda = data.vendas[index]
-
-    // Estorno de estoque ao excluir venda
-    if (venda.items && venda.items.length > 0) {
-        await updateStock(venda.items, 'increase')
-    }
-
-    data.vendas.splice(index, 1)
-    await saveData('vendas', data)
-    return true
+    const { error } = await supabase.from('products').delete().in('id', productIds);
+    if (error) throw error;
+    return true;
 }
 
 // ==================== CUSTOMERS ====================
 
 export async function getCustomers() {
-    const data = await loadData('customers', '/data/customers.json')
-    return data.customers
+    console.log('API: Getting customers...');
+    const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
+    if (error) {
+        console.error('API Error getting customers:', error);
+        throw error;
+    }
+    console.log('API: Got customers:', data);
+    return data.map(toCamelCase);
 }
 
 export async function getCustomerById(id) {
-    const customers = await getCustomers()
-    return customers.find(c => c.id === parseInt(id))
-}
-
-async function updateCustomerOrders(customerId, orderId, orderValue) {
-    const data = await loadData('customers', '/data/customers.json')
-    const index = data.customers.findIndex(c => c.id === parseInt(customerId))
-
-    if (index === -1) return
-
-    const customer = data.customers[index]
-    customer.orders.push(orderId)
-    customer.totalOrders++
-    customer.totalSpent += orderValue
-    customer.lastOrderAt = new Date().toISOString()
-
-    await saveData('customers', data)
-}
-
-export async function updateCustomer(id, customerData) {
-    const data = await loadData('customers', '/data/customers.json')
-    const index = data.customers.findIndex(c => c.id === parseInt(id))
-
-    if (index === -1) throw new Error('Cliente não encontrado')
-
-    data.customers[index] = {
-        ...data.customers[index],
-        ...customerData
-    }
-
-    await saveData('customers', data)
-    return data.customers[index]
+    const { data, error } = await supabase.from('customers').select('*').eq('id', id).single();
+    if (error) throw error;
+    return toCamelCase(data);
 }
 
 export async function createCustomer(customerData) {
-    const data = await loadData('customers', '/data/customers.json')
-
-    const newCustomer = {
-        ...customerData,
-        id: data.nextId,
-        orders: [],
-        totalOrders: 0,
-        totalSpent: 0,
-        createdAt: new Date().toISOString(),
-        lastOrderAt: null
+    console.log('API: Creating customer with data:', customerData);
+    const snakeData = toSnakeCase(customerData);
+    console.log('API: Converted to snake_case:', snakeData);
+    const { data, error } = await supabase.from('customers').insert([snakeData]).select().single();
+    if (error) {
+        console.error('API Error creating customer:', error);
+        throw error;
     }
+    console.log('API: Created customer:', data);
+    return toCamelCase(data);
+}
 
-    data.customers.push(newCustomer)
-    data.nextId++
+export async function updateCustomer(id, customerData) {
+    console.log('API: Updating customer with id:', id, 'and data:', customerData);
+    const snakeData = toSnakeCase(customerData);
+    console.log('API: Converted to snake_case:', snakeData);
 
-    await saveData('customers', data)
-    return newCustomer
+    // Criar objeto com campos explícitos para evitar problemas
+    const customerRecord = {
+        name: snakeData.name,
+        phone: snakeData.phone,
+        email: snakeData.email || null,
+        cpf: snakeData.cpf || null,
+        address: snakeData.address || null,
+        complement: snakeData.complement || null,
+        instagram: snakeData.instagram || null,
+        addresses: snakeData.addresses || []
+    };
+
+    console.log('API: Prepared record for update:', customerRecord);
+
+    const { data, error } = await supabase
+        .from('customers')
+        .update(customerRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating customer:', error);
+        throw error;
+    }
+    console.log('API: Updated customer:', data);
+    return toCamelCase(data);
 }
 
 export async function deleteCustomer(id) {
-    const data = await loadData('customers', '/data/customers.json')
-    const index = data.customers.findIndex(c => c.id === parseInt(id))
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+}
 
-    if (index === -1) throw new Error('Cliente não encontrado')
+// ==================== ORDERS ====================
 
-    data.customers.splice(index, 1)
-    await saveData('customers', data)
-    return true
+export async function getOrders() {
+    const { data, error } = await supabase
+        .from('orders')
+        .select('*, customers ( * )')
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data.map(toCamelCase);
+}
+
+export async function getOrderById(id) {
+    const { data, error } = await supabase
+        .from('orders')
+        .select('*, customers ( * ), order_items ( * )')
+        .eq('id', id)
+        .single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function createOrder(orderData) {
+    const { customer, items, ...restOfOrderData } = orderData;
+
+    const { data: customerData, error: customerError } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('phone', customer.phone)
+        .single();
+
+    let customerId;
+    if (customerError && customerError.code !== 'PGRST116') {
+        throw customerError;
+    }
+
+    if (customerData) {
+        customerId = customerData.id;
+    } else {
+        const { data: newCustomer, error: newCustomerError } = await supabase
+            .from('customers')
+            .insert([customer])
+            .select('id')
+            .single();
+        if (newCustomerError) throw newCustomerError;
+        customerId = newCustomer.id;
+    }
+
+    const { data: newOrder, error: orderError } = await supabase
+        .from('orders')
+        .insert([{ ...restOfOrderData, customer_id: customerId }])
+        .select()
+        .single();
+    if (orderError) throw orderError;
+
+    const orderItems = items.map(item => ({
+        order_id: newOrder.id,
+        product_id: item.productId,
+        quantity: item.quantity,
+        price_at_time: item.price,
+        size_selected: item.selectedSize
+    }));
+
+    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+    if (itemsError) throw itemsError;
+
+    return { ...newOrder, customers: customer, order_items: orderItems };
+}
+
+export async function updateOrder(id, orderData) {
+    console.log('API: Updating order with id:', id, 'and data:', orderData);
+    const snakeData = toSnakeCase(orderData);
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const orderRecord = {
+        customer_id: snakeData.customerId || snakeData.customer_id,
+        status: snakeData.status,
+        total_value: snakeData.totalValue || snakeData.total_value,
+        delivery_date: snakeData.deliveryDate || snakeData.delivery_date,
+        pickup_date: snakeData.pickupDate || snakeData.pickup_date,
+        items_count: snakeData.itemsCount || snakeData.items_count || 0,
+        converted_to_sale: snakeData.convertedToSale || snakeData.converted_to_sale || false
+    };
+
+    console.log('API: Prepared record for update:', orderRecord);
+
+    const { data, error } = await supabase
+        .from('orders')
+        .update(orderRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating order:', error);
+        throw error;
+    }
+    console.log('API: Updated order:', data);
+    return toCamelCase(data);
+}
+
+export async function deleteOrder(id) {
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+}
+
+export async function updateOrderStatus(id, newStatus) {
+    const { data, error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function updateOrderSchedule(id, scheduleData) {
+    console.log('API: Updating order schedule with id:', id, 'and data:', scheduleData);
+    const snakeData = toSnakeCase(scheduleData);
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const scheduleRecord = {
+        delivery_date: snakeData.deliveryDate || snakeData.delivery_date,
+        pickup_date: snakeData.pickupDate || snakeData.pickup_date
+    };
+
+    console.log('API: Prepared record for update:', scheduleRecord);
+
+    const { data, error } = await supabase
+        .from('orders')
+        .update(scheduleRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating order schedule:', error);
+        throw error;
+    }
+    console.log('API: Updated order schedule:', data);
+    return toCamelCase(data);
+}
+
+// ==================== VENDAS ====================
+
+export async function getVendas() {
+    const { data, error } = await supabase.from('vendas').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data.map(toCamelCase);
+}
+
+export async function createVenda(vendaData) {
+    console.log('API: Creating venda with data:', vendaData);
+    const snakeData = toSnakeCase(vendaData);
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const vendaRecord = {
+        order_id: snakeData.order_id || null,
+        customer_id: snakeData.customer_id,
+        total_value: snakeData.total_value,
+        cost_price: snakeData.cost_price || null,
+        items: snakeData.items || [],
+        payment_method: snakeData.payment_method,
+        card_brand: snakeData.card_brand || null,
+        fee_percentage: snakeData.fee_percentage || 0,
+        fee_amount: snakeData.fee_amount || 0,
+        net_amount: snakeData.net_amount
+    };
+
+    console.log('API: Prepared record for insert:', vendaRecord);
+
+    const { data, error } = await supabase
+        .from('vendas')
+        .insert([vendaRecord])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error creating venda:', error);
+        throw error;
+    }
+    console.log('API: Created venda:', data);
+    return toCamelCase(data);
+}
+
+export async function updateVenda(id, vendaData) {
+    console.log('API: Updating venda with id:', id, 'and data:', vendaData);
+    const snakeData = toSnakeCase(vendaData);
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const vendaRecord = {
+        order_id: snakeData.order_id || null,
+        customer_id: snakeData.customer_id,
+        total_value: snakeData.total_value,
+        cost_price: snakeData.cost_price || null,
+        items: snakeData.items || [],
+        payment_method: snakeData.payment_method,
+        card_brand: snakeData.card_brand || null,
+        fee_percentage: snakeData.fee_percentage || 0,
+        fee_amount: snakeData.fee_amount || 0,
+        net_amount: snakeData.net_amount
+    };
+
+    console.log('API: Prepared record for update:', vendaRecord);
+
+    const { data, error } = await supabase
+        .from('vendas')
+        .update(vendaRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating venda:', error);
+        throw error;
+    }
+    console.log('API: Updated venda:', data);
+    return toCamelCase(data);
+}
+
+export async function deleteVenda(id) {
+    const { error } = await supabase.from('vendas').delete().eq('id', id);
+    if (error) throw error;
+    return true;
 }
 
 // ==================== SETTINGS ====================
 
 export async function getSettings() {
-    return await loadData('settings', '/data/settings.json')
+    const { data, error } = await supabase.from('settings').select('*');
+    if (error) throw error;
+    // convert array of objects to a single object
+    return data.reduce((acc, setting) => {
+        acc[setting.setting_key] = setting.value;
+        return acc;
+    }, {});
 }
 
 export async function updateSettings(settingsData) {
-    await saveData('settings', updated)
-    return updated
+    const updates = Object.keys(settingsData).map(key =>
+        supabase.from('settings').update({ value: settingsData[key] }).eq('setting_key', key)
+    );
+    const results = await Promise.all(updates);
+    results.forEach(result => {
+        if (result.error) throw result.error;
+    });
+    return true;
 }
+
 
 // ==================== COUPONS ====================
 
 export async function getCoupons() {
-    const data = await loadData('coupons', '/data/coupons.json')
-    return data.coupons || []
+    const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data.map(toCamelCase);
 }
 
 export async function createCoupon(couponData) {
-    const data = await loadData('coupons', '/data/coupons.json')
+    console.log('API: Creating coupon with data:', couponData);
+    const snakeData = toSnakeCase(couponData);
+    console.log('API: Converted to snake_case:', snakeData);
 
-    if (!data.coupons) data.coupons = []
-    if (!data.nextId) data.nextId = 1
+    // Criar objeto com campos explícitos para evitar problemas
+    const couponRecord = {
+        code: snakeData.code,
+        type: snakeData.type,
+        value: snakeData.value,
+        min_purchase: snakeData.min_purchase || null,
+        expiry_date: snakeData.expiry_date || null,
+        is_active: snakeData.is_active !== undefined ? snakeData.is_active : true,
+        description: snakeData.description || null
+    };
 
-    const newCoupon = {
-        ...couponData,
-        id: data.nextId,
-        usageCount: 0,
-        createdAt: new Date().toISOString(),
-        isActive: true
+    console.log('API: Prepared record for insert:', couponRecord);
+
+    const { data, error } = await supabase
+        .from('coupons')
+        .insert([couponRecord])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error creating coupon:', error);
+        throw error;
     }
-
-    data.coupons.unshift(newCoupon)
-    data.nextId++
-
-    await saveData('coupons', data)
-    return newCoupon
+    console.log('API: Created coupon:', data);
+    return toCamelCase(data);
 }
 
 export async function updateCoupon(id, couponData) {
-    const data = await loadData('coupons', '/data/coupons.json')
-    const index = data.coupons.findIndex(c => c.id === parseInt(id))
+    console.log('API: Updating coupon with id:', id, 'and data:', couponData);
+    const snakeData = toSnakeCase(couponData);
+    console.log('API: Converted to snake_case:', snakeData);
 
-    if (index === -1) throw new Error('Cupom não encontrado')
+    // Criar objeto com campos explícitos para evitar problemas
+    const couponRecord = {
+        code: snakeData.code,
+        type: snakeData.type,
+        value: snakeData.value,
+        min_purchase: snakeData.min_purchase || null,
+        expiry_date: snakeData.expiry_date || null,
+        is_active: snakeData.is_active !== undefined ? snakeData.is_active : true,
+        description: snakeData.description || null
+    };
 
-    data.coupons[index] = {
-        ...data.coupons[index],
-        ...couponData,
-        updatedAt: new Date().toISOString()
+    console.log('API: Prepared record for update:', couponRecord);
+
+    const { data, error } = await supabase
+        .from('coupons')
+        .update(couponRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating coupon:', error);
+        throw error;
     }
-
-    await saveData('coupons', data)
-    return data.coupons[index]
+    console.log('API: Updated coupon:', data);
+    return toCamelCase(data);
 }
 
 export async function deleteCoupon(id) {
-    const data = await loadData('coupons', '/data/coupons.json')
-    const index = data.coupons.findIndex(c => c.id === parseInt(id))
-
-    if (index === -1) throw new Error('Cupom não encontrado')
-
-    data.coupons.splice(index, 1)
-    await saveData('coupons', data)
-    return true
+    const { error } = await supabase.from('coupons').delete().eq('id', id);
+    if (error) throw error;
+    return true;
 }
 
-// ==================== CLEAR CACHE ====================
 
-export function clearCache() {
-    Object.values(STORAGE_KEYS).forEach(key => {
-        localStorage.removeItem(key)
-    })
+// ==================== SUPPLIERS ====================
+
+export async function getSuppliers() {
+    console.log('API: Getting suppliers...');
+    const { data, error } = await supabase.from('suppliers').select('*').order('created_at', { ascending: false });
+    if (error) {
+        console.error('API Error getting suppliers:', error);
+        throw error;
+    }
+    console.log('API: Got suppliers:', data);
+    return data.map(toCamelCase);
+}
+
+export async function getSupplierById(id) {
+    const { data, error } = await supabase.from('suppliers').select('*').eq('id', id).single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function createSupplier(supplierData) {
+    console.log('API: Creating supplier with data:', supplierData);
+    const snakeData = toSnakeCase(supplierData);
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const supplierRecord = {
+        name: snakeData.name,
+        cnpj: snakeData.cnpj || null,
+        phone: snakeData.phone || null,
+        email: snakeData.email || null,
+        address: snakeData.address || null,
+        city: snakeData.city || null,
+        state: snakeData.state || null,
+        zip_code: snakeData.zip_code || null,
+        contact_person: snakeData.contact_person || null,
+        notes: snakeData.notes || null
+    };
+
+    console.log('API: Prepared record for insert:', supplierRecord);
+
+    const { data, error } = await supabase
+        .from('suppliers')
+        .insert([supplierRecord])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error creating supplier:', error);
+        throw error;
+    }
+    console.log('API: Created supplier:', data);
+    return toCamelCase(data);
+}
+
+export async function updateSupplier(id, supplierData) {
+    console.log('API: Updating supplier with id:', id, 'and data:', supplierData);
+    const snakeData = toSnakeCase(supplierData);
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const supplierRecord = {
+        name: snakeData.name,
+        cnpj: snakeData.cnpj || null,
+        phone: snakeData.phone || null,
+        email: snakeData.email || null,
+        address: snakeData.address || null,
+        city: snakeData.city || null,
+        state: snakeData.state || null,
+        zip_code: snakeData.zip_code || null,
+        contact_person: snakeData.contact_person || null,
+        notes: snakeData.notes || null
+    };
+
+    console.log('API: Prepared record for update:', supplierRecord);
+
+    const { data, error } = await supabase
+        .from('suppliers')
+        .update(supplierRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating supplier:', error);
+        throw error;
+    }
+    console.log('API: Updated supplier:', data);
+    return toCamelCase(data);
+}
+
+export async function deleteSupplier(id) {
+    const { error } = await supabase.from('suppliers').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+}
+
+
+// ==================== PURCHASES ====================
+
+export async function getPurchases() {
+    const { data, error } = await supabase.from('purchases').select('*').order('date', { ascending: false });
+    if (error) throw error;
+    return data.map(toCamelCase);
+}
+
+export async function getPurchaseById(id) {
+    const { data, error } = await supabase.from('purchases').select('*').eq('id', id).single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function createPurchase(purchaseData) {
+    console.log('API: Creating purchase with data:', purchaseData);
+    const snakeData = toSnakeCase(purchaseData);
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const purchaseRecord = {
+        supplier_id: snakeData.supplierId || snakeData.supplier_id,
+        payment_method: snakeData.paymentMethod || snakeData.payment_method,
+        value: snakeData.value,
+        date: snakeData.date,
+        pieces: snakeData.pieces || null,
+        parcelas: snakeData.parcelas || null,
+        notes: snakeData.notes || null
+    };
+
+    console.log('API: Prepared record for insert:', purchaseRecord);
+
+    const { data, error } = await supabase
+        .from('purchases')
+        .insert([purchaseRecord])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error creating purchase:', error);
+        throw error;
+    }
+    console.log('API: Created purchase:', data);
+    return toCamelCase(data);
+}
+
+export async function updatePurchase(id, purchaseData) {
+    console.log('API: Updating purchase with id:', id, 'and data:', purchaseData);
+    const snakeData = toSnakeCase(purchaseData);
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const purchaseRecord = {
+        supplier_id: snakeData.supplierId || snakeData.supplier_id,
+        payment_method: snakeData.paymentMethod || snakeData.payment_method,
+        value: snakeData.value,
+        date: snakeData.date,
+        pieces: snakeData.pieces || null,
+        parcelas: snakeData.parcelas || null,
+        notes: snakeData.notes || null
+    };
+
+    console.log('API: Prepared record for update:', purchaseRecord);
+
+    const { data, error } = await supabase
+        .from('purchases')
+        .update(purchaseRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating purchase:', error);
+        throw error;
+    }
+    console.log('API: Updated purchase:', data);
+    return toCamelCase(data);
+}
+
+export async function deletePurchase(id) {
+    const { error } = await supabase.from('purchases').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+}
+
+
+// ==================== FIXED EXPENSES ====================
+
+export async function getFixedExpenses() {
+    const { data, error } = await supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data.map(toCamelCase);
+}
+
+export async function getFixedExpenseById(id) {
+    const { data, error } = await supabase.from('fixed_expenses').select('*').eq('id', id).single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function createFixedExpense(expenseData) {
+    const snakeData = toSnakeCase(expenseData);
+    const { data, error } = await supabase.from('fixed_expenses').insert([snakeData]).select().single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function updateFixedExpense(id, expenseData) {
+    const snakeData = toSnakeCase(expenseData);
+    const { data, error } = await supabase.from('fixed_expenses').update(snakeData).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function deleteFixedExpense(id) {
+    const { error } = await supabase.from('fixed_expenses').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+}
+
+
+// ==================== MATERIALS STOCK ====================
+
+export async function getMaterialsStock() {
+    const { data, error } = await supabase.from('materials_stock').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data.map(toCamelCase);
+}
+
+export async function getMaterialById(id) {
+    const { data, error } = await supabase.from('materials_stock').select('*').eq('id', id).single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function createMaterial(materialData) {
+    const snakeData = toSnakeCase(materialData);
+    const { data, error } = await supabase.from('materials_stock').insert([snakeData]).select().single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function updateMaterial(id, materialData) {
+    const snakeData = toSnakeCase(materialData);
+    const { data, error } = await supabase.from('materials_stock').update(snakeData).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function deleteMaterial(id) {
+    const { error } = await supabase.from('materials_stock').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+}
+
+
+// ==================== PAYMENT FEES ====================
+
+export async function getPaymentFees() {
+    const { data, error } = await supabase.from('payment_fees').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data.map(toCamelCase);
+}
+
+export async function getPaymentFeeById(id) {
+    const { data, error } = await supabase.from('payment_fees').select('*').eq('id', id).single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function createPaymentFee(feeData) {
+    const snakeData = toSnakeCase(feeData);
+    const { data, error } = await supabase.from('payment_fees').insert([snakeData]).select().single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function updatePaymentFee(id, feeData) {
+    const snakeData = toSnakeCase(feeData);
+    const { data, error } = await supabase.from('payment_fees').update(snakeData).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
+export async function deletePaymentFee(id) {
+    const { error } = await supabase.from('payment_fees').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+}
+
+// Buscar taxa específica por método e bandeira
+export async function getPaymentFee(paymentMethod, cardBrand = null) {
+    let query = supabase.from('payment_fees').select('*').eq('payment_method', paymentMethod);
+
+    if (cardBrand) {
+        query = query.eq('card_brand', cardBrand);
+    } else {
+        query = query.is('card_brand', null);
+    }
+
+    const { data, error } = await query.single();
+    if (error) return null;
+    return toCamelCase(data);
 }

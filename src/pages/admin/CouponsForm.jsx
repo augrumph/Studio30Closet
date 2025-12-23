@@ -24,7 +24,7 @@ export function CouponsForm() {
 
     useEffect(() => {
         if (id) {
-            const coupon = getCouponById(id)
+            const coupon = getCouponById(parseInt(id))
             if (coupon) {
                 setFormData({
                     ...coupon,
@@ -60,7 +60,7 @@ export function CouponsForm() {
             minPurchase: parseBrazilianNumber(formData.minPurchase),
         }
 
-        toast.promise(id ? editCoupon(id, payload) : addCoupon(payload), {
+        toast.promise(id ? editCoupon(parseInt(id), payload) : addCoupon(payload), {
             loading: id ? 'Salvando cupom...' : 'Criando cupom...',
             success: (result) => {
                 if (result.success) {

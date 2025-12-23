@@ -9,7 +9,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 export function SuppliersForm() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { getSupplierById, addSupplier, editSupplier, suppliersLoading } = useSuppliersStore()
+    const { getSupplierById, addSupplier, editSupplier, suppliersLoading, initialize } = useSuppliersStore()
+
+    useEffect(() => {
+        initialize()
+    }, [initialize])
 
     const [formData, setFormData] = useState({
         name: '',
@@ -26,9 +30,13 @@ export function SuppliersForm() {
 
     useEffect(() => {
         if (id) {
-            const supplier = getSupplierById(id)
+            console.log('Form: Loading supplier with id:', id);
+            const supplier = getSupplierById(parseInt(id))
+            console.log('Form: Found supplier:', supplier);
             if (supplier) {
                 setFormData(supplier)
+            } else {
+                console.warn('Form: Supplier not found with id:', id);
             }
         }
     }, [id, getSupplierById])
@@ -40,21 +48,25 @@ export function SuppliersForm() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
+        console.log('Form: Submitting supplier form with id:', id, 'and data:', formData);
 
-        toast.promise(
-            id ? editSupplier(parseInt(id), formData) : addSupplier(formData),
-            {
-                loading: id ? 'Salvando alterações...' : 'Cadastrando fornecedor...',
-                success: (result) => {
-                    if (result.success) {
-                        navigate('/admin/suppliers')
-                        return id ? 'Fornecedor atualizado com sucesso!' : 'Fornecedor cadastrado com sucesso!'
-                    }
-                    throw new Error(result.error)
-                },
-                error: (err) => `Erro: ${err.message}`
+        const action = id ? editSupplier(parseInt(id), formData) : addSupplier(formData)
+
+        toast.promise(action, {
+            loading: id ? 'Salvando alterações...' : 'Cadastrando fornecedor...',
+            success: (result) => {
+                console.log('Form: Supplier operation successful:', result);
+                if (result.success) {
+                    navigate('/admin/suppliers')
+                    return id ? 'Fornecedor atualizado com sucesso!' : 'Fornecedor cadastrado com sucesso!'
+                }
+                throw new Error(result.error)
+            },
+            error: (err) => {
+                console.error('Form: Supplier operation failed:', err);
+                return `Erro: ${err.message}`
             }
-        )
+        })
     }
 
     const brazilStates = [

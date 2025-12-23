@@ -23,7 +23,7 @@ import {
     updateCoupon,
     deleteCoupon,
     updateOrder,
-    finalizeMalinhaAsSale
+    // finalizeMalinhaAsSale
 } from '@/lib/api'
 import { useOperationalCostsStore } from './operational-costs-store'
 
@@ -211,22 +211,22 @@ export const useAdminStore = create((set, get) => ({
         }
     },
 
-    finalizeMalinha: async (id, keptItemsIndexes, vendaData) => {
-        set({ ordersLoading: true, ordersError: null })
-        try {
-            const { order, venda } = await finalizeMalinhaAsSale(id, keptItemsIndexes, vendaData)
-            set(state => ({
-                orders: state.orders.map(o => o.id === parseInt(id) ? order : o),
-                vendas: [venda, ...state.vendas],
-                ordersLoading: false
-            }))
-            get().loadProducts() // Sincronizar estoque real
-            return { success: true, order, venda }
-        } catch (error) {
-            set({ ordersError: error.message, ordersLoading: false })
-            return { success: false, error: error.message }
-        }
-    },
+    // finalizeMalinha: async (id, keptItemsIndexes, vendaData) => {
+    //     set({ ordersLoading: true, ordersError: null })
+    //     try {
+    //         const { order, venda } = await finalizeMalinhaAsSale(id, keptItemsIndexes, vendaData)
+    //         set(state => ({
+    //             orders: state.orders.map(o => o.id === parseInt(id) ? order : o),
+    //             vendas: [venda, ...state.vendas],
+    //             ordersLoading: false
+    //         }))
+    //         get().loadProducts() // Sincronizar estoque real
+    //         return { success: true, order, venda }
+    //     } catch (error) {
+    //         set({ ordersError: error.message, ordersLoading: false })
+    //         return { success: false, error: error.message }
+    //     }
+    // },
 
     removeOrder: async (id) => {
         set({ ordersLoading: true, ordersError: null })
@@ -373,34 +373,42 @@ export const useAdminStore = create((set, get) => ({
     // ==================== CLIENTES ====================
 
     loadCustomers: async () => {
+        console.log('Store: Loading customers...');
         set({ customersLoading: true, customersError: null })
         try {
             const customers = await getCustomers()
+            console.log('Store: Loaded customers:', customers);
             set({ customers, customersLoading: false })
         } catch (error) {
+            console.error('Store: Error loading customers:', error);
             set({ customersError: error.message, customersLoading: false })
         }
     },
 
     addCustomer: async (customerData) => {
+        console.log('Store: Adding customer with data:', customerData);
         set({ customersLoading: true, customersError: null })
         try {
             const newCustomer = await createCustomer(customerData)
+            console.log('Store: Customer added successfully:', newCustomer);
             set(state => ({
                 customers: [...state.customers, newCustomer],
                 customersLoading: false
             }))
             return { success: true, customer: newCustomer }
         } catch (error) {
+            console.error('Store: Error adding customer:', error);
             set({ customersError: error.message, customersLoading: false })
             return { success: false, error: error.message }
         }
     },
 
     editCustomer: async (id, customerData) => {
+        console.log('Store: Editing customer with id:', id, 'and data:', customerData);
         set({ customersLoading: true, customersError: null })
         try {
             const updatedCustomer = await updateCustomer(id, customerData)
+            console.log('Store: Customer updated successfully:', updatedCustomer);
             set(state => ({
                 customers: state.customers.map(c =>
                     c.id === parseInt(id) ? updatedCustomer : c
@@ -409,6 +417,7 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, customer: updatedCustomer }
         } catch (error) {
+            console.error('Store: Error editing customer:', error);
             set({ customersError: error.message, customersLoading: false })
             return { success: false, error: error.message }
         }
@@ -443,7 +452,10 @@ export const useAdminStore = create((set, get) => ({
 
     getCustomerById: (id) => {
         const { customers } = get()
-        return customers.find(c => c.id === parseInt(id))
+        console.log('Store: Looking for customer with id:', id, 'in customers list:', customers);
+        const customer = customers.find(c => c.id === parseInt(id))
+        console.log('Store: Found customer:', customer);
+        return customer
     },
 
     getVendaById: (id) => {

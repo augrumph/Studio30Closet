@@ -9,13 +9,13 @@ import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 
 export function SuppliersList() {
-    const { suppliers, suppliersLoading, loadSuppliers, removeSupplier } = useSuppliersStore()
+    const { suppliers, suppliersLoading, loadSuppliers, removeSupplier, initialize } = useSuppliersStore()
     const [search, setSearch] = useState('')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, supplierId: null, supplierName: '' })
 
     useEffect(() => {
-        loadSuppliers()
-    }, [loadSuppliers])
+        initialize()
+    }, [initialize])
 
     const filteredSuppliers = suppliers.filter(supplier =>
         supplier.name?.toLowerCase().includes(search.toLowerCase()) ||

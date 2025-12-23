@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Layout } from '@/components/layout'
 import { Home, Catalog, HowItWorks, About, Checkout } from '@/pages'
+import { ScrollToTop } from '@/components/ScrollToTop'
 
 // Admin imports
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
@@ -23,10 +24,16 @@ import { SuppliersForm } from '@/pages/admin/SuppliersForm'
 import { PurchasesList } from '@/pages/admin/PurchasesList'
 import { PurchasesForm } from '@/pages/admin/PurchasesForm'
 import { OperationalCosts } from '@/pages/admin/OperationalCosts'
+import { PaymentFeesConfig } from '@/pages/admin/PaymentFeesConfig'
+
+// Teste do Supabase
+import SupabaseTester from '@/components/SupabaseTester'
+import SupabaseMigrationTester from '@/components/SupabaseMigrationTester'
 
 function App() {
     return (
         <BrowserRouter>
+            <ScrollToTop />
             <Routes>
                 {/* Rotas Públicas */}
                 <Route path="/" element={<Layout />}>
@@ -35,6 +42,8 @@ function App() {
                     <Route path="como-funciona" element={<HowItWorks />} />
                     <Route path="sobre" element={<About />} />
                     <Route path="malinha" element={<Checkout />} />
+                    <Route path="test-supabase" element={<SupabaseTester />} />
+                    <Route path="test-migration" element={<SupabaseMigrationTester />} />
                 </Route>
 
                 {/* Admin Login (pública) */}
@@ -82,6 +91,9 @@ function App() {
 
                     {/* Custos Operacionais */}
                     <Route path="operational-costs" element={<OperationalCosts />} />
+
+                    {/* Configuração de Taxas */}
+                    <Route path="payment-fees" element={<PaymentFeesConfig />} />
                 </Route>
             </Routes>
         </BrowserRouter>

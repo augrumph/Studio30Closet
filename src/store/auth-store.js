@@ -1,11 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-
-// Credenciais fixas (hardcoded)
-const ADMIN_CREDENTIALS = {
-    username: 'admin_studio30',
-    password: 'studio30@@closet'
-}
+import { supabase } from '@/lib/supabase'
 
 export const useAuthStore = create(
     persist(
@@ -14,27 +9,54 @@ export const useAuthStore = create(
             isAuthenticated: false,
             user: null,
             loginError: null,
+            isLoading: false,
 
-            // Login
-            login: (username, password) => {
-                if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+            // Login com username e senha via Supabase
+            login: async (username, password) => {
+                set({ isLoading: true, loginError: null })
+
+                try {
+                    // Buscar admin na tabela admins
+                    const { data: admins, error } = await supabase
+                        .from('admins')
+                        .select('*')
+                        .eq('username', username)
+                        .eq('password', password)
+                        .single()
+
+                    if (error || !admins) {
+                        set({
+                            isAuthenticated: false,
+                            user: null,
+                            loginError: 'Usuário ou senha inválidos',
+                            isLoading: false
+                        })
+                        return { success: false, error: 'Usuário ou senha inválidos' }
+                    }
+
+                    // Login bem-sucedido
                     set({
                         isAuthenticated: true,
                         user: {
-                            username: ADMIN_CREDENTIALS.username,
-                            name: 'Administrador',
+                            id: admins.id,
+                            username: admins.username,
+                            name: admins.name || 'Administrador',
                             role: 'admin'
                         },
-                        loginError: null
+                        loginError: null,
+                        isLoading: false
                     })
                     return { success: true }
-                } else {
+
+                } catch (error) {
+                    console.error('Erro no login:', error)
                     set({
                         isAuthenticated: false,
                         user: null,
-                        loginError: 'Usuário ou senha inválidos'
+                        loginError: 'Erro ao fazer login. Tente novamente.',
+                        isLoading: false
                     })
-                    return { success: false, error: 'Usuário ou senha inválidos' }
+                    return { success: false, error: 'Erro ao fazer login' }
                 }
             },
 
@@ -60,7 +82,7 @@ export const useAuthStore = create(
         }),
         {
             name: 'studio30-admin-auth',
-            // Não persistir loginError
+            // Persistir sessão
             partialize: (state) => ({
                 isAuthenticated: state.isAuthenticated,
                 user: state.user

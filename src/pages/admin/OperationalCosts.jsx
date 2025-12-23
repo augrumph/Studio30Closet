@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Save, CreditCard, Package, Plus, Trash2, Edit2, TrendingDown, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
+import { Save, CreditCard, Package, Plus, Trash2, Edit2, TrendingDown, ArrowUpCircle, ArrowDownCircle, DollarSign } from 'lucide-react'
 import { useOperationalCostsStore } from '@/store/operational-costs-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
+import { supabase } from '@/lib/supabase'
 
 export function OperationalCosts() {
     const {
@@ -18,10 +20,13 @@ export function OperationalCosts() {
         updateMaterial,
         removeMaterial,
         addStockEntry,
-        removeStockExit
+        removeStockExit,
+        initialize
     } = useOperationalCostsStore()
 
-    const [fees, setFees] = useState(paymentFees)
+    const [fees, setFees] = useState([])
+    const [feesLoading, setFeesLoading] = useState(true)
+    const [savingFees, setSavingFees] = useState(false)
     const [showMaterialForm, setShowMaterialForm] = useState(false)
     const [editingMaterial, setEditingMaterial] = useState(null)
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, materialId: null })
@@ -38,11 +43,23 @@ export function OperationalCosts() {
     })
 
     useEffect(() => {
-        loadMaterialsStock()
-    }, [loadMaterialsStock])
+        initialize()
+    }, [initialize])
 
     useEffect(() => {
-        setFees(paymentFees)
+        // Convert the array of fee objects to a map for easier handling in the UI
+        const feesMap = {}
+        paymentFees.forEach(fee => {
+            if (fee.payment_type === 'debit') feesMap.debit = fee.fee_percentage
+            else if (fee.payment_type === 'credit_vista') feesMap.creditVista = fee.fee_percentage
+            else if (fee.payment_type === 'credit_parcelado_2x') feesMap.creditParcelado2x = fee.fee_percentage
+            else if (fee.payment_type === 'credit_parcelado_3x') feesMap.creditParcelado3x = fee.fee_percentage
+            else if (fee.payment_type === 'credit_parcelado_4x') feesMap.creditParcelado4x = fee.fee_percentage
+            else if (fee.payment_type === 'credit_parcelado_5x') feesMap.creditParcelado5x = fee.fee_percentage
+            else if (fee.payment_type === 'credit_parcelado_6x') feesMap.creditParcelado6x = fee.fee_percentage
+            else if (fee.payment_type === 'pix') feesMap.pix = fee.fee_percentage
+        })
+        setFees(feesMap)
     }, [paymentFees])
 
     // Calcular automaticamente o custo unitário quando mudar quantidade ou preço total
@@ -63,9 +80,25 @@ export function OperationalCosts() {
         setFees(prev => ({ ...prev, [name]: parseFloat(value) || 0 }))
     }
 
-    const handleSaveFees = () => {
-        updatePaymentFees(fees)
-        toast.success('Taxas atualizadas com sucesso!')
+    const handleSaveFees = async () => {
+        // Convert the fees object back to an array of fee objects for the API
+        const feesArray = [
+            { payment_type: 'debit', fee_percentage: fees.debit, description: 'Taxa para pagamentos com débito à vista' },
+            { payment_type: 'credit_vista', fee_percentage: fees.creditVista, description: 'Taxa para pagamentos com crédito à vista' },
+            { payment_type: 'credit_parcelado_2x', fee_percentage: fees.creditParcelado2x, description: 'Taxa para pagamentos com crédito em 2x' },
+            { payment_type: 'credit_parcelado_3x', fee_percentage: fees.creditParcelado3x, description: 'Taxa para pagamentos com crédito em 3x' },
+            { payment_type: 'credit_parcelado_4x', fee_percentage: fees.creditParcelado4x, description: 'Taxa para pagamentos com crédito em 4x' },
+            { payment_type: 'credit_parcelado_5x', fee_percentage: fees.creditParcelado5x, description: 'Taxa para pagamentos com crédito em 5x' },
+            { payment_type: 'credit_parcelado_6x', fee_percentage: fees.creditParcelado6x, description: 'Taxa para pagamentos com crédito de 6x a 12x' },
+            { payment_type: 'pix', fee_percentage: fees.pix, description: 'Taxa para pagamentos com PIX' }
+        ]
+
+        const result = await updatePaymentFees(feesArray)
+        if (result.success) {
+            toast.success('Taxas atualizadas com sucesso!')
+        } else {
+            toast.error(`Erro ao atualizar taxas: ${result.error}`)
+        }
     }
 
     const handleMaterialFormChange = (e) => {
@@ -205,7 +238,7 @@ export function OperationalCosts() {
                                 step="0.01"
                                 name="pix"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.pix}
+                                value={fees.pix || 0.99}
                                 onChange={handleFeesChange}
                             />
                         </div>
@@ -219,7 +252,7 @@ export function OperationalCosts() {
                                 step="0.01"
                                 name="debit"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.debit}
+                                value={fees.debit || 1.99}
                                 onChange={handleFeesChange}
                             />
                         </div>
@@ -233,7 +266,7 @@ export function OperationalCosts() {
                                 step="0.01"
                                 name="creditVista"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditVista}
+                                value={fees.creditVista || 3.49}
                                 onChange={handleFeesChange}
                             />
                         </div>
@@ -247,7 +280,7 @@ export function OperationalCosts() {
                                 step="0.01"
                                 name="creditParcelado2x"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado2x}
+                                value={fees.creditParcelado2x || 4.99}
                                 onChange={handleFeesChange}
                             />
                         </div>
@@ -261,7 +294,7 @@ export function OperationalCosts() {
                                 step="0.01"
                                 name="creditParcelado3x"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado3x}
+                                value={fees.creditParcelado3x || 5.49}
                                 onChange={handleFeesChange}
                             />
                         </div>
@@ -275,7 +308,7 @@ export function OperationalCosts() {
                                 step="0.01"
                                 name="creditParcelado4x"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado4x}
+                                value={fees.creditParcelado4x || 5.99}
                                 onChange={handleFeesChange}
                             />
                         </div>
@@ -289,7 +322,7 @@ export function OperationalCosts() {
                                 step="0.01"
                                 name="creditParcelado5x"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado5x}
+                                value={fees.creditParcelado5x || 6.49}
                                 onChange={handleFeesChange}
                             />
                         </div>
@@ -303,7 +336,7 @@ export function OperationalCosts() {
                                 step="0.01"
                                 name="creditParcelado6x"
                                 className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                value={fees.creditParcelado6x}
+                                value={fees.creditParcelado6x || 6.99}
                                 onChange={handleFeesChange}
                             />
                         </div>

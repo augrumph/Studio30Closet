@@ -9,14 +9,13 @@ import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 
 export function PurchasesList() {
-    const { purchases, purchasesLoading, loadPurchases, removePurchase, suppliers, loadSuppliers } = useSuppliersStore()
+    const { purchases, purchasesLoading, loadPurchases, removePurchase, suppliers, loadSuppliers, initialize } = useSuppliersStore()
     const [search, setSearch] = useState('')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, purchaseId: null })
 
     useEffect(() => {
-        loadPurchases()
-        loadSuppliers()
-    }, [loadPurchases, loadSuppliers])
+        initialize()
+    }, [initialize])
 
     const filteredPurchases = purchases.filter(purchase => {
         const supplier = suppliers.find(s => s.id === purchase.supplierId)

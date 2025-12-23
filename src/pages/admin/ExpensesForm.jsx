@@ -9,7 +9,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 export function ExpensesForm() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { getExpenseById, addExpense, editExpense, expensesLoading } = useSuppliersStore()
+    const { getExpenseById, addExpense, editExpense, expensesLoading, loadExpenses } = useSuppliersStore()
+
+    useEffect(() => {
+        loadExpenses()
+    }, [loadExpenses])
 
     const [formData, setFormData] = useState({
         name: '',

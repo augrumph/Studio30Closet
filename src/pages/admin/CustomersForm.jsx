@@ -31,7 +31,9 @@ export function CustomersForm() {
 
     useEffect(() => {
         if (id) {
-            const customer = getCustomerById(id)
+            console.log('Form: Loading customer with id:', id);
+            const customer = getCustomerById(parseInt(id))
+            console.log('Form: Found customer:', customer);
             if (customer) {
                 setFormData({
                     ...customer,
@@ -47,6 +49,7 @@ export function CustomersForm() {
                     }]
                 })
             } else {
+                console.warn('Form: Customer not found with id:', id);
                 toast.error('Cliente não encontrado')
                 navigate('/admin/customers')
             }
@@ -69,19 +72,24 @@ export function CustomersForm() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
+        console.log('Form: Submitting customer form with id:', id, 'and data:', formData);
 
-        const action = id ? editCustomer(id, formData) : addCustomer(formData)
+        const action = id ? editCustomer(parseInt(id), formData) : addCustomer(formData)
 
         toast.promise(action, {
             loading: id ? 'Atualizando cliente...' : 'Cadastrando cliente...',
             success: (result) => {
+                console.log('Form: Customer operation successful:', result);
                 if (result.success) {
                     navigate('/admin/customers')
                     return id ? 'Dados do cliente atualizados!' : 'Cliente cadastrado com sucesso!'
                 }
                 throw new Error(result.error)
             },
-            error: (err) => `Erro: ${err.message}`
+            error: (err) => {
+                console.error('Form: Customer operation failed:', err);
+                return `Erro: ${err.message}`
+            }
         })
     }
 

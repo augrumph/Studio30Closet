@@ -48,7 +48,7 @@ export function Home() {
                                     alt="Studio 30 Closet - Logo Completa"
                                     width="640"
                                     height="360"
-                                    fetchpriority="high"
+                                    fetchPriority="high"
                                     className="w-72 sm:w-96 md:w-[28rem] lg:w-[32rem] xl:w-[40rem] h-auto object-contain drop-shadow-xl hover:scale-[1.02] transition-transform duration-700"
                                 />
                             </div>

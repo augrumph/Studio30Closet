@@ -22,7 +22,8 @@ export function ProductsList() {
 
     const filteredProducts = products.filter(product =>
         product.name.toLowerCase().includes(search.toLowerCase()) ||
-        product.category.toLowerCase().includes(search.toLowerCase())
+        product.category.toLowerCase().includes(search.toLowerCase()) ||
+        product.id.toString().includes(search)
     )
 
     const handleSelectAll = (e) => {
@@ -99,7 +100,7 @@ export function ProductsList() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                         <input
                             type="text"
-                            placeholder="Buscar por nome ou categoria..."
+                            placeholder="Buscar por nome, categoria ou ID..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
@@ -157,7 +158,12 @@ export function ProductsList() {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-bold text-[#4A3B32]">{product.name}</p>
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <p className="text-sm font-bold text-[#4A3B32]">{product.name}</p>
+                                                            <span className="px-2 py-0.5 bg-[#C75D3B]/10 text-[#C75D3B] text-[10px] font-bold rounded">
+                                                                #{product.id}
+                                                            </span>
+                                                        </div>
                                                         <p className="text-[10px] text-gray-400 font-medium line-clamp-1 italic max-w-xs">{product.description}</p>
                                                     </div>
                                                 </div>

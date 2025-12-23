@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Trash2, Plus, Minus, ArrowLeft, MessageCircle, ShoppingBag, Check } from 'lucide-react'
+import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Heart, Truck, Gift } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
-import { formatPrice, generateWhatsAppLink, formatMalinhaMessage, cn } from '@/lib/utils'
+import { generateWhatsAppLink, formatMalinhaMessage, cn } from '@/lib/utils'
 import { useAdminStore } from '@/store/admin-store'
+import { Badge } from '@/components/ui/Badge'
 
 export function Checkout() {
     const { items, removeItem, clearItems, customerData, setCustomerData } = useMalinhaStore()
@@ -11,7 +12,21 @@ export function Checkout() {
     const [step, setStep] = useState(items.length > 0 ? 1 : 0) // 0: empty, 1: review, 2: form
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const totalPrice = items.reduce((sum, item) => sum + item.price, 0)
+    const itemSummary = items.reduce((acc, item) => {
+        const key = `${item.name}-${item.selectedSize}`; // Group by name and size
+        if (acc[key]) {
+            acc[key].count += 1;
+            acc[key].itemIds.push(item.itemId);
+        } else {
+            acc[key] = {
+                ...item,
+                count: 1,
+                itemIds: [item.itemId],
+            };
+        }
+        return acc;
+    }, {});
+    const groupedItems = Object.values(itemSummary);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target
@@ -38,7 +53,6 @@ export function Checkout() {
                     complement: customerData.complement || ''
                 },
                 items: items,
-                totalValue: totalPrice,
                 itemsCount: items.length
             }
 
@@ -144,41 +158,47 @@ export function Checkout() {
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Items List */}
                     <div className="lg:col-span-2">
-                        <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#4A3B32]/5">
-                            {step === 1 ? (
-                                // Step 1: Review items
-                                <div className="divide-y divide-[#E8C4B0]/30">
-                                    {items.map((item) => (
-                                        <div key={item.itemId} className="p-4 flex gap-4 group">
-                                            <div className="w-20 h-24 rounded-lg overflow-hidden flex-shrink-0">
+                        {step === 1 ? (
+                            // Step 1: Review items
+                            <div className="bg-white rounded-2xl shadow-sm border border-[#4A3B32]/5 p-4 sm:p-6">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
+                                    {groupedItems.map((item) => (
+                                        <div key={item.itemIds[0]} className="group relative">
+                                            <div className="aspect-[3/4] rounded-xl overflow-hidden relative">
                                                 <img
                                                     src={item.images[0]}
                                                     alt={item.name}
-                                                    className="w-full h-full object-cover"
+                                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                                 />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-medium text-[#4A3B32] line-clamp-1">
+                                            {item.count > 1 && (
+                                                <Badge variant="primary" size="lg" className="absolute top-2 right-2 z-10">
+                                                    {item.count}x
+                                                </Badge>
+                                            )}
+                                            <button
+                                                onClick={() => removeItem(item.itemIds[0])}
+                                                className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:bg-white hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                                                aria-label="Remover item"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                            <div className="pt-3">
+                                                <h3 className="font-display text-base text-[#4A3B32] line-clamp-1">
                                                     {item.name}
                                                 </h3>
-                                                <p className="text-sm text-[#4A3B32]/60 mt-1">
+                                                <p className="text-sm text-[#4A3B32]/60">
                                                     Tamanho: {item.selectedSize}
                                                 </p>
-                                                <p className="text-[#C75D3B] font-semibold mt-1">
-                                                    {formatPrice(item.price)}
-                                                </p>
                                             </div>
-                                            <button
-                                                onClick={() => removeItem(item.itemId)}
-                                                className="p-2 text-[#4A3B32]/40 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
                                         </div>
                                     ))}
                                 </div>
-                            ) : (
-                                // Step 2: Customer Form
+                            </div>
+                        ) : (
+                            // Step 2: Customer Form
+                            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#4A3B32]/5">
                                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                                     <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-4">
                                         Seus Dados
@@ -257,9 +277,8 @@ export function Checkout() {
                                         />
                                     </div>
                                 </form>
-                            )}
-                        </div>
-
+                            </div>
+                        )}
                         {/* Clear All */}
                         {step === 1 && (
                             <button
@@ -274,41 +293,48 @@ export function Checkout() {
                     {/* Summary */}
                     <div className="lg:col-span-1">
                         <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24 border border-[#4A3B32]/5">
-                            <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-6">
-                                Resumo
-                            </h2>
+                            {step === 1 ? (
+                                <>
+                                    <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-4 text-center">
+                                        Sua Malinha
+                                    </h2>
+                                    <p className="text-center text-[#4A3B32]/60 mb-6 text-sm">
+                                        Uma curadoria de estilo para você experimentar no conforto de casa.
+                                    </p>
 
-                            <div className="space-y-3 mb-6">
-                                <div className="flex justify-between text-[#4A3B32]/60">
-                                    <span>Peças selecionadas</span>
-                                    <span>{items.length}</span>
-                                </div>
-                                <div className="flex justify-between text-[#4A3B32]/60">
-                                    <span>Valor total das peças</span>
-                                    <span>{formatPrice(totalPrice)}</span>
-                                </div>
-                                <div className="flex justify-between text-[#4A3B32]/60">
-                                    <span>Frete</span>
-                                    <span className="text-green-600 font-medium">Grátis</span>
-                                </div>
-                            </div>
+                                    <div className="bg-[#FDFBF7] rounded-xl p-4 space-y-4 mb-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <Gift className="w-5 h-5 text-[#C75D3B]" />
+                                                <span className="font-medium text-[#4A3B32]">Peças na malinha</span>
+                                            </div>
+                                            <span className="font-bold text-[#4A3B32]">{items.length}</span>
+                                        </div>
 
-                            <div className="border-t border-[#E8C4B0] pt-4 mb-6">
-                                <div className="flex justify-between font-semibold text-[#4A3B32]">
-                                    <span>Valor estimado</span>
-                                    <span className="text-[#C75D3B]">{formatPrice(totalPrice)}</span>
-                                </div>
-                                <p className="text-xs text-[#4A3B32]/40 mt-2">
-                                    * Você só paga pelas peças que decidir ficar
-                                </p>
-                            </div>
+                                    </div>
+
+                                    <div className="text-center mb-6">
+                                        <Heart className="w-8 h-8 text-[#C75D3B] mx-auto mb-2" />
+                                        <p className="text-sm text-[#4A3B32]/70 font-medium">
+                                            Fique apenas com o que amar!
+                                        </p>
+                                        <p className="text-xs text-[#4A3B32]/50 mt-1">
+                                            Você terá alguns dias para decidir e só paga depois.
+                                        </p>
+                                    </div>
+                                </>
+                            ) : (
+                                <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-6">
+                                    Finalizar Pedido
+                                </h2>
+                            )}
 
                             {step === 1 ? (
                                 <button
                                     onClick={() => setStep(2)}
                                     className="w-full px-8 py-3 bg-[#C75D3B] text-white rounded-full font-medium tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 flex items-center justify-center gap-2"
                                 >
-                                    Continuar
+                                    Ir para a entrega
                                 </button>
                             ) : (
                                 <>
@@ -325,7 +351,7 @@ export function Checkout() {
                                         ) : (
                                             <>
                                                 <MessageCircle className="w-5 h-5" />
-                                                Enviar pelo WhatsApp
+                                                Enviar meus dados
                                             </>
                                         )}
                                     </button>

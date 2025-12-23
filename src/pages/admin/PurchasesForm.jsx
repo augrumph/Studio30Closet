@@ -16,7 +16,7 @@ export function PurchasesForm() {
         editPurchase,
         purchasesLoading,
         suppliers,
-        loadSuppliers
+        initialize
     } = useSuppliersStore()
 
     const [formData, setFormData] = useState({
@@ -30,8 +30,8 @@ export function PurchasesForm() {
     })
 
     useEffect(() => {
-        loadSuppliers()
-    }, [loadSuppliers])
+        initialize()
+    }, [initialize])
 
     useEffect(() => {
         if (id) {

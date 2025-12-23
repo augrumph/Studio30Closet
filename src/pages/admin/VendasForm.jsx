@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Plus, Trash2, User, Search, Package, Info, Ticket, X, CreditCard } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { useOperationalCostsStore } from '@/store/operational-costs-store'
+import { getPaymentFee } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -19,6 +20,7 @@ export function VendasForm() {
         customerId: '',
         customerName: '',
         paymentMethod: 'pix',
+        cardBrand: '', // Nova: bandeira do cartão
         paymentStatus: 'paid',
         items: [],
         totalValue: 0,
@@ -41,7 +43,7 @@ export function VendasForm() {
         reloadAll()
         loadCoupons()
         if (isEdit) {
-            const venda = getVendaById(id)
+            const venda = getVendaById(parseInt(id))
             if (venda) {
                 setFormData({
                     customerId: venda.customerId,
@@ -65,16 +67,38 @@ export function VendasForm() {
         }
     }, [id, isEdit, getVendaById, reloadAll, navigate])
 
-    // Calcular taxa automaticamente quando mudar método de pagamento, valor ou parcelas
+    // Calcular taxa automaticamente quando mudar método de pagamento, bandeira ou valor
     useEffect(() => {
-        if (formData.paymentMethod && formData.totalValue > 0 && formData.paymentStatus !== 'pending') {
-            const valorFinal = formData.totalValue - formData.discountAmount
-            const result = calculateFee(valorFinal, formData.paymentMethod, parcelas)
-            setFeeInfo(result)
-        } else {
-            setFeeInfo({ feePercentage: 0, feeValue: 0, netValue: formData.totalValue - formData.discountAmount })
+        const calculatePaymentFee = async () => {
+            if (formData.paymentMethod && formData.totalValue > 0 && formData.paymentStatus !== 'pending') {
+                const valorFinal = formData.totalValue - formData.discountAmount
+
+                // Buscar taxa da tabela payment_fees
+                const feeData = await getPaymentFee(formData.paymentMethod, formData.cardBrand || null)
+
+                if (feeData) {
+                    const feePercentage = feeData.feePercentage || 0
+                    const feeFixed = feeData.feeFixed || 0
+                    const feeValue = (valorFinal * feePercentage / 100) + feeFixed
+                    const netValue = valorFinal - feeValue
+
+                    setFeeInfo({
+                        feePercentage,
+                        feeFixed,
+                        feeValue,
+                        netValue
+                    })
+                } else {
+                    // Sem taxa configurada
+                    setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: valorFinal })
+                }
+            } else {
+                setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: formData.totalValue - formData.discountAmount })
+            }
         }
-    }, [formData.paymentMethod, formData.totalValue, formData.discountAmount, formData.paymentStatus, parcelas, calculateFee])
+
+        calculatePaymentFee()
+    }, [formData.paymentMethod, formData.cardBrand, formData.totalValue, formData.discountAmount, formData.paymentStatus])
 
     const addItem = (product) => {
         // Validação de estoque
@@ -209,17 +233,17 @@ export function VendasForm() {
         const payload = {
             ...formData,
             paymentMethod: finalPaymentMethod,
+            cardBrand: formData.cardBrand || null,
             totalValue: formData.totalValue - formData.discountAmount, // Valor final com desconto (cobrado do cliente)
             originalTotal: formData.totalValue, // Valor original para log
             costPrice: formData.items.reduce((acc, item) => acc + (item.costPrice * item.quantity), 0),
-            // Incluir informações de taxa e parcelas
-            feePercentage: feeInfo.feePercentage,
-            feeValue: feeInfo.feeValue,
-            netValue: feeInfo.netValue || (formData.totalValue - formData.discountAmount), // Valor líquido recebido
-            parcelas: formData.paymentMethod === 'credito_parcelado' ? parcelas : null
+            // Incluir informações de taxa automáticas
+            feePercentage: feeInfo.feePercentage || 0,
+            feeAmount: feeInfo.feeValue || 0,
+            netAmount: feeInfo.netValue || (formData.totalValue - formData.discountAmount)
         }
 
-        const action = isEdit ? editVenda(id, payload) : addVenda(payload)
+        const action = isEdit ? editVenda(parseInt(id), payload) : addVenda(payload)
         const loadingMsg = isEdit ? 'Processando alterações e ajustando estoque...' : 'Registrando venda e baixando estoque...'
         const successTemplate = isEdit ? 'Venda e estoque atualizados com sucesso!' : `Venda registrada e estoque baixado para ${formData.customerName}!`
 
@@ -463,9 +487,9 @@ export function VendasForm() {
                                         value={formData.paymentStatus === 'pending' ? 'fiado' : formData.paymentMethod}
                                         disabled={formData.paymentStatus === 'pending'}
                                         onChange={(e) => {
-                                            setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))
+                                            setFormData(prev => ({ ...prev, paymentMethod: e.target.value, cardBrand: '' }))
                                             if (e.target.value === 'credito_parcelado') {
-                                                setParcelas(2) // Default to 2x when selecting parcelado
+                                                setParcelas(2)
                                             } else {
                                                 setParcelas(1)
                                             }
@@ -476,9 +500,8 @@ export function VendasForm() {
                                         )}
                                     >
                                         <option value="pix">📱 PIX</option>
-                                        <option value="debito">💳 Débito</option>
-                                        <option value="credito_vista">💳 Crédito à Vista</option>
-                                        <option value="credito_parcelado">💳 Crédito Parcelado</option>
+                                        <option value="card_machine">💳 Cartão na Máquina</option>
+                                        <option value="payment_link">🔗 Link de Pagamento</option>
                                         <option value="fiado">🤝 Crediário (Conta Corrente)</option>
                                         <option value="cash">💵 Dinheiro Espécie</option>
                                     </select>
@@ -488,6 +511,29 @@ export function VendasForm() {
                                         </p>
                                     )}
                                 </div>
+
+                                {/* Bandeira do Cartão - aparece se for card_machine ou payment_link */}
+                                {(formData.paymentMethod === 'card_machine' || formData.paymentMethod === 'payment_link') && formData.paymentStatus !== 'pending' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                    >
+                                        <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Bandeira do Cartão *</label>
+                                        <select
+                                            value={formData.cardBrand}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, cardBrand: e.target.value }))}
+                                            required
+                                            className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
+                                        >
+                                            <option value="">Selecione a bandeira...</option>
+                                            <option value="visa">💳 Visa</option>
+                                            <option value="mastercard">💳 Mastercard</option>
+                                            <option value="amex">💳 American Express</option>
+                                            <option value="elo">💳 Elo</option>
+                                        </select>
+                                    </motion.div>
+                                )}
 
                                 {/* Parcelas selector quando for crédito parcelado */}
                                 {formData.paymentMethod === 'credito_parcelado' && formData.paymentStatus !== 'pending' && (

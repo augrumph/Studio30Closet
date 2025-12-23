@@ -9,13 +9,13 @@ import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 
 export function ExpensesList() {
-    const { expenses, expensesLoading, loadExpenses, removeExpense } = useSuppliersStore()
+    const { expenses, expensesLoading, loadExpenses, removeExpense, initialize } = useSuppliersStore()
     const [search, setSearch] = useState('')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, expenseId: null })
 
     useEffect(() => {
-        loadExpenses()
-    }, [loadExpenses])
+        initialize()
+    }, [initialize])
 
     const filteredExpenses = expenses.filter(expense =>
         expense.name?.toLowerCase().includes(search.toLowerCase()) ||

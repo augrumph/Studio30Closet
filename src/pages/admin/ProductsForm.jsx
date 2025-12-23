@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
@@ -33,6 +33,20 @@ export function ProductsForm() {
     })
 
     const [activeColorTab, setActiveColorTab] = useState('0')
+
+    // Calcular tamanhos e estoque automaticamente em tempo real
+    const calculatedSizes = useMemo(() => {
+        return [...new Set(
+            formData.variants.flatMap(v => (v.sizeStock || []).map(s => s.size))
+        )]
+    }, [formData.variants])
+
+    const calculatedStock = useMemo(() => {
+        return formData.variants.reduce((total, variant) => {
+            const variantTotal = (variant.sizeStock || []).reduce((sum, s) => sum + s.quantity, 0)
+            return total + variantTotal
+        }, 0)
+    }, [formData.variants])
 
     useEffect(() => {
         loadSuppliers()
@@ -195,12 +209,7 @@ export function ProductsForm() {
         reader.readAsDataURL(file)
     }
 
-    const handleSizeToggle = (size) => {
-        const newSizes = formData.sizes.includes(size)
-            ? formData.sizes.filter(s => s !== size)
-            : [...formData.sizes, size]
-        setFormData(prev => ({ ...prev, sizes: newSizes }))
-    }
+    // Removido handleSizeToggle - tamanhos são calculados automaticamente
 
     const handleVariantSizeQuantityChange = (vIndex, size, quantity) => {
         const newVariants = [...formData.variants]
@@ -228,27 +237,18 @@ export function ProductsForm() {
             return parseFloat(normalized)
         }
 
-        // Coletar todos os tamanhos únicos de todas as variantes
-        const allUniqueSizes = [...new Set(
-            formData.variants.flatMap(v => (v.sizeStock || []).map(s => s.size))
-        )]
-
-        // Calcular estoque total somando todas as quantidades
-        const totalStock = formData.variants.reduce((total, variant) => {
-            const variantTotal = (variant.sizeStock || []).reduce((sum, s) => sum + s.quantity, 0)
-            return total + variantTotal
-        }, 0)
-
+        // Usar valores calculados automaticamente
         const payload = {
             ...formData,
             price: parseBrazilianNumber(formData.price),
             originalPrice: formData.originalPrice ? parseBrazilianNumber(formData.originalPrice) : null,
             costPrice: parseBrazilianNumber(formData.costPrice),
-            stock: totalStock, // Estoque total calculado
+            supplierId: formData.supplierId && formData.supplierId !== '' ? formData.supplierId : null,
+            stock: calculatedStock, // Estoque total calculado automaticamente
+            sizes: calculatedSizes, // Tamanhos calculados automaticamente
             // Para compatibilidade, mantemos a primeira cor/imagem no nível superior também
             color: formData.variants[0]?.colorName || '',
-            images: formData.variants[0]?.images || [],
-            sizes: allUniqueSizes // Todos os tamanhos únicos para compatibilidade
+            images: formData.variants[0]?.images || []
         }
 
         toast.promise(id ? editProduct(id, payload) : addProduct(payload), {
@@ -287,10 +287,19 @@ export function ProductsForm() {
                         <ArrowLeft className="w-6 h-6 text-[#4A3B32]" />
                     </motion.button>
                     <div>
-                        <h2 className="text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">
-                            {id ? 'Editar Detalhes' : 'Novo Produto'}
-                        </h2>
-                        <p className="text-[#4A3B32]/40 font-medium italic">Gestão de catálogo premium Studio 30.</p>
+                        <div className="flex items-center gap-3 mb-2">
+                            <h2 className="text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">
+                                {id ? 'Editar Detalhes' : 'Novo Produto'}
+                            </h2>
+                            {id && (
+                                <span className="px-4 py-1.5 bg-[#C75D3B] text-white text-sm font-bold rounded-full">
+                                    ID: #{id}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-[#4A3B32]/40 font-medium italic">
+                            {id ? `Editando produto #${id}` : 'Gestão de catálogo premium Studio 30.'}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -617,40 +626,48 @@ export function ProductsForm() {
                                 </select>
                             </div>
 
-                            <div className="space-y-4">
-                                <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">Tamanhos Disponíveis</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {allSizes.map(size => (
-                                        <button
-                                            key={size.id}
-                                            type="button"
-                                            onClick={() => handleSizeToggle(size.id)}
-                                            className={cn(
-                                                "py-3.5 rounded-xl border-2 text-[10px] font-bold tracking-widest transition-all text-center flex flex-col items-center justify-center gap-0.5",
-                                                formData.sizes.includes(size.id)
-                                                    ? "bg-[#4A3B32] border-[#4A3B32] text-white shadow-lg shadow-[#4A3B32]/20 scale-105 z-10"
-                                                    : "border-gray-50 text-gray-300 hover:border-gray-200"
-                                            )}
-                                        >
-                                            <span className="text-xs">{size.id}</span>
-                                            {size.label !== size.id && <span className="opacity-50 text-[8px]">{size.label}</span>}
-                                        </button>
-                                    ))}
+                            {/* Tamanhos Calculados Automaticamente */}
+                            <div className="space-y-3 p-5 bg-gradient-to-br from-[#C75D3B]/5 to-transparent rounded-2xl border border-[#C75D3B]/10">
+                                <div className="flex items-center gap-2">
+                                    <Layers className="w-4 h-4 text-[#C75D3B]" />
+                                    <label className="text-[10px] text-[#C75D3B] font-bold uppercase tracking-widest">
+                                        Tamanhos Disponíveis (Calculado Automaticamente)
+                                    </label>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {calculatedSizes.length > 0 ? (
+                                        calculatedSizes.map(size => (
+                                            <span
+                                                key={size}
+                                                className="px-3 py-1.5 bg-[#4A3B32] text-white text-xs font-bold rounded-lg"
+                                            >
+                                                {size}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="text-xs text-gray-400 italic">
+                                            Adicione tamanhos nas variantes de cor acima
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">Estoque Total</label>
-                                <div className="relative">
-                                    <Package className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-                                    <input
-                                        type="number"
-                                        name="stock"
-                                        className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32]"
-                                        value={formData.stock}
-                                        onChange={handleChange}
-                                    />
+                            {/* Estoque Calculado Automaticamente */}
+                            <div className="space-y-3 p-5 bg-gradient-to-br from-green-500/5 to-transparent rounded-2xl border border-green-500/10">
+                                <div className="flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-green-600" />
+                                    <label className="text-[10px] text-green-600 font-bold uppercase tracking-widest">
+                                        Estoque Total (Calculado Automaticamente)
+                                    </label>
                                 </div>
+                                <div className="text-3xl font-bold text-[#4A3B32]">
+                                    {calculatedStock} {calculatedStock === 1 ? 'unidade' : 'unidades'}
+                                </div>
+                                {calculatedStock === 0 && (
+                                    <p className="text-xs text-gray-400 italic">
+                                        Adicione quantidades nos tamanhos das variantes acima
+                                    </p>
+                                )}
                             </div>
 
                             <div className="flex flex-col gap-4 pt-4">

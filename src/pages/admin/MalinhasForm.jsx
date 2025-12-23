@@ -53,7 +53,7 @@ export function MalinhasForm() {
         loadCustomers()
 
         if (isEdit) {
-            const order = getOrderById(id)
+            const order = getOrderById(parseInt(id))
             if (order) {
                 setFormData({
                     customerId: order.customer.id,
@@ -125,7 +125,7 @@ export function MalinhasForm() {
             customer: customers.find(c => c.id === formData.customerId)
         }
 
-        const action = isEdit ? updateOrder(id, payload) : addOrder(payload)
+        const action = isEdit ? updateOrder(parseInt(id), payload) : addOrder(payload)
 
         toast.promise(action, {
             loading: isEdit ? 'Atualizando malinha...' : 'Criando malinha...',

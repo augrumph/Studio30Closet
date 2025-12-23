@@ -73,9 +73,43 @@ export async function createProduct(productData) {
 }
 
 export async function updateProduct(id, productData) {
+    console.log('API: Updating product with id:', id, 'and data:', productData);
     const snakeData = toSnakeCase(productData);
-    const { data, error } = await supabase.from('products').update(snakeData).eq('id', id).select().single();
-    if (error) throw error;
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const productRecord = {
+        name: snakeData.name,
+        price: snakeData.price,
+        cost_price: snakeData.costPrice || snakeData.cost_price,
+        description: snakeData.description,
+        stock: snakeData.stock,
+        sizes: snakeData.sizes,
+        images: snakeData.images,
+        category: snakeData.category,
+        is_featured: snakeData.isFeatured || snakeData.is_featured,
+        active: snakeData.active,
+        supplier_id: snakeData.supplierId || snakeData.supplier_id,
+        color: snakeData.color,
+        variants: snakeData.variants,
+        is_new: snakeData.isNew || snakeData.is_new,
+        original_price: snakeData.originalPrice || snakeData.original_price
+    };
+
+    console.log('API: Prepared record for update:', productRecord);
+
+    const { data, error } = await supabase
+        .from('products')
+        .update(productRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating product:', error);
+        throw error;
+    }
+    console.log('API: Updated product:', data);
     return toCamelCase(data);
 }
 
@@ -698,9 +732,35 @@ export async function createFixedExpense(expenseData) {
 }
 
 export async function updateFixedExpense(id, expenseData) {
+    console.log('API: Updating fixed expense with id:', id, 'and data:', expenseData);
     const snakeData = toSnakeCase(expenseData);
-    const { data, error } = await supabase.from('fixed_expenses').update(snakeData).eq('id', id).select().single();
-    if (error) throw error;
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const expenseRecord = {
+        name: snakeData.name,
+        value: snakeData.value,
+        category: snakeData.category,
+        recurrence: snakeData.recurrence,
+        due_day: snakeData.dueDay || snakeData.due_day,
+        paid: snakeData.paid,
+        notes: snakeData.notes
+    };
+
+    console.log('API: Prepared record for update:', expenseRecord);
+
+    const { data, error } = await supabase
+        .from('fixed_expenses')
+        .update(expenseRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating fixed expense:', error);
+        throw error;
+    }
+    console.log('API: Updated fixed expense:', data);
     return toCamelCase(data);
 }
 
@@ -733,9 +793,35 @@ export async function createMaterial(materialData) {
 }
 
 export async function updateMaterial(id, materialData) {
+    console.log('API: Updating material with id:', id, 'and data:', materialData);
     const snakeData = toSnakeCase(materialData);
-    const { data, error } = await supabase.from('materials_stock').update(snakeData).eq('id', id).select().single();
-    if (error) throw error;
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const materialRecord = {
+        name: snakeData.name,
+        description: snakeData.description,
+        quantity: snakeData.quantity,
+        unit_cost: snakeData.unitCost || snakeData.unit_cost,
+        category: snakeData.category,
+        supplier_id: snakeData.supplierId || snakeData.supplier_id,
+        min_stock_level: snakeData.minStockLevel || snakeData.min_stock_level
+    };
+
+    console.log('API: Prepared record for update:', materialRecord);
+
+    const { data, error } = await supabase
+        .from('materials_stock')
+        .update(materialRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating material:', error);
+        throw error;
+    }
+    console.log('API: Updated material:', data);
     return toCamelCase(data);
 }
 
@@ -768,9 +854,34 @@ export async function createPaymentFee(feeData) {
 }
 
 export async function updatePaymentFee(id, feeData) {
+    console.log('API: Updating payment fee with id:', id, 'and data:', feeData);
     const snakeData = toSnakeCase(feeData);
-    const { data, error } = await supabase.from('payment_fees').update(snakeData).eq('id', id).select().single();
-    if (error) throw error;
+    console.log('API: Converted to snake_case:', snakeData);
+
+    // Criar objeto com campos explícitos para evitar problemas
+    const feeRecord = {
+        payment_method: snakeData.paymentMethod || snakeData.payment_method,
+        card_brand: snakeData.cardBrand || snakeData.card_brand,
+        fee_percentage: snakeData.feePercentage || snakeData.fee_percentage,
+        fee_fixed: snakeData.feeFixed || snakeData.fee_fixed,
+        description: snakeData.description,
+        is_active: snakeData.isActive || snakeData.is_active
+    };
+
+    console.log('API: Prepared record for update:', feeRecord);
+
+    const { data, error } = await supabase
+        .from('payment_fees')
+        .update(feeRecord)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('API Error updating payment fee:', error);
+        throw error;
+    }
+    console.log('API: Updated payment fee:', data);
     return toCamelCase(data);
 }
 

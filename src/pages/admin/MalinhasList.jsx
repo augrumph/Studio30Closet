@@ -45,6 +45,9 @@ export function MalinhasList() {
     const statusMap = {
         pending: { label: 'Pendente', color: 'bg-amber-100 text-amber-700', icon: Clock },
         shipped: { label: 'Enviado', color: 'bg-blue-100 text-blue-700', icon: Truck },
+        delivered: { label: 'Entregue', color: 'bg-indigo-100 text-indigo-700', icon: Package },
+        pickup_scheduled: { label: 'Coleta Agendada', color: 'bg-purple-100 text-purple-700', icon: Calendar },
+        returned: { label: 'Devolvido', color: 'bg-amber-100 text-amber-700', icon: Clock },
         completed: { label: 'Concluído', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle },
         cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700', icon: XCircle },
     }
@@ -83,7 +86,7 @@ export function MalinhasList() {
                     </div>
 
                     <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl w-full md:w-auto overflow-x-auto custom-scrollbar">
-                        {['all', 'pending', 'shipped', 'completed'].map(status => (
+                        {['all', 'pending', 'shipped', 'delivered', 'pickup_scheduled', 'completed'].map(status => (
                             <button
                                 key={status}
                                 onClick={() => setStatusFilter(status)}
@@ -94,7 +97,12 @@ export function MalinhasList() {
                                         : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
                                 )}
                             >
-                                {status === 'all' ? 'Ver Tudo' : status === 'pending' ? 'Pendentes' : status === 'shipped' ? 'Enviados' : 'Concluídos'}
+                                {status === 'all' ? 'Ver Tudo' :
+                                 status === 'pending' ? 'Pendentes' :
+                                 status === 'shipped' ? 'Enviados' :
+                                 status === 'delivered' ? 'Entregues' :
+                                 status === 'pickup_scheduled' ? 'Coleta Agendada' :
+                                 'Concluídos'}
                             </button>
                         ))}
                     </div>

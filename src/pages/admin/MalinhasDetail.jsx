@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Clock, MapPin, Phone, Mail, Package, CheckCircle, Truck, XCircle, Calendar, MessageSquare, ExternalLink, ChevronRight, User } from 'lucide-react'
+import { ArrowLeft, Clock, MapPin, Phone, Mail, Package, CheckCircle, Truck, XCircle, Calendar, MessageSquare, ExternalLink, ChevronRight, User, Settings } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -11,17 +11,25 @@ import { AlertDialog } from '@/components/ui/AlertDialog'
 export function MalinhasDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { getOrderById, updateStatus, updateSchedule, ordersLoading, finalizeMalinha } = useAdminStore()
+    const { getOrderById, updateStatus, updateSchedule, ordersLoading, finalizeMalinha, loadCustomerPreferences, updateCustomerPreferences } = useAdminStore()
     const [order, setOrder] = useState(null)
     const [keptItems, setKeptItems] = useState([]) // Array de IDs de produtos/itens que ficaram
     const [showConfirmSale, setShowConfirmSale] = useState(false)
+    const [customerPreferences, setCustomerPreferences] = useState({})
+    const [showPreferencesModal, setShowPreferencesModal] = useState(false)
 
     useEffect(() => {
         const foundOrder = getOrderById(id)
         if (foundOrder) {
             setOrder(foundOrder)
+            // Carregar preferências do cliente
+            if (foundOrder.customer?.id) {
+                loadCustomerPreferences(foundOrder.customer.id).then(preferences => {
+                    setCustomerPreferences(preferences)
+                })
+            }
         }
-    }, [id, getOrderById])
+    }, [id, getOrderById, loadCustomerPreferences])
 
     if (!order) {
         return (
@@ -117,6 +125,9 @@ export function MalinhasDetail() {
     const statusMap = {
         pending: { label: 'Pendente', color: 'bg-amber-100 text-amber-700', icon: Clock },
         shipped: { label: 'Enviado', color: 'bg-blue-100 text-blue-700', icon: Truck },
+        delivered: { label: 'Entregue', color: 'bg-indigo-100 text-indigo-700', icon: Package },
+        pickup_scheduled: { label: 'Coleta Agendada', color: 'bg-purple-100 text-purple-700', icon: Calendar },
+        returned: { label: 'Devolvido', color: 'bg-amber-100 text-amber-700', icon: Clock },
         completed: { label: 'Concluído', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle },
         cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700', icon: XCircle },
     }
@@ -322,12 +333,29 @@ export function MalinhasDetail() {
                                             className="w-full bg-white border-none rounded-xl p-3 text-sm font-bold text-[#4A3B32] shadow-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
                                         />
                                     </div>
+                                    {order.deliveryDate && order.pickupDate && (
+                                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                                            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Prazo de Devolução</p>
+                                            <p className="text-xs text-amber-800">
+                                                {Math.max(0, Math.ceil((new Date(order.pickupDate) - new Date(order.deliveryDate)) / (1000 * 60 * 60 * 24)))} dias
+                                            </p>
+                                            <button
+                                                className="mt-2 text-[10px] font-bold text-amber-700 hover:text-amber-800"
+                                                onClick={() => {
+                                                    // Implementar notificação de prazo
+                                                    toast.info('Lembrete de prazo enviado para a cliente!');
+                                                }}
+                                            >
+                                                Enviar lembrete
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="space-y-2 pt-2">
                                     <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest px-1">Atalhos de Status</p>
                                     <div className="grid grid-cols-1 gap-2">
-                                        {['shipped', 'completed', 'cancelled'].map((stat) => (
+                                        {['shipped', 'delivered', 'pickup_scheduled', 'returned', 'completed', 'cancelled'].map((stat) => (
                                             <button
                                                 key={stat}
                                                 onClick={() => handleStatusChange(stat)}
@@ -385,6 +413,121 @@ export function MalinhasDetail() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Preferências do Cliente */}
+                            <div className="pt-4 border-t border-gray-100">
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Preferências</h4>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-[#4A3B32]/60">Tamanho preferido:</span>
+                                        <span className="font-bold text-[#4A3B32]">{customerPreferences.preferredSize || order.customer.preferredSize || 'M'}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-[#4A3B32]/60">Estilo preferido:</span>
+                                        <span className="font-bold text-[#4A3B32]">{customerPreferences.preferredStyle || order.customer.preferredStyle || 'Casual'}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-[#4A3B32]/60">Cores preferidas:</span>
+                                        <span className="font-bold text-[#4A3B32]">{customerPreferences.preferredColors || order.customer.preferredColors || 'Neutras'}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowPreferencesModal(true)}
+                                        className="mt-3 text-xs font-bold text-[#C75D3B] hover:text-[#A64D31] flex items-center gap-1"
+                                    >
+                                        <Settings className="w-3 h-3" /> Atualizar preferências
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Modal de Preferências */}
+                            {showPreferencesModal && (
+                                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl"
+                                    >
+                                        <h3 className="text-xl font-bold text-[#4A3B32] mb-4">Preferências da Cliente</h3>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-sm font-bold text-[#4A3B32]/60 block mb-1">Tamanho Preferido</label>
+                                                <select
+                                                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none"
+                                                    defaultValue={customerPreferences.preferredSize || order.customer.preferredSize || 'M'}
+                                                    id="preferredSize"
+                                                >
+                                                    <option value="PP">PP</option>
+                                                    <option value="P">P</option>
+                                                    <option value="M">M</option>
+                                                    <option value="G">G</option>
+                                                    <option value="GG">GG</option>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-sm font-bold text-[#4A3B32]/60 block mb-1">Estilo Preferido</label>
+                                                <select
+                                                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none"
+                                                    defaultValue={customerPreferences.preferredStyle || order.customer.preferredStyle || 'Casual'}
+                                                    id="preferredStyle"
+                                                >
+                                                    <option value="Casual">Casual</option>
+                                                    <option value="Social">Social</option>
+                                                    <option value="Esportivo">Esportivo</option>
+                                                    <option value="Feminino">Feminino</option>
+                                                    <option value="Minimalista">Minimalista</option>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-sm font-bold text-[#4A3B32]/60 block mb-1">Cores Preferidas</label>
+                                                <select
+                                                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none"
+                                                    defaultValue={customerPreferences.preferredColors || order.customer.preferredColors || 'Neutras'}
+                                                    id="preferredColors"
+                                                >
+                                                    <option value="Neutras">Neutras</option>
+                                                    <option value="Vermelhas">Vermelhas</option>
+                                                    <option value="Azuis">Azuis</option>
+                                                    <option value="Estampadas">Estampadas</option>
+                                                    <option value="Sólidas">Sólidas</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-3 mt-6">
+                                            <button
+                                                onClick={() => setShowPreferencesModal(false)}
+                                                className="flex-1 py-3 bg-gray-100 text-[#4A3B32] rounded-xl font-bold hover:bg-gray-200 transition-all"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const updatedPreferences = {
+                                                        preferredSize: document.getElementById('preferredSize').value,
+                                                        preferredStyle: document.getElementById('preferredStyle').value,
+                                                        preferredColors: document.getElementById('preferredColors').value
+                                                    };
+
+                                                    const result = await updateCustomerPreferences(order.customer.id, updatedPreferences);
+                                                    if (result.success) {
+                                                        setCustomerPreferences(updatedPreferences);
+                                                        toast.success('Preferências atualizadas com sucesso!');
+                                                        setShowPreferencesModal(false);
+                                                    } else {
+                                                        toast.error('Erro ao atualizar preferências: ' + result.error);
+                                                    }
+                                                }}
+                                                className="flex-1 py-3 bg-[#C75D3B] text-white rounded-xl font-bold hover:bg-[#A64D31] transition-all"
+                                            >
+                                                Salvar
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 

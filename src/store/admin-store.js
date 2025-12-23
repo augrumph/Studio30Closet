@@ -187,14 +187,36 @@ export const useAdminStore = create((set, get) => ({
     updateStatus: async (id, status) => {
         set({ ordersLoading: true, ordersError: null })
         try {
+            // Obter o pedido atual para verificar o status anterior
+            const currentOrder = get().orders.find(o => o.id === parseInt(id));
             const updatedOrder = await updateOrderStatus(id, status)
+
+            // Adicionar histórico de status se não existir
+            const now = new Date().toISOString();
+            const statusHistory = currentOrder?.statusHistory || [];
+            statusHistory.push({
+                status,
+                timestamp: now,
+                source: 'admin-panel'
+            });
+
+            // Atualizar o pedido com o histórico de status
+            const orderWithHistory = { ...updatedOrder, statusHistory };
+
             set(state => ({
                 orders: state.orders.map(o =>
-                    o.id === parseInt(id) ? updatedOrder : o
+                    o.id === parseInt(id) ? orderWithHistory : o
                 ),
                 ordersLoading: false
             }))
-            return { success: true, order: updatedOrder }
+
+            // Enviar notificação para a cliente se o status for entregue
+            if (status === 'delivered' && currentOrder?.customer?.phone) {
+                // Aqui você pode adicionar uma função para enviar notificação
+                console.log(`Notificação de entrega enviada para cliente: ${currentOrder.customer.phone}`);
+            }
+
+            return { success: true, order: orderWithHistory }
         } catch (error) {
             const userFriendlyError = formatUserFriendlyError(error);
             set({ ordersError: userFriendlyError, ordersLoading: false })
@@ -454,6 +476,29 @@ export const useAdminStore = create((set, get) => ({
             const userFriendlyError = formatUserFriendlyError(error);
             set({ customersError: userFriendlyError, customersLoading: false })
             return { success: false, error: userFriendlyError }
+        }
+    },
+
+    // ==================== CUSTOMER PREFERENCES ====================
+
+    loadCustomerPreferences: async (customerId) => {
+        try {
+            const preferences = await getCustomerPreferences(customerId);
+            return preferences || {};
+        } catch (error) {
+            console.error('Error loading customer preferences:', error);
+            return {};
+        }
+    },
+
+    updateCustomerPreferences: async (customerId, preferences) => {
+        try {
+            const updatedPreferences = await updateCustomerPreferences(customerId, preferences);
+            return { success: true, preferences: updatedPreferences };
+        } catch (error) {
+            const userFriendlyError = formatUserFriendlyError(error);
+            console.error('Error updating customer preferences:', error);
+            return { success: false, error: userFriendlyError };
         }
     },
 

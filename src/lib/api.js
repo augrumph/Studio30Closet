@@ -832,6 +832,36 @@ export async function deleteMaterial(id) {
 }
 
 
+// ==================== CUSTOMER PREFERENCES ====================
+
+export async function getCustomerPreferences(customerId) {
+    const { data, error } = await supabase
+        .from('customer_preferences')
+        .select('*')
+        .eq('customer_id', customerId)
+        .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+        throw error;
+    }
+
+    return data ? toCamelCase(data) : null;
+}
+
+export async function updateCustomerPreferences(customerId, preferencesData) {
+    const snakeData = toSnakeCase(preferencesData);
+
+    // Primeiro, tentar atualizar o registro existente
+    const { data, error } = await supabase
+        .from('customer_preferences')
+        .upsert([{ customer_id: customerId, ...snakeData }], { onConflict: 'customer_id' })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return toCamelCase(data);
+}
+
 // ==================== PAYMENT FEES ====================
 
 export async function getPaymentFees() {

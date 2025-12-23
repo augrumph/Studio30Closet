@@ -131,7 +131,8 @@ export function VendasForm() {
             totalValue: prev.totalValue + product.price
         }))
         toast.success(`${product.name} adicionado à venda.`, {
-            description: `Valor: R$ ${(product.price || 0).toLocaleString('pt-BR')}`
+            description: `Valor: R$ ${(product.price || 0).toLocaleString('pt-BR')}`,
+            icon: '🛒'
         })
     }
 

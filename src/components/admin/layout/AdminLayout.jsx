@@ -10,7 +10,21 @@ export function AdminLayout() {
 
     return (
         <div className="flex h-screen bg-[#FAF8F5] overflow-hidden max-w-screen">
-            <Toaster richColors position="top-center" />
+            <Toaster
+                richColors
+                position="top-center"
+                toastOptions={{
+                    className: 'shadow-xl border border-gray-100 rounded-2xl',
+                    style: {
+                        background: 'white',
+                        fontFamily: 'Inter, system-ui, sans-serif',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: '#4A3B32',
+                    },
+                    duration: 4000,
+                }}
+            />
 
             {/* Desktop Sidebar */}
             <div className="hidden lg:block">

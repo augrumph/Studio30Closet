@@ -33,9 +33,15 @@ export function CustomersList() {
     const onConfirmDelete = async () => {
         const result = await removeCustomer(confirmDelete.customerId)
         if (result.success) {
-            toast.success('Cliente removida com sucesso.')
+            toast.success('Cliente removida com sucesso.', {
+                description: 'O registro da cliente foi excluído permanentemente.',
+                icon: '🗑️'
+            })
         } else {
-            toast.error(`Erro ao excluir: ${result.error}`)
+            toast.error(`Erro ao excluir: ${result.error}`, {
+                description: 'Tente novamente mais tarde ou contate o suporte.',
+                icon: '⚠️'
+            })
         }
     }
 

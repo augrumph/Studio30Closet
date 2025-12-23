@@ -52,11 +52,17 @@ export function MalinhasDetail() {
             success: (result) => {
                 if (result.success) {
                     setOrder(result.order)
-                    return `Status atualizado para ${statusMap[newStatus]?.label}!`
+                    return {
+                        message: `Status atualizado para ${statusMap[newStatus]?.label}!`,
+                        description: `A mala ${order.orderNumber} agora está ${statusMap[newStatus]?.label.toLowerCase()}.`
+                    }
                 }
                 throw new Error(result.error)
             },
-            error: (err) => `Falha na atualização: ${err.message}`
+            error: (err) => ({
+                message: 'Falha na atualização',
+                description: err.message
+            })
         })
     }
 
@@ -66,7 +72,8 @@ export function MalinhasDetail() {
         if (result.success) {
             setOrder(result.order)
             toast.success(`Data de ${name === 'deliveryDate' ? 'entrega' : 'coleta'} atualizada!`, {
-                description: `Nova data: ${new Date(value).toLocaleDateString('pt-BR')}`
+                description: `Nova data definida para: ${new Date(value).toLocaleDateString('pt-BR')}`,
+                icon: '📅'
             })
         }
     }
@@ -115,10 +122,16 @@ export function MalinhasDetail() {
 
         const result = await finalizeMalinha(order.id, keptItems, vendaData)
         if (result.success) {
-            toast.success('Venda gerada com sucesso! A malinha foi concluída.')
+            toast.success('Venda gerada com sucesso!', {
+                description: 'A malinha foi concluída e o estoque atualizado.',
+                icon: '✅'
+            })
             navigate('/admin/vendas')
         } else {
-            toast.error('Erro ao gerar venda: ' + result.error)
+            toast.error('Erro ao gerar venda', {
+                description: result.error,
+                icon: '❌'
+            })
         }
     }
 
@@ -343,7 +356,10 @@ export function MalinhasDetail() {
                                                 className="mt-2 text-[10px] font-bold text-amber-700 hover:text-amber-800"
                                                 onClick={() => {
                                                     // Implementar notificação de prazo
-                                                    toast.info('Lembrete de prazo enviado para a cliente!');
+                                                    toast.success('Lembrete enviado!', {
+                                                        description: 'A cliente foi notificada sobre o prazo de devolução.',
+                                                        icon: '⏰'
+                                                    });
                                                 }}
                                             >
                                                 Enviar lembrete
@@ -514,10 +530,16 @@ export function MalinhasDetail() {
                                                     const result = await updateCustomerPreferences(order.customer.id, updatedPreferences);
                                                     if (result.success) {
                                                         setCustomerPreferences(updatedPreferences);
-                                                        toast.success('Preferências atualizadas com sucesso!');
+                                                        toast.success('Preferências atualizadas com sucesso!', {
+                                                            description: 'As preferências da cliente foram salvas no sistema.',
+                                                            icon: '👤'
+                                                        });
                                                         setShowPreferencesModal(false);
                                                     } else {
-                                                        toast.error('Erro ao atualizar preferências: ' + result.error);
+                                                        toast.error('Erro ao atualizar preferências', {
+                                                            description: result.error,
+                                                            icon: '⚠️'
+                                                        });
                                                     }
                                                 }}
                                                 className="flex-1 py-3 bg-[#C75D3B] text-white rounded-xl font-bold hover:bg-[#A64D31] transition-all"

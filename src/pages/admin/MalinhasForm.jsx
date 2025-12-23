@@ -98,7 +98,10 @@ export function MalinhasForm() {
         }))
         setShowProductSearch(false)
         setProductSearch('')
-        toast.success(`${product.name} adicionado à malinha.`)
+        toast.success(`${product.name} adicionado à malinha.`, {
+            description: 'A peça foi adicionada ao carrinho da mala.',
+            icon: '🛍️'
+        })
     }
 
     const removeItem = (idx) => {

@@ -1,7 +1,7 @@
 import { ProductCard, ProductModal, ProductFilters, SkeletonCard } from '@/components/catalog'
 import { useAdminStore } from '@/store/admin-store'
 import { useMalinhaStore } from '@/store/malinha-store'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, memo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { X } from 'lucide-react'
 
@@ -170,3 +170,5 @@ export function Catalog() {
         </div>
     )
 }
+
+export default memo(Catalog)

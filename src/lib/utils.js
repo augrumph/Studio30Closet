@@ -1,45 +1,61 @@
-import { clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
+// Format malinha items for WhatsApp
+export function formatMalinhaMessage(items, customerData) {
+    const totalValue = items.reduce((sum, item) => sum + item.price, 0)
+    const message = `🦋 *STUDIO 30 CLOSET - Pedido de Malinha*
 
-export function cn(...inputs) {
-    return twMerge(clsx(inputs))
+Cliente: *${customerData.name}*
+Telefone: ${customerData.phone}
+
+Peças selecionadas:
+${items.map((item, index) => `${index + 1}. ${item.name} - R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`).join('\n')}
+
+Valor total: *R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })*
+
+Aguardo confirmação do envio da malinha! 💕`
+    return encodeURIComponent(message)
 }
 
-// Format price to BRL
+// Format price
 export function formatPrice(price) {
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
-        currency: 'BRL',
+        currency: 'BRS',
+        minimumFractionDigits: 2
     }).format(price)
 }
 
-// Generate WhatsApp link
-export function generateWhatsAppLink(phone, message) {
-    const cleanPhone = phone.replace(/\D/g, '')
-    const encodedMessage = encodeURIComponent(message)
-    return `https://wa.me/${cleanPhone}?text=${encodedMessage}`
+// Format currency
+export function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 2
+    }).format(value)
 }
 
-// Format malinha items for WhatsApp
-export function formatMalinhaMessage(items, customerData) {
-    const itemsList = items
-        .map((item, index) => `${index + 1}. ${item.name} - Tam: ${item.selectedSize} - ${formatPrice(item.price)}`)
-        .join('\n')
+// Format percentage
+export function formatPercentage(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'percent',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(value / 100)
+}
 
-    const total = items.reduce((sum, item) => sum + item.price, 0)
+// Debounce function
+export function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
-    return `🦋 *STUDIO 30 CLOSET - Pedido de Malinha*
-
-👤 *Cliente:* ${customerData.name}
-📱 *Telefone:* ${customerData.phone}
-📍 *Endereço:* ${customerData.address}
-${customerData.complement ? `🏠 *Complemento:* ${customerData.complement}\n` : ''}
-📦 *Peças Selecionadas (${items.length}/20):*
-${itemsList}
-
-💰 *Valor Total das Peças:* ${formatPrice(total)}
-
-${customerData.notes ? `📝 *Observações:* ${customerData.notes}\n` : ''}
----
-Aguardo confirmação do envio da malinha! 💕`
+// Class name utility
+export function cn(...classes) {
+    return classes.filter(Boolean).join(' ')
 }

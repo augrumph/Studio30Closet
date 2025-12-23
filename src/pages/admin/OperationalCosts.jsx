@@ -48,55 +48,46 @@ export function OperationalCosts() {
 
     useEffect(() => {
         // Convert the array of fee objects to a map for easier handling in the UI
-        // Group fees by payment method and card brand
+        // Initialize with default values for all brands and payment methods
         const feesMap = {}
 
-        // Initialize default values
-        feesMap.pix = 0.99
-        feesMap.debit = 1.99
-        feesMap.creditVista = 3.49
-        feesMap.creditParcelado2x = 4.99
-        feesMap.creditParcelado3x = 5.49
-        feesMap.creditParcelado4x = 5.99
-        feesMap.creditParcelado5x = 6.49
-        feesMap.creditParcelado6x = 6.99
+        // All brands that need to have fees configured
+        const allBrands = ['visa', 'mastercard', 'amex', 'elo', 'pix', 'debito'];
+        // All payment methods
+        const paymentMethods = ['pix', 'debito', 'credito_vista', 'credito_2x', 'credito_3x', 'credito_4x', 'credito_5x', 'credito_6x'];
 
-        // Initialize brand-specific defaults
-        const cardBrands = ['visa', 'mastercard', 'amex', 'elo'];
-        const paymentMethods = ['credito_vista', 'credito_parcelado'];
-
-        cardBrands.forEach(brand => {
+        // Initialize all combinations to 0
+        allBrands.forEach(brand => {
             paymentMethods.forEach(method => {
-                feesMap[`${brand}_${method}`] = 0; // Default to 0 for brand-specific fees
+                feesMap[`${brand}_${method}`] = 0;
             });
         });
 
         // Override with actual values from the database
         paymentFees.forEach(fee => {
-            if (fee.payment_method === 'pix' && fee.card_brand === null) {
-                feesMap.pix = fee.fee_percentage
-            } else if ((fee.payment_method === 'debit' || fee.payment_method === 'debito') && fee.card_brand === null) {
-                feesMap.debit = fee.fee_percentage
-            } else if ((fee.payment_method === 'credito_vista' || fee.payment_method === 'credit_vista') && fee.card_brand === null) {
-                feesMap.creditVista = fee.fee_percentage
-            } else if ((fee.payment_method === 'credito_parcelado' || fee.payment_method === 'credit_parcelado') && fee.card_brand === null) {
+            // Determine the brand (card brand or null for general methods)
+            let brand = fee.card_brand || fee.payment_method;
+
+            // Determine the payment method
+            let method = fee.payment_method;
+
+            // Handle specific installment methods
+            if (fee.payment_method === 'credito_parcelado') {
                 if (fee.description && fee.description.includes('2x')) {
-                    feesMap.creditParcelado2x = fee.fee_percentage
+                    method = 'credito_2x';
                 } else if (fee.description && fee.description.includes('3x')) {
-                    feesMap.creditParcelado3x = fee.fee_percentage
+                    method = 'credito_3x';
                 } else if (fee.description && fee.description.includes('4x')) {
-                    feesMap.creditParcelado4x = fee.fee_percentage
+                    method = 'credito_4x';
                 } else if (fee.description && fee.description.includes('5x')) {
-                    feesMap.creditParcelado5x = fee.fee_percentage
+                    method = 'credito_5x';
                 } else {
-                    feesMap.creditParcelado6x = fee.fee_percentage // 6x+
+                    method = 'credito_6x'; // 6x+
                 }
-            } else if (fee.card_brand) {
-                // Handle brand-specific fees
-                const brand = fee.card_brand;
-                const method = fee.payment_method;
-                feesMap[`${brand}_${method}`] = fee.fee_percentage;
             }
+
+            // Set the fee value
+            feesMap[`${brand}_${method}`] = fee.fee_percentage;
         })
 
         setFees(feesMap)
@@ -127,30 +118,61 @@ export function OperationalCosts() {
 
     const handleSaveFees = async () => {
         // Convert the fees object back to an array of fee objects for the API
-        let feesArray = [
-            { payment_method: 'pix', card_brand: null, fee_percentage: fees.pix, description: 'Taxa para pagamentos com PIX' },
-            { payment_method: 'debit', card_brand: null, fee_percentage: fees.debit, description: 'Taxa para pagamentos com débito à vista' },
-            { payment_method: 'credito_vista', card_brand: null, fee_percentage: fees.creditVista, description: 'Taxa para pagamentos com crédito à vista' },
-            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado2x, description: 'Taxa para pagamentos com crédito em 2x' },
-            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado3x, description: 'Taxa para pagamentos com crédito em 3x' },
-            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado4x, description: 'Taxa para pagamentos com crédito em 4x' },
-            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado5x, description: 'Taxa para pagamentos com crédito em 5x' },
-            { payment_method: 'credito_parcelado', card_brand: null, fee_percentage: fees.creditParcelado6x, description: 'Taxa para pagamentos com crédito de 6x a 12x' }
-        ]
+        let feesArray = []
 
-        // Add brand-specific fees
-        const cardBrands = ['visa', 'mastercard', 'amex', 'elo'];
-        const paymentMethods = ['credito_vista', 'credito_parcelado'];
+        // All brands that need to have fees configured
+        const allBrands = ['visa', 'mastercard', 'amex', 'elo', 'pix', 'debito'];
+        // All payment methods
+        const paymentMethods = ['pix', 'debito', 'credito_vista', 'credito_2x', 'credito_3x', 'credito_4x', 'credito_5x', 'credito_6x'];
 
-        cardBrands.forEach(brand => {
+        allBrands.forEach(brand => {
             paymentMethods.forEach(method => {
-                const feeValue = fees[`${brand}_${method}`];
+                const feeKey = `${brand}_${method}`;
+                const feeValue = fees[feeKey];
+
                 if (feeValue !== undefined && feeValue !== null) {
+                    // Determine if this is a card brand (visa, mastercard, amex, elo) or general method
+                    const isCardBrand = ['visa', 'mastercard', 'amex', 'elo'].includes(brand);
+
+                    let paymentMethod = method;
+                    let cardBrand = null;
+
+                    // Map the internal method names to the actual payment methods
+                    if (method === 'credito_2x') {
+                        paymentMethod = 'credito_parcelado';
+                        cardBrand = isCardBrand ? brand : null;
+                    } else if (method === 'credito_3x') {
+                        paymentMethod = 'credito_parcelado';
+                        cardBrand = isCardBrand ? brand : null;
+                    } else if (method === 'credito_4x') {
+                        paymentMethod = 'credito_parcelado';
+                        cardBrand = isCardBrand ? brand : null;
+                    } else if (method === 'credito_5x') {
+                        paymentMethod = 'credito_parcelado';
+                        cardBrand = isCardBrand ? brand : null;
+                    } else if (method === 'credito_6x') {
+                        paymentMethod = 'credito_parcelado';
+                        cardBrand = isCardBrand ? brand : null;
+                    } else if (method === 'credito_vista') {
+                        paymentMethod = 'credito_vista';
+                        cardBrand = isCardBrand ? brand : null;
+                    } else if (method === 'debito') {
+                        paymentMethod = 'debito';
+                        cardBrand = isCardBrand ? brand : null;
+                    } else if (method === 'pix') {
+                        paymentMethod = 'pix';
+                        cardBrand = isCardBrand ? brand : null;
+                    } else {
+                        // Default case for other methods
+                        paymentMethod = method;
+                        cardBrand = isCardBrand ? brand : null;
+                    }
+
                     feesArray.push({
-                        payment_method: method,
-                        card_brand: brand,
+                        payment_method: paymentMethod,
+                        card_brand: cardBrand,
                         fee_percentage: feeValue,
-                        description: `Taxa para pagamentos com ${method} na bandeira ${brand}`
+                        description: `Taxa para ${method} ${cardBrand ? `na bandeira ${cardBrand}` : 'geral'}`
                     });
                 }
             });
@@ -291,170 +313,136 @@ export function OperationalCosts() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-5 md:p-6">
-                    <Tabs defaultValue="general" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 mb-6">
-                            <TabsTrigger value="general">Geral</TabsTrigger>
-                            <TabsTrigger value="brands">Por Bandeira</TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="general">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        PIX (%)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        name="pix"
-                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={fees.pix || 0.99}
-                                        onChange={handleFeesChange}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        Débito (%)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        name="debit"
-                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={fees.debit || 1.99}
-                                        onChange={handleFeesChange}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        Crédito à Vista (%)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        name="creditVista"
-                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={fees.creditVista || 3.49}
-                                        onChange={handleFeesChange}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        Crédito 2x (%)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        name="creditParcelado2x"
-                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={fees.creditParcelado2x || 4.99}
-                                        onChange={handleFeesChange}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        Crédito 3x (%)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        name="creditParcelado3x"
-                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={fees.creditParcelado3x || 5.49}
-                                        onChange={handleFeesChange}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        Crédito 4x (%)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        name="creditParcelado4x"
-                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={fees.creditParcelado4x || 5.99}
-                                        onChange={handleFeesChange}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        Crédito 5x (%)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        name="creditParcelado5x"
-                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={fees.creditParcelado5x || 6.49}
-                                        onChange={handleFeesChange}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        Crédito 6x+ (%)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        name="creditParcelado6x"
-                                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={fees.creditParcelado6x || 6.99}
-                                        onChange={handleFeesChange}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="mt-6 p-4 bg-blue-50 rounded-xl">
-                                <p className="text-sm text-blue-800 font-medium">
-                                    💡 <strong>Dica:</strong> Essas taxas serão calculadas automaticamente quando você registrar uma venda com cartão.
-                                </p>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="brands">
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {['visa', 'mastercard', 'amex', 'elo'].map((brand) => (
-                                        <div key={brand} className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                                            <h4 className="font-bold text-[#4A3B32] capitalize">{brand}</h4>
-                                            {['credito_vista', 'credito_parcelado'].map((method) => (
-                                                <div key={method} className="space-y-2">
-                                                    <label className="text-sm text-gray-600 font-medium">
-                                                        {method === 'credito_vista' ? 'Crédito à Vista' : 'Crédito Parcelado'}
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        max="100"
-                                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                                        placeholder="0.00"
-                                                        value={fees[`${brand}_${method}`] || 0}
-                                                        onChange={(e) => handleBrandFeeChange(brand, method, parseFloat(e.target.value) || 0)}
-                                                    />
-                                                    <span className="text-sm text-gray-400">Taxa percentual</span>
-                                                </div>
-                                            ))}
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {['visa', 'mastercard', 'amex', 'elo', 'pix', 'debito'].map((brand) => (
+                                <div key={brand} className="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                    <h4 className="font-bold text-[#4A3B32] capitalize">
+                                        {brand === 'debito' ? 'Débito' : brand}
+                                    </h4>
+                                    <div className="space-y-3">
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-600 font-medium block">PIX (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-bold text-[#4A3B32]"
+                                                placeholder="0.00"
+                                                value={fees[`${brand}_pix`] || 0}
+                                                onChange={(e) => handleBrandFeeChange(brand, 'pix', parseFloat(e.target.value) || 0)}
+                                            />
                                         </div>
-                                    ))}
-                                </div>
 
-                                <div className="p-4 bg-yellow-50 rounded-xl">
-                                    <p className="text-sm text-yellow-800 font-medium">
-                                        ⚠️ <strong>Importante:</strong> As taxas por bandeira substituem as taxas gerais quando uma bandeira específica é selecionada em uma venda.
-                                    </p>
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-600 font-medium block">Débito (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-bold text-[#4A3B32]"
+                                                placeholder="0.00"
+                                                value={fees[`${brand}_debito`] || 0}
+                                                onChange={(e) => handleBrandFeeChange(brand, 'debito', parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-600 font-medium block">Crédito à Vista (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-bold text-[#4A3B32]"
+                                                placeholder="0.00"
+                                                value={fees[`${brand}_credito_vista`] || 0}
+                                                onChange={(e) => handleBrandFeeChange(brand, 'credito_vista', parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-600 font-medium block">Crédito 2x (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-bold text-[#4A3B32]"
+                                                placeholder="0.00"
+                                                value={fees[`${brand}_credito_2x`] || 0}
+                                                onChange={(e) => handleBrandFeeChange(brand, 'credito_2x', parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-600 font-medium block">Crédito 3x (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-bold text-[#4A3B32]"
+                                                placeholder="0.00"
+                                                value={fees[`${brand}_credito_3x`] || 0}
+                                                onChange={(e) => handleBrandFeeChange(brand, 'credito_3x', parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-600 font-medium block">Crédito 4x (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-bold text-[#4A3B32]"
+                                                placeholder="0.00"
+                                                value={fees[`${brand}_credito_4x`] || 0}
+                                                onChange={(e) => handleBrandFeeChange(brand, 'credito_4x', parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-600 font-medium block">Crédito 5x (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-bold text-[#4A3B32]"
+                                                placeholder="0.00"
+                                                value={fees[`${brand}_credito_5x`] || 0}
+                                                onChange={(e) => handleBrandFeeChange(brand, 'credito_5x', parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-600 font-medium block">Crédito 6x+ (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-bold text-[#4A3B32]"
+                                                placeholder="0.00"
+                                                value={fees[`${brand}_credito_6x`] || 0}
+                                                onChange={(e) => handleBrandFeeChange(brand, 'credito_6x', parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
+                            ))}
+                        </div>
+
+                        <div className="p-4 bg-blue-50 rounded-xl">
+                            <p className="text-sm text-blue-800 font-medium">
+                                💡 <strong>Dica:</strong> Configure as taxas específicas para cada bandeira de cartão. Cada bandeira terá suas próprias taxas para PIX, débito e todos os tipos de crédito.
+                            </p>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 

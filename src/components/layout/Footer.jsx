@@ -1,8 +1,19 @@
-import { Link } from 'react-router-dom'
-import { Instagram, MessageCircle, Mail, MapPin } from 'lucide-react'
+import { Link } from 'react-router-dom';
+import { Instagram, MessageCircle, Mail, MapPin, Cookie } from 'lucide-react';
+import { useCookieContext } from '@/contexts/CookieContext';
 
 export function Footer() {
-    const currentYear = new Date().getFullYear()
+    const { setShowPreferencesModal } = useCookieContext();
+    const currentYear = new Date().getFullYear();
+
+    const navLinks = [
+        { name: 'Início', href: '/' },
+        { name: 'Catálogo', href: '/catalogo' },
+        { name: 'Como Funciona', href: '/como-funciona' },
+        { name: 'Sobre Nós', href: '/sobre' },
+        { name: 'Política de Privacidade', href: '/politica-de-privacidade' },
+        { name: 'Termos de Serviço', href: '/termos-de-servico' },
+    ];
 
     return (
         <footer className="bg-[#FDFBF7] relative overflow-hidden">
@@ -60,14 +71,7 @@ export function Footer() {
                             <span className="absolute -bottom-2 left-0 w-12 h-0.5 bg-[#C75D3B]" />
                         </h4>
                         <ul className="space-y-3">
-                            {[
-                                { name: 'Início', href: '/' },
-                                { name: 'Catálogo', href: '/catalogo' },
-                                { name: 'Como Funciona', href: '/como-funciona' },
-                                { name: 'Sobre Nós', href: '/sobre' },
-                                { name: 'Política de Privacidade', href: '/politica-de-privacidade' },
-                                { name: 'Termos de Serviço', href: '/termos-de-servico' },
-                            ].map((link) => (
+                            {navLinks.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         to={link.href}
@@ -79,6 +83,16 @@ export function Footer() {
                                     </Link>
                                 </li>
                             ))}
+                            <li>
+                                <button
+                                    onClick={() => setShowPreferencesModal(true)}
+                                    className="text-[#4A3B32]/70 hover:text-[#C75D3B] transition-all duration-300 text-base group inline-flex items-center gap-2"
+                                    style={{ letterSpacing: '0.02em' }}
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#C75D3B]/40 group-hover:bg-[#C75D3B] transition-colors duration-300" />
+                                    Preferências de Cookies
+                                </button>
+                            </li>
                         </ul>
                     </div>
 
@@ -201,5 +215,5 @@ export function Footer() {
                 </div>
             </div>
         </footer>
-    )
+    );
 }

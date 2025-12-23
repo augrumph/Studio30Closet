@@ -1,7 +1,8 @@
-import { Outlet } from 'react-router-dom'
-import { Header } from './Header'
-import { Footer } from './Footer'
-import { CookieConsent } from '@/components/CookieConsent'
+import { Outlet } from 'react-router-dom';
+import { Header } from './Header';
+import { Footer } from './Footer';
+import { CookieConsent } from '@/components/CookieConsent';
+import { CookiePreferencesModal } from '@/components/CookiePreferencesModal';
 
 export function Layout() {
     return (
@@ -12,6 +13,7 @@ export function Layout() {
             </main>
             <Footer />
             <CookieConsent />
+            <CookiePreferencesModal />
         </div>
-    )
+    );
 }

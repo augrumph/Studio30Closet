@@ -1,10 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { ShoppingBag, Menu, X, Shield, Cookie } from 'lucide-react'
+import { ShoppingBag, Menu, X } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { cn } from '@/lib/utils'
-import { useCookieContext } from '@/contexts/CookieContext'
-import { CookiePreferencesModal } from '@/components/CookiePreferencesModal'
 
 const navLinks = [
     { name: 'Início', href: '/' },
@@ -18,7 +16,6 @@ export function Header() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const location = useLocation()
     const itemsCount = useMalinhaStore((state) => state.items.length)
-    const { showPreferencesModal, setShowPreferencesModal } = useCookieContext()
 
     useEffect(() => {
         const handleScroll = () => {
@@ -89,18 +86,6 @@ export function Header() {
                                 )}
                             </Link>
                         ))}
-                        <button
-                            onClick={() => setShowPreferencesModal(true)}
-                            className="relative text-sm font-medium transition-all duration-500 py-1 group text-brand-brown/70 hover:text-brand-terracotta"
-                            style={{ letterSpacing: '0.05em' }}
-                            aria-label="Preferências de cookies"
-                        >
-                            <div className="flex items-center gap-1">
-                                <Cookie className="w-4 h-4" />
-                                <span>Cookies</span>
-                            </div>
-                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-brand-terracotta to-brand-coral rounded-full group-hover:w-full transition-all duration-500" />
-                        </button>
                     </div>
 
                     {/* Actions */}
@@ -199,10 +184,6 @@ export function Header() {
                     </Link>
                 </div>
             </div>
-            <CookiePreferencesModal
-                isOpen={showPreferencesModal}
-                onClose={() => setShowPreferencesModal(false)}
-            />
         </header>
     )
 }

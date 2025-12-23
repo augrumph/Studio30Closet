@@ -25,6 +25,7 @@ import {
     updateOrder,
     // finalizeMalinhaAsSale
 } from '@/lib/api'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { useOperationalCostsStore } from './operational-costs-store'
 
 export const useAdminStore = create((set, get) => ({
@@ -80,8 +81,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, product: newProduct }
         } catch (error) {
-            set({ productsError: error.message, productsLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ productsError: userFriendlyError, productsLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -97,8 +99,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, product: updatedProduct }
         } catch (error) {
-            set({ productsError: error.message, productsLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ productsError: userFriendlyError, productsLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -112,8 +115,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true }
         } catch (error) {
-            set({ productsError: error.message, productsLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ productsError: userFriendlyError, productsLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -128,8 +132,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true }
         } catch (error) {
-            set({ productsError: error.message, productsLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ productsError: userFriendlyError, productsLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -155,8 +160,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, order: newOrder }
         } catch (error) {
-            set({ ordersError: error.message, ordersLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ ordersError: userFriendlyError, ordersLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -172,8 +178,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, order: updatedOrder }
         } catch (error) {
-            set({ ordersError: error.message, ordersLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ ordersError: userFriendlyError, ordersLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -189,8 +196,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, order: updatedOrder }
         } catch (error) {
-            set({ ordersError: error.message, ordersLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ ordersError: userFriendlyError, ordersLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -206,8 +214,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, order: updatedOrder }
         } catch (error) {
-            set({ ordersError: error.message, ordersLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ ordersError: userFriendlyError, ordersLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -238,8 +247,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true }
         } catch (error) {
-            set({ ordersError: error.message, ordersLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ ordersError: userFriendlyError, ordersLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -272,8 +282,9 @@ export const useAdminStore = create((set, get) => ({
 
             return { success: true, venda: newVenda }
         } catch (error) {
-            set({ vendasError: error.message, vendasLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ vendasError: userFriendlyError, vendasLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -290,8 +301,9 @@ export const useAdminStore = create((set, get) => ({
             get().loadProducts()
             return { success: true, venda: updatedVenda }
         } catch (error) {
-            set({ vendasError: error.message, vendasLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ vendasError: userFriendlyError, vendasLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -306,8 +318,9 @@ export const useAdminStore = create((set, get) => ({
             get().loadProducts()
             return { success: true }
         } catch (error) {
-            set({ vendasError: error.message, vendasLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ vendasError: userFriendlyError, vendasLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -333,8 +346,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, coupon: newCoupon }
         } catch (error) {
-            set({ couponsError: error.message, couponsLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ couponsError: userFriendlyError, couponsLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -350,8 +364,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, coupon: updatedCoupon }
         } catch (error) {
-            set({ couponsError: error.message, couponsLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ couponsError: userFriendlyError, couponsLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -365,8 +380,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true }
         } catch (error) {
-            set({ couponsError: error.message, couponsLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ couponsError: userFriendlyError, couponsLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -397,9 +413,10 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, customer: newCustomer }
         } catch (error) {
+            const userFriendlyError = formatUserFriendlyError(error);
             console.error('Store: Error adding customer:', error);
-            set({ customersError: error.message, customersLoading: false })
-            return { success: false, error: error.message }
+            set({ customersError: userFriendlyError, customersLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -417,9 +434,10 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true, customer: updatedCustomer }
         } catch (error) {
+            const userFriendlyError = formatUserFriendlyError(error);
             console.error('Store: Error editing customer:', error);
-            set({ customersError: error.message, customersLoading: false })
-            return { success: false, error: error.message }
+            set({ customersError: userFriendlyError, customersLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 
@@ -433,8 +451,9 @@ export const useAdminStore = create((set, get) => ({
             }))
             return { success: true }
         } catch (error) {
-            set({ customersError: error.message, customersLoading: false })
-            return { success: false, error: error.message }
+            const userFriendlyError = formatUserFriendlyError(error);
+            set({ customersError: userFriendlyError, customersLoading: false })
+            return { success: false, error: userFriendlyError }
         }
     },
 

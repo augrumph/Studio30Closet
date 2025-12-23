@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Check, Eye, ShoppingBag } from 'lucide-react'
+import { Plus, Check, Eye, ShoppingBag, Trash2 } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
 
@@ -8,27 +8,43 @@ export function ProductCard({ product, onQuickView }) {
     const [isAdding, setIsAdding] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
     const [showActions, setShowActions] = useState(false)
-    const { addItem, items, isLimitReached } = useMalinhaStore()
+    const { addItem, removeItem, items, isLimitReached } = useMalinhaStore()
 
     const hasDiscount = product.originalPrice && product.originalPrice > product.price
     const discountPercent = hasDiscount
         ? Math.round((1 - product.price / product.originalPrice) * 100)
         : 0
 
-    const handleAddToMalinha = (e) => {
+    const handleAddOrRemoveFromMalinha = (e) => {
         e.stopPropagation()
-        if (isLimitReached()) return
 
-        setIsAdding(true)
-        setTimeout(() => {
-            addItem(product, selectedSize)
-            setIsAdding(false)
-            setIsAdded(true)
+        const itemInMalinha = items.some(item => item.id === product.id)
+
+        if (itemInMalinha) {
+            // Remover da mala
+            const itemToRemove = items.find(item => item.id === product.id)
+            if (itemToRemove) {
+                removeItem(itemToRemove.itemId)
+                setIsAdded(true)
+                setTimeout(() => {
+                    setIsAdded(false)
+                }, 1500)
+            }
+        } else {
+            // Adicionar à mala
+            if (isLimitReached()) return
+
+            setIsAdding(true)
             setTimeout(() => {
-                setIsAdded(false)
-                setShowActions(false)
-            }, 1500)
-        }, 300)
+                addItem(product, selectedSize)
+                setIsAdding(false)
+                setIsAdded(true)
+                setTimeout(() => {
+                    setIsAdded(false)
+                    setShowActions(false)
+                }, 1500)
+            }, 300)
+        }
     }
 
     const handleCardClick = () => {
@@ -131,14 +147,14 @@ export function ProductCard({ product, onQuickView }) {
 
                     {/* Add to Malinha Button */}
                     <button
-                        onClick={handleAddToMalinha}
-                        disabled={isAdding || isLimitReached() || itemInMalinha}
+                        onClick={handleAddOrRemoveFromMalinha}
+                        disabled={isAdding || (isLimitReached() && !itemInMalinha)}
                         className={cn(
                             'w-full py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2 transition-all duration-300',
                             isAdded
                                 ? 'bg-green-500 text-white'
                                 : itemInMalinha
-                                    ? 'bg-brand-peach text-brand-brown cursor-default'
+                                    ? 'bg-red-500 text-white hover:bg-red-600'
                                     : 'bg-white text-brand-brown hover:bg-brand-terracotta hover:text-white active:bg-brand-rust',
                             (isLimitReached() && !itemInMalinha) && 'opacity-50 cursor-not-allowed'
                         )}
@@ -148,14 +164,14 @@ export function ProductCard({ product, onQuickView }) {
                         ) : isAdded ? (
                             <>
                                 <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                <span className="hidden sm:inline">Adicionado!</span>
-                                <span className="sm:hidden">OK!</span>
+                                <span className="hidden sm:inline">Concluído!</span>
+                                <span className="sm:hidden">✓</span>
                             </>
                         ) : itemInMalinha ? (
                             <>
-                                <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                <span className="hidden sm:inline">Na Malinha</span>
-                                <span className="sm:hidden">✓</span>
+                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span className="hidden sm:inline">Remover</span>
+                                <span className="sm:hidden">-</span>
                             </>
                         ) : (
                             <>

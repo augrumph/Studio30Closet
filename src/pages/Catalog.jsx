@@ -1,4 +1,4 @@
-import { ProductCard, ProductModal, ProductFilters } from '@/components/catalog'
+import { ProductCard, ProductModal, ProductFilters, SkeletonCard } from '@/components/catalog'
 import { useAdminStore } from '@/store/admin-store'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { useEffect, useState, useMemo } from 'react'
@@ -9,7 +9,7 @@ export function Catalog() {
     const [searchParams, setSearchParams] = useSearchParams()
     const [selectedProduct, setSelectedProduct] = useState(null)
     const [showMobileFilters, setShowMobileFilters] = useState(false)
-    const { products, loadProducts } = useAdminStore()
+    const { products, loadProducts, productsLoading } = useAdminStore()
 
     useEffect(() => {
         loadProducts()
@@ -85,7 +85,13 @@ export function Catalog() {
 
                     {/* Products Grid */}
                     <div className="md:col-span-3">
-                        {filteredProducts.length > 0 ? (
+                        {productsLoading ? (
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                                {Array.from({ length: 6 }).map((_, index) => (
+                                    <SkeletonCard key={`skeleton-${index}`} />
+                                ))}
+                            </div>
+                        ) : filteredProducts.length > 0 ? (
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                                 {filteredProducts.map((product) => (
                                     <ProductCard

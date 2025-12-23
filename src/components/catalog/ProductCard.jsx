@@ -1,9 +1,9 @@
-import { useState, memo } from 'react'
+import { useState } from 'react'
 import { Plus, Check, Eye, ShoppingBag, Trash2 } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
 
-const ProductCard = memo(({ product, onQuickView }) => {
+export function ProductCard({ product, onQuickView }) {
     const [selectedSize, setSelectedSize] = useState(product.sizes[0])
     const [isAdding, setIsAdding] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
@@ -206,5 +206,3 @@ const ProductCard = memo(({ product, onQuickView }) => {
         </div>
     )
 }
-
-export { ProductCard }

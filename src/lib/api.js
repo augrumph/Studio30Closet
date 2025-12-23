@@ -891,6 +891,13 @@ export async function deletePaymentFee(id) {
     return true;
 }
 
+// Delete all payment fees
+export async function deleteAllPaymentFees() {
+    const { error } = await supabase.from('payment_fees').delete().neq('id', 0);
+    if (error) throw error;
+    return true;
+}
+
 // Buscar taxa específica por método e bandeira
 export async function getPaymentFee(paymentMethod, cardBrand = null) {
     let query = supabase.from('payment_fees').select('*').eq('payment_method', paymentMethod);

@@ -63,46 +63,58 @@ export const useOperationalCostsStore = create((set, get) => ({
         }
     },
 
-    // Calcular taxa baseado no método de pagamento
-    calculateFee: (value, paymentMethod, parcelas = 1) => {
+    // Calcular taxa baseado no método de pagamento e bandeira
+    calculateFee: (value, paymentMethod, cardBrand = null, parcelas = 1) => {
         const fees = get().paymentFees
+
+        // First, try to find a specific fee for the payment method and card brand
         let feePercentage = 0
+        let specificFee = null
 
-        // Convert the array of fee objects to a map for easier lookup
-        const feesMap = {}
-        fees.forEach(fee => {
-            if (fee.payment_type === 'debit') feesMap.debit = fee.fee_percentage
-            else if (fee.payment_type === 'credit_vista') feesMap.creditVista = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_2x') feesMap.creditParcelado2x = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_3x') feesMap.creditParcelado3x = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_4x') feesMap.creditParcelado4x = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_5x') feesMap.creditParcelado5x = fee.fee_percentage
-            else if (fee.payment_type === 'credit_parcelado_6x') feesMap.creditParcelado6x = fee.fee_percentage
-            else if (fee.payment_type === 'pix') feesMap.pix = fee.fee_percentage
-        })
+        // Look for a specific fee for this payment method and card brand
+        if (cardBrand) {
+            specificFee = fees.find(fee =>
+                fee.payment_method === paymentMethod &&
+                fee.card_brand === cardBrand
+            )
+        }
 
-        switch(paymentMethod) {
-            case 'debit':
-            case 'debito':
-                feePercentage = feesMap.debit || 1.99
-                break
-            case 'pix':
-                feePercentage = feesMap.pix || 0.99
-                break
-            case 'credito_vista':
-            case 'credit_vista':
-                feePercentage = feesMap.creditVista || 3.49
-                break
-            case 'credito_parcelado':
-            case 'credit_parcelado':
-                if (parcelas === 2) feePercentage = feesMap.creditParcelado2x || 4.99
-                else if (parcelas === 3) feePercentage = feesMap.creditParcelado3x || 5.49
-                else if (parcelas === 4) feePercentage = feesMap.creditParcelado4x || 5.99
-                else if (parcelas === 5) feePercentage = feesMap.creditParcelado5x || 6.49
-                else feePercentage = feesMap.creditParcelado6x || 6.99
-                break
-            default:
-                feePercentage = 0
+        // If no specific fee found, look for a general fee for this payment method
+        if (!specificFee) {
+            specificFee = fees.find(fee =>
+                fee.payment_method === paymentMethod &&
+                fee.card_brand === null
+            )
+        }
+
+        // If we found a specific fee, use it
+        if (specificFee) {
+            feePercentage = specificFee.fee_percentage
+        } else {
+            // Default values based on payment method
+            switch(paymentMethod) {
+                case 'pix':
+                    feePercentage = 0.99
+                    break
+                case 'debit':
+                case 'debito':
+                    feePercentage = 1.99
+                    break
+                case 'credito_vista':
+                case 'credit_vista':
+                    feePercentage = 3.49
+                    break
+                case 'credito_parcelado':
+                case 'credit_parcelado':
+                    if (parcelas === 2) feePercentage = 4.99
+                    else if (parcelas === 3) feePercentage = 5.49
+                    else if (parcelas === 4) feePercentage = 5.99
+                    else if (parcelas === 5) feePercentage = 6.49
+                    else feePercentage = 6.99
+                    break
+                default:
+                    feePercentage = 0
+            }
         }
 
         const feeValue = (value * feePercentage) / 100

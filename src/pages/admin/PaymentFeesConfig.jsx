@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Save, CreditCard, DollarSign } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { getPaymentFees, createPaymentFee, updatePaymentFee, deleteAllPaymentFees } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -36,12 +36,7 @@ export function PaymentFeesConfig() {
 
     const loadFees = async () => {
         try {
-            const { data, error } = await supabase
-                .from('payment_fees')
-                .select('*')
-                .order('payment_method', { ascending: true })
-
-            if (error) throw error
+            const data = await getPaymentFees()
             setFees(data || [])
         } catch (error) {
             console.error('Erro ao carregar taxas:', error)
@@ -87,22 +82,20 @@ export function PaymentFeesConfig() {
     const handleSave = async () => {
         setSaving(true)
         try {
-            // Deletar todas as taxas existentes
-            await supabase.from('payment_fees').delete().neq('id', 0)
+            // Delete all existing fees first
+            await deleteAllPaymentFees();
 
-            // Inserir todas as taxas atualizadas
-            const { error } = await supabase
-                .from('payment_fees')
-                .insert(fees.map(f => ({
-                    payment_method: f.payment_method,
-                    card_brand: f.card_brand,
-                    fee_percentage: f.fee_percentage,
-                    fee_fixed: f.fee_fixed || 0,
-                    is_active: f.is_active !== false,
-                    description: `${f.payment_method} - ${f.card_brand || 'Geral'}`
-                })))
-
-            if (error) throw error
+            // Create all fees from our state
+            for (const fee of fees) {
+                await createPaymentFee({
+                    payment_method: fee.payment_method,
+                    card_brand: fee.card_brand,
+                    fee_percentage: fee.fee_percentage,
+                    fee_fixed: fee.fee_fixed || 0,
+                    is_active: fee.is_active !== false,
+                    description: fee.description || `${fee.payment_method} - ${fee.card_brand || 'Geral'}`
+                })
+            }
 
             toast.success('Taxas salvas com sucesso!')
             await loadFees()

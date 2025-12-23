@@ -18,7 +18,7 @@ export function Header() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const location = useLocation()
     const itemsCount = useMalinhaStore((state) => state.items.length)
-    const { setShowPreferencesModal } = useCookieContext()
+    const { showPreferencesModal, setShowPreferencesModal } = useCookieContext()
 
     useEffect(() => {
         const handleScroll = () => {

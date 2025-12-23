@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Layout } from '@/components/layout'
 import { Home, Catalog, HowItWorks, About, Checkout } from '@/pages'
+import { PrivacyPolicy, TermsOfService } from '@/pages'
 import { ScrollToTop } from '@/components/ScrollToTop'
 
 // Admin imports
@@ -42,6 +43,8 @@ function App() {
                     <Route path="como-funciona" element={<HowItWorks />} />
                     <Route path="sobre" element={<About />} />
                     <Route path="malinha" element={<Checkout />} />
+                    <Route path="politica-de-privacidade" element={<PrivacyPolicy />} />
+                    <Route path="termos-de-servico" element={<TermsOfService />} />
                     <Route path="test-supabase" element={<SupabaseTester />} />
                     <Route path="test-migration" element={<SupabaseMigrationTester />} />
                 </Route>

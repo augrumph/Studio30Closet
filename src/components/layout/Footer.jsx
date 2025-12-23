@@ -65,6 +65,8 @@ export function Footer() {
                                 { name: 'Catálogo', href: '/catalogo' },
                                 { name: 'Como Funciona', href: '/como-funciona' },
                                 { name: 'Sobre Nós', href: '/sobre' },
+                                { name: 'Política de Privacidade', href: '/politica-de-privacidade' },
+                                { name: 'Termos de Serviço', href: '/termos-de-servico' },
                             ].map((link) => (
                                 <li key={link.href}>
                                     <Link

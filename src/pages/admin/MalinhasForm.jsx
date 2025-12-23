@@ -193,7 +193,7 @@ export function MalinhasForm() {
                                                         TAM: {item.selectedSize}
                                                     </span>
                                                     <span className="text-xs font-bold text-[#C75D3B]">
-                                                        R$ {item.price.toLocaleString('pt-BR')}
+                                                        R$ {(item.price || 0).toLocaleString('pt-BR')}
                                                     </span>
                                                 </div>
                                             </div>
@@ -449,7 +449,7 @@ export function MalinhasForm() {
                                                         {p.stock > 0 ? `${p.stock} em estoque` : 'Esgotado'}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-sm font-bold text-[#C75D3B]">R$ {p.price.toLocaleString('pt-BR')}</p>
+                                                <p className="text-sm font-bold text-[#C75D3B]">R$ {(p.price || 0).toLocaleString('pt-BR')}</p>
 
                                                 <div className="mt-3 flex flex-wrap gap-2">
                                                     {(p.sizes || []).map(size => (

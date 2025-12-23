@@ -176,7 +176,7 @@ export function ProductsList() {
                                             </td>
                                             <td className="px-8 py-6 text-right">
                                                 <span className="text-sm font-bold text-[#4A3B32]">
-                                                    R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    R$ {(product.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6 text-right">

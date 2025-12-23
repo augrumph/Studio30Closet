@@ -146,7 +146,7 @@ export function MalinhasDetail() {
                                 {currentStatus.label}
                             </span>
                         </div>
-                        <p className="text-[#4A3B32]/40 font-medium italic">Gerado em {new Date(order.createdAt).toLocaleString('pt-BR')}</p>
+                        <p className="text-[#4A3B32]/40 font-medium italic">Gerado em {order.createdAt ? new Date(order.createdAt).toLocaleString('pt-BR') : 'Data desconhecida'}</p>
                     </div>
                 </div>
 
@@ -199,7 +199,7 @@ export function MalinhasDetail() {
                                         </div>
                                         <div className="flex items-center gap-6">
                                             <div className="text-right">
-                                                <p className="text-xl font-bold text-[#4A3B32]">R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-xl font-bold text-[#4A3B32]">R$ ${(item.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                             </div>
 
                                             <div className="flex bg-gray-100 p-1 rounded-2xl gap-1">
@@ -237,7 +237,7 @@ export function MalinhasDetail() {
                                 </div>
                                 <div className="flex items-center gap-8">
                                     <span className="text-3xl font-display font-bold text-[#C75D3B]">
-                                        R$ {order.items.filter((_, i) => keptItems.includes(i)).reduce((s, it) => s + it.price, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        R$ {(order.items.filter((_, i) => keptItems.includes(i)).reduce((s, it) => s + (it.price || 0), 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </span>
                                     <button
                                         onClick={handleFinalizeSale}

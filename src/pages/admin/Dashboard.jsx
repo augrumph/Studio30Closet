@@ -185,7 +185,7 @@ export function Dashboard() {
                             "text-2xl md:text-3xl font-display font-bold text-[#4A3B32] mb-1.5 md:mb-2",
                             stat.alert && financialMetrics.pendingCrediario > 0 && "text-red-500"
                         )}>
-                            R$ {stat.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {(stat.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </h3>
                         <p className="text-xs text-gray-400 font-medium italic line-clamp-1">{stat.description}</p>
                     </motion.div>
@@ -224,7 +224,7 @@ export function Dashboard() {
                                         >
                                             {day.value > 0 && (
                                                 <div className="absolute -top-8 md:-top-10 left-1/2 -translate-x-1/2 bg-[#4A3B32] text-white text-[8px] md:text-[9px] font-bold py-1 px-1.5 md:px-2 rounded-lg opacity-0 group-active:opacity-100 md:group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
-                                                    R$ {day.value.toLocaleString('pt-BR')}
+                                                    R$ {(day.value || 0).toLocaleString('pt-BR')}
                                                 </div>
                                             )}
                                         </motion.div>
@@ -262,7 +262,7 @@ export function Dashboard() {
                                         <p className="text-xs text-gray-400 font-medium">{p.quantity} unidades vendidas</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-black text-[#C75D3B] text-sm">R$ {p.revenue.toLocaleString('pt-BR')}</p>
+                                        <p className="font-black text-[#C75D3B] text-sm">R$ {(p.revenue || 0).toLocaleString('pt-BR')}</p>
                                         <div className="flex items-center justify-end gap-1 mt-0.5">
                                             <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
                                             <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">Top {idx + 1}</span>
@@ -311,7 +311,7 @@ export function Dashboard() {
                                 </div>
                                 <div className="mt-3 md:mt-0 flex items-center justify-between md:justify-end gap-3 md:gap-10">
                                     <div className="text-left md:text-right">
-                                        <p className="font-black text-[#4A3B32] text-lg md:text-xl">R$ {venda.totalValue.toLocaleString('pt-BR')}</p>
+                                        <p className="font-black text-[#4A3B32] text-lg md:text-xl">R$ {(venda.totalValue || 0).toLocaleString('pt-BR')}</p>
                                         <p className="text-[9px] md:text-[10px] text-gray-300 font-bold uppercase tracking-tight">{new Date(venda.createdAt).toLocaleDateString('pt-BR')}</p>
                                     </div>
                                     <div className={cn(
@@ -345,7 +345,7 @@ export function Dashboard() {
                                 <div className="space-y-3 md:space-y-4">
                                     <div className="flex justify-between items-end">
                                         <div>
-                                            <p className="text-3xl md:text-4xl font-display font-bold">R$ {financialMetrics.totalSales.toLocaleString('pt-BR')}</p>
+                                            <p className="text-3xl md:text-4xl font-display font-bold">R$ {(financialMetrics.totalSales || 0).toLocaleString('pt-BR')}</p>
                                             <p className="text-[10px] md:text-xs text-white/30 font-medium">Acumulado do período</p>
                                         </div>
                                         <div className="text-right">
@@ -362,7 +362,7 @@ export function Dashboard() {
                                         />
                                     </div>
                                     <p className="text-center text-[9px] md:text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] md:tracking-[0.3em]">
-                                        Faltam R$ {(50000 - financialMetrics.totalSales).toLocaleString('pt-BR')} para o próximo nível
+                                        Faltam R$ {(50000 - (financialMetrics.totalSales || 0)).toLocaleString('pt-BR')} para o próximo nível
                                     </p>
                                 </div>
 

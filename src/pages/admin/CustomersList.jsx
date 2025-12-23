@@ -23,7 +23,7 @@ export function CustomersList() {
         (customer.email && customer.email.toLowerCase().includes(search.toLowerCase()))
     )
 
-    const totalSpent = customers.reduce((acc, curr) => acc + curr.totalSpent, 0)
+    const totalSpent = customers.reduce((acc, curr) => acc + (curr.totalSpent || 0), 0)
     const averageLTV = customers.length > 0 ? totalSpent / customers.length : 0
 
     const handleDelete = (id, name) => {
@@ -82,7 +82,7 @@ export function CustomersList() {
                             </div>
                             <div>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LTV Médio</p>
-                                <p className="text-2xl font-display font-bold text-[#4A3B32]">R$ {averageLTV.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+                                <p className="text-2xl font-display font-bold text-[#4A3B32]">R$ {(averageLTV || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -110,7 +110,7 @@ export function CustomersList() {
                             </div>
                             <div>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Receita Total</p>
-                                <p className="text-2xl font-display font-bold text-[#4A3B32]">R$ {totalSpent.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+                                <p className="text-2xl font-display font-bold text-[#4A3B32]">R$ {(totalSpent || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -178,7 +178,7 @@ export function CustomersList() {
                                             </td>
                                             <td className="px-8 py-6 text-right">
                                                 <span className="font-bold text-[#4A3B32] text-sm">
-                                                    R$ {customer.totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    R$ {(customer.totalSpent || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6">

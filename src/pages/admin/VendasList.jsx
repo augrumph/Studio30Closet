@@ -88,7 +88,7 @@ export function VendasList() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            R$ {totalRevenue.toLocaleString('pt-BR')}
+                            R$ {(totalRevenue || 0).toLocaleString('pt-BR')}
                             <p className="text-xs text-emerald-600 font-medium mt-1">+12% em relação ao mês anterior</p>
                         </CardContent>
                     </Card>
@@ -104,7 +104,7 @@ export function VendasList() {
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-baseline gap-1 text-3xl font-display font-bold text-[#4A3B32]">
-                                R$ {pendingFiado.toLocaleString('pt-BR')}
+                                R$ {(pendingFiado || 0).toLocaleString('pt-BR')}
                             </div>
                             <p className="text-xs text-amber-600 font-medium mt-1">Aguardando liquidação</p>
                         </CardContent>
@@ -147,7 +147,7 @@ export function VendasList() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-3xl font-display font-bold text-red-600">
-                                R$ {valorDevedores.toLocaleString('pt-BR')}
+                                R$ {(valorDevedores || 0).toLocaleString('pt-BR')}
                             </div>
                             <p className="text-xs text-red-500 font-medium mt-1">
                                 {totalDevedores} {totalDevedores === 1 ? 'venda pendente' : 'vendas pendentes'}
@@ -283,7 +283,7 @@ export function VendasList() {
                                             </td>
                                             <td className="px-8 py-6 text-right">
                                                 <span className="font-bold text-[#4A3B32] text-sm">
-                                                    R$ {venda.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    R$ {(venda.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6 text-center md:text-left">

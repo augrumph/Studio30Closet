@@ -146,7 +146,7 @@ export function CouponsList() {
                                             </td>
                                             <td className="px-8 py-6">
                                                 <span className="text-sm font-bold text-[#C75D3B]">
-                                                    {coupon.type === 'percent' ? `${coupon.value}%` : `R$ ${coupon.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                                    {coupon.type === 'percent' ? `${coupon.value}%` : `R$ ${(coupon.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6 text-center">

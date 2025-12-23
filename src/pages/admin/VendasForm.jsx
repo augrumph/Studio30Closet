@@ -131,7 +131,7 @@ export function VendasForm() {
             totalValue: prev.totalValue + product.price
         }))
         toast.success(`${product.name} adicionado à venda.`, {
-            description: `Valor: R$ ${product.price.toLocaleString('pt-BR')}`
+            description: `Valor: R$ ${(product.price || 0).toLocaleString('pt-BR')}`
         })
     }
 
@@ -178,7 +178,7 @@ export function VendasForm() {
 
             // Validar valor mínimo
             if (coupon.minPurchase && formData.totalValue < coupon.minPurchase) {
-                toast.error(`Valor mínimo para este cupom: R$ ${coupon.minPurchase.toLocaleString('pt-BR')}`)
+                toast.error(`Valor mínimo para este cupom: R$ ${(coupon.minPurchase || 0).toLocaleString('pt-BR')}`)
                 setCouponLoading(false)
                 return
             }
@@ -198,7 +198,7 @@ export function VendasForm() {
             }))
 
             toast.success(`Cupom ${code} aplicado!`, {
-                description: `Desconto de R$ ${discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                description: `Desconto de R$ ${(discount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
             })
             setCouponInput('')
         } catch (error) {
@@ -404,7 +404,7 @@ export function VendasForm() {
                                                     <span className="text-xs text-gray-400">Em estoque: {p.stock || 0}</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <span className="font-bold text-[#C75D3B] block font-display">R$ {p.price.toLocaleString('pt-BR')}</span>
+                                                    <span className="font-bold text-[#C75D3B] block font-display">R$ ${(p.price || 0).toLocaleString('pt-BR')}</span>
                                                     <div className="flex items-center justify-end gap-1.5 mt-0.5">
                                                         <div className={cn(
                                                             "w-1.5 h-1.5 rounded-full",
@@ -445,7 +445,7 @@ export function VendasForm() {
                                             </div>
                                             <div className="flex items-center gap-6">
                                                 <div className="text-right">
-                                                    <p className="font-bold text-[#4A3B32]">R$ {item.price.toLocaleString('pt-BR')}</p>
+                                                    <p className="font-bold text-[#4A3B32]">R$ ${(item.price || 0).toLocaleString('pt-BR')}</p>
                                                 </div>
                                                 <button
                                                     type="button"
@@ -635,21 +635,21 @@ export function VendasForm() {
                                     {/* Subtotal */}
                                     <div className="flex justify-between items-center text-[#4A3B32]/60 text-sm">
                                         <span className="font-medium">Subtotal</span>
-                                        <span className="font-bold">R$ {formData.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-bold">R$ ${(formData.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                     </div>
 
                                     {/* Desconto */}
                                     {formData.discountAmount > 0 && (
                                         <div className="flex justify-between items-center text-emerald-600 text-sm">
                                             <span className="font-medium">Desconto</span>
-                                            <span className="font-bold">- R$ {formData.discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                            <span className="font-bold">- R$ ${(formData.discountAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                     )}
 
                                     {/* Total cobrado do cliente */}
                                     <div className="flex justify-between items-center text-[#4A3B32] text-base pt-2 border-t border-gray-100">
                                         <span className="font-bold">Valor da Venda</span>
-                                        <span className="font-bold text-lg">R$ {(formData.totalValue - formData.discountAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-bold text-lg">R$ {((formData.totalValue || 0) - (formData.discountAmount || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                     </div>
 
                                     {/* Taxa da maquininha */}
@@ -663,7 +663,7 @@ export function VendasForm() {
                                                 <CreditCard className="w-3.5 h-3.5" />
                                                 <span className="font-medium">Taxa ({feeInfo.feePercentage}%)</span>
                                             </div>
-                                            <span className="font-bold">- R$ {feeInfo.feeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                            <span className="font-bold">- R$ ${(feeInfo.feeValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                         </motion.div>
                                     )}
                                 </div>
@@ -675,10 +675,10 @@ export function VendasForm() {
                                             {feeInfo.feeValue > 0 && formData.paymentStatus !== 'pending' ? 'Valor Líquido Recebido' : 'Total da Venda'}
                                         </p>
                                         <p className="text-3xl font-display font-bold text-[#4A3B32]">
-                                            R$ {(feeInfo.feeValue > 0 && formData.paymentStatus !== 'pending'
+                                            R$ {((feeInfo.feeValue > 0 && formData.paymentStatus !== 'pending'
                                                 ? feeInfo.netValue
-                                                : formData.totalValue - formData.discountAmount
-                                            ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                : (formData.totalValue || 0) - (formData.discountAmount || 0)
+                                            ) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </p>
                                     </div>
                                     <div className="text-right">

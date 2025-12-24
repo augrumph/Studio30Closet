@@ -258,7 +258,7 @@ export function Home() {
                         </motion.div>
 
                         {/* Testimonials Bento Grid */}
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                        <div className="grid md:grid-cols-2 lxg:grid-cols-3 gap-6 max-w-7xl mx-auto">
                             {[
                                 {
                                     text: "A facilidade de provar em casa mudou tudo! As peças chegaram impecáveis e o acabamento é de uma qualidade incrível.",

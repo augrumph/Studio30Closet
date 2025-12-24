@@ -22,15 +22,29 @@ export function MalinhasDetail() {
         const orderInStore = getOrderById(id);
 
         const loadOrderData = async () => {
-            let orderData = orderInStore;
-            if (!orderInStore || !orderInStore.items) {
-                orderData = await fetchOrder(id);
-            }
-            setOrder(orderData);
+            try {
+                let orderData = orderInStore;
+                if (!orderInStore || !orderInStore.items) {
+                    console.log('📥 Buscando ordem do servidor:', id);
+                    orderData = await fetchOrder(id);
+                    console.log('✅ Ordem carregada:', orderData);
+                }
 
-            if (orderData && orderData.customer?.id) {
-                const preferences = await loadCustomerPreferences(orderData.customer.id);
-                setCustomerPreferences(preferences);
+                if (!orderData) {
+                    console.warn('⚠️ Nenhuma ordem encontrada para ID:', id);
+                    return;
+                }
+
+                setOrder(orderData);
+
+                if (orderData && orderData.customer?.id) {
+                    const preferences = await loadCustomerPreferences(orderData.customer.id);
+                    setCustomerPreferences(preferences);
+                }
+            } catch (error) {
+                console.error('❌ Erro ao carregar ordem:', error);
+                // Mostrar erro mas não quebrar a página
+                setOrder(null);
             }
         };
 

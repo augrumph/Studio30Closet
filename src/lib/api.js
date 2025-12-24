@@ -20,7 +20,7 @@ function toSnakeCase(obj) {
     return snakeObj;
 }
 
-// Converter snake_case para camelCase
+// Converter snake_case para camelCase - VERSÃO MELHORADA
 function toCamelCase(obj) {
     if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
 
@@ -31,9 +31,23 @@ function toCamelCase(obj) {
     const camelObj = {};
     for (const [key, value] of Object.entries(obj)) {
         const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-        camelObj[camelKey] = typeof value === 'object' && !Array.isArray(value) && value !== null
-            ? toCamelCase(value)
-            : value;
+
+        // Recursivamente converter objetos e arrays
+        if (value === null || value === undefined) {
+            camelObj[camelKey] = value;
+        } else if (Array.isArray(value)) {
+            // Se é um array, converter cada item
+            camelObj[camelKey] = value.map(item => {
+                if (typeof item === 'object') return toCamelCase(item);
+                return item;
+            });
+        } else if (typeof value === 'object') {
+            // Se é um objeto, converter recursivamente
+            camelObj[camelKey] = toCamelCase(value);
+        } else {
+            // Valores primitivos
+            camelObj[camelKey] = value;
+        }
     }
     return camelObj;
 }
@@ -232,51 +246,101 @@ export async function getOrderById(id) {
 
     console.log('✅ Raw order data:', data);
     console.log('📦 Order items count:', data.order_items?.length || 0);
+    console.log('📦 Raw order_items:', data.order_items);
+    if (data.order_items && data.order_items.length > 0) {
+        console.log('📦 Primeiro item RAW:', data.order_items[0]);
+    }
 
     const camelData = toCamelCase(data);
 
-    // Mapear order_items para items com informações do produto
+    console.log('📦 Camel cased order_items:', camelData.orderItems);
+    if (camelData.orderItems && camelData.orderItems.length > 0) {
+        console.log('📦 Primeiro item CAMELCASE:', camelData.orderItems[0]);
+        console.log('📦 productId do primeiro:', camelData.orderItems[0].productId);
+    }
+
+    // Mapear order_items para items com informações completas do produto
     if (camelData.orderItems && camelData.orderItems.length > 0) {
         console.log('🔄 Processing order items...');
 
-        // Buscar informações dos produtos
-        const productIds = [...new Set(camelData.orderItems.map(item => item.productId))];
-        console.log('📦 Fetching product data for IDs:', productIds);
+        // Buscar informações completas dos produtos
+        const productIds = [...new Set(camelData.orderItems.map(item => item.productId).filter(id => id))];
+
+        console.log('📦 Product IDs encontrados:', productIds);
 
         let products = {};
+
+        // Se encontrou product_ids, buscar dados dos produtos
         if (productIds.length > 0) {
+            console.log('📦 Fetching product data for IDs:', productIds);
+            console.log('📦 IDs tipos:', productIds.map(id => typeof id));
             try {
+                // Garantir que os IDs são números
+                const numericIds = productIds.map(id => parseInt(id));
+                console.log('📦 Numeric IDs:', numericIds);
+
                 const { data: productsData, error: productsError } = await supabase
                     .from('products')
-                    .select('id, name, images, price, cost_price')
-                    .in('id', productIds);
+                    .select('id, name, images, price, cost_price, description, stock, sizes, color, category')
+                    .in('id', numericIds);
+
+                console.log('✅ Query result - Error:', productsError);
+                console.log('✅ Query result - Data:', productsData);
 
                 if (productsError) {
-                    console.warn('⚠️ Error fetching products:', productsError);
-                } else {
-                    console.log('✅ Products fetched:', productsData);
+                    console.warn('⚠️ Aviso ao buscar produtos:', productsError);
+                    // Não lançar erro, continuar com placeholder
+                } else if (productsData && productsData.length > 0) {
+                    console.log('✅ Products fetched successfully:', productsData);
                     products = productsData.reduce((acc, p) => {
-                        acc[p.id] = p;
+                        acc[p.id] = toCamelCase(p);
                         return acc;
                     }, {});
+                    console.log('✅ Products map created:', products);
+                } else {
+                    console.warn('⚠️ Nenhum produto encontrado para os IDs:', numericIds);
                 }
             } catch (err) {
-                console.error('❌ Exception fetching products:', err);
+                console.warn('⚠️ Exceção ao buscar produtos (continuando com placeholders):', err);
             }
+        } else {
+            console.warn('⚠️ Nenhum product_id válido encontrado nos items (usando placeholders)');
         }
 
         camelData.items = camelData.orderItems.map(item => {
             const product = products[item.productId];
+
+            if (!product && item.productId) {
+                console.warn(`⚠️ Produto ${item.productId} não encontrado, usando dados do item`);
+            }
+
+            if (!item.productId) {
+                console.warn(`⚠️ Item sem product_id (order_item id: ${item.id})`);
+            }
+
             console.log(`  Item ${item.productId}:`, { item, product });
 
             return {
-                ...item,
-                productId: item.productId,
-                productName: product?.name || `Produto ${item.productId}`,
+                id: item.id,
+                orderId: item.orderId,
+                productId: item.productId || 'unknown',
+                // Dados do produto (completo)
+                productName: product?.name || 'Produto indisponível',
+                description: product?.description || '',
+                images: product?.images || ['https://via.placeholder.com/150'],
                 image: product?.images?.[0] || 'https://via.placeholder.com/150',
-                selectedSize: item.sizeSelected,
-                price: item.priceAtTime,
-                quantity: item.quantity
+                price: product?.price || item.priceAtTime || 0,
+                costPrice: product?.costPrice || item.costPriceAtTime || 0,
+                color: product?.color || '',
+                category: product?.category || '',
+                stock: product?.stock || 0,
+                sizes: product?.sizes || [],
+                // Dados do pedido
+                quantity: item.quantity || 1,
+                priceAtTime: item.priceAtTime || 0,
+                costPriceAtTime: item.costPriceAtTime || 0,
+                selectedSize: item.sizeSelected || '',
+                sizeSelected: item.sizeSelected || ''
             };
         });
         console.log('✅ Processed items:', camelData.items);
@@ -374,13 +438,43 @@ export async function createOrder(orderData) {
     console.log('✅ Order created:', newOrder);
 
     console.log('📋 Processing items:', items?.length || 0);
+
+    // Buscar dados dos produtos para preencher preços corretos
+    const productIds = [...new Set((items || []).map(item => item.productId).filter(id => id))];
+    let productsMap = {};
+
+    if (productIds.length > 0) {
+        const { data: productsData } = await supabase
+            .from('products')
+            .select('id, price, cost_price')
+            .in('id', productIds);
+
+        if (productsData) {
+            productsMap = productsData.reduce((acc, p) => {
+                acc[p.id] = p;
+                return acc;
+            }, {});
+        }
+    }
+
     const orderItems = (items || []).map(item => {
+        // Validação forte: product_id DEVE estar definido
+        if (!item.productId) {
+            throw new Error(`❌ ERRO CRÍTICO: Produto sem ID no item. Dados: ${JSON.stringify(item)}`);
+        }
+
+        // Se price/costPrice vierem como 0, buscar do banco
+        const productData = productsMap[item.productId];
+        const finalPrice = item.price && item.price > 0 ? item.price : productData?.price || 0;
+        const finalCostPrice = item.costPrice && item.costPrice > 0 ? item.costPrice : productData?.cost_price || null;
+
         const mapped = {
             order_id: newOrder.id,
             product_id: item.productId,
-            quantity: item.quantity,
-            price_at_time: item.price,
-            size_selected: item.selectedSize
+            quantity: item.quantity || 1,
+            price_at_time: finalPrice,
+            size_selected: item.selectedSize,
+            cost_price_at_time: finalCostPrice
         };
         console.log('🔄 Mapped item:', mapped);
         return mapped;
@@ -398,9 +492,11 @@ export async function createOrder(orderData) {
         console.warn('⚠️ WARNING: No items to insert');
     }
 
-    const newOrderCamel = toCamelCase(newOrder);
+    // 🔄 IMPORTANTE: Buscar os dados completos da ordem criada para retornar com infos do produto
+    console.log('🔄 Fetching complete order data with product info...');
+    const completeOrderData = await getOrderById(newOrder.id);
 
-    return { ...newOrderCamel, customer, items: orderItems };
+    return completeOrderData;
 }
 
 export async function updateOrder(id, orderData) {

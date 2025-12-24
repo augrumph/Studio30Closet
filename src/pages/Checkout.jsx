@@ -9,16 +9,88 @@ import { useToast } from '@/contexts/ToastContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { triggerFireworks } from '@/components/magicui/confetti'
 import { NumberTicker } from '@/components/magicui/number-ticker'
+import { supabase } from '@/lib/supabase'
+
+// Gerar número de pedido profissional
+function generateOrderNumber(orderId) {
+    // Formato: MAL-YYMMDD-[ID base36]-[RANDOM]
+    // Exemplo: MAL-241224-5K-A7X9M
+    const now = new Date()
+    const year = String(now.getFullYear()).slice(-2)
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const dateStr = `${year}${month}${day}`
+
+    // Converter ID para base36 (mais compacto)
+    const idBase36 = parseInt(orderId).toString(36).toUpperCase()
+
+    // Gerar sufixo aleatório (3 caracteres: letras maiúsculas + números)
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let randomSuffix = ''
+    for (let i = 0; i < 5; i++) {
+        randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+
+    return `MAL-${dateStr}-${idBase36}-${randomSuffix}`
+}
 
 export function Checkout() {
     const { items, removeItem, clearItems, customerData, setCustomerData, setAddressData } = useMalinhaStore()
     const { addOrder } = useAdminStore()
     const toast = useToast()
-    const [step, setStep] = useState(items.length > 0 ? 1 : 0) // 0: empty, 1: review, 2: form
+    const [step, setStep] = useState(items.length > 0 ? 1 : 0) // 0: empty, 1: review, 2: form, 3: success
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [formErrors, setFormErrors] = useState({})
     const [loadingCep, setLoadingCep] = useState(false)
     const [cepError, setCepError] = useState('')
+    const [productsData, setProductsData] = useState({}) // Cache de dados dos produtos
+    const [loadingProducts, setLoadingProducts] = useState(true)
+    const [successOrder, setSuccessOrder] = useState(null) // Dados do pedido criado com sucesso
+
+    // Buscar dados dos produtos pelos IDs armazenados na malinha
+    useEffect(() => {
+        const fetchProductData = async () => {
+            if (items.length === 0) {
+                setLoadingProducts(false)
+                return
+            }
+
+            try {
+                setLoadingProducts(true)
+                // Extrair IDs únicos dos produtos
+                const productIds = [...new Set(items.map(item => item.productId))]
+
+                console.log('📦 Buscando dados dos produtos:', productIds)
+
+                // Buscar dados dos produtos do banco
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('id, name, images, price, cost_price, description, stock, sizes, color, category')
+                    .in('id', productIds)
+
+                if (error) {
+                    console.error('❌ Erro ao buscar produtos:', error)
+                    toast.error('Erro ao carregar imagens dos produtos')
+                    return
+                }
+
+                // Criar mapa de produtos por ID
+                const productsMap = {}
+                data.forEach(product => {
+                    productsMap[product.id] = product
+                })
+
+                console.log('✅ Produtos carregados:', productsMap)
+                setProductsData(productsMap)
+            } catch (err) {
+                console.error('❌ Exceção ao buscar produtos:', err)
+            } finally {
+                setLoadingProducts(false)
+            }
+        }
+
+        fetchProductData()
+    }, [items, toast])
 
     // Garantir que addresses sempre existe e tem pelo menos um objeto
     useEffect(() => {
@@ -39,13 +111,28 @@ export function Checkout() {
     }, [])
 
     const itemSummary = items.reduce((acc, item) => {
-        const key = `${item.name}-${item.selectedSize}`; // Group by name and size
+        // Buscar dados do produto usando o productId
+        const product = productsData[item.productId] || {};
+
+        const key = `${product.name || 'Produto'}-${item.selectedSize}`; // Group by name and size
         if (acc[key]) {
             acc[key].count += 1;
             acc[key].itemIds.push(item.itemId);
         } else {
             acc[key] = {
-                ...item,
+                // Usar dados do produto + dados do item
+                id: item.productId,
+                productId: item.productId,
+                itemId: item.itemId,
+                name: product.name || 'Produto indisponível',
+                price: product.price || 0,
+                costPrice: product.costPrice || 0,
+                images: product.images || [],
+                image: product.images?.[0] || 'https://via.placeholder.com/300x400?text=Produto',
+                description: product.description || '',
+                color: product.color || '',
+                category: product.category || '',
+                selectedSize: item.selectedSize,
                 count: 1,
                 itemIds: [item.itemId],
             };
@@ -186,6 +273,16 @@ export function Checkout() {
 
         try {
             // 1. Save order to Admin System
+            // Validar que todos os itens têm ID de produto
+            const invalidItems = groupedItems.filter(item => !item.id);
+            if (invalidItems.length > 0) {
+                toast.error(`Erro: ${invalidItems.length} produto(s) sem ID válido`);
+                setIsSubmitting(false);
+                return;
+            }
+
+            // SIMPLIFICADO: Enviar apenas IDs dos produtos
+            // Os dados completos (imagens, preço, etc) serão buscados do banco via getOrderById
             const orderPayload = {
                 customer: {
                     name: customerData.name,
@@ -194,15 +291,20 @@ export function Checkout() {
                     cpf: customerData.cpf,
                     addresses: customerData.addresses,
                 },
-                items: groupedItems.map(item => ({
-                    productId: item.id,
-                    name: item.name,
-                    price: item.price,
-                    quantity: item.count,
-                    selectedSize: item.selectedSize,
-                    images: item.images,
-                    costPrice: item.costPrice,
-                })),
+                items: groupedItems.map(item => {
+                    if (!item.id) {
+                        throw new Error(`Item sem ID de produto: ${item.name}`);
+                    }
+                    return {
+                        productId: item.id,           // APENAS ID do produto
+                        quantity: item.count,         // Quantidade
+                        selectedSize: item.selectedSize, // Tamanho selecionado
+                        price: item.price,            // Preço no momento da compra
+                        costPrice: item.costPrice || 0, // Custo no momento da compra
+                        // NÃO enviar: name, images, description, etc
+                        // Tudo será buscado do banco quando necessário
+                    };
+                }),
                 notes: customerData.notes
             }
 
@@ -215,25 +317,32 @@ export function Checkout() {
 
             if (!result.success) {
                 console.error("Erro ao registrar pedido no sistema:", result.error)
-                toast.warning('Pedido não foi salvo no sistema, mas prosseguindo com WhatsApp')
+                toast.error('Erro ao criar pedido. Tente novamente.')
+                setIsSubmitting(false)
+                return
             }
 
-            // 2. Generate WhatsApp message
-            const message = formatMalinhaMessage(groupedItems, customerData)
-            const whatsappLink = generateWhatsAppLink('+5511999999999', message) // Replace with actual number
-
-            // 3. Open WhatsApp
-            window.open(whatsappLink, '_blank')
-
-            // 4. Trigger success effects
+            // ✅ Pedido criado com sucesso! Mostrar página de confirmação
             triggerFireworks()
-            toast.success('Pedido enviado! Aguarde o contato via WhatsApp.')
 
-            // Clear cart after successful submission
-            setTimeout(() => {
-                clearItems()
-            }, 2000)
+            // Gerar mensagem do WhatsApp (para usar depois)
+            const message = formatMalinhaMessage(groupedItems, customerData)
+            const whatsappLink = generateWhatsAppLink('+5511999999999', message)
 
+            // Salvar dados de sucesso
+            const profesionalOrderNumber = generateOrderNumber(result.order?.id || 0)
+            setSuccessOrder({
+                orderId: result.order?.id || 'N/A',
+                orderNumber: profesionalOrderNumber,
+                customerName: customerData.name,
+                itemsCount: groupedItems.length,
+                totalValue: groupedItems.reduce((sum, item) => sum + (item.price * item.count), 0),
+                whatsappLink,
+                items: groupedItems
+            })
+
+            // Mostrar página de sucesso (step 3)
+            setStep(3)
             setIsSubmitting(false)
         } catch (error) {
             console.error("Falha no checkout:", error)
@@ -248,20 +357,20 @@ export function Checkout() {
     // Empty state
     if (items.length === 0) {
         return (
-            <div className="min-h-screen bg-[#FDFBF7] pt-24 flex items-center justify-center">
-                <div className="container-custom">
-                    <div className="max-w-md mx-auto text-center py-16">
-                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                            <ShoppingBag className="w-10 h-10 text-[#C75D3B]" />
+            <div className="min-h-screen bg-[#FDFBF7] pt-16 sm:pt-24 flex items-center justify-center px-4">
+                <div className="w-full max-w-md">
+                    <div className="text-center py-12 sm:py-16">
+                        <div className="w-16 sm:w-24 h-16 sm:h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
+                            <ShoppingBag className="w-8 sm:w-10 h-8 sm:h-10 text-[#C75D3B]" />
                         </div>
-                        <h1 className="font-display text-3xl font-semibold text-[#4A3B32] mb-4">
+                        <h1 className="font-display text-2xl sm:text-3xl font-semibold text-[#4A3B32] mb-3 sm:mb-4">
                             Sua malinha está vazia
                         </h1>
-                        <p className="text-[#4A3B32]/60 mb-8">
+                        <p className="text-xs sm:text-base text-[#4A3B32]/60 mb-6 sm:mb-8">
                             Navegue pelo catálogo e adicione até 20 peças para experimentar em casa.
                         </p>
-                        <Link to="/catalogo" className="inline-flex items-center gap-2 px-8 py-3 bg-[#C75D3B] text-white rounded-full font-medium tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20">
-                            <ArrowLeft className="w-5 h-5" />
+                        <Link to="/catalogo" className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-4 bg-[#C75D3B] text-white rounded-full font-medium text-sm sm:text-base tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 min-h-[44px] sm:min-h-[48px]">
+                            <ArrowLeft className="w-4 sm:w-5 h-4 sm:h-5" />
                             Ver catálogo
                         </Link>
                     </div>
@@ -271,34 +380,36 @@ export function Checkout() {
     }
 
     return (
-        <div className="min-h-screen bg-[#FDFBF7] pt-24">
-            <div className="container-custom py-8">
+        <div className="min-h-screen bg-[#FDFBF7] pt-16 sm:pt-24 pb-8 sm:pb-16">
+            <div className="w-full px-4 sm:px-6 max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="font-display text-3xl font-semibold text-[#4A3B32]">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
+                    <div className="mb-4 sm:mb-0">
+                        <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-semibold text-[#4A3B32]">
                             Sua Malinha
                         </h1>
-                        <p className="text-[#4A3B32]/60 mt-1">
+                        <p className="text-sm sm:text-base text-[#4A3B32]/60 mt-1">
                             {items.length}/20 peças selecionadas
                         </p>
                     </div>
                     <Link
                         to="/catalogo"
-                        className="flex items-center gap-2 text-[#C75D3B] hover:text-[#A64D31] transition-colors"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base text-white bg-[#C75D3B] hover:bg-[#A64D31] rounded-full transition-colors font-medium min-h-[40px] sm:min-h-[48px]"
                     >
-                        <Plus className="w-5 h-5" />
-                        Adicionar mais
+                        <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
+                        <span>Adicionar mais</span>
                     </Link>
                 </div>
 
-                {/* Steps Indicator */}
-                <div className="flex items-center justify-center gap-4 mb-8">
-                    {[
-                        { num: 1, label: 'Revisar', icon: ShoppingBag },
-                        { num: 2, label: 'Dados', icon: Truck },
-                    ].map((s, i) => (
-                        <div key={s.num} className="flex items-center gap-2">
+                {/* Steps Indicator - Scrollable on mobile */}
+                <div className="overflow-x-auto mb-6 sm:mb-8 -mx-4 sm:mx-0 px-4 sm:px-0">
+                    <div className="flex items-center justify-center gap-1 sm:gap-4 min-w-fit sm:min-w-0">
+                        {[
+                            { num: 1, label: 'Revisar', icon: ShoppingBag },
+                            { num: 2, label: 'Dados', icon: Truck },
+                            { num: 3, label: 'Confirmação', icon: Check },
+                        ].map((s, i) => (
+                            <div key={s.num} className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                             <motion.div
                                 initial={false}
                                 animate={{
@@ -335,13 +446,13 @@ export function Checkout() {
                                 </AnimatePresence>
                             </motion.div>
                             <span className={cn(
-                                'text-sm font-bold transition-colors duration-300',
+                                'text-xs sm:text-sm font-bold transition-colors duration-300 whitespace-nowrap',
                                 step >= s.num ? 'text-[#4A3B32]' : 'text-[#4A3B32]/40'
                             )}>
                                 {s.label}
                             </span>
-                            {i < 1 && (
-                                <div className="relative w-16 h-1 bg-gray-200 rounded-full mx-2 overflow-hidden">
+                            {i < 2 && (
+                                <div className="relative w-8 sm:w-16 h-1 bg-gray-200 rounded-full mx-1 sm:mx-2 overflow-hidden flex-shrink-0">
                                     <motion.div
                                         initial={{ width: '0%' }}
                                         animate={{ width: step > s.num ? '100%' : '0%' }}
@@ -354,9 +465,12 @@ export function Checkout() {
                     ))}
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-8">
+                <div className={cn(
+                    "grid gap-6 sm:gap-8",
+                    step === 3 ? "lg:grid-cols-1 lg:max-w-3xl lg:mx-auto" : "grid-cols-1 lg:grid-cols-3"
+                )}>
                     {/* Items List */}
-                    <div className="lg:col-span-2">
+                    <div className={step === 3 ? "lg:col-span-1" : "lg:col-span-2"}>
                         <AnimatePresence mode="wait">
                             {step === 1 ? (
                                 // Step 1: Review items
@@ -371,11 +485,14 @@ export function Checkout() {
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                                     {groupedItems.map((item) => (
                                         <div key={item.itemIds[0]} className="group relative">
-                                            <div className="aspect-[3/4] rounded-xl overflow-hidden relative">
+                                            <div className="aspect-[3/4] rounded-xl overflow-hidden relative bg-gray-100">
                                                 <img
-                                                    src={item.images[0]}
+                                                    src={item.images?.[0] || item.image || 'https://via.placeholder.com/300x400?text=Produto'}
                                                     alt={item.name}
                                                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                    onError={(e) => {
+                                                        e.target.src = 'https://via.placeholder.com/300x400?text=Produto';
+                                                    }}
                                                 />
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                             </div>
@@ -386,7 +503,7 @@ export function Checkout() {
                                             )}
                                             <button
                                                 onClick={() => removeItem(item.itemIds[0])}
-                                                className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:bg-white hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                                                className="absolute top-2 left-2 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:bg-white hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 sm:opacity-0"
                                                 aria-label="Remover item"
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -403,6 +520,125 @@ export function Checkout() {
                                     ))}
                                 </div>
                             </motion.div>
+                        ) : step === 3 ? (
+                            // Step 3: Success Page
+                            <motion.div
+                                key="step3"
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.5 }}
+                                className="bg-white rounded-2xl shadow-xl overflow-hidden border border-[#4A3B32]/5 p-8 lg:p-12"
+                            >
+                                {/* Success Header */}
+                                <div className="text-center mb-6 sm:mb-8">
+                                    <motion.div
+                                        initial={{ scale: 0, rotate: -180 }}
+                                        animate={{ scale: 1, rotate: 0 }}
+                                        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                                        className="w-20 h-20 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"
+                                    >
+                                        <Check className="w-10 h-10 text-white" />
+                                    </motion.div>
+
+                                    <motion.h1
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 }}
+                                        className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-[#4A3B32] mb-2 sm:mb-3"
+                                    >
+                                        Pedido Confirmado! 🎉
+                                    </motion.h1>
+
+                                    <motion.p
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.4 }}
+                                        className="text-base sm:text-lg text-[#4A3B32]/70 mb-2"
+                                    >
+                                        Oi {successOrder?.customerName}! Vamos preparar sua malinha.
+                                    </motion.p>
+
+                                    <motion.p
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 0.5 }}
+                                        className="text-xs sm:text-sm text-[#4A3B32]/60"
+                                    >
+                                        Número do pedido: <span className="font-bold text-[#C75D3B] font-mono text-xs sm:text-sm block sm:inline mt-1 sm:mt-0">{successOrder?.orderNumber}</span>
+                                    </motion.p>
+                                </div>
+
+                                {/* Order Summary */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.6 }}
+                                    className="bg-gradient-to-br from-[#FDFBF7] to-[#FAF8F5] rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-[#C75D3B]/20"
+                                >
+                                    <div className="grid grid-cols-2 md:grid-cols-2 gap-4 sm:gap-6">
+                                        <div>
+                                            <p className="text-xs sm:text-sm text-[#4A3B32]/60 font-medium mb-2">Total de peças</p>
+                                            <p className="text-2xl sm:text-3xl font-bold text-[#C75D3B]">
+                                                {successOrder?.itemsCount}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs sm:text-sm text-[#4A3B32]/60 font-medium mb-2">Valor total</p>
+                                            <p className="text-2xl sm:text-3xl font-bold text-[#4A3B32]">
+                                                R$ {(successOrder?.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </motion.div>
+
+                                {/* Info Box */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.7 }}
+                                    className="bg-blue-50 border-l-4 border-blue-500 p-4 sm:p-6 rounded-r-lg mb-6 sm:mb-8"
+                                >
+                                    <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                                        <MessageCircle className="w-4 sm:w-5 h-4 sm:h-5" />
+                                        Próximo passo
+                                    </h3>
+                                    <p className="text-blue-800 text-xs sm:text-sm leading-relaxed">
+                                        Clique no botão abaixo para entrar em contato via WhatsApp e agendar a entrega da sua malinha.
+                                        Você terá alguns dias para experimentar e decidir quais peças quer manter! 💝
+                                    </p>
+                                </motion.div>
+
+                                {/* Action Buttons */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.8 }}
+                                    className="flex flex-col gap-2 sm:gap-3"
+                                >
+                                    <button
+                                        onClick={() => {
+                                            window.open(successOrder?.whatsappLink, '_blank')
+                                        }}
+                                        className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-[#C75D3B] to-[#A64D31] text-white rounded-full font-bold text-sm sm:text-base tracking-wide hover:shadow-lg shadow-[#C75D3B]/30 transition-all duration-300 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[56px]"
+                                    >
+                                        <MessageCircle className="w-4 sm:w-5 h-4 sm:h-5" />
+                                        <span>Agendar no WhatsApp</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            clearItems()
+                                            setStep(0)
+                                            setSuccessOrder(null)
+                                        }}
+                                        className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#C75D3B] border-2 border-[#C75D3B] rounded-full font-bold text-sm sm:text-base tracking-wide hover:bg-[#FDFBF7] transition-all duration-300 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[56px]"
+                                    >
+                                        <ArrowLeft className="w-4 sm:w-5 h-4 sm:h-5" />
+                                        <span>Continuar Comprando</span>
+                                    </button>
+                                </motion.div>
+                            </motion.div>
                         ) : (
                             // Step 2: Customer Form
                             <motion.div
@@ -413,8 +649,8 @@ export function Checkout() {
                                 transition={{ duration: 0.3 }}
                                 className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#4A3B32]/5"
                             >
-                                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                                    <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-4">
+                                <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+                                    <h2 className="font-display text-lg sm:text-xl font-semibold text-[#4A3B32] mb-4">
                                         Seus Dados
                                     </h2>
 
@@ -489,9 +725,9 @@ export function Checkout() {
                                         </div>
                                     </div>
                                     
-                                    <hr className="my-4 border-gray-100" />
+                                    <hr className="my-3 sm:my-4 border-gray-100" />
 
-                                    <h3 className="font-display text-lg font-semibold text-[#4A3B32] pt-2">Endereço de Entrega</h3>
+                                    <h3 className="font-display text-base sm:text-lg font-semibold text-[#4A3B32] pt-2">Endereço de Entrega</h3>
                                     
                                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                                         <div className="md:col-span-2">
@@ -640,11 +876,11 @@ export function Checkout() {
                                         </div>
                                     </div>
 
-                                    <hr className="my-4 border-gray-100" />
+                                    <hr className="my-3 sm:my-4 border-gray-100" />
 
                                     <div>
-                                        <label className="block text-sm font-medium text-[#4A3B32] mb-1">Observações</label>
-                                        <textarea name="notes" value={customerData.notes || ''} onChange={handleInputChange} rows={2} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1 resize-none" placeholder="Preferência de horário, instruções..."></textarea>
+                                        <label className="block text-sm font-medium text-[#4A3B32] mb-2">Observações</label>
+                                        <textarea name="notes" value={customerData.notes || ''} onChange={handleInputChange} rows={2} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1 resize-none text-base" placeholder="Preferência de horário, instruções..."></textarea>
                                     </div>
                                 </form>
                             </motion.div>
@@ -654,41 +890,42 @@ export function Checkout() {
                         {step === 1 && (
                             <button
                                 onClick={clearItems}
-                                className="mt-4 text-sm text-[#4A3B32]/50 hover:text-red-500 transition-colors"
+                                className="mt-4 py-2 min-h-[40px] flex items-center justify-center text-xs sm:text-sm text-[#4A3B32]/50 hover:text-red-500 transition-colors font-medium"
                             >
                                 Limpar toda a malinha
                             </button>
                         )}
                     </div>
 
-                    {/* Summary */}
+                    {/* Summary - Hide on Success */}
+                    {step !== 3 && (
                     <div className="lg:col-span-1">
                         <div className="bg-white rounded-2xl shadow-xl shadow-black/5 p-6 sticky top-24 border border-[#4A3B32]/5">
                             {step === 1 ? (
                                 <>
-                                    <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-4 text-center">
+                                    <h2 className="font-display text-lg sm:text-xl font-semibold text-[#4A3B32] mb-3 sm:mb-4 text-center">
                                         Sua Malinha
                                     </h2>
-                                    <p className="text-center text-[#4A3B32]/60 mb-6 text-sm">
+                                    <p className="text-center text-[#4A3B32]/60 mb-4 sm:mb-6 text-xs sm:text-sm">
                                         Uma curadoria de estilo para você experimentar no conforto de casa.
                                     </p>
 
-                                    <div className="bg-[#FDFBF7] rounded-xl p-4 space-y-4 mb-6">
+                                    <div className="bg-[#FDFBF7] rounded-xl p-3 sm:p-4 space-y-3 sm:space-y-4 mb-4 sm:mb-6">
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <Gift className="w-5 h-5 text-[#C75D3B]" />
-                                                <span className="font-medium text-[#4A3B32]">Peças na malinha</span>
+                                            <div className="flex items-center gap-2 sm:gap-3">
+                                                <Gift className="w-4 sm:w-5 h-4 sm:h-5 text-[#C75D3B]" />
+                                                <span className="font-medium text-xs sm:text-sm text-[#4A3B32]">Peças na malinha</span>
                                             </div>
-                                            <span className="font-bold text-2xl text-[#C75D3B]">
+                                            <span className="font-bold text-xl sm:text-2xl text-[#C75D3B]">
                                                 <NumberTicker value={items.length} />
                                             </span>
                                         </div>
 
                                     </div>
 
-                                    <div className="text-center mb-6">
-                                        <Heart className="w-8 h-8 text-[#C75D3B] mx-auto mb-2" />
-                                        <p className="text-sm text-[#4A3B32]/70 font-medium">
+                                    <div className="text-center mb-4 sm:mb-6">
+                                        <Heart className="w-6 sm:w-8 h-6 sm:h-8 text-[#C75D3B] mx-auto mb-1 sm:mb-2" />
+                                        <p className="text-xs sm:text-sm text-[#4A3B32]/70 font-medium">
                                             Fique apenas com o que amar!
                                         </p>
                                         <p className="text-xs text-[#4A3B32]/50 mt-1">
@@ -697,7 +934,7 @@ export function Checkout() {
                                     </div>
                                 </>
                             ) : (
-                                <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-6">
+                                <h2 className="font-display text-lg sm:text-xl font-semibold text-[#4A3B32] mb-4 sm:mb-6">
                                     Finalizar Pedido
                                 </h2>
                             )}
@@ -705,7 +942,7 @@ export function Checkout() {
                             {step === 1 ? (
                                 <button
                                     onClick={() => setStep(2)}
-                                    className="w-full px-8 py-3 bg-[#C75D3B] text-white rounded-full font-medium tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 flex items-center justify-center gap-2"
+                                    className="w-full px-6 sm:px-8 py-3 sm:py-4 bg-[#C75D3B] text-white rounded-full font-medium text-sm sm:text-base tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[56px]"
                                 >
                                     Ir para a entrega
                                 </button>
@@ -715,7 +952,7 @@ export function Checkout() {
                                         onClick={handleSubmit}
                                         disabled={isSubmitting || !isFormValid}
                                         className={cn(
-                                            'w-full px-8 py-3 bg-[#C75D3B] text-white rounded-full font-medium tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 flex items-center justify-center gap-2',
+                                            'w-full px-6 sm:px-8 py-3 sm:py-4 bg-[#C75D3B] text-white rounded-full font-medium text-sm sm:text-base tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[56px]',
                                             (isSubmitting || !isFormValid) && 'opacity-50 cursor-not-allowed'
                                         )}
                                     >
@@ -723,14 +960,14 @@ export function Checkout() {
                                             <span className="animate-pulse">Enviando...</span>
                                         ) : (
                                             <>
-                                                <Gift className="w-5 h-5" />
-                                                Quero minha malinha!
+                                                <Gift className="w-4 sm:w-5 h-4 sm:h-5" />
+                                                <span>Quero minha malinha!</span>
                                             </>
                                         )}
                                     </button>
                                     <button
                                         onClick={() => setStep(1)}
-                                        className="w-full mt-3 text-[#C75D3B] hover:text-[#A64D31] transition-colors text-sm"
+                                        className="w-full mt-2 sm:mt-3 py-2 text-[#C75D3B] hover:text-[#A64D31] transition-colors text-xs sm:text-sm font-medium min-h-[40px] flex items-center justify-center"
                                     >
                                         Voltar para revisão
                                     </button>
@@ -743,6 +980,7 @@ export function Checkout() {
                             </p>
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
         </div>

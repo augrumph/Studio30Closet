@@ -83,20 +83,25 @@ export function MalinhasForm() {
     )
 
     const addItem = (product, size) => {
+        // Validação: garantir que product tem ID
+        if (!product.id) {
+            toast.error('Erro: Produto sem ID válido');
+            return;
+        }
+
+        // SIMPLIFICADO: Armazenar apenas productId e metadados leves
+        // Os dados completos (nome, imagens, etc) serão buscados do banco
         const newItem = {
             productId: product.id,
-            productName: product.name,
-            price: product.price,
-            costPrice: product.costPrice || 0,
             selectedSize: size,
-            image: product.images?.[0] || 'https://via.placeholder.com/150'
+            quantity: 1
         }
         setFormData(prev => ({
             ...prev,
             items: [...prev.items, newItem]
         }))
         // Não fecha mais o modal - permite adicionar múltiplos produtos
-        toast.success(`${product.name} (${size}) adicionado!`, {
+        toast.success(`Produto ${product.name} (${size}) adicionado!`, {
             description: `${formData.items.length + 1} ${formData.items.length + 1 === 1 ? 'item' : 'itens'} na malinha`,
             icon: '✅',
             duration: 2000
@@ -140,19 +145,27 @@ export function MalinhasForm() {
             return
         }
 
-        // Preparar payload - enviar items em camelCase, a API faz a conversão
+        // SIMPLIFICADO: Enviar apenas IDs dos produtos
+        // Os dados completos (preços, nomes, etc) serão buscados do banco via getOrderById
         const payload = {
             customerId: formData.customerId,
             deliveryDate: formData.deliveryDate,
             pickupDate: formData.pickupDate,
             status: formData.status,
             totalValue,
-            items: formData.items.map(item => ({
-                productId: item.productId,
-                quantity: 1, // Cada item na malinha é uma peça individual
-                price: item.price,
-                selectedSize: item.selectedSize
-            })),
+            items: formData.items.map(item => {
+                // Validar que productId existe
+                if (!item.productId) {
+                    throw new Error(`Erro: Item sem produto válido`);
+                }
+                return {
+                    productId: item.productId,      // APENAS ID do produto
+                    quantity: item.quantity || 1,   // Quantidade
+                    selectedSize: item.selectedSize, // Tamanho
+                    price: 0,                       // Será preenchido do banco
+                    costPrice: 0                    // Será preenchido do banco
+                };
+            }),
             customer: selectedCustomer  // Este é usado apenas para referência no frontend
         }
 

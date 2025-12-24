@@ -17,11 +17,11 @@ CREATE TABLE public.coupons (
   discount_value numeric NOT NULL,
   usage_count integer DEFAULT 0,
   is_active boolean DEFAULT true,
-  is_special boolean DEFAULT false,
   expires_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   min_purchase numeric,
   description text,
+  is_special boolean DEFAULT false,
   CONSTRAINT coupons_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.customers (
@@ -167,12 +167,12 @@ CREATE TABLE public.vendas (
   cost_price numeric,
   items jsonb,
   payment_method text,
-  payment_status text DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'cancelled')),
   created_at timestamp with time zone DEFAULT now(),
   card_brand text,
   fee_percentage numeric DEFAULT 0,
   fee_amount numeric DEFAULT 0,
   net_amount numeric,
+  payment_status text NOT NULL DEFAULT 'pending'::text CHECK (payment_status = ANY (ARRAY['pending'::text, 'paid'::text, 'cancelled'::text])),
   CONSTRAINT vendas_pkey PRIMARY KEY (id),
   CONSTRAINT vendas_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
   CONSTRAINT vendas_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id)

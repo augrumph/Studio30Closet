@@ -34,12 +34,21 @@ export const useMalinhaStore = create(
                     return { success: false, message: 'Limite de 20 peças atingido!' }
                 }
 
+                // Validação: garantir que product tem ID
+                if (!product.id) {
+                    return { success: false, message: 'Produto sem ID válido!' }
+                }
+
                 const itemId = `${product.id}-${size}-${Date.now()}`
+                // ULTRA OTIMIZADO: Salvar APENAS productId + metadados leves
+                // As imagens e dados completos serão buscados dinamicamente do banco
                 const newItem = {
-                    ...product,
-                    itemId,
-                    selectedSize: size,
+                    itemId,           // ID único do item na malinha
+                    productId: product.id,  // ID do produto (para buscar dados depois)
+                    selectedSize: size,     // Tamanho selecionado
                     addedAt: new Date().toISOString(),
+                    // NÃO salvar nada mais: images, name, price, description, stock, sizes, variants, etc
+                    // Todos esses dados serão buscados do banco quando necessário
                 }
 
                 set({ items: [...items, newItem] })
@@ -76,7 +85,7 @@ export const useMalinhaStore = create(
 
             // Get total price
             getTotalPrice: () =>
-                get().items.reduce((sum, item) => sum + item.price, 0),
+                get().items.reduce((sum, item) => sum + (item.price || 0), 0),
 
             // Check if limit reached
             isLimitReached: () => get().items.length >= MAX_ITEMS,

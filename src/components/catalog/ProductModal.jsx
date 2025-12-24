@@ -64,7 +64,7 @@ export function ProductModal({ product, isOpen, onClose }) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -72,7 +72,7 @@ export function ProductModal({ product, isOpen, onClose }) {
             />
 
             {/* Modal */}
-            <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-slide-up">
+            <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden animate-slide-up">
                 {/* Close Button */}
                 <button
                     onClick={onClose}
@@ -82,20 +82,22 @@ export function ProductModal({ product, isOpen, onClose }) {
                     <X className="w-5 h-5" />
                 </button>
 
-                <div className="grid md:grid-cols-2 gap-0 overflow-y-auto max-h-[90vh]">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 overflow-y-auto max-h-[85vh]">
                     {/* Image */}
-                    <div className="relative aspect-square md:aspect-auto h-full min-h-[400px]">
-                        <AnimatePresence mode="wait">
-                            <motion.img
-                                key={selectedVariantIndex}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                src={currentVariant.images[0]}
-                                alt={product.name}
-                                className="w-full h-full object-cover"
-                            />
-                        </AnimatePresence>
+                    <div className="relative w-full bg-[#FDFBF7] flex items-center justify-center py-4 md:py-0 md:h-full">
+                        <div className="w-full max-w-sm md:max-w-none h-auto md:h-full flex items-center justify-center">
+                            <AnimatePresence mode="wait">
+                                <motion.img
+                                    key={selectedVariantIndex}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    src={currentVariant.images[0]}
+                                    alt={product.name}
+                                    className="w-full h-auto max-h-[50vh] md:max-h-none md:h-full object-contain"
+                                />
+                            </AnimatePresence>
+                        </div>
                         {/* Badges */}
                         <div className="absolute top-4 left-4 flex flex-col gap-2">
                             {product.isNew && (
@@ -112,7 +114,7 @@ export function ProductModal({ product, isOpen, onClose }) {
                     </div>
 
                     {/* Details */}
-                    <div className="p-8 flex flex-col">
+                    <div className="p-4 sm:p-8 flex flex-col overflow-y-auto" style={{ paddingRight: 'max(2rem, calc(2rem + env(safe-area-inset-right)))' }}>
                         {/* Category */}
                         <span className="text-sm text-brand-coral uppercase tracking-wider font-medium mb-2">
                             {product.category}

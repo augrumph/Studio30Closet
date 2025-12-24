@@ -238,13 +238,42 @@ export async function getOrderById(id) {
     // Mapear order_items para items com informações do produto
     if (camelData.orderItems && camelData.orderItems.length > 0) {
         console.log('🔄 Processing order items...');
+
+        // Buscar informações dos produtos
+        const productIds = [...new Set(camelData.orderItems.map(item => item.productId))];
+        console.log('📦 Fetching product data for IDs:', productIds);
+
+        let products = {};
+        if (productIds.length > 0) {
+            try {
+                const { data: productsData, error: productsError } = await supabase
+                    .from('products')
+                    .select('id, name, images, price, cost_price')
+                    .in('id', productIds);
+
+                if (productsError) {
+                    console.warn('⚠️ Error fetching products:', productsError);
+                } else {
+                    console.log('✅ Products fetched:', productsData);
+                    products = productsData.reduce((acc, p) => {
+                        acc[p.id] = p;
+                        return acc;
+                    }, {});
+                }
+            } catch (err) {
+                console.error('❌ Exception fetching products:', err);
+            }
+        }
+
         camelData.items = camelData.orderItems.map(item => {
-            console.log('  Item:', item);
+            const product = products[item.productId];
+            console.log(`  Item ${item.productId}:`, { item, product });
+
             return {
                 ...item,
                 productId: item.productId,
-                productName: item.productName || `Produto ${item.productId}`,
-                image: item.image || 'https://via.placeholder.com/150',
+                productName: product?.name || `Produto ${item.productId}`,
+                image: product?.images?.[0] || 'https://via.placeholder.com/150',
                 selectedSize: item.sizeSelected,
                 price: item.priceAtTime,
                 quantity: item.quantity

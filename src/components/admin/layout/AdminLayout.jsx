@@ -4,12 +4,14 @@ import { AdminSidebar } from './AdminSidebar'
 import { AdminTopbar } from './AdminTopbar'
 import { Toaster } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
+import { CommandPalette } from '../CommandPalette'
 
 export function AdminLayout() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     return (
         <div className="flex h-screen bg-[#FAF8F5] overflow-hidden max-w-screen">
+            <CommandPalette />
             <Toaster
                 richColors
                 position="top-center"

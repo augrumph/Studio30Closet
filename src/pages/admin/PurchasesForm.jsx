@@ -26,7 +26,8 @@ export function PurchasesForm() {
         date: new Date().toISOString().split('T')[0],
         pieces: '',
         parcelas: '',
-        notes: ''
+        notes: '',
+        purchaseType: 'produto' // Novo campo para distinguir tipo de compra
     })
 
     useEffect(() => {
@@ -61,7 +62,8 @@ export function PurchasesForm() {
             supplierId: parseInt(formData.supplierId),
             value: parseFloat(formData.value.replace(',', '.')) || 0,
             pieces: parseInt(formData.pieces) || 0,
-            parcelas: formData.paymentMethod === 'credito_parcelado' ? parseInt(formData.parcelas) : null
+            parcelas: formData.paymentMethod === 'credito_parcelado' ? parseInt(formData.parcelas) : null,
+            purchaseType: formData.purchaseType // Incluir tipo de compra
         }
 
         toast.promise(
@@ -110,17 +112,19 @@ export function PurchasesForm() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-8 space-y-8">
+            <form onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-8 space-y-6">
                     {/* Informações da Compra */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <ShoppingCart className="w-5 h-5 text-[#C75D3B]" />
+                    <Card className="rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md">
+                        <CardHeader className="p-6 md:p-8">
+                            <CardTitle className="flex items-center gap-3 text-lg md:text-xl">
+                                <div className="p-2 md:p-3 bg-blue-100 rounded-xl">
+                                    <ShoppingCart className="w-5 h-5 text-blue-600" />
+                                </div>
                                 Informações da Compra
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-6">
+                        <CardContent className="p-6 md:p-8 space-y-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
                                     Fornecedor *
@@ -179,7 +183,23 @@ export function PurchasesForm() {
                                 )}
                             </div>
 
-                            <div className="grid md:grid-cols-3 gap-6">
+                            <div className="grid md:grid-cols-4 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Tipo de Compra *
+                                    </label>
+                                    <select
+                                        name="purchaseType"
+                                        required
+                                        className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-medium appearance-none"
+                                        value={formData.purchaseType}
+                                        onChange={handleChange}
+                                    >
+                                        <option value="produto">Compra de Produto</option>
+                                        <option value="material">Compra de Material</option>
+                                    </select>
+                                </div>
+
                                 <div className="space-y-2">
                                     <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
                                         Valor (R$) *
@@ -237,16 +257,18 @@ export function PurchasesForm() {
                     </Card>
                 </div>
 
-                <div className="lg:col-span-4 space-y-8">
+                <div className="lg:col-span-4 space-y-6">
                     {/* Observações */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FileText className="w-5 h-5 text-[#C75D3B]" />
+                    <Card className="rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md">
+                        <CardHeader className="p-6 md:p-8">
+                            <CardTitle className="flex items-center gap-3 text-lg md:text-xl">
+                                <div className="p-2 md:p-3 bg-green-100 rounded-xl">
+                                    <FileText className="w-5 h-5 text-green-600" />
+                                </div>
                                 Observações
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-6 md:p-8">
                             <textarea
                                 name="notes"
                                 rows="6"
@@ -259,21 +281,21 @@ export function PurchasesForm() {
                     </Card>
 
                     {/* Submit Actions */}
-                    <div className="sticky top-8 space-y-4">
+                    <div className="sticky bottom-8 space-y-3">
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             type="submit"
                             disabled={purchasesLoading}
-                            className="w-full flex items-center justify-center gap-3 py-6 bg-[#4A3B32] text-white rounded-3xl font-bold shadow-2xl shadow-[#4A3B32]/30 hover:bg-[#342922] transition-all disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2 py-4 md:py-5 bg-blue-600 text-white rounded-2xl md:rounded-[20px] font-bold shadow-lg hover:shadow-xl hover:bg-blue-700 transition-all disabled:opacity-50"
                         >
-                            <Save className="w-6 h-6" />
+                            <Save className="w-5 h-5" />
                             {id ? 'Salvar Alterações' : 'Registrar Compra'}
                         </motion.button>
                         <button
                             type="button"
                             onClick={() => navigate('/admin/purchases')}
-                            className="w-full py-4 text-[#4A3B32]/40 font-bold tracking-widest uppercase text-[10px] hover:text-[#4A3B32] transition-colors"
+                            className="w-full py-3 md:py-4 text-[#4A3B32]/60 font-bold tracking-wider uppercase text-[10px] hover:text-[#4A3B32] hover:bg-gray-100 rounded-2xl transition-all"
                         >
                             Cancelar
                         </button>

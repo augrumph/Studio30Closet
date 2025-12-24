@@ -1,3 +1,9 @@
+// Generate WhatsApp link
+export function generateWhatsAppLink(phone, message) {
+    const cleanPhone = phone.replace(/\D/g, '')
+    return `https://wa.me/${cleanPhone}?text=${message}`
+}
+
 // Format malinha items for WhatsApp
 export function formatMalinhaMessage(items, customerData) {
     const totalValue = items.reduce((sum, item) => sum + item.price, 0)
@@ -9,7 +15,7 @@ Telefone: ${customerData.phone}
 Peças selecionadas:
 ${items.map((item, index) => `${index + 1}. ${item.name} - R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`).join('\n')}
 
-Valor total: *R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })*
+Valor total: *R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*
 
 Aguardo confirmação do envio da malinha! 💕`
     return encodeURIComponent(message)
@@ -19,7 +25,7 @@ Aguardo confirmação do envio da malinha! 💕`
 export function formatPrice(price) {
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
-        currency: 'BRS',
+        currency: 'BRL',
         minimumFractionDigits: 2
     }).format(price)
 }

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, Percent, Truck, ShoppingCart, Settings, X } from 'lucide-react'
+import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, Percent, Truck, ShoppingCart, Settings, X, TrendingDown } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
@@ -47,8 +47,13 @@ const menuItems = [
     },
     {
         path: '/admin/operational-costs',
-        label: 'Custos Operacionais',
-        icon: Settings
+        label: 'Taxas de Pagamento',
+        icon: DollarSign
+    },
+    {
+        path: '/admin/expenses',
+        label: 'Despesas Fixas',
+        icon: TrendingDown
     }
 ]
 
@@ -112,16 +117,16 @@ export function AdminSidebar({ onClose }) {
                                     : 'text-[#4A3B32]/60 hover:bg-[#FDFBF7] hover:text-[#4A3B32]'
                             )}
                         >
-                            <div className="flex items-center gap-3.5">
+                            <div className="flex items-center gap-3.5 flex-1 min-w-0">
                                 <item.icon className={cn(
-                                    "w-[22px] h-[22px] transition-transform duration-300 group-hover:scale-110",
+                                    "w-[22px] h-[22px] transition-transform duration-300 group-hover:scale-110 flex-shrink-0",
                                     isActive(item.path) ? "text-white" : "text-[#4A3B32]/40 group-hover:text-[#C75D3B]"
                                 )} />
-                                <span className="font-bold text-[15px] tracking-tight">{item.label}</span>
+                                <span className="font-bold text-[15px] tracking-tight truncate">{item.label}</span>
                             </div>
 
                             {isActive(item.path) && (
-                                <motion.div layoutId="active-pill" className="w-2 h-2 rounded-full bg-[#C75D3B]" />
+                                <motion.div layoutId="active-pill" className="w-2 h-2 rounded-full bg-[#C75D3B] flex-shrink-0" />
                             )}
                         </motion.div>
                     </Link>

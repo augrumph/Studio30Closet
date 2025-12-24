@@ -23,6 +23,7 @@ import {
     updateCoupon,
     deleteCoupon,
     updateOrder,
+    getOrderById as getOrderByIdFromApi,
     // finalizeMalinhaAsSale
 } from '@/lib/api'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
@@ -512,6 +513,21 @@ export const useAdminStore = create((set, get) => ({
     getOrderById: (id) => {
         const { orders } = get()
         return orders.find(o => o.id === parseInt(id))
+    },
+
+    fetchOrder: async (id) => {
+        set({ ordersLoading: true, ordersError: null });
+        try {
+            const order = await getOrderByIdFromApi(id);
+            set(state => ({
+                orders: state.orders.map(o => o.id === parseInt(id) ? { ...o, ...order } : o),
+                ordersLoading: false
+            }));
+            return order;
+        } catch (error) {
+            set({ ordersError: error.message, ordersLoading: false });
+            return null;
+        }
     },
 
     getCustomerById: (id) => {

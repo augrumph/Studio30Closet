@@ -42,16 +42,59 @@ export function Dashboard() {
 
     // --- CÁLCULOS FINANCEIROS ---
     const financialMetrics = useMemo(() => {
-        const totalSales = vendas.reduce((acc, curr) => acc + curr.totalValue, 0) // Valor cobrado dos clientes
-        const totalFees = vendas.reduce((acc, curr) => acc + (curr.feeValue || 0), 0) // Total de taxas pagas
-        const netRevenue = vendas.reduce((acc, curr) => acc + (curr.netValue || curr.totalValue), 0) // Valor líquido recebido
-        const totalCost = vendas.reduce((acc, curr) => acc + (curr.costPrice || 0), 0) // Custo dos produtos
-        const netProfit = netRevenue - totalCost // Lucro líquido (depois das taxas)
+        // Calculating gross margin and net margin according to specifications
+        // Using the stored costPrice from vendas table which is properly calculated during sale creation
+        const calculations = vendas.map(venda => {
+            // Using the stored costPrice from the venda record
+            const costPrice = venda.costPrice || 0;
+
+            // Margem Bruta (R$) = total_value - costPrice
+            const grossMarginValue = venda.totalValue - costPrice;
+
+            // Margem Bruta (%) = (margem_bruta / total_value) * 100
+            const grossMarginPercent = venda.totalValue > 0 ? (grossMarginValue / venda.totalValue) * 100 : 0;
+
+            // Margem Líquida (R$) = total_value - costPrice - fee_amount
+            const netMarginValue = venda.totalValue - costPrice - (venda.feeAmount || 0);
+
+            // Margem Líquida (%) = (margem_liquida / total_value) * 100
+            const netMarginPercent = venda.totalValue > 0 ? (netMarginValue / venda.totalValue) * 100 : 0;
+
+            return {
+                totalValue: venda.totalValue,
+                costPrice,
+                feeAmount: venda.feeAmount || 0,
+                grossMarginValue,
+                grossMarginPercent,
+                netMarginValue,
+                netMarginPercent
+            };
+        });
+
+        const totalSales = calculations.reduce((sum, calc) => sum + calc.totalValue, 0);
+        const totalGrossMarginValue = calculations.reduce((sum, calc) => sum + calc.grossMarginValue, 0);
+        const totalNetMarginValue = calculations.reduce((sum, calc) => sum + calc.netMarginValue, 0);
+        const totalCostPrice = calculations.reduce((sum, calc) => sum + calc.costPrice, 0);
+        const totalFees = calculations.reduce((sum, calc) => sum + calc.feeAmount, 0);
+
+        // Overall gross and net margin percentages
+        const overallGrossMarginPercent = totalSales > 0 ? (totalGrossMarginValue / totalSales) * 100 : 0;
+        const overallNetMarginPercent = totalSales > 0 ? (totalNetMarginValue / totalSales) * 100 : 0;
+
         const pendingCrediario = vendas
             .filter(v => v.paymentMethod === 'fiado' && v.paymentStatus === 'pending')
-            .reduce((acc, curr) => acc + curr.totalValue, 0)
+            .reduce((acc, curr) => acc + curr.totalValue, 0);
 
-        return { totalSales, totalFees, netRevenue, totalCost, netProfit, pendingCrediario }
+        return {
+            totalSales,
+            totalGrossMarginValue,
+            totalNetMarginValue,
+            totalCostPrice,
+            totalFees,
+            overallGrossMarginPercent,
+            overallNetMarginPercent,
+            pendingCrediario
+        };
     }, [vendas])
 
     // --- TREND ANALYTICS (Últimos 7 dias) ---
@@ -110,8 +153,14 @@ export function Dashboard() {
         <div className="space-y-6 md:space-y-10 max-w-[1600px] mx-auto">
 
             {/* 1. HERO SECTION & QUICK ACTIONS */}
-            <div className="relative overflow-hidden rounded-3xl md:rounded-[40px] bg-[#4A3B32] p-6 md:p-8 lg:p-12 text-white shadow-2xl">
-                <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-[#C75D3B]/20 to-transparent pointer-events-none" />
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="relative overflow-hidden rounded-3xl md:rounded-[40px] bg-gradient-to-br from-[#4A3B32] via-[#5A4B42] to-[#4A3B32] p-6 md:p-8 lg:p-12 text-white shadow-2xl border border-white/5"
+            >
+                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#C75D3B]/30 via-[#C75D3B]/10 to-transparent pointer-events-none" />
+                <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-[#C75D3B]/20 rounded-full blur-3xl" />
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-10">
                     <div className="space-y-3 md:space-y-4">
                         <div className="inline-flex items-center gap-2 px-3 md:px-4 py-1 md:py-1.5 bg-white/10 rounded-full backdrop-blur-md border border-white/10">
@@ -148,63 +197,99 @@ export function Dashboard() {
                         </Link>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* 2. FINANCIAL SCOREBOARD */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {[
                     { label: 'Total de Vendas', value: financialMetrics.totalSales, icon: DollarSign, color: 'blue', description: 'Valor cobrado dos clientes' },
-                    { label: 'Taxas Pagas', value: financialMetrics.totalFees, icon: CreditCard, color: 'orange', description: 'Taxas de maquininha' },
-                    { label: 'Receita Líquida', value: financialMetrics.netRevenue, icon: TrendingUp, color: 'emerald', description: 'Valor recebido após taxas' },
-                    { label: 'Custos de Produto', value: financialMetrics.totalCost, icon: Package, color: 'amber', description: 'Custo dos produtos vendidos' },
-                    { label: 'Lucro Líquido', value: financialMetrics.netProfit, icon: Target, color: 'purple', description: 'Receita líquida - Custos' },
-                    { label: 'Crediário Pendente', value: financialMetrics.pendingCrediario, icon: Clock, color: 'red', description: 'Valores a receber', alert: true }
+                    { label: 'Custos dos Produtos', value: financialMetrics.totalCostPrice, icon: Package, color: 'amber', description: 'Custo total dos produtos vendidos' },
+                    { label: 'Margem Bruta (R$)', value: financialMetrics.totalGrossMarginValue, icon: ArrowUpRight, color: 'green', description: 'Lucro bruto em reais', isPercentage: false },
+                    { label: 'Margem Bruta (%)', value: financialMetrics.overallGrossMarginPercent, icon: ArrowUpRight, color: 'emerald', description: 'Lucro bruto sobre receita', isPercentage: true },
+                    { label: 'Margem Líquida (R$)', value: financialMetrics.totalNetMarginValue, icon: Target, color: 'purple', description: 'Lucro líquido em reais', isPercentage: false },
+                    { label: 'Margem Líquida (%)', value: financialMetrics.overallNetMarginPercent, icon: Target, color: 'indigo', description: 'Lucro líquido sobre receita', isPercentage: true }
                 ].map((stat, i) => (
                     <motion.div
                         key={i}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        className="bg-white p-5 md:p-7 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-sm active:shadow-md md:hover:shadow-xl transition-all group"
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        whileHover={{ y: -4, scale: 1.02 }}
+                        transition={{ delay: i * 0.08, duration: 0.4 }}
+                        className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
                     >
-                        <div className="flex justify-between items-start mb-3 md:mb-4">
-                            <div className={cn(
-                                "w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center transition-colors",
-                                stat.color === 'blue' ? "bg-blue-50 text-blue-600 group-active:bg-blue-600 group-active:text-white md:group-hover:bg-blue-600 md:group-hover:text-white" :
-                                stat.color === 'orange' ? "bg-orange-50 text-orange-600 group-active:bg-orange-600 group-active:text-white md:group-hover:bg-orange-600 md:group-hover:text-white" :
-                                stat.color === 'emerald' ? "bg-emerald-50 text-emerald-600 group-active:bg-emerald-600 group-active:text-white md:group-hover:bg-emerald-600 md:group-hover:text-white" :
-                                stat.color === 'purple' ? "bg-purple-50 text-purple-600 group-active:bg-purple-600 group-active:text-white md:group-hover:bg-purple-600 md:group-hover:text-white" :
-                                stat.color === 'amber' ? "bg-amber-50 text-amber-600 group-active:bg-amber-600 group-active:text-white md:group-hover:bg-amber-600 md:group-hover:text-white" :
-                                "bg-red-50 text-red-600 group-active:bg-red-600 group-active:text-white md:group-hover:bg-red-600 md:group-hover:text-white"
-                            )}>
-                                <stat.icon className="w-6 h-6 md:w-7 md:h-7" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className={cn(
+                                    "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
+                                    stat.color === 'blue' ? "bg-blue-100 text-blue-600" :
+                                    stat.color === 'amber' ? "bg-amber-100 text-amber-600" :
+                                    stat.color === 'emerald' ? "bg-emerald-100 text-emerald-600" :
+                                    stat.color === 'purple' ? "bg-purple-100 text-purple-600" :
+                                    stat.color === 'indigo' ? "bg-indigo-100 text-indigo-600" :
+                                    stat.color === 'green' ? "bg-green-100 text-green-600" :
+                                    "bg-red-100 text-red-600"
+                                )}>
+                                    <stat.icon className="w-6 h-6 md:w-7 md:h-7" />
+                                </div>
                             </div>
+                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">{stat.label}</p>
+                            <h3 className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32] mb-3 leading-tight">
+                                {stat.isPercentage ?
+                                    `${(stat.value || 0).toFixed(1)}%` :
+                                    `R$ ${(stat.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                }
+                            </h3>
+                            <p className="text-xs text-gray-500 font-medium line-clamp-2">{stat.description}</p>
                         </div>
-                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-1 md:mb-1.5 pl-0.5 md:pl-1">{stat.label}</p>
-                        <h3 className={cn(
-                            "text-2xl md:text-3xl font-display font-bold text-[#4A3B32] mb-1.5 md:mb-2",
-                            stat.alert && financialMetrics.pendingCrediario > 0 && "text-red-500"
-                        )}>
-                            R$ {(stat.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </h3>
-                        <p className="text-xs text-gray-400 font-medium italic line-clamp-1">{stat.description}</p>
                     </motion.div>
                 ))}
+            </div>
+
+            {/* Crediário Pendente Card - Separated for visibility */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    transition={{ delay: 0.48, duration: 0.4 }}
+                    className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                    <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className={cn(
+                                "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
+                                financialMetrics.pendingCrediario > 0 ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"
+                            )}>
+                                <Clock className="w-6 h-6 md:w-7 md:h-7" />
+                            </div>
+                        </div>
+                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Crediário Pendente</p>
+                        <h3 className={cn(
+                            "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
+                            financialMetrics.pendingCrediario > 0 ? "text-red-600" : "text-emerald-600"
+                        )}>
+                            R$ {(financialMetrics.pendingCrediario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium">Valores a receber de clientes</p>
+                    </div>
+                </motion.div>
             </div>
 
             {/* 3. TRENDS & TOP PRODUCTS */}
             <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
 
                 {/* Trend Chart Area */}
-                <Card className="lg:col-span-2 rounded-2xl md:rounded-[40px] overflow-hidden border-none shadow-xl bg-white">
-                    <CardHeader className="p-5 md:p-8 pb-0">
-                        <div className="flex items-center justify-between">
+                <Card className="lg:col-span-2 rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                    <CardHeader className="p-6 md:p-8 pb-0">
+                        <div className="flex items-center justify-between gap-4">
                             <div>
-                                <CardTitle className="text-xl md:text-2xl font-display">Tendência de Vendas</CardTitle>
-                                <p className="text-xs md:text-sm text-gray-400 mt-1 font-medium">Performance dos últimos 7 dias</p>
+                                <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32]">Tendência de Vendas</CardTitle>
+                                <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium">Performance dos últimos 7 dias</p>
                             </div>
-                            <div className="p-2 md:p-3 bg-gray-50 rounded-xl md:rounded-2xl">
-                                <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-[#C75D3B]" />
+                            <div className="p-3 md:p-4 bg-[#FDF0ED] rounded-2xl flex-shrink-0">
+                                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-[#C75D3B]" />
                             </div>
                         </div>
                     </CardHeader>
@@ -239,12 +324,12 @@ export function Dashboard() {
                 </Card>
 
                 {/* Top Products */}
-                <Card className="rounded-2xl md:rounded-[40px] overflow-hidden border-none shadow-xl bg-white">
-                    <CardHeader className="p-5 md:p-8">
-                        <CardTitle className="text-xl md:text-2xl font-display">Produtos Estrela</CardTitle>
-                        <p className="text-xs md:text-sm text-gray-400 mt-1 font-medium">Os queridinhos do Studio 30</p>
+                <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                    <CardHeader className="p-6 md:p-8">
+                        <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32]">Produtos Estrela</CardTitle>
+                        <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium">Os queridinhos do Studio 30</p>
                     </CardHeader>
-                    <CardContent className="p-5 md:p-8 pt-0">
+                    <CardContent className="p-6 md:p-8 pt-0">
                         <div className="space-y-4 md:space-y-6">
                             {topProducts.length > 0 ? topProducts.map((p, idx) => (
                                 <div key={idx} className="flex items-center gap-3 md:gap-4 group">
@@ -283,15 +368,15 @@ export function Dashboard() {
             {/* 4. RECENT ACTIVITY & MONTHLY GOAL */}
             <div className="grid lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8">
                 {/* Recent Items List */}
-                <Card className="lg:col-span-8 rounded-2xl md:rounded-[40px] border-none shadow-xl bg-white overflow-hidden">
-                    <CardHeader className="p-5 md:p-8 border-b border-gray-50 flex flex-row items-center justify-between gap-3">
-                        <div className="min-w-0">
-                            <CardTitle className="text-lg md:text-2xl font-display truncate">Atividade Operacional</CardTitle>
-                            <p className="text-xs md:text-sm text-gray-400 mt-1 font-medium hidden sm:block">Últimas interações processadas</p>
+                <Card className="lg:col-span-8 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md bg-white overflow-hidden">
+                    <CardHeader className="p-6 md:p-8 border-b border-gray-50 flex flex-row items-center justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                            <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32] truncate">Atividade Operacional</CardTitle>
+                            <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium hidden sm:block">Últimas interações processadas</p>
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
-                            <button className="p-2 md:p-2.5 bg-gray-50 rounded-xl active:bg-gray-100 md:hover:bg-gray-100 transition-colors"><Search className="w-4 h-4 text-gray-400" /></button>
-                            <button className="p-2 md:p-2.5 bg-gray-50 rounded-xl active:bg-gray-100 md:hover:bg-gray-100 transition-colors"><Plus className="w-4 h-4 text-gray-400" /></button>
+                            <button className="p-2 md:p-3 bg-gray-100 hover:bg-gray-200 rounded-xl active:bg-gray-200 transition-colors"><Search className="w-4 h-4 md:w-5 md:h-5 text-gray-600" /></button>
+                            <button className="p-2 md:p-3 bg-gray-100 hover:bg-gray-200 rounded-xl active:bg-gray-200 transition-colors"><Plus className="w-4 h-4 md:w-5 md:h-5 text-gray-600" /></button>
                         </div>
                     </CardHeader>
                     <div className="p-0">
@@ -331,14 +416,14 @@ export function Dashboard() {
 
                 {/* Performance Goal Mastery */}
                 <div className="lg:col-span-4 space-y-4 md:space-y-6 lg:space-y-8">
-                    <Card className="rounded-2xl md:rounded-[40px] border-none shadow-xl bg-[#4A3B32] text-white p-6 md:p-8 overflow-hidden relative group">
-                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none group-active:bg-white/10 md:group-hover:bg-white/10 transition-colors" />
+                    <Card className="rounded-2xl md:rounded-[32px] border border-white/10 shadow-md bg-[#4A3B32] text-white p-6 md:p-8 overflow-hidden relative group">
+                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none group-hover:bg-white/10 transition-colors" />
                         <CardHeader className="p-0 mb-6 md:mb-10">
-                            <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
-                                <div className="p-2 md:p-2.5 bg-white/10 rounded-lg md:rounded-xl backdrop-blur-md"><Target className="w-4 h-4 md:w-5 md:h-5 text-[#C75D3B]" /></div>
-                                <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] md:tracking-[0.2em] text-white/40">Objetivo Mensal</span>
+                            <div className="flex items-center gap-3 mb-4 md:mb-5">
+                                <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md"><Target className="w-5 h-5 md:w-6 md:h-6 text-[#C75D3B]" /></div>
+                                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-white/50">Objetivo Mensal</span>
                             </div>
-                            <CardTitle className="text-2xl md:text-3xl font-display font-medium">Meta de Crescimento</CardTitle>
+                            <CardTitle className="text-xl md:text-3xl font-display font-bold text-white">Meta de Crescimento</CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="space-y-6 md:space-y-10">
@@ -381,14 +466,14 @@ export function Dashboard() {
                         </CardContent>
                     </Card>
 
-                    <Card className="rounded-[40px] border-none shadow-xl bg-white p-8">
+                    <Card className="rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md bg-white p-6 md:p-8">
                         <div className="flex flex-col items-center text-center space-y-6">
-                            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center">
-                                <Users className="w-10 h-10 text-emerald-600" />
+                            <div className="w-16 h-16 md:w-20 md:h-20 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <Users className="w-8 h-8 md:w-10 md:h-10 text-emerald-600" />
                             </div>
                             <div>
-                                <h4 className="text-2xl font-display font-bold text-[#4A3B32]">{customers.length}</h4>
-                                <p className="text-sm text-gray-400 font-medium">Clientes na Base</p>
+                                <h4 className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32]">{customers.length}</h4>
+                                <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Clientes na Base</p>
                             </div>
                             <div className="flex -space-x-3">
                                 {customers.slice(0, 5).map((c, i) => (
@@ -402,8 +487,9 @@ export function Dashboard() {
                                     </div>
                                 )}
                             </div>
-                            <Link to="/admin/customers" className="text-[10px] font-black text-[#C75D3B] uppercase tracking-[0.2em] flex items-center gap-2 hover:gap-4 transition-all pt-4">
-                                Gestão de Relacionamento <ArrowUpRight className="w-4 h-4" />
+                            <Link to="/admin/customers" className="text-[10px] md:text-xs font-bold text-[#C75D3B] uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all pt-2 md:pt-4">
+                                Gestão de Relacionamento
+                                <ArrowUpRight className="w-4 h-4" />
                             </Link>
                         </div>
                     </Card>

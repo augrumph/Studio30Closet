@@ -14,11 +14,12 @@ export function CouponsForm() {
 
     const [formData, setFormData] = useState({
         code: '',
-        type: 'percent', // 'percent' ou 'fixed'
+        type: 'percent', // 'percent', 'fixed' ou 'cost_price'
         value: '',
         minPurchase: '',
         expiryDate: '',
         isActive: true,
+        isSpecial: false, // Apenas um cupom especial permitido
         description: ''
     })
 
@@ -118,47 +119,77 @@ export function CouponsForm() {
                                 <p className="text-[10px] text-gray-400 pl-1 italic">Este é o código que a cliente digitará no checkout.</p>
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-6">
+                            <div className="space-y-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">Tipo de Desconto</label>
-                                    <div className="flex gap-2 p-1 bg-gray-50 rounded-2xl">
+                                    <div className="grid grid-cols-3 gap-2 p-1 bg-gray-50 rounded-2xl">
                                         <button
                                             type="button"
-                                            onClick={() => setFormData(prev => ({ ...prev, type: 'percent' }))}
+                                            onClick={() => setFormData(prev => ({ ...prev, type: 'percent', isSpecial: false }))}
                                             className={cn(
-                                                "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all",
+                                                "flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs font-bold transition-all",
                                                 formData.type === 'percent' ? "bg-white text-[#C75D3B] shadow-sm" : "text-gray-400 hover:text-gray-600"
                                             )}
                                         >
-                                            <Percent className="w-4 h-4" /> Porcentagem
+                                            <Percent className="w-4 h-4" />
+                                            <span className="text-[10px]">%</span>
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setFormData(prev => ({ ...prev, type: 'fixed' }))}
+                                            onClick={() => setFormData(prev => ({ ...prev, type: 'fixed', isSpecial: false }))}
                                             className={cn(
-                                                "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all",
+                                                "flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs font-bold transition-all",
                                                 formData.type === 'fixed' ? "bg-white text-[#C75D3B] shadow-sm" : "text-gray-400 hover:text-gray-600"
                                             )}
                                         >
-                                            <DollarSign className="w-4 h-4" /> Valor Fixo
+                                            <DollarSign className="w-4 h-4" />
+                                            <span className="text-[10px]">Fixo</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, type: 'cost_price', isSpecial: true, value: '0' }))}
+                                            className={cn(
+                                                "flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs font-bold transition-all",
+                                                formData.type === 'cost_price' ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg" : "text-gray-400 hover:text-gray-600"
+                                            )}
+                                        >
+                                            <Ticket className="w-4 h-4" />
+                                            <span className="text-[10px]">Custo</span>
                                         </button>
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                        {formData.type === 'percent' ? 'Desconto (%)' : 'Valor (R$)'}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        name="value"
-                                        required
-                                        placeholder="0,00"
-                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
-                                        value={formData.value}
-                                        onChange={handleChange}
-                                    />
-                                </div>
+
+                                {formData.type !== 'cost_price' && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                            {formData.type === 'percent' ? 'Desconto (%)' : 'Valor (R$)'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            name="value"
+                                            required
+                                            placeholder="0,00"
+                                            className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                            value={formData.value}
+                                            onChange={handleChange}
+                                        />
+                                    </div>
+                                )}
+
+                                {formData.type === 'cost_price' && (
+                                    <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl">
+                                        <div className="flex items-start gap-3">
+                                            <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-bold text-amber-900">Cupom Especial - Preço de Custo</p>
+                                                <p className="text-[11px] text-amber-700 leading-relaxed">
+                                                    Este cupom define TODOS os produtos pelo preço de custo. Apenas UM cupom especial pode existir por vez. Use com moderação!
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-2">

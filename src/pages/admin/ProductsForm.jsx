@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck } from 'lucide-react'
+import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck, AlertTriangle, Loader2 } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { useSuppliersStore } from '@/store/suppliers-store'
 import { cn } from '@/lib/utils'
@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { AlertDialog } from '@/components/ui/AlertDialog'
 
 export function ProductsForm() {
     const { id } = useParams()
@@ -15,6 +17,7 @@ export function ProductsForm() {
     const { getProductById, addProduct, editProduct, productsLoading } = useAdminStore()
     const { suppliers, loadSuppliers } = useSuppliersStore()
 
+    const [initialData, setInitialData] = useState(null)
     const [formData, setFormData] = useState({
         name: '',
         category: 'vestidos',
@@ -91,17 +94,31 @@ export function ProductsForm() {
                     }
                 })
 
-                setFormData({
+                const data = {
                     ...product,
                     variants: variantsWithStock,
                     price: product.price.toString(),
                     originalPrice: product.originalPrice ? product.originalPrice.toString() : '',
                     stock: product.stock || 0,
                     costPrice: product.costPrice ? product.costPrice.toString() : ''
-                })
+                }
+                setFormData(data)
+                setInitialData(data)
             }
+        } else {
+            // Novo produto - definir initial data
+            setInitialData(formData)
         }
     }, [id, getProductById])
+
+    // Detectar mudanças não salvas
+    const hasUnsavedChanges = useMemo(() => {
+        if (!initialData) return false
+        return JSON.stringify(formData) !== JSON.stringify(initialData)
+    }, [formData, initialData])
+
+    // Hook para avisar sobre mudanças não salvas
+    const { navigateWithConfirmation } = useUnsavedChanges(hasUnsavedChanges)
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target
@@ -255,6 +272,7 @@ export function ProductsForm() {
             loading: id ? 'Salvando alterações...' : 'Criando novo produto...',
             success: (result) => {
                 if (result.success) {
+                    // Direct navigation after successful save (no confirmation needed)
                     navigate('/admin/products')
                     return id ? 'Produto atualizado com sucesso!' : 'Produto criado com sucesso!'
                 }
@@ -281,7 +299,7 @@ export function ProductsForm() {
                     <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => navigate('/admin/products')}
+                        onClick={() => navigateWithConfirmation('/admin/products')}
                         className="p-4 bg-white border border-gray-100 rounded-3xl shadow-sm hover:shadow-md transition-all"
                     >
                         <ArrowLeft className="w-6 h-6 text-[#4A3B32]" />
@@ -316,13 +334,17 @@ export function ProductsForm() {
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">Nome da Peça (Modelo)</label>
+                                <label htmlFor="product-name" className="text-xs text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                    Nome da Peça (Modelo) <span className="text-red-500">*</span>
+                                </label>
                                 <input
+                                    id="product-name"
                                     type="text"
                                     name="name"
                                     required
+                                    aria-required="true"
                                     placeholder="Ex: Vestido Midi Seda"
-                                    className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-medium transition-all"
+                                    className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-lg font-medium transition-all"
                                     value={formData.name}
                                     onChange={handleChange}
                                 />
@@ -330,38 +352,48 @@ export function ProductsForm() {
 
                             <div className="grid md:grid-cols-3 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">Preço de Venda (R$)</label>
+                                    <label htmlFor="product-price" className="text-xs text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Preço de Venda (R$) <span className="text-red-500">*</span>
+                                    </label>
                                     <input
+                                        id="product-price"
                                         type="text"
                                         inputMode="decimal"
                                         name="price"
                                         required
+                                        aria-required="true"
                                         placeholder="0,00"
-                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-lg font-bold text-[#4A3B32]"
                                         value={formData.price}
                                         onChange={handleChange}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1 text-gray-300">Preço Original (De:)</label>
+                                    <label htmlFor="product-original-price" className="text-xs text-gray-400 font-bold uppercase tracking-widest pl-1 text-gray-300">
+                                        Preço Original (De:)
+                                    </label>
                                     <input
+                                        id="product-original-price"
                                         type="text"
                                         inputMode="decimal"
                                         name="originalPrice"
                                         placeholder="0,00"
-                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-gray-300"
+                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-lg font-bold text-gray-300"
                                         value={formData.originalPrice}
                                         onChange={handleChange}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1 text-[#C75D3B]/60">Preço de Custo (R$)</label>
+                                    <label htmlFor="product-cost-price" className="text-xs text-gray-400 font-bold uppercase tracking-widest pl-1 text-[#C75D3B]/60">
+                                        Preço de Custo (R$)
+                                    </label>
                                     <input
+                                        id="product-cost-price"
                                         type="text"
                                         inputMode="decimal"
                                         name="costPrice"
                                         placeholder="0,00"
-                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#C75D3B]"
+                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-lg font-bold text-[#C75D3B]"
                                         value={formData.costPrice}
                                         onChange={handleChange}
                                     />
@@ -369,8 +401,11 @@ export function ProductsForm() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">Descrição Curadoria</label>
+                                <label htmlFor="product-description" className="text-xs text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                    Descrição Curadoria
+                                </label>
                                 <textarea
+                                    id="product-description"
                                     name="description"
                                     rows="4"
                                     placeholder="Descreva o tecido, corte e sensibilidade da peça..."
@@ -715,14 +750,23 @@ export function ProductsForm() {
                     {/* Submit Actions */}
                     <div className="sticky bottom-8 space-y-4">
                         <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
+                            whileHover={{ scale: productsLoading ? 1 : 1.02 }}
+                            whileTap={{ scale: productsLoading ? 1 : 0.98 }}
                             type="submit"
                             disabled={productsLoading}
-                            className="w-full flex items-center justify-center gap-3 py-6 bg-[#4A3B32] text-white rounded-3xl font-bold shadow-2xl shadow-[#4A3B32]/30 hover:bg-[#342922] transition-all disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-3 py-6 bg-[#4A3B32] text-white rounded-3xl font-bold shadow-2xl shadow-[#4A3B32]/30 hover:bg-[#342922] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Save className="w-6 h-6" />
-                            {id ? 'Salvar Lançamento' : 'Publicar no Catálogo'}
+                            {productsLoading ? (
+                                <>
+                                    <Loader2 className="w-6 h-6 animate-spin" />
+                                    Salvando...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-6 h-6" />
+                                    {id ? 'Salvar Lançamento' : 'Publicar no Catálogo'}
+                                </>
+                            )}
                         </motion.button>
                         <button
                             type="button"
@@ -734,6 +778,7 @@ export function ProductsForm() {
                     </div>
                 </div>
             </form>
+
         </div>
     )
 }

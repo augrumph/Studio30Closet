@@ -3,7 +3,7 @@ import { useAdminStore } from '@/store/admin-store'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { useEffect, useState, useMemo, memo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { X, SlidersHorizontal } from 'lucide-react'
 
 export function Catalog() {
     const [searchParams, setSearchParams] = useSearchParams()
@@ -85,6 +85,23 @@ export function Catalog() {
 
                     {/* Products Grid */}
                     <div className="md:col-span-3">
+                        {/* Mobile Filter Button */}
+                        <div className="md:hidden mb-6 flex items-center justify-between">
+                            <p className="text-sm text-[#4A3B32]/60">
+                                {filteredProducts.length} {filteredProducts.length === 1 ? 'peça' : 'peças'}
+                            </p>
+                            <button
+                                onClick={() => setShowMobileFilters(true)}
+                                className="flex items-center gap-2 px-4 py-2 border border-[#4A3B32]/20 rounded-lg text-[#4A3B32] hover:border-[#C75D3B] hover:text-[#C75D3B] transition-colors"
+                            >
+                                <SlidersHorizontal className="w-4 h-4" />
+                                <span className="font-medium">Filtros</span>
+                                {hasActiveFilters && (
+                                    <span className="w-2 h-2 rounded-full bg-[#C75D3B]" />
+                                )}
+                            </button>
+                        </div>
+
                         {productsLoading ? (
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                                 {Array.from({ length: 6 }).map((_, index) => (

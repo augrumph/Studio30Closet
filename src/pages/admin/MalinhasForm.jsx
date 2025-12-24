@@ -46,7 +46,6 @@ export function MalinhasForm() {
     const [customerSearch, setCustomerSearch] = useState('')
     const [productSearch, setProductSearch] = useState('')
     const [showCustomerSearch, setShowCustomerSearch] = useState(false)
-    const [showProductSearch, setShowProductSearch] = useState(false)
 
     useEffect(() => {
         loadProducts()
@@ -96,11 +95,11 @@ export function MalinhasForm() {
             ...prev,
             items: [...prev.items, newItem]
         }))
-        setShowProductSearch(false)
-        setProductSearch('')
-        toast.success(`${product.name} adicionado à malinha.`, {
-            description: 'A peça foi adicionada ao carrinho da mala.',
-            icon: '🛍️'
+        // Não fecha mais o modal - permite adicionar múltiplos produtos
+        toast.success(`${product.name} (${size}) adicionado!`, {
+            description: `${formData.items.length + 1} ${formData.items.length + 1 === 1 ? 'item' : 'itens'} na malinha`,
+            icon: '✅',
+            duration: 2000
         })
     }
 
@@ -121,12 +120,43 @@ export function MalinhasForm() {
 
         const totalValue = formData.items.reduce((sum, item) => sum + item.price, 0)
 
-        const payload = {
-            ...formData,
-            totalValue,
-            itemsCount: formData.items.length,
-            customer: customers.find(c => c.id === formData.customerId)
+        // Debug: verificar se o cliente está sendo encontrado
+        const selectedCustomer = customers.find(c => c.id === formData.customerId)
+        console.log('=== DEBUG MALINHA ===')
+        console.log('customerId:', formData.customerId, 'tipo:', typeof formData.customerId)
+        console.log('customers array:', customers.length, 'clientes')
+        console.log('selectedCustomer:', selectedCustomer)
+
+        if (!selectedCustomer) {
+            toast.error('Cliente não encontrado. Por favor, selecione novamente.')
+            return
         }
+
+        // Validar preços dos produtos
+        const invalidPriceItems = formData.items.filter(item => !item.price || item.price <= 0)
+        if (invalidPriceItems.length > 0) {
+            console.log('Itens com preço inválido:', invalidPriceItems)
+            toast.error(`${invalidPriceItems.length} produto(s) sem preço válido. Remova-os da malinha.`)
+            return
+        }
+
+        // Preparar payload - enviar items em camelCase, a API faz a conversão
+        const payload = {
+            customerId: formData.customerId,
+            deliveryDate: formData.deliveryDate,
+            pickupDate: formData.pickupDate,
+            status: formData.status,
+            totalValue,
+            items: formData.items.map(item => ({
+                productId: item.productId,
+                quantity: 1, // Cada item na malinha é uma peça individual
+                price: item.price,
+                selectedSize: item.selectedSize
+            })),
+            customer: selectedCustomer  // Este é usado apenas para referência no frontend
+        }
+
+        console.log('Payload enviado:', payload)
 
         const action = isEdit ? updateOrder(parseInt(id), payload) : addOrder(payload)
 
@@ -144,349 +174,406 @@ export function MalinhasForm() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto space-y-10 pb-20">
-            <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-6">
-                    <Link
-                        to="/admin/malinhas"
-                        className="p-4 bg-white border border-gray-100 rounded-3xl shadow-sm hover:shadow-md transition-all"
-                    >
-                        <ArrowLeft className="w-6 h-6 text-[#4A3B32]" />
-                    </Link>
-                    <div>
-                        <h2 className="text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">
-                            {isEdit ? 'Editar Malinha' : 'Montar Nova Malinha'}
-                        </h2>
-                        <p className="text-[#4A3B32]/40 font-medium italic">
-                            Personalize a seleção para sua cliente.
-                        </p>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white pb-20">
+            {/* Header */}
+            <div className="bg-white border-b border-gray-200 shadow-sm">
+                <div className="max-w-7xl mx-auto px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Link
+                                to="/admin/malinhas"
+                                className="p-2 hover:bg-gray-100 rounded-xl transition-all"
+                            >
+                                <ArrowLeft className="w-5 h-5 text-[#4A3B32]" />
+                            </Link>
+                            <div>
+                                <h1 className="text-2xl font-display font-bold text-[#4A3B32]">
+                                    {isEdit ? 'Editar Malinha' : 'Montar Nova Malinha'}
+                                </h1>
+                                <p className="text-sm text-[#4A3B32]/60">
+                                    {formData.items.length} {formData.items.length === 1 ? 'item selecionado' : 'itens selecionados'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={!formData.customerId || formData.items.length === 0}
+                            className="px-6 py-3 bg-[#C75D3B] text-white rounded-xl font-bold hover:bg-[#A64D31] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            <Save className="w-5 h-5" />
+                            {isEdit ? 'Salvar' : 'Confirmar Malinha'}
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-8 space-y-8">
-                    {/* Produtos da Malinha */}
-                    <Card className="border-none shadow-xl">
-                        <CardHeader className="p-8 border-b border-gray-50 flex items-center justify-between">
-                            <CardTitle className="flex items-center gap-3">
-                                <ShoppingBag className="w-5 h-5 text-[#C75D3B]" />
-                                Itens Selecionados
-                            </CardTitle>
-                            <button
-                                type="button"
-                                onClick={() => setShowProductSearch(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#FDF0ED] text-[#C75D3B] rounded-xl text-xs font-bold hover:bg-[#FCE4DC] transition-all"
-                            >
-                                <Plus className="w-4 h-4" /> ADICIONAR PRODUTO
-                            </button>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {formData.items.length > 0 ? (
-                                <div className="divide-y divide-gray-50">
-                                    {formData.items.map((item, idx) => (
-                                        <div key={idx} className="p-6 flex items-center gap-6 group hover:bg-gray-50/50">
-                                            <div className="w-16 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                                                <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="font-bold text-[#4A3B32]">{item.productName}</h4>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[10px] font-black bg-gray-100 px-2 py-0.5 rounded text-gray-500 uppercase tracking-tighter">
-                                                        TAM: {item.selectedSize}
-                                                    </span>
-                                                    <span className="text-xs font-bold text-[#C75D3B]">
-                                                        R$ {(item.price || 0).toLocaleString('pt-BR')}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeItem(idx)}
-                                                className="p-3 text-gray-300 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                    ))}
+            <div className="max-w-7xl mx-auto px-6 pt-8">
+                <div className="grid lg:grid-cols-3 gap-8">
+                    {/* COLUNA ESQUERDA: Catálogo de Produtos */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Busca de Produtos */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="p-3 bg-[#C75D3B]/10 rounded-xl">
+                                    <Search className="w-5 h-5 text-[#C75D3B]" />
                                 </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-[#4A3B32]">Catálogo de Produtos</h3>
+                                    <p className="text-xs text-gray-400">Clique nos tamanhos para adicionar à malinha</p>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar produtos..."
+                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium"
+                                    value={productSearch}
+                                    onChange={(e) => setProductSearch(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Grid de Produtos - 3 colunas compactas */}
+                        <div className="grid md:grid-cols-3 gap-3">
+                            {filteredProducts.length > 0 ? (
+                                filteredProducts.map(product => {
+                                    const addedCount = formData.items.filter(item => item.productId === product.id).length
+                                    const isAdded = addedCount > 0
+                                    const canBeAdded = product.stock > 0
+
+                                    return (
+                                        <motion.div
+                                            key={product.id}
+                                            layout
+                                            className={cn(
+                                                "bg-white rounded-xl shadow-sm border transition-all overflow-hidden group relative",
+                                                isAdded ? "border-[#C75D3B]/40" : "border-gray-200 hover:border-[#C75D3B]/20 hover:shadow-md"
+                                            )}
+                                        >
+                                            {/* Imagem do Produto - Clicável para adicionar */}
+                                            <div
+                                                className={cn(
+                                                    "relative aspect-square overflow-hidden bg-gray-100",
+                                                    canBeAdded && "cursor-pointer group/image"
+                                                )}
+                                                onClick={() => {
+                                                    if (canBeAdded && product.sizes && product.sizes.length > 0) {
+                                                        addItem(product, product.sizes[0])
+                                                    }
+                                                }}
+                                            >
+                                                <img
+                                                    src={product.images?.[0]}
+                                                    alt={product.name}
+                                                    className="w-full h-full object-cover transition-transform group-hover/image:scale-105"
+                                                />
+                                                {!canBeAdded && (
+                                                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                                        <span className="text-white text-xs font-bold">ESGOTADO</span>
+                                                    </div>
+                                                )}
+                                                {/* Badge de estoque */}
+                                                {canBeAdded && (
+                                                    <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-white text-xs font-bold">
+                                                        {product.stock} unid.
+                                                    </div>
+                                                )}
+                                                {/* Overlay de adicionar ao passar o mouse */}
+                                                {canBeAdded && (
+                                                    <div className="absolute inset-0 bg-[#C75D3B]/0 group-hover/image:bg-[#C75D3B]/20 transition-all flex items-center justify-center">
+                                                        <div className="opacity-0 group-hover/image:opacity-100 transition-opacity bg-white/90 px-4 py-2 rounded-lg">
+                                                            <Plus className="w-5 h-5 text-[#C75D3B]" />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Info do Produto */}
+                                            <div className="p-3">
+                                                <h4 className="font-bold text-[#4A3B32] text-sm mb-1 line-clamp-1">{product.name}</h4>
+                                                <p className="text-base font-bold text-[#C75D3B] mb-2">
+                                                    R$ {(product.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </p>
+
+                                                {/* Tamanhos compactos */}
+                                                <div className="flex flex-wrap gap-1 mb-2">
+                                                    {(product.sizes || []).map(size => {
+                                                        const itemsWithSize = formData.items.filter(
+                                                            item => item.productId === product.id && item.selectedSize === size
+                                                        ).length
+
+                                                        return (
+                                                            <button
+                                                                key={size}
+                                                                onClick={() => canBeAdded && addItem(product, size)}
+                                                                disabled={!canBeAdded}
+                                                                className={cn(
+                                                                    "relative px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                                                    itemsWithSize > 0
+                                                                        ? "bg-[#C75D3B] text-white"
+                                                                        : canBeAdded
+                                                                            ? "bg-gray-100 text-[#4A3B32] hover:bg-gray-200"
+                                                                            : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                                                                )}
+                                                            >
+                                                                {size}
+                                                                {itemsWithSize > 0 && (
+                                                                    <span className="ml-1">({itemsWithSize})</span>
+                                                                )}
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </div>
+
+                                                {/* Ações rápidas */}
+                                                {isAdded && (
+                                                    <div className="flex gap-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                // Remove o último item desse produto
+                                                                const lastIdx = formData.items.map((item, idx) => item.productId === product.id ? idx : -1).filter(idx => idx !== -1).pop()
+                                                                if (lastIdx !== undefined) removeItem(lastIdx)
+                                                            }}
+                                                            className="flex-1 px-2 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-all flex items-center justify-center gap-1"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                            Remover
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    )
+                                })
                             ) : (
-                                <div className="p-12 text-center text-gray-300 italic">
-                                    Nenhum produto adicionado ainda.
+                                <div className="col-span-3 py-20 text-center">
+                                    <ShoppingBag className="w-16 h-16 mx-auto text-gray-200 mb-4" />
+                                    <p className="text-gray-400 font-medium">
+                                        {productSearch ? 'Nenhum produto encontrado' : 'Busque produtos para começar'}
+                                    </p>
                                 </div>
                             )}
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
-                    {/* Logística & Datas */}
-                    <Card className="border-none shadow-xl">
-                        <CardHeader className="p-8 border-b border-gray-50">
-                            <CardTitle className="flex items-center gap-3">
-                                <CalendarIcon className="w-5 h-5 text-[#C75D3B]" />
-                                Agendamento Logístico
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-8">
-                            <div className="grid md:grid-cols-2 gap-8">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Previsão de Entrega</label>
-                                    <div className="relative">
-                                        <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                    {/* COLUNA DIREITA: Painel da Malinha */}
+                    <div className="lg:col-span-1">
+                        <div className="sticky top-24 space-y-4">
+                            {/* Cliente */}
+                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                                <div className="h-1 bg-gradient-to-r from-[#C75D3B] to-[#A64D31]" />
+                                <div className="p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <User className="w-4 h-4 text-[#C75D3B]" />
+                                            <h3 className="font-bold text-[#4A3B32]">Cliente</h3>
+                                        </div>
+                                        {formData.customerId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, customerId: '', customerName: '' }))}
+                                                className="text-xs font-bold text-[#C75D3B] hover:underline"
+                                            >
+                                                Trocar
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {formData.customerId ? (
+                                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                            <div className="w-10 h-10 rounded-full bg-[#C75D3B]/10 flex items-center justify-center text-[#C75D3B] font-bold">
+                                                {formData.customerName.charAt(0)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-[#4A3B32] text-sm truncate">{formData.customerName}</p>
+                                                <p className="text-xs text-gray-400">Selecionada</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Buscar..."
+                                                    className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border-none rounded-lg text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none"
+                                                    value={customerSearch}
+                                                    onChange={(e) => {
+                                                        setCustomerSearch(e.target.value)
+                                                        setShowCustomerSearch(true)
+                                                    }}
+                                                    onFocus={() => setShowCustomerSearch(true)}
+                                                />
+                                            </div>
+                                            <AnimatePresence>
+                                                {showCustomerSearch && customerSearch && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: -10 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0 }}
+                                                        className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg max-h-40 overflow-y-auto"
+                                                    >
+                                                        {filteredCustomers.length > 0 ? filteredCustomers.map(c => (
+                                                            <button
+                                                                key={c.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setFormData(p => ({ ...p, customerId: c.id, customerName: c.name }))
+                                                                    setShowCustomerSearch(false)
+                                                                    setCustomerSearch('')
+                                                                }}
+                                                                className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-2"
+                                                            >
+                                                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">
+                                                                    {c.name.charAt(0)}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-xs font-bold text-[#4A3B32] truncate">{c.name}</p>
+                                                                    <p className="text-xs text-gray-400">{c.phone}</p>
+                                                                </div>
+                                                            </button>
+                                                        )) : (
+                                                            <div className="p-3 text-center text-xs text-gray-400">Não encontrada</div>
+                                                        )}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Malinha - Itens */}
+                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                                <div className="h-1 bg-gradient-to-r from-[#C75D3B] to-[#A64D31]" />
+                                <div className="p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <ShoppingBag className="w-4 h-4 text-[#C75D3B]" />
+                                            <h3 className="font-bold text-[#4A3B32]">Malinha</h3>
+                                        </div>
+                                        <span className="text-xs font-bold text-gray-400">
+                                            {formData.items.length} {formData.items.length === 1 ? 'item' : 'itens'}
+                                        </span>
+                                    </div>
+
+                                    {formData.items.length > 0 ? (
+                                        <div className="space-y-2 mb-4 max-h-96 overflow-y-auto">
+                                            <AnimatePresence>
+                                                {formData.items.map((item, idx) => (
+                                                    <motion.div
+                                                        key={idx}
+                                                        initial={{ opacity: 0, x: -20 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        exit={{ opacity: 0, x: 20 }}
+                                                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group hover:bg-gray-100 transition-all"
+                                                    >
+                                                        <div className="w-12 h-14 rounded-lg overflow-hidden bg-white flex-shrink-0">
+                                                            <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-[#4A3B32] truncate">{item.productName}</p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="text-xs px-2 py-0.5 bg-white rounded text-gray-500 font-bold">
+                                                                    {item.selectedSize}
+                                                                </span>
+                                                                <span className="text-xs font-bold text-[#C75D3B]">
+                                                                    R$ {(item.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeItem(idx)}
+                                                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </motion.div>
+                                                ))}
+                                            </AnimatePresence>
+                                        </div>
+                                    ) : (
+                                        <div className="py-8 text-center">
+                                            <ShoppingBag className="w-12 h-12 mx-auto text-gray-200 mb-2" />
+                                            <p className="text-xs text-gray-400">Adicione produtos da lista</p>
+                                        </div>
+                                    )}
+
+                                    {/* Total */}
+                                    {formData.items.length > 0 && (
+                                        <div className="pt-4 border-t border-gray-200">
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-bold text-[#4A3B32]">Total</span>
+                                                <span className="text-xl font-bold text-[#C75D3B]">
+                                                    R$ {formData.items.reduce((sum, item) => sum + (item.price || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Datas */}
+                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 space-y-4">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <CalendarIcon className="w-4 h-4 text-[#C75D3B]" />
+                                    <h3 className="font-bold text-[#4A3B32]">Agendamento</h3>
+                                </div>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 mb-2 block">Entrega</label>
                                         <input
                                             type="date"
-                                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 transition-all font-bold text-[#4A3B32]"
+                                            className="w-full px-3 py-2.5 bg-gray-50 border-none rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-medium"
                                             value={formData.deliveryDate}
                                             onChange={(e) => setFormData(prev => ({ ...prev, deliveryDate: e.target.value }))}
                                         />
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Janela de Coleta</label>
-                                    <div className="relative">
-                                        <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 mb-2 block">Coleta</label>
                                         <input
                                             type="date"
-                                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 transition-all font-bold text-[#4A3B32]"
+                                            className="w-full px-3 py-2.5 bg-gray-50 border-none rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-medium"
                                             value={formData.pickupDate}
                                             onChange={(e) => setFormData(prev => ({ ...prev, pickupDate: e.target.value }))}
                                         />
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
 
-                <div className="lg:col-span-4 space-y-8">
-                    {/* Cliente Selection */}
-                    <Card className="border-none shadow-xl overflow-hidden">
-                        <div className="h-2 bg-[#C75D3B]" />
-                        <CardHeader className="p-6">
-                            <CardTitle className="flex items-center justify-between text-lg">
-                                <span className="flex items-center gap-2">
-                                    <User className="w-5 h-5 text-gray-400" />
-                                    Cliente
-                                </span>
-                                {formData.customerId && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, customerId: '', customerName: '' }))}
-                                        className="text-[10px] font-bold text-[#C75D3B] uppercase"
-                                    >
-                                        Trocar
-                                    </button>
-                                )}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6 pt-0">
-                            {formData.customerId ? (
-                                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                                    <div className="w-12 h-12 rounded-full bg-[#FAF3F0] flex items-center justify-center text-[#C75D3B] font-bold">
-                                        {formData.customerName.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-[#4A3B32]">{formData.customerName}</p>
-                                        <p className="text-[10px] text-gray-400 uppercase font-black">Cliente Selecionada</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                                        <input
-                                            type="text"
-                                            placeholder="Buscar cliente..."
-                                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 transition-all"
-                                            value={customerSearch}
-                                            onChange={(e) => {
-                                                setCustomerSearch(e.target.value)
-                                                setShowCustomerSearch(true)
-                                            }}
-                                            onFocus={() => setShowCustomerSearch(true)}
-                                        />
-                                    </div>
-                                    <AnimatePresence>
-                                        {showCustomerSearch && customerSearch && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: -10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0 }}
-                                                className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-lg max-h-48 overflow-y-auto"
-                                            >
-                                                {filteredCustomers.length > 0 ? filteredCustomers.map(c => (
-                                                    <button
-                                                        key={c.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setFormData(p => ({ ...p, customerId: c.id, customerName: c.name }))
-                                                            setShowCustomerSearch(false)
-                                                            setCustomerSearch('')
-                                                        }}
-                                                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3"
-                                                    >
-                                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold">
-                                                            {c.name.charAt(0)}
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs font-bold text-[#4A3B32]">{c.name}</p>
-                                                            <p className="text-[10px] text-gray-400">{c.phone}</p>
-                                                        </div>
-                                                    </button>
-                                                )) : (
-                                                    <div className="p-4 text-center text-xs text-gray-400 italic">Cliente não localizada</div>
-                                                )}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Status selection */}
-                    <Card className="border-none shadow-xl">
-                        <CardHeader className="p-6">
-                            <CardTitle className="text-lg">Status da Malinha</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6 pt-0 space-y-4">
-                            {['pending', 'shipped', 'completed', 'cancelled'].map(status => (
-                                <button
-                                    key={status}
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, status }))}
-                                    className={cn(
-                                        "w-full px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-left flex items-center justify-between border transition-all",
-                                        formData.status === status
-                                            ? "bg-[#4A3B32] text-white border-[#4A3B32] shadow-md"
-                                            : "bg-white text-gray-400 border-gray-100 hover:border-[#C75D3B] hover:text-[#C75D3B]"
-                                    )}
-                                >
-                                    {status === 'pending' ? 'Pendente' :
-                                        status === 'shipped' ? 'Enviada' :
-                                            status === 'completed' ? 'Concluída' : 'Cancelada'}
-                                    {formData.status === status && <Check className="w-4 h-4" />}
-                                </button>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    <button
-                        type="submit"
-                        className="w-full py-6 bg-[#C75D3B] text-white rounded-3xl font-display font-bold text-xl shadow-xl shadow-[#C75D3B]/20 hover:bg-[#A64D31] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-                    >
-                        <Save className="w-6 h-6" />
-                        {isEdit ? 'SALVAR ALTERAÇÕES' : 'CONFIRMAR MALINHA'}
-                    </button>
-                    <Link
-                        to="/admin/malinhas"
-                        className="w-full py-4 text-center block text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        DESCARTAR
-                    </Link>
-                </div>
-            </form>
-
-            {/* Product Modal */}
-            <AnimatePresence>
-                {showProductSearch && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
-                        >
-                            <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-[#FAF8F5]/50">
-                                <div>
-                                    <h3 className="text-2xl font-display font-bold text-[#4A3B32]">Inclusão de Produto</h3>
-                                    <p className="text-xs text-gray-400 font-medium italic mt-1">Busque por nome e selecione o tamanho.</p>
-                                </div>
-                                <button
-                                    onClick={() => setShowProductSearch(false)}
-                                    className="p-3 hover:bg-white rounded-2xl transition-all"
-                                >
-                                    <Trash2 className="w-6 h-6 text-gray-300" />
-                                </button>
-                            </div>
-
-                            <div className="p-8 border-b border-gray-50">
-                                <div className="relative">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-                                    <input
-                                        type="text"
-                                        placeholder="Nome do produto..."
-                                        className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-medium transition-all"
-                                        value={productSearch}
-                                        onChange={(e) => setProductSearch(e.target.value)}
-                                        autoFocus
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                                {filteredProducts.length > 0 ? filteredProducts.map(p => {
-                                    const isSingleSize = p.sizes?.length === 1;
-                                    const canBeAdded = p.stock > 0;
-
-                                    return (
-                                        <div 
-                                            key={p.id} 
+                            {/* Status */}
+                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+                                <h3 className="font-bold text-[#4A3B32] mb-3 text-sm">Status</h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { value: 'pending', label: 'Pendente' },
+                                        { value: 'shipped', label: 'Enviada' },
+                                        { value: 'completed', label: 'Concluída' },
+                                        { value: 'cancelled', label: 'Cancelada' }
+                                    ].map(({ value, label }) => (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            onClick={() => setFormData(p => ({ ...p, status: value }))}
                                             className={cn(
-                                                "p-4 bg-gray-50/50 rounded-3xl border border-transparent transition-all flex items-center gap-6 group",
-                                                canBeAdded && "hover:border-[#C75D3B]/20 hover:bg-white",
-                                                canBeAdded && isSingleSize && "cursor-pointer"
+                                                "px-3 py-2 rounded-lg text-xs font-bold transition-all",
+                                                formData.status === value
+                                                    ? "bg-[#C75D3B] text-white shadow-md"
+                                                    : "bg-gray-50 text-gray-400 hover:bg-gray-100"
                                             )}
-                                            onClick={() => {
-                                                if (canBeAdded && isSingleSize) {
-                                                    addItem(p, p.sizes[0]);
-                                                }
-                                            }}
                                         >
-                                            <div className="w-20 h-24 rounded-2xl overflow-hidden bg-white shadow-sm flex-shrink-0">
-                                                <img src={p.images?.[0]} alt={p.name} className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3">
-                                                    <h4 className="text-lg font-bold text-[#4A3B32]">{p.name}</h4>
-                                                    <Badge variant={p.stock > 0 ? 'success' : 'danger'}>
-                                                        {p.stock > 0 ? `${p.stock} em estoque` : 'Esgotado'}
-                                                    </Badge>
-                                                </div>
-                                                <p className="text-sm font-bold text-[#C75D3B]">R$ {(p.price || 0).toLocaleString('pt-BR')}</p>
-
-                                                <div className="mt-3 flex flex-wrap gap-2">
-                                                    {(p.sizes || []).map(size => (
-                                                        <button
-                                                            key={size}
-                                                            onClick={(e) => {
-                                                                if (!isSingleSize) {
-                                                                    e.stopPropagation(); // Evita que o click do card seja acionado
-                                                                    addItem(p, size);
-                                                                }
-                                                            }}
-                                                            disabled={!canBeAdded}
-                                                            className={cn(
-                                                                "px-3 py-1.5 bg-white border border-gray-100 rounded-lg text-[10px] font-black text-[#4A3B32] transition-all shadow-sm",
-                                                                canBeAdded && "hover:bg-[#C75D3B] hover:text-white",
-                                                                !canBeAdded && "opacity-50 cursor-not-allowed",
-                                                                isSingleSize && "hidden" // Esconde o botão se for tamanho único
-                                                            )}
-                                                        >
-                                                            {size}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                }) : (
-                                    <div className="py-20 text-center text-gray-300 italic font-display">Busque para começar...</div>
-                                )}
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </motion.div>
+                        </div>
                     </div>
-                )}
-            </AnimatePresence>
+                </div>
+            </div>
+
         </div>
     )
 }

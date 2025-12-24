@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
 
 export function VendasList() {
     const { vendas, loadVendas, vendasLoading, removeVenda } = useAdminStore()
@@ -20,7 +21,7 @@ export function VendasList() {
     }, [loadVendas])
 
     const filteredVendas = vendas.filter(venda => {
-        const matchesSearch = venda.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+        const matchesSearch = (venda.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
         const matchesType = filterType === 'all' || venda.paymentMethod === filterType
         const matchesPaymentStatus =
             filterPaymentStatus === 'all' ||
@@ -29,8 +30,20 @@ export function VendasList() {
         return matchesSearch && matchesType && matchesPaymentStatus
     })
 
-    const totalRevenue = filteredVendas.reduce((acc, curr) => acc + curr.totalValue, 0)
-    const pendingFiado = filteredVendas
+    // DEBUG: Ver estrutura das vendas
+    useEffect(() => {
+        if (vendas.length > 0) {
+            console.log('=== DEBUG VENDAS ===')
+            console.log('Total de vendas:', vendas.length)
+            console.log('Primeira venda:', vendas[0])
+            console.log('Vendas com fiado:', vendas.filter(v => v.paymentMethod === 'fiado'))
+            console.log('Vendas pending:', vendas.filter(v => v.paymentStatus === 'pending'))
+        }
+    }, [vendas])
+
+    // Usar TODAS as vendas para os cards de métricas (não filtradas)
+    const totalRevenue = vendas.reduce((acc, curr) => acc + curr.totalValue, 0)
+    const pendingFiado = vendas
         .filter(v => v.paymentMethod === 'fiado' && v.paymentStatus === 'pending')
         .reduce((acc, curr) => acc + curr.totalValue, 0)
 
@@ -62,20 +75,35 @@ export function VendasList() {
 
     return (
         <div className="space-y-10 pb-20">
-            {/* Header com Ação Principal */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                    <h2 className="text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">Vendas</h2>
-                    <p className="text-[#4A3B32]/40 font-medium italic">Histórico de faturamento e recebimentos.</p>
+            {/* Header Premium */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-6"
+            >
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-gradient-to-br from-[#C75D3B] to-[#A64D31] rounded-2xl shadow-lg">
+                            <ShoppingCart className="w-6 h-6 text-white" />
+                        </div>
+                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Vendas</h2>
+                    </div>
+                    <p className="text-[#4A3B32]/60 font-medium">Histórico completo de faturamento e recebimentos.</p>
                 </div>
-                <Link
-                    to="/admin/vendas/new"
-                    className="flex items-center gap-2 px-8 py-4 bg-[#C75D3B] text-white rounded-2xl font-bold hover:bg-[#A64D31] transition-all shadow-xl shadow-[#C75D3B]/20 hover:scale-[1.02] active:scale-[0.98]"
+
+                <ShimmerButton
+                    onClick={() => window.location.href = '/admin/vendas/new'}
+                    className="px-8 py-4 rounded-2xl font-bold shadow-2xl"
+                    shimmerColor="#ffffff"
+                    shimmerSize="0.15em"
+                    borderRadius="16px"
+                    shimmerDuration="2s"
+                    background="linear-gradient(135deg, #C75D3B 0%, #A64D31 100%)"
                 >
-                    <Plus className="w-5 h-5" />
-                    Nova Venda Manual
-                </Link>
-            </div>
+                    <Plus className="w-5 h-5 mr-2" />
+                    Nova Venda
+                </ShimmerButton>
+            </motion.div>
 
             {/* Quick Insights - Bento Style Cards */}
             <div className="grid md:grid-cols-4 gap-6">
@@ -268,9 +296,9 @@ export function VendasList() {
                                             <td className="px-8 py-6">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-full bg-[#FAF3F0] flex items-center justify-center text-[#C75D3B] font-bold text-xs">
-                                                        {venda.customerName.charAt(0)}
+                                                        {(venda.customerName || 'C')[0]}
                                                     </div>
-                                                    <p className="font-bold text-[#4A3B32] text-sm">{venda.customerName}</p>
+                                                    <p className="font-bold text-[#4A3B32] text-sm">{venda.customerName || 'Cliente não identificado'}</p>
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
@@ -310,7 +338,7 @@ export function VendasList() {
                                                         <Edit2 className="w-4 h-4" />
                                                     </Link>
                                                     <button
-                                                        onClick={() => handleDelete(venda.id, venda.customerName)}
+                                                        onClick={() => handleDelete(venda.id, venda.customerName || 'Cliente não identificado')}
                                                         className="p-2.5 bg-white border border-gray-100 text-red-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all shadow-sm active:scale-95"
                                                         title="Excluir Registro"
                                                     >

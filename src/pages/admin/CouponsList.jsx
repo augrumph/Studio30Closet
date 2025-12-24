@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
 
 export function CouponsList() {
     const { coupons, couponsLoading, loadCoupons, removeCoupon, editCoupon } = useAdminStore()
@@ -43,20 +44,35 @@ export function CouponsList() {
 
     return (
         <div className="space-y-10 pb-20">
-            {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-1">
-                    <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Descontos & Cupons</h2>
-                    <p className="text-[#4A3B32]/40 font-medium">Gerencie campanhas e códigos promocionais.</p>
+            {/* Header Premium */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-6"
+            >
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-gradient-to-br from-pink-500 to-fuchsia-600 rounded-2xl shadow-lg">
+                            <Percent className="w-6 h-6 text-white" />
+                        </div>
+                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Descontos & Cupons</h2>
+                    </div>
+                    <p className="text-[#4A3B32]/60 font-medium">Gerencie campanhas e códigos promocionais.</p>
                 </div>
 
-                <Link
-                    to="/admin/coupons/new"
-                    className="flex items-center gap-2 px-6 py-3 bg-[#4A3B32] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#4A3B32]/10 hover:scale-105 transition-all active:scale-95"
+                <ShimmerButton
+                    onClick={() => window.location.href = '/admin/coupons/new'}
+                    className="px-8 py-4 rounded-2xl font-bold shadow-2xl"
+                    shimmerColor="#ffffff"
+                    shimmerSize="0.15em"
+                    borderRadius="16px"
+                    shimmerDuration="2s"
+                    background="linear-gradient(135deg, #ec4899 0%, #c026d3 100%)"
                 >
-                    <Plus className="w-5 h-5" /> Novo Cupom
-                </Link>
-            </div>
+                    <Plus className="w-5 h-5 mr-2" />
+                    Novo Cupom
+                </ShimmerButton>
+            </motion.div>
 
             {/* Stats Overview (Simulado) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -7,6 +7,7 @@ import { useAdminStore } from '@/store/admin-store'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
 
 
 export function MalinhasList() {
@@ -60,20 +61,35 @@ export function MalinhasList() {
 
     return (
         <div className="space-y-10 pb-20">
-            {/* Header com Insights Rápidos */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                    <h2 className="text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">Malinhas</h2>
-                    <p className="text-[#4A3B32]/40 font-medium italic">Gestão logística de malas delivery.</p>
+            {/* Header Premium */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-6"
+            >
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg">
+                            <Calendar className="w-6 h-6 text-white" />
+                        </div>
+                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Malinhas</h2>
+                    </div>
+                    <p className="text-[#4A3B32]/60 font-medium">Gestão logística de malas delivery.</p>
                 </div>
 
-                <Link
-                    to="/admin/malinhas/new"
-                    className="flex items-center gap-3 px-8 py-4 bg-[#C75D3B] text-white rounded-[24px] font-bold shadow-lg shadow-[#C75D3B]/20 hover:scale-105 active:scale-95 transition-all text-sm uppercase tracking-widest"
+                <ShimmerButton
+                    onClick={() => window.location.href = '/admin/malinhas/new'}
+                    className="px-8 py-4 rounded-2xl font-bold shadow-2xl"
+                    shimmerColor="#ffffff"
+                    shimmerSize="0.15em"
+                    borderRadius="16px"
+                    shimmerDuration="2s"
+                    background="linear-gradient(135deg, #a855f7 0%, #4f46e5 100%)"
                 >
-                    <Plus className="w-5 h-5" /> Nova Malinha
-                </Link>
-            </div>
+                    <Plus className="w-5 h-5 mr-2" />
+                    Nova Malinha
+                </ShimmerButton>
+            </motion.div>
 
             {/* Premium Filtering Area */}
             <Card className="border-none shadow-xl overflow-visible">

@@ -111,17 +111,19 @@ export function ExpensesForm() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-8 space-y-8">
+            <form onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-8 space-y-6">
                     {/* Informações do Gasto */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Receipt className="w-5 h-5 text-[#C75D3B]" />
+                    <Card className="rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md">
+                        <CardHeader className="p-6 md:p-8">
+                            <CardTitle className="flex items-center gap-3 text-lg md:text-xl">
+                                <div className="p-2 md:p-3 bg-red-100 rounded-xl">
+                                    <Receipt className="w-5 h-5 text-red-600" />
+                                </div>
                                 Informações do Gasto
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-6">
+                        <CardContent className="p-6 md:p-8 space-y-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
                                     Nome do Gasto *
@@ -217,16 +219,18 @@ export function ExpensesForm() {
                     </Card>
                 </div>
 
-                <div className="lg:col-span-4 space-y-8">
+                <div className="lg:col-span-4 space-y-6">
                     {/* Observações */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FileText className="w-5 h-5 text-[#C75D3B]" />
+                    <Card className="rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md">
+                        <CardHeader className="p-6 md:p-8">
+                            <CardTitle className="flex items-center gap-3 text-lg md:text-xl">
+                                <div className="p-2 md:p-3 bg-blue-100 rounded-xl">
+                                    <FileText className="w-5 h-5 text-blue-600" />
+                                </div>
                                 Observações
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-6 md:p-8">
                             <textarea
                                 name="notes"
                                 rows="6"
@@ -239,21 +243,21 @@ export function ExpensesForm() {
                     </Card>
 
                     {/* Submit Actions */}
-                    <div className="sticky top-8 space-y-4">
+                    <div className="sticky bottom-8 space-y-3">
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             type="submit"
                             disabled={expensesLoading}
-                            className="w-full flex items-center justify-center gap-3 py-6 bg-[#4A3B32] text-white rounded-3xl font-bold shadow-2xl shadow-[#4A3B32]/30 hover:bg-[#342922] transition-all disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2 py-4 md:py-5 bg-red-600 text-white rounded-2xl md:rounded-[20px] font-bold shadow-lg hover:shadow-xl hover:bg-red-700 transition-all disabled:opacity-50"
                         >
-                            <Save className="w-6 h-6" />
+                            <Save className="w-5 h-5" />
                             {id ? 'Salvar Alterações' : 'Cadastrar Gasto'}
                         </motion.button>
                         <button
                             type="button"
                             onClick={() => navigate('/admin/expenses')}
-                            className="w-full py-4 text-[#4A3B32]/40 font-bold tracking-widest uppercase text-[10px] hover:text-[#4A3B32] transition-colors"
+                            className="w-full py-3 md:py-4 text-[#4A3B32]/60 font-bold tracking-wider uppercase text-[10px] hover:text-[#4A3B32] hover:bg-gray-100 rounded-2xl transition-all"
                         >
                             Cancelar
                         </button>

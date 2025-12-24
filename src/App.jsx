@@ -3,6 +3,8 @@ import { Layout } from '@/components/layout'
 import { Home, Catalog, HowItWorks, About, Checkout } from '@/pages'
 import { PrivacyPolicy, TermsOfService } from '@/pages'
 import { ScrollToTop } from '@/components/ScrollToTop'
+import { ToastProvider } from '@/contexts/ToastContext'
+import { LoadingBar } from '@/components/LoadingBar'
 
 // Admin imports
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
@@ -25,7 +27,8 @@ import { SuppliersForm } from '@/pages/admin/SuppliersForm'
 import { PurchasesList } from '@/pages/admin/PurchasesList'
 import { PurchasesForm } from '@/pages/admin/PurchasesForm'
 import { OperationalCosts } from '@/pages/admin/OperationalCosts'
-import { PaymentFeesConfig } from '@/pages/admin/PaymentFeesConfig'
+import { ExpensesList } from '@/pages/admin/ExpensesList'
+import { ExpensesForm } from '@/pages/admin/ExpensesForm'
 
 // Teste do Supabase
 import SupabaseTester from '@/components/SupabaseTester'
@@ -33,9 +36,11 @@ import SupabaseMigrationTester from '@/components/SupabaseMigrationTester'
 
 function App() {
     return (
-        <BrowserRouter>
-            <ScrollToTop />
-            <Routes>
+        <ToastProvider>
+            <BrowserRouter>
+                <LoadingBar />
+                <ScrollToTop />
+                <Routes>
                 {/* Rotas Públicas */}
                 <Route path="/" element={<Layout />}>
                     <Route index element={<Home />} />
@@ -95,11 +100,14 @@ function App() {
                     {/* Custos Operacionais */}
                     <Route path="operational-costs" element={<OperationalCosts />} />
 
-                    {/* Configuração de Taxas */}
-                    <Route path="payment-fees" element={<PaymentFeesConfig />} />
+                    {/* Despesas Fixas */}
+                    <Route path="expenses" element={<ExpensesList />} />
+                    <Route path="expenses/new" element={<ExpensesForm />} />
+                    <Route path="expenses/:id" element={<ExpensesForm />} />
                 </Route>
-            </Routes>
-        </BrowserRouter>
+                </Routes>
+            </BrowserRouter>
+        </ToastProvider>
     )
 }
 

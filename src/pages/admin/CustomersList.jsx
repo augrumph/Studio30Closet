@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
 
 export function CustomersList() {
     const { customers, customersLoading, loadCustomers, removeCustomer } = useAdminStore()
@@ -47,22 +48,35 @@ export function CustomersList() {
 
     return (
         <div className="space-y-10 pb-20">
-            {/* Elegant Header with Stats Tile */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-1">
-                    <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Banco de Clientes</h2>
-                    <p className="text-[#4A3B32]/40 font-medium">Gestão de relacionamento e histórico de consumo.</p>
+            {/* Header Premium */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-6"
+            >
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl shadow-lg">
+                            <User className="w-6 h-6 text-white" />
+                        </div>
+                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Banco de Clientes</h2>
+                    </div>
+                    <p className="text-[#4A3B32]/60 font-medium">Gestão de relacionamento e histórico de consumo.</p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <Link
-                        to="/admin/customers/new"
-                        className="flex items-center gap-2 px-6 py-3 bg-[#C75D3B] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#C75D3B]/20 hover:scale-105 transition-all active:scale-95"
-                    >
-                        <Plus className="w-5 h-5" /> Nova Cliente
-                    </Link>
-                </div>
-            </div>
+                <ShimmerButton
+                    onClick={() => window.location.href = '/admin/customers/new'}
+                    className="px-8 py-4 rounded-2xl font-bold shadow-2xl"
+                    shimmerColor="#ffffff"
+                    shimmerSize="0.15em"
+                    borderRadius="16px"
+                    shimmerDuration="2s"
+                    background="linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)"
+                >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Nova Cliente
+                </ShimmerButton>
+            </motion.div>
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

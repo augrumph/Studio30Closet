@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Receipt, Calendar, DollarSign, Trash2, Edit2, TrendingDown } from 'lucide-react'
+import { Plus, Search, Receipt, Calendar, DollarSign, Trash2, Edit2, TrendingDown, Sparkles } from 'lucide-react'
 import { useSuppliersStore } from '@/store/suppliers-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
 
 export function ExpensesList() {
     const { expenses, expensesLoading, loadExpenses, removeExpense, initialize } = useSuppliersStore()
@@ -71,20 +72,35 @@ export function ExpensesList() {
 
     return (
         <div className="space-y-10 pb-20">
-            {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-1">
-                    <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Gastos Fixos</h2>
-                    <p className="text-[#4A3B32]/40 font-medium">Gerencie seus gastos recorrentes.</p>
+            {/* Header Premium */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-6"
+            >
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg">
+                            <TrendingDown className="w-6 h-6 text-white" />
+                        </div>
+                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Despesas Fixas</h2>
+                    </div>
+                    <p className="text-[#4A3B32]/60 font-medium">Gerencie seus gastos recorrentes mensais.</p>
                 </div>
 
-                <Link
-                    to="/admin/expenses/new"
-                    className="flex items-center gap-2 px-6 py-3 bg-[#4A3B32] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#4A3B32]/10 hover:scale-105 transition-all active:scale-95"
+                <ShimmerButton
+                    onClick={() => window.location.href = '/admin/expenses/new'}
+                    className="px-8 py-4 rounded-2xl font-bold shadow-2xl"
+                    shimmerColor="#ffffff"
+                    shimmerSize="0.15em"
+                    borderRadius="16px"
+                    shimmerDuration="2s"
+                    background="linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
                 >
-                    <Plus className="w-5 h-5" /> Novo Gasto
-                </Link>
-            </div>
+                    <Plus className="w-5 h-5 mr-2" />
+                    Nova Despesa
+                </ShimmerButton>
+            </motion.div>
 
             {/* Stats Card */}
             <Card className="bg-gradient-to-br from-red-500 to-red-600">

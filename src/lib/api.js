@@ -212,52 +212,64 @@ export async function getOrders() {
         ...order,
         orderNumber: `#${String(order.id).padStart(6, '0')}`,
         itemsCount: order.orderItems && order.orderItems.length > 0 ? order.orderItems[0].count : 0,
+        customer: order.customers // Mapear customers (plural) para customer (singular)
     }));
 }
 
 export async function getOrderById(id) {
     const { data, error } = await supabase
         .from('orders')
-        .select('*, customers ( * ), order_items ( * )')
+        .select('*, customers ( * ), order_items ( *, products ( * ) )')
         .eq('id', id)
         .single();
     if (error) throw error;
-    return toCamelCase(data);
+    const camelData = toCamelCase(data);
+    if (camelData.orderItems) {
+        camelData.items = camelData.orderItems;
+        delete camelData.orderItems;
+    }
+    return camelData;
 }
 
 export async function createOrder(orderData) {
-    const { customer, items, ...restOfOrderData } = orderData;
+    const { customer, items, customerId: customerIdFromData, ...restOfOrderData } = orderData;
 
-    const { data: customerData, error: customerError } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('phone', customer.phone)
-        .single();
+    let customerId = customerIdFromData;
 
-    let customerId;
-    if (customerError && customerError.code !== 'PGRST116') {
-        throw customerError;
-    }
-
-    if (customerData) {
-        customerId = customerData.id;
-    } else {
-        const { data: newCustomer, error: newCustomerError } = await supabase
+    if (!customerId && customer && customer.phone) {
+        const { data: existingCustomer, error: customerError } = await supabase
             .from('customers')
-            .insert([customer])
             .select('id')
+            .eq('phone', customer.phone)
             .single();
-        if (newCustomerError) throw newCustomerError;
-        customerId = newCustomer.id;
+
+        if (customerError && customerError.code !== 'PGRST116') {
+            throw customerError;
+        }
+
+        if (existingCustomer) {
+            customerId = existingCustomer.id;
+        } else {
+            const { data: newCustomer, error: newCustomerError } = await supabase
+                .from('customers')
+                .insert([toSnakeCase(customer)])
+                .select('id')
+                .single();
+            if (newCustomerError) throw newCustomerError;
+            customerId = newCustomer.id;
+        }
     }
 
-    // Mapear explicitamente os campos para a tabela 'orders'
+    if (!customerId) {
+        throw new Error("Não foi possível associar um cliente ao pedido.");
+    }
+
     const orderRecord = {
         customer_id: customerId,
         status: restOfOrderData.status || 'pending',
         total_value: restOfOrderData.totalValue !== undefined
             ? restOfOrderData.totalValue
-            : items.reduce((sum, item) => sum + (item.price || 0), 0),
+            : (items || []).reduce((sum, item) => sum + (item.price || 0), 0),
         delivery_date: restOfOrderData.deliveryDate || null,
         pickup_date: restOfOrderData.pickupDate || null,
         converted_to_sale: restOfOrderData.convertedToSale !== undefined ? restOfOrderData.convertedToSale : false,
@@ -270,7 +282,7 @@ export async function createOrder(orderData) {
         .single();
     if (orderError) throw orderError;
 
-    const orderItems = items.map(item => ({
+    const orderItems = (items || []).map(item => ({
         order_id: newOrder.id,
         product_id: item.productId,
         quantity: item.quantity,
@@ -278,10 +290,14 @@ export async function createOrder(orderData) {
         size_selected: item.selectedSize
     }));
 
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-    if (itemsError) throw itemsError;
+    if (orderItems.length > 0) {
+        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+        if (itemsError) throw itemsError;
+    }
 
-    return { ...newOrder, customers: customer, order_items: orderItems };
+    const newOrderCamel = toCamelCase(newOrder);
+
+    return { ...newOrderCamel, customer, items: orderItems };
 }
 
 export async function updateOrder(id, orderData) {
@@ -363,9 +379,18 @@ export async function updateOrderSchedule(id, scheduleData) {
 // ==================== VENDAS ====================
 
 export async function getVendas() {
-    const { data, error } = await supabase.from('vendas').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+        .from('vendas')
+        .select('*, customers ( name )')
+        .order('created_at', { ascending: false });
     if (error) throw error;
-    return data.map(toCamelCase);
+
+    const camelCasedData = data.map(toCamelCase);
+
+    return camelCasedData.map(venda => ({
+        ...venda,
+        customerName: venda.customers ? venda.customers.name : 'Cliente desconhecido',
+    }));
 }
 
 export async function createVenda(vendaData) {
@@ -381,6 +406,7 @@ export async function createVenda(vendaData) {
         cost_price: snakeData.cost_price || null,
         items: snakeData.items || [],
         payment_method: snakeData.payment_method,
+        payment_status: snakeData.payment_status || (snakeData.payment_method === 'fiado' ? 'pending' : 'paid'),
         card_brand: snakeData.card_brand || null,
         fee_percentage: snakeData.fee_percentage || 0,
         fee_amount: snakeData.fee_amount || 0,
@@ -416,6 +442,7 @@ export async function updateVenda(id, vendaData) {
         cost_price: snakeData.cost_price || null,
         items: snakeData.items || [],
         payment_method: snakeData.payment_method,
+        payment_status: snakeData.payment_status || (snakeData.payment_method === 'fiado' ? 'pending' : 'paid'),
         card_brand: snakeData.card_brand || null,
         fee_percentage: snakeData.fee_percentage || 0,
         fee_amount: snakeData.fee_amount || 0,
@@ -474,7 +501,17 @@ export async function updateSettings(settingsData) {
 export async function getCoupons() {
     const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    return data.map(toCamelCase);
+
+    // Mapear campos do banco para o formato esperado pelo frontend
+    return data.map(coupon => {
+        const camelCased = toCamelCase(coupon);
+        return {
+            ...camelCased,
+            type: camelCased.discountType, // discount_type -> type
+            value: camelCased.discountValue, // discount_value -> value
+            expiryDate: camelCased.expiresAt // expires_at -> expiryDate
+        };
+    });
 }
 
 export async function createCoupon(couponData) {
@@ -485,11 +522,12 @@ export async function createCoupon(couponData) {
     // Criar objeto com campos explícitos para evitar problemas
     const couponRecord = {
         code: snakeData.code,
-        type: snakeData.type,
-        value: snakeData.value,
+        discount_type: snakeData.type, // Mapear 'type' para 'discount_type'
+        discount_value: snakeData.value, // Mapear 'value' para 'discount_value'
         min_purchase: snakeData.min_purchase || null,
-        expiry_date: snakeData.expiry_date || null,
+        expires_at: snakeData.expiry_date || null,
         is_active: snakeData.is_active !== undefined ? snakeData.is_active : true,
+        is_special: snakeData.is_special || false,
         description: snakeData.description || null
     };
 
@@ -506,7 +544,15 @@ export async function createCoupon(couponData) {
         throw error;
     }
     console.log('API: Created coupon:', data);
-    return toCamelCase(data);
+
+    // Mapear campos do retorno para o formato esperado pelo frontend
+    const camelCased = toCamelCase(data);
+    return {
+        ...camelCased,
+        type: camelCased.discountType,
+        value: camelCased.discountValue,
+        expiryDate: camelCased.expiresAt
+    };
 }
 
 export async function updateCoupon(id, couponData) {
@@ -517,11 +563,12 @@ export async function updateCoupon(id, couponData) {
     // Criar objeto com campos explícitos para evitar problemas
     const couponRecord = {
         code: snakeData.code,
-        type: snakeData.type,
-        value: snakeData.value,
+        discount_type: snakeData.type, // Mapear 'type' para 'discount_type'
+        discount_value: snakeData.value, // Mapear 'value' para 'discount_value'
         min_purchase: snakeData.min_purchase || null,
-        expiry_date: snakeData.expiry_date || null,
+        expires_at: snakeData.expiry_date || null,
         is_active: snakeData.is_active !== undefined ? snakeData.is_active : true,
+        is_special: snakeData.is_special || false,
         description: snakeData.description || null
     };
 
@@ -539,7 +586,15 @@ export async function updateCoupon(id, couponData) {
         throw error;
     }
     console.log('API: Updated coupon:', data);
-    return toCamelCase(data);
+
+    // Mapear campos do retorno para o formato esperado pelo frontend
+    const camelCased = toCamelCase(data);
+    return {
+        ...camelCased,
+        type: camelCased.discountType,
+        value: camelCased.discountValue,
+        expiryDate: camelCased.expiresAt
+    };
 }
 
 export async function deleteCoupon(id) {

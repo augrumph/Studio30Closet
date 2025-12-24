@@ -32,12 +32,18 @@ export function Header() {
     // Prevent body scroll when mobile menu is open
     useEffect(() => {
         if (isMobileMenuOpen) {
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
             document.body.style.overflow = 'hidden'
+            document.body.style.paddingRight = `${scrollbarWidth}px`
         } else {
-            document.body.style.overflow = 'unset'
+            document.body.style.overflow = ''
+            document.body.style.paddingRight = ''
         }
+
+        // Cleanup on unmount or navigation
         return () => {
-            document.body.style.overflow = 'unset'
+            document.body.style.overflow = ''
+            document.body.style.paddingRight = ''
         }
     }, [isMobileMenuOpen])
 

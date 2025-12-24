@@ -2,6 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Instagram Embed Custom Styles */
+.instagram-embed-wrapper {
+  @apply bg-[#FDFBF7] rounded-lg shadow-sm border border-[#4A3B32]/10 overflow-hidden;
+  position: relative;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.instagram-embed-wrapper blockquote {
+  @apply rounded-lg overflow-hidden !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+
+.instagram-embed-wrapper blockquote iframe {
+  @apply rounded-lg !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Hide Instagram likes, comments, and other metadata */
+.instagram-embed-wrapper .instagram-media p,
+.instagram-embed-wrapper .instagram-media div[style*="padding-top: 8px"],
+.instagram-embed-wrapper .instagram-media div[style*="background-color: #F4F4F4"],
+.instagram-embed-wrapper .instagram-media .instagram-media div[style*="margin-bottom: 24px"] {
+  @apply hidden !important;
+}
+
+/* Hide the "View on Instagram" text */
+.instagram-embed-wrapper .instagram-media div[style*="color:#c9c8cd"],
+.instagram-embed-wrapper .instagram-media a[style*="color:#c9c8cd"] {
+  @apply hidden !important;
+}
+
+/* Hide the header with profile info */
+.instagram-embed-wrapper .instagram-media div[style*="display: flex; flex-direction: row; align-items: center"] {
+  @apply hidden !important;
+}
+
+/* Hide the footer with action buttons */
+.instagram-embed-wrapper .instagram-media div[style*="display: flex; flex-direction: row; margin-bottom: 14px"] {
+  @apply hidden !important;
+}
+
+/* Hide the description section */
+.instagram-embed-wrapper .instagram-media div[style*="display: flex; flex-direction: column; flex-grow: 1; justify-content: center; margin-bottom: 24px"] {
+  @apply hidden !important;
+}
+
+/* Hide the loading placeholder elements */
+.instagram-embed-wrapper .instagram-media div[style*="background-color: #F4F4F4"] {
+  @apply hidden !important;
+}
+
 @layer base {
   :root {
     /* Mood Board Palette - Authentic Colors */

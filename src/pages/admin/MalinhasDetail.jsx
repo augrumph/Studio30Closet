@@ -11,7 +11,7 @@ import { AlertDialog } from '@/components/ui/AlertDialog'
 export function MalinhasDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { getOrderById, updateStatus, updateSchedule, ordersLoading, finalizeMalinha, loadCustomerPreferences, updateCustomerPreferences } = useAdminStore()
+    const { getOrderById, fetchOrder, updateStatus, updateSchedule, ordersLoading, finalizeMalinha, loadCustomerPreferences, updateCustomerPreferences } = useAdminStore()
     const [order, setOrder] = useState(null)
     const [keptItems, setKeptItems] = useState([]) // Array de IDs de produtos/itens que ficaram
     const [showConfirmSale, setShowConfirmSale] = useState(false)
@@ -19,17 +19,23 @@ export function MalinhasDetail() {
     const [showPreferencesModal, setShowPreferencesModal] = useState(false)
 
     useEffect(() => {
-        const foundOrder = getOrderById(id)
-        if (foundOrder) {
-            setOrder(foundOrder)
-            // Carregar preferências do cliente
-            if (foundOrder.customer?.id) {
-                loadCustomerPreferences(foundOrder.customer.id).then(preferences => {
-                    setCustomerPreferences(preferences)
-                })
+        const orderInStore = getOrderById(id);
+
+        const loadOrderData = async () => {
+            let orderData = orderInStore;
+            if (!orderInStore || !orderInStore.items) {
+                orderData = await fetchOrder(id);
             }
-        }
-    }, [id, getOrderById, loadCustomerPreferences])
+            setOrder(orderData);
+
+            if (orderData && orderData.customer?.id) {
+                const preferences = await loadCustomerPreferences(orderData.customer.id);
+                setCustomerPreferences(preferences);
+            }
+        };
+
+        loadOrderData();
+    }, [id, getOrderById, fetchOrder, loadCustomerPreferences]);
 
     if (!order) {
         return (
@@ -95,6 +101,11 @@ export function MalinhasDetail() {
     }
 
     const confirmFinalizeSale = async () => {
+        if (!order.customer) {
+            toast.error('Não é possível finalizar a venda pois não há cliente associado a este pedido.');
+            return;
+        }
+
         const itemsToSell = order.items.filter((_, idx) => keptItems.includes(idx))
         const totalKept = itemsToSell.reduce((sum, item) => sum + item.price, 0)
         const totalCost = itemsToSell.reduce((sum, item) => sum + (item.costPrice || 0), 0)
@@ -175,6 +186,7 @@ export function MalinhasDetail() {
                 </div>
 
                 <div className="flex gap-3">
+                    {order.customer && order.customer.phone && (
                     <a
                         href={`https://wa.me/${order.customer.phone.replace(/\D/g, '')}`}
                         target="_blank"
@@ -183,6 +195,7 @@ export function MalinhasDetail() {
                     >
                         <MessageSquare className="w-5 h-5" /> Contato WhatsApp
                     </a>
+                    )}
                 </div>
             </div>
 
@@ -196,7 +209,7 @@ export function MalinhasDetail() {
                                 <Package className="w-6 h-6 text-[#C75D3B]" />
                                 Conteúdo da Malinha
                             </CardTitle>
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{order.items.length} Peças Selecionadas</span>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{(order.items || []).length} Peças Selecionadas</span>
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="divide-y divide-gray-50">
@@ -394,6 +407,7 @@ export function MalinhasDetail() {
                     </Card>
 
                     {/* Cliente Data Card */}
+                    {order.customer && (
                     <Card className="border-none shadow-xl">
                         <CardHeader className="p-6 border-b border-gray-50">
                             <CardTitle className="flex items-center gap-2 text-lg">
@@ -552,6 +566,7 @@ export function MalinhasDetail() {
                             )}
                         </CardContent>
                     </Card>
+                    )}
 
                     <Card className="bg-[#4A3B32] text-white border-none overflow-hidden">
                         <CardContent className="p-8 space-y-4 relative">

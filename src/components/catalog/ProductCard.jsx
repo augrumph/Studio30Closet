@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import { Plus, Check, Eye, ShoppingBag, Trash2 } from 'lucide-react'
+import { useState, memo } from 'react'
+import { Plus, Check, Eye, ShoppingBag, Trash2, Sparkles } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
+import { motion } from 'framer-motion'
+import { triggerConfetti } from '@/components/magicui/confetti'
 
-export function ProductCard({ product, onQuickView }) {
+function ProductCardComponent({ product, onQuickView }) {
     const [selectedSize, setSelectedSize] = useState(product.sizes[0])
     const [isAdding, setIsAdding] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
@@ -39,6 +41,8 @@ export function ProductCard({ product, onQuickView }) {
                 addItem(product, selectedSize)
                 setIsAdding(false)
                 setIsAdded(true)
+                // Trigger confetti on add
+                triggerConfetti({ particleCount: 30, spread: 50 })
                 setTimeout(() => {
                     setIsAdded(false)
                     setShowActions(false)
@@ -64,12 +68,20 @@ export function ProductCard({ product, onQuickView }) {
     const displayImage = product.variants?.[0]?.images?.[0] || product.images?.[0]
 
     return (
-        <div
+        <motion.div
             className="group cursor-pointer"
             onClick={handleCardClick}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -8, transition: { duration: 0.3, ease: "easeOut" } }}
+            transition={{ duration: 0.5 }}
         >
-            <div className="relative aspect-[3/4] overflow-hidden bg-[#FDFBF7]">
-                <img
+            <motion.div
+                className="relative aspect-[3/4] overflow-hidden bg-[#FDFBF7] rounded-2xl shadow-lg"
+                whileHover={{ boxShadow: "0 20px 40px rgba(199, 93, 59, 0.15)" }}
+                transition={{ duration: 0.3 }}
+            >
+                <motion.img
                     src={displayImage}
                     alt={product.name}
                     width="300"
@@ -77,7 +89,9 @@ export function ProductCard({ product, onQuickView }) {
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
-                    className="w-full h-full object-cover transition-all duration-700 ease-luxury"
+                    className="w-full h-full object-cover"
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
                 />
 
                 {/* Premium Badges */}
@@ -182,7 +196,7 @@ export function ProductCard({ product, onQuickView }) {
                         )}
                     </button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Info - Alinhado e Clean */}
             <div className="pt-4 pb-2">
@@ -203,6 +217,8 @@ export function ProductCard({ product, onQuickView }) {
                     )}
                 </div>
             </div>
-        </div>
+        </motion.div>
     )
 }
+
+export const ProductCard = memo(ProductCardComponent)

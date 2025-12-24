@@ -66,6 +66,15 @@ export const useOperationalCostsStore = create((set, get) => ({
     calculateFee: (value, paymentMethod, cardBrand = null, parcelas = 1) => {
         const fees = get().paymentFees
 
+        // PIX tem taxa de 0% em todos os cenários
+        if (paymentMethod === 'pix') {
+            return {
+                feePercentage: 0,
+                feeValue: 0,
+                netValue: value
+            }
+        }
+
         // First, try to find a specific fee for the payment method and card brand
         let feePercentage = 0
         let specificFee = null
@@ -92,9 +101,6 @@ export const useOperationalCostsStore = create((set, get) => ({
         } else {
             // Default values based on payment method
             switch(paymentMethod) {
-                case 'pix':
-                    feePercentage = 0.99
-                    break
                 case 'debit':
                 case 'debito':
                     feePercentage = 1.99

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
 
 export function VendasForm() {
     const navigate = useNavigate()
@@ -73,23 +74,37 @@ export function VendasForm() {
             if (formData.paymentMethod && formData.totalValue > 0 && formData.paymentStatus !== 'pending') {
                 const valorFinal = formData.totalValue - formData.discountAmount
 
-                // Buscar taxa da tabela payment_fees
-                const feeData = await getPaymentFee(formData.paymentMethod, formData.cardBrand || null)
+                try {
+                    // Buscar taxa da tabela payment_fees
+                    const feeData = await getPaymentFee(formData.paymentMethod, formData.cardBrand || null)
 
-                if (feeData) {
-                    const feePercentage = feeData.feePercentage || 0
-                    const feeFixed = feeData.feeFixed || 0
-                    const feeValue = (valorFinal * feePercentage / 100) + feeFixed
-                    const netValue = valorFinal - feeValue
+                    if (feeData) {
+                        const feePercentage = feeData.feePercentage || 0
+                        const feeFixed = feeData.feeFixed || 0
+                        const feeValue = (valorFinal * feePercentage / 100) + feeFixed
+                        const netValue = valorFinal - feeValue
 
-                    setFeeInfo({
-                        feePercentage,
-                        feeFixed,
-                        feeValue,
-                        netValue
-                    })
-                } else {
-                    // Sem taxa configurada
+                        // Validar que os cálculos fazem sentido
+                        if (isNaN(feeValue) || isNaN(netValue) || netValue < 0) {
+                            throw new Error('Cálculo de taxa resultou em valores inválidos')
+                        }
+
+                        setFeeInfo({
+                            feePercentage,
+                            feeFixed,
+                            feeValue,
+                            netValue
+                        })
+                    } else {
+                        // Sem taxa configurada - avisar o usuário
+                        console.warn('Nenhuma taxa configurada para:', formData.paymentMethod, formData.cardBrand)
+                        toast.warning('Taxa não configurada para este método de pagamento')
+                        setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: valorFinal })
+                    }
+                } catch (error) {
+                    console.error('Erro ao calcular taxa de pagamento:', error)
+                    toast.error('Erro ao calcular taxa de pagamento. Verifique a configuração de taxas.')
+                    // Usar valores zerados em caso de erro para não quebrar o fluxo
                     setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: valorFinal })
                 }
             } else {
@@ -185,10 +200,30 @@ export function VendasForm() {
             }
 
             let discount = 0
+            let description = ''
+
             if (coupon.type === 'percent') {
                 discount = (formData.totalValue * coupon.value) / 100
+                description = `Desconto de R$ ${(discount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            } else if (coupon.type === 'cost_price') {
+                // Cupom especial: define todos os produtos pelo preço de custo
+                discount = formData.items.reduce((total, item) => {
+                    const itemDiscount = (item.price - (item.costPrice || 0)) * item.quantity
+                    return total + itemDiscount
+                }, 0)
+                description = `🔥 PREÇO DE CUSTO! Desconto de R$ ${(discount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+
+                // Validar que todos os produtos têm preço de custo
+                const itemsWithoutCost = formData.items.filter(item => !item.costPrice || item.costPrice <= 0)
+                if (itemsWithoutCost.length > 0) {
+                    toast.warning('Atenção', {
+                        description: `${itemsWithoutCost.length} produto(s) sem preço de custo cadastrado. O desconto pode não ser preciso.`
+                    })
+                }
             } else {
+                // Desconto fixo
                 discount = coupon.value
+                description = `Desconto de R$ ${(discount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
             }
 
             setFormData(prev => ({
@@ -199,7 +234,7 @@ export function VendasForm() {
             }))
 
             toast.success(`Cupom ${code} aplicado!`, {
-                description: `Desconto de R$ ${(discount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                description: description
             })
             setCouponInput('')
         } catch (error) {
@@ -476,7 +511,7 @@ export function VendasForm() {
 
                 <div className="lg:col-span-4 space-y-8">
                     {/* Payment & Action Card */}
-                    <Card className="bg-white sticky top-8 shadow-2xl">
+                    <Card className="bg-white lg:sticky lg:top-8 shadow-2xl">
                         <CardHeader>
                             <CardTitle>Pagamento e Finalização</CardTitle>
                         </CardHeader>
@@ -520,19 +555,23 @@ export function VendasForm() {
                                         animate={{ opacity: 1, height: 'auto' }}
                                         exit={{ opacity: 0, height: 0 }}
                                     >
-                                        <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Bandeira do Cartão *</label>
-                                        <select
-                                            value={formData.cardBrand}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, cardBrand: e.target.value }))}
-                                            required
-                                            className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
-                                        >
-                                            <option value="">Selecione a bandeira...</option>
-                                            <option value="visa">💳 Visa</option>
-                                            <option value="mastercard">💳 Mastercard</option>
-                                            <option value="amex">💳 American Express</option>
-                                            <option value="elo">💳 Elo</option>
-                                        </select>
+                                        <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-3 block">Bandeira do Cartão *</label>
+                                        <Tabs value={formData.cardBrand} onValueChange={(value) => setFormData(prev => ({ ...prev, cardBrand: value }))}>
+                                            <TabsList className="grid w-full grid-cols-4 gap-2 p-1 bg-gray-100 rounded-2xl">
+                                                <TabsTrigger value="visa" className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#C75D3B] data-[state=active]:shadow-sm">
+                                                    💳 Visa
+                                                </TabsTrigger>
+                                                <TabsTrigger value="mastercard" className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#C75D3B] data-[state=active]:shadow-sm">
+                                                    💳 MC
+                                                </TabsTrigger>
+                                                <TabsTrigger value="amex" className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#C75D3B] data-[state=active]:shadow-sm">
+                                                    💳 Amex
+                                                </TabsTrigger>
+                                                <TabsTrigger value="elo" className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#C75D3B] data-[state=active]:shadow-sm">
+                                                    💳 Elo
+                                                </TabsTrigger>
+                                            </TabsList>
+                                        </Tabs>
                                     </motion.div>
                                 )}
 

@@ -55,13 +55,21 @@ function toCamelCase(obj) {
 // ==================== PRODUCTS ====================
 
 export async function getProducts() {
-    // Otimizado: carregar todos os dados mas com select específico
+    // Otimizado: carregar todos os dados
     const { data, error } = await supabase
         .from('products')
         .select('*')
         .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+        console.error('❌ Erro ao buscar produtos:', error);
+        throw error;
+    }
+
+    console.log('✅ Produtos carregados:', data?.length, 'itens');
+    if (data && data.length > 0) {
+        console.log('📋 Primeiro produto:', data[0]);
+    }
 
     return data.map(product => {
         const camelProduct = toCamelCase(product);

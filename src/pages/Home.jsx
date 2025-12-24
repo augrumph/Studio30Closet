@@ -16,26 +16,40 @@ export function Home() {
         loadProducts()
     }, [loadProducts])
 
-    // Process Instagram embeds after component updates
+    // Process Instagram embeds with better error handling
     useEffect(() => {
         const processInstagramEmbeds = () => {
-            if (window.instgrm && window.instgrm.Embeds) {
-                window.instgrm.Embeds.process();
+            try {
+                if (window.instgrm && window.instgrm.Embeds) {
+                    window.instgrm.Embeds.process();
+                } else {
+                    // Load Instagram embed script if not present
+                    if (!document.getElementById('instagram-embed-script')) {
+                        const script = document.createElement('script');
+                        script.id = 'instagram-embed-script';
+                        script.src = "https://www.instagram.com/embed.js";
+                        script.async = true;
+                        document.body.appendChild(script);
+                        script.onload = () => {
+                            if (window.instgrm && window.instgrm.Embeds) {
+                                window.instgrm.Embeds.process();
+                            }
+                        };
+                    }
+                }
+            } catch (error) {
+                console.log('Instagram embed loading...');
             }
         };
 
-        // Process immediately if script is already loaded
-        if (window.instgrm) {
-            processInstagramEmbeds();
-        } else {
-            // If script is not loaded yet, wait a bit and try again
-            const timer = setTimeout(() => {
-                if (window.instgrm) {
-                    window.instgrm.Embeds.process();
-                }
-            }, 1000);
-            return () => clearTimeout(timer);
-        }
+        // Process immediately and also on a delay for dynamically loaded content
+        const timers = [
+            setTimeout(processInstagramEmbeds, 100),
+            setTimeout(processInstagramEmbeds, 500),
+            setTimeout(processInstagramEmbeds, 1500)
+        ];
+
+        return () => timers.forEach(timer => clearTimeout(timer));
     }, []);
 
     // Filtrar produtos em destaque que tenham o campo isFeatured como true
@@ -49,55 +63,55 @@ export function Home() {
             <div className="w-full overflow-x-hidden bg-[#FDFBF7] text-[#4A3B32] font-sans selection:bg-[#C75D3B] selection:text-white">
     
                 {/* ================= HERO SECTION ================= */}
-                <section className="relative overflow-hidden h-screen flex flex-col">
+                <section className="relative overflow-hidden min-h-screen md:h-screen flex flex-col">
                     <div className="absolute inset-0 pointer-events-none z-0" style={{ backgroundImage: paperTexture }} />
 
-                    {/* Particles Background */}
+                    {/* Particles Background - Hidden on mobile for better performance */}
                     <Particles
-                        className="absolute inset-0 z-0"
-                        quantity={60}
+                        className="absolute inset-0 z-0 hidden sm:block"
+                        quantity={40}
                         staticity={30}
                         color="#C75D3B"
                         ease={50}
                     />
 
-                    {/* Blob Decorativo Suave */}
-                    <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[#E8C4B0]/10 rounded-full blur-[120px] pointer-events-none translate-x-1/3 -translate-y-1/4" />
-    
+                    {/* Blob Decorativo - Smaller on mobile */}
+                    <div className="absolute top-0 right-0 w-[500px] h-[500px] sm:w-[800px] sm:h-[800px] bg-[#E8C4B0]/10 rounded-full blur-[80px] sm:blur-[120px] pointer-events-none translate-x-1/3 -translate-y-1/4" />
+
                     {/* Conteúdo Principal Centralizado */}
-                    <div className="flex-1 flex items-center justify-center -mt-20 md:-mt-16 lg:-mt-20">
-                        <div className="container-custom relative z-10 w-full px-4">
-                            <div className="grid lg:grid-cols-2 gap-6 lg:gap-10 xl:gap-16 items-center">
-    
+                    <div className="flex-1 flex items-center justify-center pt-8 md:pt-0 md:-mt-16 lg:-mt-20">
+                        <div className="container-custom relative z-10 w-full px-4 md:px-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-10 xl:gap-16 items-center">
+
                                 {/* LOGO (Esquerda) */}
-                                <div className="flex justify-center lg:justify-end animate-fade-in order-1">
+                                <div className="flex justify-center lg:justify-end animate-fade-in order-1 mb-4 md:mb-0">
                                     <img
                                         src="/marcacompleta.PNG"
                                         alt="Studio 30 Closet - Logo Completa"
                                         width="640"
                                         height="360"
                                         fetchPriority="high"
-                                        className="w-72 sm:w-96 md:w-[28rem] lg:w-[32rem] xl:w-[40rem] h-auto object-contain drop-shadow-xl hover:scale-[1.02] transition-transform duration-700"
+                                        className="w-56 sm:w-72 md:w-[26rem] lg:w-[32rem] xl:w-[40rem] h-auto object-contain drop-shadow-xl hover:scale-[1.02] transition-transform duration-700"
                                     />
                                 </div>
-    
+
                                 {/* TEXTO (Direita) */}
-                                <div className="text-center lg:text-left space-y-3 md:space-y-4 order-2 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                                    <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-6xl xl:text-7xl text-[#4A3B32] leading-[1.1]">
+                                <div className="text-center lg:text-left space-y-2.5 md:space-y-4 order-2 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+                                    <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-[#4A3B32] leading-tight md:leading-[1.1] break-words">
                                         <FadeText text="O provador mais exclusivo é a " direction="up" className="inline-block" />
                                         <span className="text-[#C75D3B] italic font-light inline-block">
                                             <FadeText text="sua casa." direction="up" className="inline-block" framerProps={{ transition: { delay: 0.1 } }} />
                                         </span>
                                     </h1>
-    
-                                    <p className="text-lg md:text-xl lg:text-2xl text-[#4A3B32]/90 leading-relaxed max-w-xl mx-auto lg:mx-0">
+
+                                    <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-[#4A3B32]/90 leading-relaxed max-w-xl mx-auto lg:mx-0 px-2 md:px-0">
                                         Receba nossa curadoria de luxo, experimente sem pressa no seu ambiente e pague apenas pelo que amar.
                                     </p>
-    
-                                    <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-2 md:gap-3">
+
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center lg:items-start justify-center lg:justify-start gap-3 mt-4 md:mt-6">
                                         <Link to="/catalogo" className="w-full sm:w-auto">
                                             <ShimmerButton
-                                                className="w-full sm:w-auto px-8 md:px-10 py-3 md:py-4 rounded-full font-medium tracking-wide flex items-center justify-center gap-2 text-sm md:text-base shadow-lg"
+                                                className="w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3 md:py-4 rounded-full font-medium tracking-wide flex items-center justify-center gap-2 text-sm md:text-base shadow-lg"
                                                 shimmerColor="#ffffff"
                                                 shimmerSize="0.15em"
                                                 borderRadius="9999px"
@@ -108,10 +122,10 @@ export function Home() {
                                                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
                                             </ShimmerButton>
                                         </Link>
-    
+
                                         <Link
                                             to="/como-funciona"
-                                            className="w-full sm:w-auto px-8 md:px-10 py-3 md:py-4 bg-transparent border border-[#4A3B32]/20 text-[#4A3B32] rounded-full font-medium hover:border-[#4A3B32] transition-all duration-300 flex items-center justify-center text-sm md:text-base"
+                                            className="w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3 md:py-4 bg-transparent border border-[#4A3B32]/20 text-[#4A3B32] rounded-full font-medium hover:border-[#4A3B32] transition-all duration-300 flex items-center justify-center text-sm md:text-base"
                                         >
                                             Como Funciona
                                         </Link>
@@ -123,19 +137,19 @@ export function Home() {
     
                     {/* ================= BARRA DE CONFIANÇA ================= */}
                     <div className="relative z-10 border-t border-[#4A3B32]/10 bg-[#FDFBF7]/80 backdrop-blur-sm mb-0">
-                        <div className="container-custom py-5 md:py-6">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-center">
+                        <div className="container-custom py-4 md:py-5 lg:py-6 px-4 md:px-6">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4 text-center">
                                 {[
                                     { icon: Shield, text: "Pagamento Seguro" },
                                     { icon: Truck, text: "Entrega Grátis*" },
                                     { icon: Clock, text: "48h para Provar" },
                                     { icon: Star, text: "Curadoria Premium" },
                                 ].map((item, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-1.5 md:gap-2 group">
+                                    <div key={i} className="flex flex-col items-center gap-1 md:gap-1.5 lg:gap-2 group">
                                         <div className="text-[#C75D3B] group-hover:scale-110 transition-transform duration-300">
-                                            <item.icon className="w-5 h-5 md:w-6 md:h-6" />
+                                            <item.icon className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6" />
                                         </div>
-                                        <span className="text-[#4A3B32]/80 text-xs md:text-sm font-medium uppercase tracking-wider">{item.text}</span>
+                                        <span className="text-[#4A3B32]/80 text-[10px] md:text-xs lg:text-sm font-medium uppercase tracking-wider leading-tight">{item.text}</span>
                                     </div>
                                 ))}
                             </div>
@@ -144,40 +158,40 @@ export function Home() {
                 </section>
     
                 {/* ================= COMO FUNCIONA ================= */}
-                <section className="py-24 bg-white relative">
-                    <div className="container-custom">
-                        <div className="grid lg:grid-cols-2 gap-16 items-center">
+                <section className="py-16 md:py-24 bg-white relative">
+                    <div className="container-custom px-4 md:px-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center">
                             <div className="relative order-2 lg:order-1">
-                                <div className="aspect-[4/5] rounded-none md:rounded-[2rem] overflow-hidden">
+                                <div className="aspect-[4/5] rounded-xl md:rounded-[2rem] overflow-hidden shadow-lg md:shadow-xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2574&auto=format&fit=crop"
+                                        src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=1000&auto=format&fit=crop"
                                         alt="Conceito Malinha"
+                                        loading="lazy"
                                         className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000"
                                     />
                                 </div>
                                 <div className="hidden md:block absolute top-6 -left-6 w-full h-full border-2 border-[#C75D3B]/20 rounded-[2rem] -z-10" />
                             </div>
-    
-                            <div className="order-1 lg:order-2 space-y-8">
-                                <h2 className="font-display text-4xl md:text-5xl text-[#4A3B32]">
-                                    A Boutique vai <br />
+
+                            <div className="order-1 lg:order-2 space-y-6 md:space-y-8">
+                                <h2 className="font-display text-3xl sm:text-4xl md:text-5xl text-[#4A3B32] leading-tight">
+                                    A Boutique vai <br className="hidden sm:block" />
                                     <span className="text-[#C75D3B] italic">até você.</span>
                                 </h2>
-                                <p className="text-[#4A3B32]/90 text-lg leading-relaxed">
-                                    Esqueça a iluminação ruim dos provadores e a pressa.
-                                    Com a Malinha Delivery, sua casa se torna o cenário perfeito para suas escolhas.
+                                <p className="text-[#4A3B32]/90 text-base sm:text-lg md:text-lg leading-relaxed">
+                                    Esqueça a iluminação ruim dos provadores e a pressa. Com a Malinha Delivery, sua casa se torna o cenário perfeito para suas escolhas.
                                 </p>
-                                <div className="space-y-6 pt-4">
+                                <div className="space-y-4 md:space-y-6 pt-2 md:pt-4">
                                     {[
                                         { title: "1. Personalize", desc: "Escolha até 20 peças no site ou WhatsApp." },
                                         { title: "2. Experimente", desc: "Receba em casa. 48h para provar com calma." },
                                         { title: "3. Decida", desc: "Fique só com o que amar. Buscamos o resto." }
                                     ].map((step, idx) => (
-                                        <div key={idx} className="flex gap-5 border-b border-[#4A3B32]/5 pb-6 last:border-0">
-                                            <span className="text-[#C75D3B] font-display text-3xl font-light">0{idx + 1}</span>
-    _                                        <div>
-                                                <h4 className="font-bold text-[#4A3B32] text-lg mb-1 uppercase tracking-wide">{step.title}</h4>
-                                                <p className="text-[#4A3B32]/90">{step.desc}</p>
+                                        <div key={idx} className="flex gap-3 md:gap-5 border-b border-[#4A3B32]/5 pb-4 md:pb-6 last:border-0">
+                                            <span className="text-[#C75D3B] font-display text-2xl md:text-3xl font-light flex-shrink-0">0{idx + 1}</span>
+                                            <div className="min-w-0">
+                                                <h4 className="font-bold text-[#4A3B32] text-base md:text-lg mb-1 uppercase tracking-wide">{step.title}</h4>
+                                                <p className="text-[#4A3B32]/90 text-sm md:text-base">{step.desc}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -188,19 +202,19 @@ export function Home() {
                 </section>
     
                 {/* ================= CURADORIA ================= */}
-                <section className="py-24 bg-[#FDFBF7]">
-                    <div className="container-custom">
-                        <div className="text-center mb-16">
-                            <span className="text-[#C75D3B] text-xs font-bold uppercase tracking-[0.2em] mb-3 block">New Arrivals</span>
-                            <h2 className="font-display text-4xl text-[#4A3B32]">Curadoria da Semana</h2>
+                <section className="py-16 md:py-24 bg-[#FDFBF7]">
+                    <div className="container-custom px-4 md:px-6">
+                        <div className="text-center mb-12 md:mb-16">
+                            <span className="text-[#C75D3B] text-xs font-bold uppercase tracking-[0.2em] mb-2 md:mb-3 block">New Arrivals</span>
+                            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl text-[#4A3B32]">Curadoria da Semana</h2>
                         </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                             {featuredProducts.slice(0, 4).map((product) => (
                                 <ProductCard key={product.id} product={product} />
                             ))}
                         </div>
-                        <div className="mt-16 text-center">
-                            <Link to="/catalogo" className="inline-block border-b-2 border-[#C75D3B] text-[#4A3B32] pb-1 hover:text-[#C75D3B] transition-colors font-medium">
+                        <div className="mt-12 md:mt-16 text-center">
+                            <Link to="/catalogo" className="inline-block border-b-2 border-[#C75D3B] text-[#4A3B32] pb-1 hover:text-[#C75D3B] transition-colors font-medium text-sm md:text-base">
                                 Ver catálogo completo
                             </Link>
                         </div>
@@ -208,39 +222,39 @@ export function Home() {
                 </section>
     
                 {/* ================= LOVE NOTES - REDESIGN PREMIUM ================= */}
-                <section className="py-32 bg-gradient-to-b from-[#FDFBF7] via-[#FFF9F7] to-[#FDFBF7] relative overflow-hidden">
-                    {/* Decorative Elements */}
-                    <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(#C75D3B 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-                    <Quote className="absolute top-10 right-10 w-40 h-40 text-[#C75D3B] opacity-[0.04] animate-float-subtle" />
-                    <Quote className="absolute bottom-20 left-10 w-32 h-32 text-[#C75D3B] opacity-[0.03] rotate-180 animate-float" />
+                <section className="py-16 md:py-32 bg-gradient-to-b from-[#FDFBF7] via-[#FFF9F7] to-[#FDFBF7] relative overflow-hidden">
+                    {/* Decorative Elements - Hidden on mobile for performance */}
+                    <div className="hidden sm:block absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(#C75D3B 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+                    <Quote className="hidden lg:block absolute top-10 right-10 w-40 h-40 text-[#C75D3B] opacity-[0.04] animate-float-subtle" />
+                    <Quote className="hidden lg:block absolute bottom-20 left-10 w-32 h-32 text-[#C75D3B] opacity-[0.03] rotate-180 animate-float" />
 
-                    <div className="container-custom relative z-10">
+                    <div className="container-custom relative z-10 px-4 md:px-6">
                         {/* Header with Animation */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.6 }}
-                            className="text-center mb-20"
+                            className="text-center mb-12 md:mb-20"
                         >
                             <motion.div
                                 initial={{ scale: 0.9 }}
                                 whileInView={{ scale: 1 }}
                                 viewport={{ once: true }}
-                                className="inline-block mb-6"
+                                className="inline-block mb-4 md:mb-6"
                             >
-                                <div className="flex items-center gap-3 px-6 py-3 bg-white rounded-full shadow-lg border border-[#C75D3B]/10">
+                                <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 bg-white rounded-full shadow-lg border border-[#C75D3B]/10">
                                     <div className="flex -space-x-2">
                                         {[1, 2, 3].map((i) => (
-                                            <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] border-2 border-white" />
+                                            <div key={i} className="w-6 sm:w-8 h-6 sm:h-8 rounded-full bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] border-2 border-white" />
                                         ))}
                                     </div>
-                                    <span className="text-sm font-bold text-[#4A3B32]">500+ clientes felizes</span>
+                                    <span className="text-xs sm:text-sm font-bold text-[#4A3B32]">500+ clientes felizes</span>
                                 </div>
                             </motion.div>
 
-                            <h2 className="font-display text-5xl md:text-7xl lg:text-8xl text-[#4A3B32] mb-4 relative inline-block">
-                                <span className="text-[#C75D3B] italic font-light">Love</span> Notes
+                            <h2 className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-[#4A3B32] mb-3 md:mb-4 relative inline-block leading-tight">
+                                <span className="text-[#C75D3B] italic font-light">Love</span> <br className="sm:hidden" />Notes
                                 <motion.div
                                     className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#C75D3B]/30 to-transparent"
                                     initial={{ scaleX: 0 }}
@@ -249,13 +263,13 @@ export function Home() {
                                     transition={{ delay: 0.3, duration: 0.8 }}
                                 />
                             </h2>
-                            <p className="text-[#4A3B32]/70 text-lg mt-6">
+                            <p className="text-[#4A3B32]/70 text-sm sm:text-lg mt-4 md:mt-6 px-2">
                                 Histórias reais de quem experimentou a diferença
                             </p>
                         </motion.div>
 
                         {/* Testimonials Bento Grid */}
-                        <div className="grid md:grid-cols-2 lxg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-7xl mx-auto">
                             {[
                                 {
                                     text: "A facilidade de provar em casa mudou tudo! As peças chegaram impecáveis e o acabamento é de uma qualidade incrível.",
@@ -288,12 +302,12 @@ export function Home() {
                                     whileHover={{ y: -8, transition: { duration: 0.3 } }}
                                     className="group relative"
                                 >
-                                    <div className={`bg-gradient-to-br ${item.color} p-8 rounded-3xl shadow-xl border border-[#4A3B32]/5 h-full flex flex-col relative overflow-hidden transition-shadow duration-300 group-hover:shadow-2xl group-hover:shadow-[#C75D3B]/10`}>
+                                    <div className={`bg-gradient-to-br ${item.color} p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-lg md:shadow-xl border border-[#4A3B32]/5 h-full flex flex-col relative overflow-hidden transition-shadow duration-300 group-hover:shadow-xl md:group-hover:shadow-2xl group-hover:shadow-[#C75D3B]/10`}>
                                         {/* Decorative Quote */}
-                                        <Quote className="absolute -top-2 -left-2 w-16 h-16 text-[#C75D3B] opacity-10" />
+                                        <Quote className="hidden sm:block absolute -top-2 -left-2 w-12 sm:w-16 h-12 sm:h-16 text-[#C75D3B] opacity-10" />
 
                                         {/* Stars */}
-                                        <div className="flex gap-1 mb-6 relative z-10">
+                                        <div className="flex gap-1 mb-3 sm:mb-4 md:mb-6 relative z-10">
                                             {[1, 2, 3, 4, 5].map(s => (
                                                 <motion.div
                                                     key={s}
@@ -302,26 +316,26 @@ export function Home() {
                                                     viewport={{ once: true }}
                                                     transition={{ delay: 0.3 + (s * 0.05), type: "spring" }}
                                                 >
-                                                    <Star className="w-5 h-5 fill-[#C75D3B] text-[#C75D3B]" />
+                                                    <Star className="w-4 sm:w-5 h-4 sm:h-5 fill-[#C75D3B] text-[#C75D3B]" />
                                                 </motion.div>
                                             ))}
                                         </div>
 
                                         {/* Text */}
-                                        <p className="text-[#4A3B32] text-lg leading-relaxed mb-8 flex-1 relative z-10">
+                                        <p className="text-[#4A3B32] text-sm sm:text-base md:text-lg leading-relaxed mb-4 sm:mb-6 md:mb-8 flex-1 relative z-10">
                                             "{item.text}"
                                         </p>
 
                                         {/* Author */}
-                                        <div className="flex items-center gap-4 pt-6 border-t border-[#C75D3B]/10 relative z-10">
-                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                                        <div className="flex items-center gap-3 sm:gap-4 pt-3 sm:pt-4 md:pt-6 border-t border-[#C75D3B]/10 relative z-10">
+                                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] flex items-center justify-center text-white font-bold text-sm sm:text-lg shadow-lg flex-shrink-0">
                                                 {item.author.charAt(0)}
                                             </div>
-                                            <div>
-                                                <p className="font-display text-[#4A3B32] font-bold text-lg">
+                                            <div className="min-w-0">
+                                                <p className="font-display text-[#4A3B32] font-bold text-sm sm:text-base md:text-lg truncate">
                                                     {item.author}
                                                 </p>
-                                                <p className="text-sm text-[#4A3B32]/60">
+                                                <p className="text-xs sm:text-sm text-[#4A3B32]/60 truncate">
                                                     {item.location}
                                                 </p>
                                             </div>
@@ -340,22 +354,24 @@ export function Home() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: 0.4 }}
-                            className="mt-20 text-center"
+                            className="mt-12 md:mt-20 text-center px-4"
                         >
-                            <div className="inline-flex items-center gap-8 bg-white px-8 py-6 rounded-2xl shadow-lg border border-[#C75D3B]/10">
+                            <div className="inline-flex flex-col sm:flex-row items-center gap-4 sm:gap-6 md:gap-8 bg-white px-4 sm:px-6 md:px-8 py-4 md:py-6 rounded-xl md:rounded-2xl shadow-lg border border-[#C75D3B]/10">
                                 <div className="text-center">
-                                    <div className="text-4xl font-bold text-[#C75D3B] mb-1">4.9/5</div>
-                                    <div className="text-sm text-[#4A3B32]/60">Avaliação média</div>
+                                    <div className="text-3xl sm:text-4xl font-bold text-[#C75D3B] mb-1">4.9/5</div>
+                                    <div className="text-xs sm:text-sm text-[#4A3B32]/60">Avaliação média</div>
                                 </div>
-                                <div className="w-px h-12 bg-[#C75D3B]/10" />
+                                <div className="hidden sm:block w-px h-10 md:h-12 bg-[#C75D3B]/10" />
+                                <div className="h-px w-8 sm:hidden bg-[#C75D3B]/10" />
                                 <div className="text-center">
-                                    <div className="text-4xl font-bold text-[#C75D3B] mb-1">98%</div>
-                                    <div className="text-sm text-[#4A3B32]/60">Recompram</div>
+                                    <div className="text-3xl sm:text-4xl font-bold text-[#C75D3B] mb-1">98%</div>
+                                    <div className="text-xs sm:text-sm text-[#4A3B32]/60">Recompram</div>
                                 </div>
-                                <div className="w-px h-12 bg-[#C75D3B]/10" />
+                                <div className="hidden sm:block w-px h-10 md:h-12 bg-[#C75D3B]/10" />
+                                <div className="h-px w-8 sm:hidden bg-[#C75D3B]/10" />
                                 <div className="text-center">
-                                    <div className="text-4xl font-bold text-[#C75D3B] mb-1">500+</div>
-                                    <div className="text-sm text-[#4A3B32]/60">Clientes felizes</div>
+                                    <div className="text-3xl sm:text-4xl font-bold text-[#C75D3B] mb-1">500+</div>
+                                    <div className="text-xs sm:text-sm text-[#4A3B32]/60">Clientes felizes</div>
                                 </div>
                             </div>
                         </motion.div>
@@ -363,11 +379,11 @@ export function Home() {
                 </section>
     
                 {/* ================= INSTAGRAM SECTION - REDESIGN PREMIUM ================= */}
-                <section className="py-32 bg-white relative overflow-hidden">
+                <section className="py-16 md:py-32 bg-white relative overflow-hidden">
                     {/* Gradient Background */}
                     <div className="absolute inset-0 bg-gradient-to-br from-[#FDFBF7] via-white to-[#FFF9F7]" />
 
-                    {/* Animated Blobs */}
+                    {/* Animated Blobs - Hidden on mobile */}
                     <motion.div
                         animate={{
                             scale: [1, 1.2, 1],
@@ -378,16 +394,16 @@ export function Home() {
                             repeat: Infinity,
                             ease: "linear"
                         }}
-                        className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-[#C75D3B]/5 to-[#E8C4B0]/5 rounded-full blur-3xl"
+                        className="hidden lg:block absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-[#C75D3B]/5 to-[#E8C4B0]/5 rounded-full blur-3xl"
                     />
 
-                    <div className="container-custom relative z-10">
+                    <div className="container-custom relative z-10 px-4 md:px-6">
                         {/* Header Premium */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            className="text-center mb-16"
+                            className="text-center mb-12 md:mb-16"
                         >
                             {/* Instagram Icon Badge */}
                             <motion.div
@@ -395,48 +411,48 @@ export function Home() {
                                 whileInView={{ scale: 1, rotate: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ type: "spring", stiffness: 200 }}
-                                className="inline-block mb-8"
+                                className="inline-block mb-4 md:mb-8"
                             >
                                 <div className="relative">
                                     <div className="absolute inset-0 bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] blur-xl opacity-50 rounded-full" />
-                                    <div className="relative p-6 bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] rounded-3xl shadow-2xl">
-                                        <Instagram className="w-12 h-12 text-white" />
+                                    <div className="relative p-4 md:p-6 bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] rounded-2xl md:rounded-3xl shadow-2xl">
+                                        <Instagram className="w-8 md:w-12 h-8 md:h-12 text-white" />
                                     </div>
                                 </div>
                             </motion.div>
 
                             {/* Title */}
-                            <h2 className="font-display text-5xl md:text-7xl text-[#4A3B32] mb-4">
-                                Siga nosso
+                            <h2 className="font-display text-3xl sm:text-4xl md:text-6xl lg:text-7xl text-[#4A3B32] mb-3 md:mb-4 leading-tight">
+                                Siga nosso<br className="sm:hidden" />
                                 <span className="text-[#C75D3B] italic font-light"> estilo</span>
                             </h2>
 
                             {/* Subtitle */}
-                            <p className="text-xl text-[#4A3B32]/70 mb-8 max-w-2xl mx-auto">
+                            <p className="text-sm sm:text-lg md:text-xl text-[#4A3B32]/70 mb-6 md:mb-8 max-w-2xl mx-auto px-2">
                                 Inspire-se com looks, dicas de estilo e novidades exclusivas diretamente do nosso Instagram
                             </p>
 
                             {/* Instagram Handle with Stats */}
-                            <div className="inline-flex flex-col md:flex-row items-center gap-6 bg-white px-8 py-6 rounded-2xl shadow-xl border border-[#C75D3B]/10">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                            <div className="inline-flex flex-col sm:flex-row items-center gap-4 md:gap-6 bg-white px-4 sm:px-6 md:px-8 py-4 md:py-6 rounded-xl md:rounded-2xl shadow-xl border border-[#C75D3B]/10">
+                                <div className="flex items-center gap-3 md:gap-4">
+                                    <div className="w-12 h-12 sm:w-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] flex items-center justify-center text-white font-bold text-lg sm:text-xl md:text-2xl shadow-lg flex-shrink-0">
                                         S30
                                     </div>
                                     <div className="text-left">
-                                        <div className="text-2xl font-bold text-[#4A3B32]">@studio30closet</div>
-                                        <div className="text-sm text-[#4A3B32]/60">Inspiração diária de moda</div>
+                                        <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#4A3B32]">@studio30closet</div>
+                                        <div className="text-xs sm:text-sm text-[#4A3B32]/60">Inspiração diária de moda</div>
                                     </div>
                                 </div>
 
-                                <div className="hidden md:block w-px h-12 bg-[#C75D3B]/10" />
+                                <div className="hidden sm:block w-px h-10 md:h-12 bg-[#C75D3B]/10" />
 
-                                <div className="flex gap-8">
+                                <div className="flex gap-6 md:gap-8">
                                     <div className="text-center">
-                                        <div className="text-2xl font-bold text-[#C75D3B]">1.2k</div>
+                                        <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#C75D3B]">1.2k</div>
                                         <div className="text-xs text-[#4A3B32]/60">Posts</div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="text-2xl font-bold text-[#C75D3B]">15k+</div>
+                                        <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#C75D3B]">15k+</div>
                                         <div className="text-xs text-[#4A3B32]/60">Seguidores</div>
                                     </div>
                                 </div>
@@ -472,34 +488,36 @@ export function Home() {
                         {/* Instagram Posts Grid with Polaroid Effect */}
                         <div className="max-w-6xl mx-auto px-4">
                             {/* Mobile Carousel */}
-                            <div className="md:hidden mb-8">
+                            <div className="md:hidden mb-8 -mx-4 px-4">
                                 <Carousel
                                     opts={{
                                         align: "center",
-                                        loop: true
+                                        loop: true,
+                                        dragFree: true
                                     }}
                                     className="w-full"
                                 >
-                                    <CarouselContent>
+                                    <CarouselContent className="-ml-2 md:-ml-4">
                                         {[
                                             "https://www.instagram.com/p/DSiWPWoEext/?utm_source=ig_embed&amp;utm_campaign=loading",
                                             "https://www.instagram.com/p/DSaVwuKgENY/?utm_source=ig_embed&amp;utm_campaign=loading",
                                             "https://www.instagram.com/p/DSdRL9oETly/?utm_source=ig_embed&amp;utm_campaign=loading"
                                         ].map((url, i) => (
-                                            <CarouselItem key={i}>
+                                            <CarouselItem key={i} className="pl-2 md:pl-4 basis-full sm:basis-3/4">
                                                 <motion.div
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     whileInView={{ opacity: 1, scale: 1 }}
                                                     viewport={{ once: true }}
                                                     transition={{ delay: i * 0.1 }}
-                                                    className="p-2"
+                                                    className="p-1"
                                                 >
-                                                    <div className="bg-white p-4 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow duration-300 border-2 border-white">
-                                                        <div className="instagram-embed-wrapper">
+                                                    <div className="bg-white p-3 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow duration-300 border-2 border-white overflow-hidden">
+                                                        <div className="instagram-embed-wrapper max-w-sm mx-auto">
                                                             <blockquote
                                                                 className="instagram-media"
                                                                 data-instgrm-permalink={url}
                                                                 data-instgrm-version="14"
+                                                                style={{ maxWidth: '100%', minWidth: '280px' }}
                                                             ></blockquote>
                                                         </div>
                                                     </div>
@@ -507,8 +525,8 @@ export function Home() {
                                             </CarouselItem>
                                         ))}
                                     </CarouselContent>
-                                    <CarouselPrevious className="left-2 bg-white shadow-lg border-2 border-[#C75D3B]/20" />
-                                    <CarouselNext className="right-2 bg-white shadow-lg border-2 border-[#C75D3B]/20" />
+                                    <CarouselPrevious className="left-0 bg-white shadow-lg border-2 border-[#C75D3B]/20 h-10 w-10" />
+                                    <CarouselNext className="right-0 bg-white shadow-lg border-2 border-[#C75D3B]/20 h-10 w-10" />
                                 </Carousel>
                             </div>
 
@@ -578,28 +596,28 @@ export function Home() {
                 </section>
     
                 {/* ================= FINAL CTA (FUNDO CLARO) ================= */}
-                < section className="py-24 bg-[#FDFBF7] border-t border-[#4A3B32]/5" >
-                    <div className="container-custom text-center px-4">
+                <section className="py-16 md:py-24 bg-[#FDFBF7] border-t border-[#4A3B32]/5">
+                    <div className="container-custom text-center px-4 md:px-6">
                         {/* Elemento decorativo discreto */}
-                        <div className="w-16 h-1 bg-[#C75D3B]/20 mx-auto mb-8 rounded-full" />
-    
-                        <h2 className="font-display text-4xl md:text-5xl text-[#4A3B32] mb-6">
+                        <div className="w-12 md:w-16 h-1 bg-[#C75D3B]/20 mx-auto mb-6 md:mb-8 rounded-full" />
+
+                        <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-[#4A3B32] mb-4 md:mb-6 leading-tight">
                             Pronta para montar sua malinha?
                         </h2>
-                        <p className="text-[#4A3B32]/90 max-w-xl mx-auto mb-10 text-lg font-light leading-relaxed">
-                            Selecione suas peças favoritas e receba em casa. <br className="hidden md:block" /> Simples, seguro e sem compromisso.
+                        <p className="text-[#4A3B32]/90 max-w-xl mx-auto mb-8 md:mb-10 text-sm sm:text-base md:text-lg font-light leading-relaxed px-2">
+                            Selecione suas peças favoritas e receba em casa.<br className="hidden md:block" /> Simples, seguro e sem compromisso.
                         </p>
-    
-                        <div className="flex flex-col sm:flex-row justify-center gap-6">
+
+                        <div className="flex flex-col sm:flex-row justify-center gap-4 md:gap-6">
                             <Link
                                 to="/catalogo"
-                                className="inline-flex items-center justify-center px-12 py-4 bg-[#C75D3B] text-white rounded-full font-bold text-lg hover:bg-[#A64D31] transition-all duration-300 shadow-xl shadow-[#C75D3B]/20 hover:-translate-y-1"
+                                className="inline-flex items-center justify-center px-8 sm:px-10 md:px-12 py-3 md:py-4 bg-[#C75D3B] text-white rounded-full font-bold text-base md:text-lg hover:bg-[#A64D31] transition-all duration-300 shadow-lg md:shadow-xl shadow-[#C75D3B]/20 hover:-translate-y-1 active:scale-95"
                             >
                                 Começar Agora
                             </Link>
                         </div>
                     </div>
-                </section >
+                </section>
             </div >
         )
     }    

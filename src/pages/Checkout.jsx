@@ -413,11 +413,11 @@ export function Checkout() {
                                                 aria-required="true"
                                                 aria-invalid={!!formErrors.name}
                                                 aria-describedby={formErrors.name ? "name-error" : undefined}
-                                                className={cn(
-                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
-                                                    formErrors.name ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
-                                                )}
                                                 placeholder="Seu nome"
+                                                className={cn(
+                                                    "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
+                                                    formErrors.name ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
+                                                )}
                                             />
                                             {formErrors.name && (
                                                 <p id="name-error" className="mt-1 text-sm text-red-600">{formErrors.name}</p>
@@ -435,11 +435,11 @@ export function Checkout() {
                                                 aria-required="true"
                                                 aria-invalid={!!formErrors.phone}
                                                 aria-describedby={formErrors.phone ? "phone-error" : undefined}
-                                                className={cn(
-                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
-                                                    formErrors.phone ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
-                                                )}
                                                 placeholder="(11) 99999-9999"
+                                                className={cn(
+                                                    "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
+                                                    formErrors.phone ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
+                                                )}
                                             />
                                             {formErrors.phone && (
                                                 <p id="phone-error" className="mt-1 text-sm text-red-600">{formErrors.phone}</p>
@@ -453,8 +453,8 @@ export function Checkout() {
                                                 name="email"
                                                 value={customerData.email || ''}
                                                 onChange={handleInputChange}
-                                                className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1"
                                                 placeholder="seu@email.com"
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 text-base bg-white"
                                             />
                                         </div>
                                         <div>
@@ -465,8 +465,8 @@ export function Checkout() {
                                                 name="cpf"
                                                 value={customerData.cpf || ''}
                                                 onChange={handleInputChange}
-                                                className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1"
                                                 placeholder="000.000.000-00"
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 text-base bg-white"
                                             />
                                         </div>
                                     </div>
@@ -490,15 +490,15 @@ export function Checkout() {
                                                     aria-required="true"
                                                     aria-invalid={!!(formErrors.zipCode || cepError)}
                                                     aria-describedby={formErrors.zipCode || cepError ? "zipCode-error" : undefined}
-                                                    className={cn(
-                                                        "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1 disabled:opacity-60",
-                                                        formErrors.zipCode || cepError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
-                                                    )}
                                                     placeholder="00000-000"
                                                     maxLength="9"
+                                                    className={cn(
+                                                        "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base disabled:opacity-60 pr-10",
+                                                        formErrors.zipCode || cepError ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
+                                                    )}
                                                 />
                                                 {loadingCep && (
-                                                    <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
                                                         <Loader className="w-4 h-4 text-[#C75D3B] animate-spin" />
                                                     </div>
                                                 )}
@@ -519,9 +519,10 @@ export function Checkout() {
                                                 aria-required="true"
                                                 aria-invalid={!!formErrors.street}
                                                 aria-describedby={formErrors.street ? "street-error" : undefined}
+                                                placeholder="Ex: Avenida Paulista"
                                                 className={cn(
-                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
-                                                    formErrors.street ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                    "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
+                                                    formErrors.street ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
                                                 )}
                                             />
                                             {formErrors.street && (
@@ -540,9 +541,10 @@ export function Checkout() {
                                                 aria-required="true"
                                                 aria-invalid={!!formErrors.number}
                                                 aria-describedby={formErrors.number ? "number-error" : undefined}
+                                                placeholder="Ex: 123"
                                                 className={cn(
-                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
-                                                    formErrors.number ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                    "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
+                                                    formErrors.number ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
                                                 )}
                                             />
                                             {formErrors.number && (
@@ -561,9 +563,10 @@ export function Checkout() {
                                                 aria-required="true"
                                                 aria-invalid={!!formErrors.neighborhood}
                                                 aria-describedby={formErrors.neighborhood ? "neighborhood-error" : undefined}
+                                                placeholder="Ex: Centro"
                                                 className={cn(
-                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
-                                                    formErrors.neighborhood ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                    "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
+                                                    formErrors.neighborhood ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
                                                 )}
                                             />
                                             {formErrors.neighborhood && (
@@ -578,7 +581,8 @@ export function Checkout() {
                                                 name="complement"
                                                 value={address.complement || ''}
                                                 onChange={handleAddressChange}
-                                                className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1"
+                                                placeholder="Ex: Apto 101"
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 text-base bg-white"
                                             />
                                         </div>
                                         <div className="md:col-span-3">
@@ -593,9 +597,10 @@ export function Checkout() {
                                                 aria-required="true"
                                                 aria-invalid={!!formErrors.city}
                                                 aria-describedby={formErrors.city ? "city-error" : undefined}
+                                                placeholder="Ex: São Paulo"
                                                 className={cn(
-                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
-                                                    formErrors.city ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                    "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
+                                                    formErrors.city ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
                                                 )}
                                             />
                                             {formErrors.city && (
@@ -610,9 +615,9 @@ export function Checkout() {
                                                 name="state"
                                                 value={address.state || ''}
                                                 onChange={handleAddressChange}
-                                                className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1"
                                                 placeholder="SP"
                                                 maxLength="2"
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 text-base bg-white uppercase"
                                             />
                                         </div>
                                     </div>

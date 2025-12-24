@@ -232,11 +232,22 @@ export async function getOrderById(id) {
 }
 
 export async function createOrder(orderData) {
+    console.log('🔍 DEBUG createOrder - Received orderData:', orderData);
+
     const { customer, items, customerId: customerIdFromData, ...restOfOrderData } = orderData;
+
+    console.log('📦 DEBUG - Destructured data:', {
+        customer,
+        items: items?.length || 0,
+        customerId: customerIdFromData,
+        restOfOrderData
+    });
 
     let customerId = customerIdFromData;
 
     if (!customerId && customer && customer.phone) {
+        console.log('👤 DEBUG - Creating/finding customer with phone:', customer.phone);
+
         const { data: existingCustomer, error: customerError } = await supabase
             .from('customers')
             .select('id')
@@ -244,18 +255,30 @@ export async function createOrder(orderData) {
             .single();
 
         if (customerError && customerError.code !== 'PGRST116') {
+            console.error('❌ ERROR finding customer:', customerError);
             throw customerError;
         }
 
         if (existingCustomer) {
+            console.log('✅ Found existing customer:', existingCustomer.id);
             customerId = existingCustomer.id;
         } else {
+            console.log('➕ Creating new customer:', customer);
+            const customerSnakeCase = toSnakeCase(customer);
+            console.log('🔄 Converted to snake_case:', customerSnakeCase);
+
             const { data: newCustomer, error: newCustomerError } = await supabase
                 .from('customers')
-                .insert([toSnakeCase(customer)])
+                .insert([customerSnakeCase])
                 .select('id')
                 .single();
-            if (newCustomerError) throw newCustomerError;
+
+            if (newCustomerError) {
+                console.error('❌ ERROR creating customer:', newCustomerError);
+                throw newCustomerError;
+            }
+
+            console.log('✅ Customer created:', newCustomer.id);
             customerId = newCustomer.id;
         }
     }
@@ -263,6 +286,8 @@ export async function createOrder(orderData) {
     if (!customerId) {
         throw new Error("Não foi possível associar um cliente ao pedido.");
     }
+
+    console.log('📝 Creating order record with customer_id:', customerId);
 
     const orderRecord = {
         customer_id: customerId,
@@ -275,24 +300,44 @@ export async function createOrder(orderData) {
         converted_to_sale: restOfOrderData.convertedToSale !== undefined ? restOfOrderData.convertedToSale : false,
     };
 
+    console.log('💾 Order record to insert:', orderRecord);
+
     const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert([orderRecord])
         .select()
         .single();
-    if (orderError) throw orderError;
 
-    const orderItems = (items || []).map(item => ({
-        order_id: newOrder.id,
-        product_id: item.productId,
-        quantity: item.quantity,
-        price_at_time: item.price,
-        size_selected: item.selectedSize
-    }));
+    if (orderError) {
+        console.error('❌ ERROR creating order:', orderError);
+        throw orderError;
+    }
+
+    console.log('✅ Order created:', newOrder);
+
+    console.log('📋 Processing items:', items?.length || 0);
+    const orderItems = (items || []).map(item => {
+        const mapped = {
+            order_id: newOrder.id,
+            product_id: item.productId,
+            quantity: item.quantity,
+            price_at_time: item.price,
+            size_selected: item.selectedSize
+        };
+        console.log('🔄 Mapped item:', mapped);
+        return mapped;
+    });
 
     if (orderItems.length > 0) {
+        console.log('💾 Inserting order items:', orderItems);
         const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-        if (itemsError) throw itemsError;
+        if (itemsError) {
+            console.error('❌ ERROR inserting order items:', itemsError);
+            throw itemsError;
+        }
+        console.log('✅ Order items inserted');
+    } else {
+        console.warn('⚠️ WARNING: No items to insert');
     }
 
     const newOrderCamel = toCamelCase(newOrder);

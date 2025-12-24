@@ -104,11 +104,24 @@ export function Checkout() {
                     cpf: customerData.cpf,
                     addresses: customerData.addresses,
                 },
-                items: items,
+                items: groupedItems.map(item => ({
+                    productId: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.count,
+                    selectedSize: item.selectedSize,
+                    images: item.images,
+                    costPrice: item.costPrice,
+                })),
                 notes: customerData.notes
             }
 
+            console.log('📤 Checkout - Sending order payload:', orderPayload);
+            console.log('🛒 Grouped items detail:', groupedItems);
+
             const result = await addOrder(orderPayload)
+
+            console.log('📥 Checkout - Received result:', result);
 
             if (!result.success) {
                 console.error("Erro ao registrar pedido no sistema:", result.error)
@@ -116,7 +129,7 @@ export function Checkout() {
             }
 
             // 2. Generate WhatsApp message
-            const message = formatMalinhaMessage(items, customerData)
+            const message = formatMalinhaMessage(groupedItems, customerData)
             const whatsappLink = generateWhatsAppLink('+5511999999999', message) // Replace with actual number
 
             // 3. Open WhatsApp

@@ -93,6 +93,7 @@ export function Checkout() {
     // Handler especial para o campo de CEP
     const handleCepChange = (e) => {
         const { value } = e.target
+        console.log('🔍 CEP input value:', value)
 
         // Formata o CEP enquanto digita (00000-000)
         let formattedCep = value.replace(/\D/g, '').slice(0, 8)
@@ -100,11 +101,15 @@ export function Checkout() {
             formattedCep = formattedCep.slice(0, 5) + '-' + formattedCep.slice(5)
         }
 
+        console.log('✍️ Formatted CEP:', formattedCep)
+
         // Atualiza o estado
         setAddressData({ zipCode: formattedCep })
+        console.log('📝 Updated address data')
 
         // Busca se completou o CEP
         if (value.replace(/\D/g, '').length === 8) {
+            console.log('🔎 CEP complete, fetching address...')
             fetchAddressByCep(formattedCep)
         } else {
             setCepError('')

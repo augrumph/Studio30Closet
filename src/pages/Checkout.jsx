@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Heart, Truck, Gift } from 'lucide-react'
+import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Heart, Truck, Gift, Loader } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { generateWhatsAppLink, formatMalinhaMessage, cn } from '@/lib/utils'
 import { useAdminStore } from '@/store/admin-store'
@@ -17,6 +17,8 @@ export function Checkout() {
     const [step, setStep] = useState(items.length > 0 ? 1 : 0) // 0: empty, 1: review, 2: form
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [formErrors, setFormErrors] = useState({})
+    const [loadingCep, setLoadingCep] = useState(false)
+    const [cepError, setCepError] = useState('')
 
     const itemSummary = items.reduce((acc, item) => {
         const key = `${item.name}-${item.selectedSize}`; // Group by name and size
@@ -42,6 +44,71 @@ export function Checkout() {
     const handleAddressChange = (e) => {
         const { name, value } = e.target
         setAddressData({ [name]: value })
+    }
+
+    // Função para buscar endereço por CEP usando ViaCEP
+    const fetchAddressByCep = useCallback(async (cep) => {
+        // Remove caracteres não numéricos
+        const cleanCep = cep.replace(/\D/g, '')
+
+        // Só busca se tiver 8 dígitos
+        if (cleanCep.length !== 8) {
+            setCepError('')
+            return
+        }
+
+        setLoadingCep(true)
+        setCepError('')
+
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+            const data = await response.json()
+
+            if (data.erro) {
+                setCepError('CEP não encontrado')
+                setLoadingCep(false)
+                return
+            }
+
+            // Preencher os campos automaticamente
+            setAddressData({
+                zipCode: cep, // Mantém o formato do CEP digitado
+                street: data.logradouro || '',
+                neighborhood: data.bairro || '',
+                city: data.localidade || '',
+                state: data.uf || '',
+                complement: data.complemento || ''
+            })
+
+            setCepError('')
+            toast.success('Endereço preenchido automaticamente!')
+        } catch (error) {
+            console.error('Erro ao buscar CEP:', error)
+            setCepError('Erro ao buscar CEP. Tente novamente.')
+        } finally {
+            setLoadingCep(false)
+        }
+    }, [setAddressData, toast])
+
+    // Handler especial para o campo de CEP
+    const handleCepChange = (e) => {
+        const { value } = e.target
+
+        // Formata o CEP enquanto digita (00000-000)
+        let formattedCep = value.replace(/\D/g, '').slice(0, 8)
+        if (formattedCep.length > 5) {
+            formattedCep = formattedCep.slice(0, 5) + '-' + formattedCep.slice(5)
+        }
+
+        // Atualiza o estado
+        setAddressData({ zipCode: formattedCep })
+
+        // Busca se completou o CEP
+        if (value.replace(/\D/g, '').length === 8) {
+            fetchAddressByCep(formattedCep)
+        } else {
+            setCepError('')
+        }
     }
 
     const validateForm = () => {
@@ -406,24 +473,33 @@ export function Checkout() {
                                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                                         <div className="md:col-span-2">
                                             <label htmlFor="zipCode" className="block text-sm font-medium text-[#4A3B32] mb-1">CEP *</label>
-                                            <input
-                                                type="text"
-                                                id="zipCode"
-                                                name="zipCode"
-                                                value={address.zipCode || ''}
-                                                onChange={handleAddressChange}
-                                                required
-                                                aria-required="true"
-                                                aria-invalid={!!formErrors.zipCode}
-                                                aria-describedby={formErrors.zipCode ? "zipCode-error" : undefined}
-                                                className={cn(
-                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
-                                                    formErrors.zipCode ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    id="zipCode"
+                                                    name="zipCode"
+                                                    value={address.zipCode || ''}
+                                                    onChange={handleCepChange}
+                                                    required
+                                                    disabled={loadingCep}
+                                                    aria-required="true"
+                                                    aria-invalid={!!(formErrors.zipCode || cepError)}
+                                                    aria-describedby={formErrors.zipCode || cepError ? "zipCode-error" : undefined}
+                                                    className={cn(
+                                                        "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1 disabled:opacity-60",
+                                                        formErrors.zipCode || cepError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                    )}
+                                                    placeholder="00000-000"
+                                                    maxLength="9"
+                                                />
+                                                {loadingCep && (
+                                                    <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                                        <Loader className="w-4 h-4 text-[#C75D3B] animate-spin" />
+                                                    </div>
                                                 )}
-                                                placeholder="00000-000"
-                                            />
-                                            {formErrors.zipCode && (
-                                                <p id="zipCode-error" className="mt-1 text-sm text-red-600">{formErrors.zipCode}</p>
+                                            </div>
+                                            {(formErrors.zipCode || cepError) && (
+                                                <p id="zipCode-error" className="mt-1 text-sm text-red-600">{formErrors.zipCode || cepError}</p>
                                             )}
                                         </div>
                                         <div className="md:col-span-4">

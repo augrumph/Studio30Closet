@@ -217,17 +217,46 @@ export async function getOrders() {
 }
 
 export async function getOrderById(id) {
+    console.log('📥 API: Fetching order with id:', id);
+
     const { data, error } = await supabase
         .from('orders')
-        .select('*, customers ( * ), order_items ( *, products ( * ) )')
+        .select('*, customers ( * ), order_items ( * )')
         .eq('id', id)
         .single();
-    if (error) throw error;
-    const camelData = toCamelCase(data);
-    if (camelData.orderItems) {
-        camelData.items = camelData.orderItems;
-        delete camelData.orderItems;
+
+    if (error) {
+        console.error('❌ ERROR fetching order:', error);
+        throw error;
     }
+
+    console.log('✅ Raw order data:', data);
+    console.log('📦 Order items count:', data.order_items?.length || 0);
+
+    const camelData = toCamelCase(data);
+
+    // Mapear order_items para items com informações do produto
+    if (camelData.orderItems && camelData.orderItems.length > 0) {
+        console.log('🔄 Processing order items...');
+        camelData.items = camelData.orderItems.map(item => {
+            console.log('  Item:', item);
+            return {
+                ...item,
+                productId: item.productId,
+                productName: item.productName || `Produto ${item.productId}`,
+                image: item.image || 'https://via.placeholder.com/150',
+                selectedSize: item.sizeSelected,
+                price: item.priceAtTime,
+                quantity: item.quantity
+            };
+        });
+        console.log('✅ Processed items:', camelData.items);
+        delete camelData.orderItems;
+    } else {
+        console.warn('⚠️ WARNING: No order items found');
+        camelData.items = [];
+    }
+
     return camelData;
 }
 

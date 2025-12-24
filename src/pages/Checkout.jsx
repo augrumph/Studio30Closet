@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Heart, Truck, Gift, Loader } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
@@ -19,6 +19,24 @@ export function Checkout() {
     const [formErrors, setFormErrors] = useState({})
     const [loadingCep, setLoadingCep] = useState(false)
     const [cepError, setCepError] = useState('')
+
+    // Garantir que addresses sempre existe e tem pelo menos um objeto
+    useEffect(() => {
+        if (!customerData.addresses || customerData.addresses.length === 0) {
+            setCustomerData({
+                addresses: [{
+                    street: '',
+                    number: '',
+                    complement: '',
+                    neighborhood: '',
+                    city: 'Santos',
+                    state: 'SP',
+                    zipCode: '',
+                    isDefault: true
+                }]
+            })
+        }
+    }, [])
 
     const itemSummary = items.reduce((acc, item) => {
         const key = `${item.name}-${item.selectedSize}`; // Group by name and size

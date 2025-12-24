@@ -575,50 +575,12 @@ export function Checkout() {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.6 }}
-                                    className="bg-gradient-to-br from-[#FDFBF7] to-[#FAF8F5] rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-[#C75D3B]/20"
+                                    className="bg-gradient-to-br from-[#FDFBF7] to-[#FAF8F5] rounded-xl p-8 sm:p-12 mb-6 sm:mb-8 border border-[#C75D3B]/20 text-center"
                                 >
-                                    {/* Total de peças */}
-                                    <div className="mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-[#C75D3B]/20">
-                                        <p className="text-xs sm:text-sm text-[#4A3B32]/60 font-medium mb-1">Total de peças</p>
-                                        <p className="text-3xl sm:text-4xl font-bold text-[#C75D3B]">
-                                            {successOrder?.itemsCount}
-                                        </p>
-                                    </div>
-
-                                    {/* Produtos */}
-                                    <div>
-                                        <p className="text-xs sm:text-sm text-[#4A3B32]/60 font-medium mb-3">Peças selecionadas</p>
-                                        <div className="space-y-2 sm:space-y-3">
-                                            {successOrder?.items?.map((item, idx) => (
-                                                <div key={idx} className="bg-white/50 rounded-lg p-2 sm:p-3 flex items-start gap-2 sm:gap-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="text-xs sm:text-sm font-bold text-[#4A3B32] line-clamp-2">
-                                                            {item.name}
-                                                            {item.count > 1 && <span className="text-[#C75D3B] ml-1">x{item.count}</span>}
-                                                        </h4>
-                                                        <div className="flex flex-wrap gap-1 sm:gap-2 mt-1">
-                                                            {item.color && (
-                                                                <span className="inline-flex items-center gap-1 bg-[#4A3B32]/5 px-2 py-0.5 rounded text-xs text-[#4A3B32]/70">
-                                                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color || '#999' }}></span>
-                                                                    {item.color}
-                                                                </span>
-                                                            )}
-                                                            {item.selectedSize && (
-                                                                <span className="inline-block bg-[#C75D3B]/10 px-2 py-0.5 rounded text-xs font-medium text-[#C75D3B]">
-                                                                    Tam: {item.selectedSize}
-                                                                </span>
-                                                            )}
-                                                            {item.category && (
-                                                                <span className="inline-block bg-blue-50 px-2 py-0.5 rounded text-xs text-blue-700">
-                                                                    {item.category}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                                    <p className="text-xs sm:text-sm text-[#4A3B32]/60 font-medium mb-3">Total de peças</p>
+                                    <p className="text-5xl sm:text-6xl font-bold text-[#C75D3B]">
+                                        {successOrder?.itemsCount}
+                                    </p>
                                 </motion.div>
 
                                 {/* Info Box */}

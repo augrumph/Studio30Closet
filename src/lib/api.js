@@ -55,13 +55,35 @@ function toCamelCase(obj) {
 // ==================== PRODUCTS ====================
 
 export async function getProducts() {
-    const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+    // Otimizado: selecionar apenas campos necessários para o catálogo
+    // Não carrega o array completo de imagens aqui
+    const { data, error } = await supabase
+        .from('products')
+        .select('id, name, category, color, sizes, price, cost_price, images, stock, description, is_featured, active, created_at')
+        .eq('active', true) // Apenas produtos ativos
+        .order('created_at', { ascending: false })
+        .limit(1000); // Limite de segurança para evitar carregar tudo
+
     if (error) throw error;
-    return data.map(toCamelCase);
+
+    return data.map(product => {
+        const camelProduct = toCamelCase(product);
+        // Otimizar imagens: manter apenas a primeira imagem para lista
+        if (camelProduct.images && Array.isArray(camelProduct.images)) {
+            camelProduct.images = [camelProduct.images[0]].filter(Boolean);
+        }
+        return camelProduct;
+    });
 }
 
 export async function getProductById(id) {
-    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+    // Carregar todos os dados quando é um acesso individual (modal de detalhe)
+    const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+
     if (error) throw error;
     return toCamelCase(data);
 }

@@ -140,12 +140,12 @@ export function Home() {
                         <div className="container-custom py-4 md:py-5 lg:py-6 px-4 md:px-6">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4 text-center">
                                 {[
-                                    { icon: Shield, text: "Pagamento Seguro" },
-                                    { icon: Truck, text: "Entrega Grátis*" },
-                                    { icon: Clock, text: "48h para Provar" },
-                                    { icon: Star, text: "Curadoria Premium" },
+                                    { icon: Shield, text: "Pagamento Seguro", hideOnMobile: true },
+                                    { icon: Truck, text: "Entrega Grátis*", hideOnMobile: false },
+                                    { icon: Clock, text: "48h para Provar", hideOnMobile: true },
+                                    { icon: Star, text: "Curadoria Premium", hideOnMobile: false },
                                 ].map((item, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-1 md:gap-1.5 lg:gap-2 group">
+                                    <div key={i} className={`flex flex-col items-center gap-1 md:gap-1.5 lg:gap-2 group ${item.hideOnMobile ? 'hidden md:flex' : ''}`}>
                                         <div className="text-[#C75D3B] group-hover:scale-110 transition-transform duration-300">
                                             <item.icon className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6" />
                                         </div>

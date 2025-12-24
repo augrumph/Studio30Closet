@@ -202,10 +202,17 @@ export async function deleteCustomer(id) {
 export async function getOrders() {
     const { data, error } = await supabase
         .from('orders')
-        .select('*, customers ( * )')
+        .select('*, customers ( * ), order_items (count)')
         .order('created_at', { ascending: false });
     if (error) throw error;
-    return data.map(toCamelCase);
+
+    const camelCasedData = data.map(toCamelCase);
+
+    return camelCasedData.map(order => ({
+        ...order,
+        orderNumber: `#${String(order.id).padStart(6, '0')}`,
+        itemsCount: order.orderItems && order.orderItems.length > 0 ? order.orderItems[0].count : 0,
+    }));
 }
 
 export async function getOrderById(id) {
@@ -244,9 +251,21 @@ export async function createOrder(orderData) {
         customerId = newCustomer.id;
     }
 
+    // Mapear explicitamente os campos para a tabela 'orders'
+    const orderRecord = {
+        customer_id: customerId,
+        status: restOfOrderData.status || 'pending',
+        total_value: restOfOrderData.totalValue !== undefined
+            ? restOfOrderData.totalValue
+            : items.reduce((sum, item) => sum + (item.price || 0), 0),
+        delivery_date: restOfOrderData.deliveryDate || null,
+        pickup_date: restOfOrderData.pickupDate || null,
+        converted_to_sale: restOfOrderData.convertedToSale !== undefined ? restOfOrderData.convertedToSale : false,
+    };
+
     const { data: newOrder, error: orderError } = await supabase
         .from('orders')
-        .insert([{ ...restOfOrderData, customer_id: customerId }])
+        .insert([orderRecord])
         .select()
         .single();
     if (orderError) throw orderError;
@@ -267,21 +286,24 @@ export async function createOrder(orderData) {
 
 export async function updateOrder(id, orderData) {
     console.log('API: Updating order with id:', id, 'and data:', orderData);
-    const snakeData = toSnakeCase(orderData);
-    console.log('API: Converted to snake_case:', snakeData);
 
-    // Criar objeto com campos explícitos para evitar problemas
-    const orderRecord = {
-        customer_id: snakeData.customerId || snakeData.customer_id,
-        status: snakeData.status,
-        total_value: snakeData.totalValue || snakeData.total_value,
-        delivery_date: snakeData.deliveryDate || snakeData.delivery_date,
-        pickup_date: snakeData.pickupDate || snakeData.pickup_date,
-        items_count: snakeData.itemsCount || snakeData.items_count || 0,
-        converted_to_sale: snakeData.convertedToSale || snakeData.converted_to_sale || false
-    };
+    // Criar objeto com campos explícitos em snake_case para evitar problemas
+    const orderRecord = {};
 
-    console.log('API: Prepared record for update:', orderRecord);
+    // Mapear apenas campos que são colunas reais da tabela orders
+    if (orderData.customerId !== undefined) orderRecord.customer_id = orderData.customerId;
+    if (orderData.customer_id !== undefined) orderRecord.customer_id = orderData.customer_id;
+    if (orderData.status !== undefined) orderRecord.status = orderData.status;
+    if (orderData.totalValue !== undefined) orderRecord.total_value = orderData.totalValue;
+    if (orderData.total_value !== undefined) orderRecord.total_value = orderData.total_value;
+    if (orderData.deliveryDate !== undefined) orderRecord.delivery_date = orderData.deliveryDate;
+    if (orderData.delivery_date !== undefined) orderRecord.delivery_date = orderData.delivery_date;
+    if (orderData.pickupDate !== undefined) orderRecord.pickup_date = orderData.pickupDate;
+    if (orderData.pickup_date !== undefined) orderRecord.pickup_date = orderData.pickup_date;
+    if (orderData.convertedToSale !== undefined) orderRecord.converted_to_sale = orderData.convertedToSale;
+    if (orderData.converted_to_sale !== undefined) orderRecord.converted_to_sale = orderData.converted_to_sale;
+
+    console.log('API: Prepared record for update (only DB fields):', orderRecord);
 
     const { data, error } = await supabase
         .from('orders')

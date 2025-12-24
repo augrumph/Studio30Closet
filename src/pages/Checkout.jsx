@@ -5,12 +5,18 @@ import { useMalinhaStore } from '@/store/malinha-store'
 import { generateWhatsAppLink, formatMalinhaMessage, cn } from '@/lib/utils'
 import { useAdminStore } from '@/store/admin-store'
 import { Badge } from '@/components/ui/Badge'
+import { useToast } from '@/contexts/ToastContext'
+import { motion, AnimatePresence } from 'framer-motion'
+import { triggerFireworks } from '@/components/magicui/confetti'
+import { NumberTicker } from '@/components/magicui/number-ticker'
 
 export function Checkout() {
     const { items, removeItem, clearItems, customerData, setCustomerData, setAddressData } = useMalinhaStore()
     const { addOrder } = useAdminStore()
+    const toast = useToast()
     const [step, setStep] = useState(items.length > 0 ? 1 : 0) // 0: empty, 1: review, 2: form
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [formErrors, setFormErrors] = useState({})
 
     const itemSummary = items.reduce((acc, item) => {
         const key = `${item.name}-${item.selectedSize}`; // Group by name and size
@@ -38,11 +44,51 @@ export function Checkout() {
         setAddressData({ [name]: value })
     }
 
+    const validateForm = () => {
+        const errors = {}
+        const address = customerData?.addresses?.[0] || {}
+
+        if (!customerData.name?.trim()) {
+            errors.name = 'Nome é obrigatório'
+        }
+
+        if (!customerData.phone?.trim()) {
+            errors.phone = 'Telefone é obrigatório'
+        } else if (customerData.phone.replace(/\D/g, '').length < 10) {
+            errors.phone = 'Telefone inválido'
+        }
+
+        if (!address.zipCode?.trim()) {
+            errors.zipCode = 'CEP é obrigatório'
+        } else if (address.zipCode.replace(/\D/g, '').length !== 8) {
+            errors.zipCode = 'CEP deve ter 8 dígitos'
+        }
+
+        if (!address.street?.trim()) {
+            errors.street = 'Rua é obrigatória'
+        }
+
+        if (!address.number?.trim()) {
+            errors.number = 'Número é obrigatório'
+        }
+
+        if (!address.neighborhood?.trim()) {
+            errors.neighborhood = 'Bairro é obrigatório'
+        }
+
+        if (!address.city?.trim()) {
+            errors.city = 'Cidade é obrigatória'
+        }
+
+        setFormErrors(errors)
+        return Object.keys(errors).length === 0
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        const address = customerData?.addresses?.[0] || {};
-        if (!customerData.name || !customerData.phone || !address.street || !address.number || !address.neighborhood || !address.city || !address.zipCode) {
+        if (!validateForm()) {
+            toast.error('Por favor, preencha todos os campos obrigatórios')
             return
         }
 
@@ -59,7 +105,6 @@ export function Checkout() {
                     addresses: customerData.addresses,
                 },
                 items: items,
-                itemsCount: items.length,
                 notes: customerData.notes
             }
 
@@ -67,7 +112,7 @@ export function Checkout() {
 
             if (!result.success) {
                 console.error("Erro ao registrar pedido no sistema:", result.error)
-                // We proceed to WhatsApp anyway as it's the main channel
+                toast.warning('Pedido não foi salvo no sistema, mas prosseguindo com WhatsApp')
             }
 
             // 2. Generate WhatsApp message
@@ -77,9 +122,19 @@ export function Checkout() {
             // 3. Open WhatsApp
             window.open(whatsappLink, '_blank')
 
+            // 4. Trigger success effects
+            triggerFireworks()
+            toast.success('Pedido enviado! Aguarde o contato via WhatsApp.')
+
+            // Clear cart after successful submission
+            setTimeout(() => {
+                clearItems()
+            }, 2000)
+
             setIsSubmitting(false)
         } catch (error) {
             console.error("Falha no checkout:", error)
+            toast.error('Erro ao processar pedido. Tente novamente.')
             setIsSubmitting(false)
         }
     }
@@ -134,30 +189,64 @@ export function Checkout() {
                     </Link>
                 </div>
 
-                {/* Steps */}
+                {/* Steps Indicator */}
                 <div className="flex items-center justify-center gap-4 mb-8">
                     {[
-                        { num: 1, label: 'Revisar' },
-                        { num: 2, label: 'Dados' },
+                        { num: 1, label: 'Revisar', icon: ShoppingBag },
+                        { num: 2, label: 'Dados', icon: Truck },
                     ].map((s, i) => (
                         <div key={s.num} className="flex items-center gap-2">
-                            <div
+                            <motion.div
+                                initial={false}
+                                animate={{
+                                    scale: step === s.num ? 1.1 : 1,
+                                    backgroundColor: step >= s.num ? '#C75D3B' : '#E8C4B0',
+                                }}
+                                transition={{ type: "spring", stiffness: 300, damping: 20 }}
                                 className={cn(
-                                    'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all',
-                                    step >= s.num
-                                        ? 'bg-[#C75D3B] text-white'
-                                        : 'bg-[#E8C4B0] text-[#4A3B32]'
+                                    'w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium shadow-lg',
+                                    step >= s.num ? 'text-white shadow-[#C75D3B]/30' : 'text-[#4A3B32] shadow-gray-200'
                                 )}
                             >
-                                {step > s.num ? <Check className="w-4 h-4" /> : s.num}
-                            </div>
+                                <AnimatePresence mode="wait">
+                                    {step > s.num ? (
+                                        <motion.div
+                                            key="check"
+                                            initial={{ scale: 0, rotate: -180 }}
+                                            animate={{ scale: 1, rotate: 0 }}
+                                            exit={{ scale: 0 }}
+                                            transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                                        >
+                                            <Check className="w-5 h-5" />
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div
+                                            key="icon"
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            exit={{ scale: 0 }}
+                                        >
+                                            <s.icon className="w-5 h-5" />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
                             <span className={cn(
-                                'text-sm font-medium',
-                                step >= s.num ? 'text-[#4A3B32]' : 'text-[#4A3B32]/50'
+                                'text-sm font-bold transition-colors duration-300',
+                                step >= s.num ? 'text-[#4A3B32]' : 'text-[#4A3B32]/40'
                             )}>
                                 {s.label}
                             </span>
-                            {i < 1 && <div className="w-12 h-0.5 bg-[#E8C4B0] mx-2" />}
+                            {i < 1 && (
+                                <div className="relative w-16 h-1 bg-gray-200 rounded-full mx-2 overflow-hidden">
+                                    <motion.div
+                                        initial={{ width: '0%' }}
+                                        animate={{ width: step > s.num ? '100%' : '0%' }}
+                                        transition={{ duration: 0.5, ease: "easeInOut" }}
+                                        className="absolute left-0 top-0 h-full bg-[#C75D3B] rounded-full"
+                                    />
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -165,9 +254,17 @@ export function Checkout() {
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Items List */}
                     <div className="lg:col-span-2">
-                        {step === 1 ? (
-                            // Step 1: Review items
-                            <div className="bg-white rounded-2xl shadow-xl shadow-black/5 border border-[#4A3B32]/5 p-4 sm:p-6">
+                        <AnimatePresence mode="wait">
+                            {step === 1 ? (
+                                // Step 1: Review items
+                                <motion.div
+                                    key="step1"
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="bg-white rounded-2xl shadow-xl shadow-black/5 border border-[#4A3B32]/5 p-4 sm:p-6"
+                                >
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                                     {groupedItems.map((item) => (
                                         <div key={item.itemIds[0]} className="group relative">
@@ -202,10 +299,17 @@ export function Checkout() {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </motion.div>
                         ) : (
                             // Step 2: Customer Form
-                            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#4A3B32]/5">
+                            <motion.div
+                                key="step2"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                                className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#4A3B32]/5"
+                            >
                                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                                     <h2 className="font-display text-xl font-semibold text-[#4A3B32] mb-4">
                                         Seus Dados
@@ -213,20 +317,72 @@ export function Checkout() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Nome completo *</label>
-                                            <input type="text" name="name" value={customerData.name || ''} onChange={handleInputChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" placeholder="Seu nome" />
+                                            <label htmlFor="name" className="block text-sm font-medium text-[#4A3B32] mb-1">Nome completo *</label>
+                                            <input
+                                                type="text"
+                                                id="name"
+                                                name="name"
+                                                value={customerData.name || ''}
+                                                onChange={handleInputChange}
+                                                required
+                                                aria-required="true"
+                                                aria-invalid={!!formErrors.name}
+                                                aria-describedby={formErrors.name ? "name-error" : undefined}
+                                                className={cn(
+                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
+                                                    formErrors.name ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                )}
+                                                placeholder="Seu nome"
+                                            />
+                                            {formErrors.name && (
+                                                <p id="name-error" className="mt-1 text-sm text-red-600">{formErrors.name}</p>
+                                            )}
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">WhatsApp *</label>
-                                            <input type="tel" name="phone" value={customerData.phone || ''} onChange={handleInputChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" placeholder="(11) 99999-9999" />
+                                            <label htmlFor="phone" className="block text-sm font-medium text-[#4A3B32] mb-1">WhatsApp *</label>
+                                            <input
+                                                type="tel"
+                                                id="phone"
+                                                name="phone"
+                                                value={customerData.phone || ''}
+                                                onChange={handleInputChange}
+                                                required
+                                                aria-required="true"
+                                                aria-invalid={!!formErrors.phone}
+                                                aria-describedby={formErrors.phone ? "phone-error" : undefined}
+                                                className={cn(
+                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
+                                                    formErrors.phone ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                )}
+                                                placeholder="(11) 99999-9999"
+                                            />
+                                            {formErrors.phone && (
+                                                <p id="phone-error" className="mt-1 text-sm text-red-600">{formErrors.phone}</p>
+                                            )}
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">E-mail</label>
-                                            <input type="email" name="email" value={customerData.email || ''} onChange={handleInputChange} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" placeholder="seu@email.com" />
+                                            <label htmlFor="email" className="block text-sm font-medium text-[#4A3B32] mb-1">E-mail</label>
+                                            <input
+                                                type="email"
+                                                id="email"
+                                                name="email"
+                                                value={customerData.email || ''}
+                                                onChange={handleInputChange}
+                                                className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1"
+                                                placeholder="seu@email.com"
+                                            />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">CPF (Opcional)</label>
-                                            <input type="text" name="cpf" value={customerData.cpf || ''} onChange={handleInputChange} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" placeholder="000.000.000-00" />
+                                            <label htmlFor="cpf" className="block text-sm font-medium text-[#4A3B32] mb-1">CPF (Opcional)</label>
+                                            <input
+                                                type="text"
+                                                id="cpf"
+                                                name="cpf"
+                                                value={customerData.cpf || ''}
+                                                onChange={handleInputChange}
+                                                className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1"
+                                                placeholder="000.000.000-00"
+                                            />
                                         </div>
                                     </div>
                                     
@@ -235,29 +391,135 @@ export function Checkout() {
                                     <h3 className="font-display text-lg font-semibold text-[#4A3B32] pt-2">Endereço de Entrega</h3>
                                     
                                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                                        <div className="md:col-span-2">
+                                            <label htmlFor="zipCode" className="block text-sm font-medium text-[#4A3B32] mb-1">CEP *</label>
+                                            <input
+                                                type="text"
+                                                id="zipCode"
+                                                name="zipCode"
+                                                value={address.zipCode || ''}
+                                                onChange={handleAddressChange}
+                                                required
+                                                aria-required="true"
+                                                aria-invalid={!!formErrors.zipCode}
+                                                aria-describedby={formErrors.zipCode ? "zipCode-error" : undefined}
+                                                className={cn(
+                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
+                                                    formErrors.zipCode ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                )}
+                                                placeholder="00000-000"
+                                            />
+                                            {formErrors.zipCode && (
+                                                <p id="zipCode-error" className="mt-1 text-sm text-red-600">{formErrors.zipCode}</p>
+                                            )}
+                                        </div>
                                         <div className="md:col-span-4">
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Rua *</label>
-                                            <input type="text" name="street" value={address.street || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                            <label htmlFor="street" className="block text-sm font-medium text-[#4A3B32] mb-1">Rua *</label>
+                                            <input
+                                                type="text"
+                                                id="street"
+                                                name="street"
+                                                value={address.street || ''}
+                                                onChange={handleAddressChange}
+                                                required
+                                                aria-required="true"
+                                                aria-invalid={!!formErrors.street}
+                                                aria-describedby={formErrors.street ? "street-error" : undefined}
+                                                className={cn(
+                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
+                                                    formErrors.street ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                )}
+                                            />
+                                            {formErrors.street && (
+                                                <p id="street-error" className="mt-1 text-sm text-red-600">{formErrors.street}</p>
+                                            )}
                                         </div>
                                         <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Número *</label>
-                                            <input type="text" name="number" value={address.number || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
-                                        </div>
-                                         <div className="md:col-span-3">
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Bairro *</label>
-                                            <input type="text" name="neighborhood" value={address.neighborhood || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                            <label htmlFor="number" className="block text-sm font-medium text-[#4A3B32] mb-1">Número *</label>
+                                            <input
+                                                type="text"
+                                                id="number"
+                                                name="number"
+                                                value={address.number || ''}
+                                                onChange={handleAddressChange}
+                                                required
+                                                aria-required="true"
+                                                aria-invalid={!!formErrors.number}
+                                                aria-describedby={formErrors.number ? "number-error" : undefined}
+                                                className={cn(
+                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
+                                                    formErrors.number ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                )}
+                                            />
+                                            {formErrors.number && (
+                                                <p id="number-error" className="mt-1 text-sm text-red-600">{formErrors.number}</p>
+                                            )}
                                         </div>
                                         <div className="md:col-span-3">
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Complemento</label>
-                                            <input type="text" name="complement" value={address.complement || ''} onChange={handleAddressChange} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                            <label htmlFor="neighborhood" className="block text-sm font-medium text-[#4A3B32] mb-1">Bairro *</label>
+                                            <input
+                                                type="text"
+                                                id="neighborhood"
+                                                name="neighborhood"
+                                                value={address.neighborhood || ''}
+                                                onChange={handleAddressChange}
+                                                required
+                                                aria-required="true"
+                                                aria-invalid={!!formErrors.neighborhood}
+                                                aria-describedby={formErrors.neighborhood ? "neighborhood-error" : undefined}
+                                                className={cn(
+                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
+                                                    formErrors.neighborhood ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                )}
+                                            />
+                                            {formErrors.neighborhood && (
+                                                <p id="neighborhood-error" className="mt-1 text-sm text-red-600">{formErrors.neighborhood}</p>
+                                            )}
                                         </div>
                                         <div className="md:col-span-3">
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">Cidade *</label>
-                                            <input type="text" name="city" value={address.city || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                            <label htmlFor="complement" className="block text-sm font-medium text-[#4A3B32] mb-1">Complemento</label>
+                                            <input
+                                                type="text"
+                                                id="complement"
+                                                name="complement"
+                                                value={address.complement || ''}
+                                                onChange={handleAddressChange}
+                                                className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1"
+                                            />
                                         </div>
                                         <div className="md:col-span-3">
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-1">CEP *</label>
-                                            <input type="text" name="zipCode" value={address.zipCode || ''} onChange={handleAddressChange} required className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1" />
+                                            <label htmlFor="city" className="block text-sm font-medium text-[#4A3B32] mb-1">Cidade *</label>
+                                            <input
+                                                type="text"
+                                                id="city"
+                                                name="city"
+                                                value={address.city || ''}
+                                                onChange={handleAddressChange}
+                                                required
+                                                aria-required="true"
+                                                aria-invalid={!!formErrors.city}
+                                                aria-describedby={formErrors.city ? "city-error" : undefined}
+                                                className={cn(
+                                                    "w-full bg-transparent border-0 border-b-2 focus:ring-0 outline-none transition-colors duration-300 py-3 px-1",
+                                                    formErrors.city ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#C75D3B]"
+                                                )}
+                                            />
+                                            {formErrors.city && (
+                                                <p id="city-error" className="mt-1 text-sm text-red-600">{formErrors.city}</p>
+                                            )}
+                                        </div>
+                                        <div className="md:col-span-3">
+                                            <label htmlFor="state" className="block text-sm font-medium text-[#4A3B32] mb-1">Estado</label>
+                                            <input
+                                                type="text"
+                                                id="state"
+                                                name="state"
+                                                value={address.state || ''}
+                                                onChange={handleAddressChange}
+                                                className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1"
+                                                placeholder="SP"
+                                                maxLength="2"
+                                            />
                                         </div>
                                     </div>
 
@@ -268,8 +530,9 @@ export function Checkout() {
                                         <textarea name="notes" value={customerData.notes || ''} onChange={handleInputChange} rows={2} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1 resize-none" placeholder="Preferência de horário, instruções..."></textarea>
                                     </div>
                                 </form>
-                            </div>
+                            </motion.div>
                         )}
+                        </AnimatePresence>
                         {/* Clear All */}
                         {step === 1 && (
                             <button
@@ -299,7 +562,9 @@ export function Checkout() {
                                                 <Gift className="w-5 h-5 text-[#C75D3B]" />
                                                 <span className="font-medium text-[#4A3B32]">Peças na malinha</span>
                                             </div>
-                                            <span className="font-bold text-[#4A3B32]">{items.length}</span>
+                                            <span className="font-bold text-2xl text-[#C75D3B]">
+                                                <NumberTicker value={items.length} />
+                                            </span>
                                         </div>
 
                                     </div>

@@ -20,9 +20,13 @@ export function MalinhasList() {
     }, [loadOrders])
 
     const filteredOrders = orders.filter(order => {
+        const orderNum = order.orderNumber || '';
+        const customerName = order.customer ? order.customer.name || '' : '';
+
         const matchesSearch =
-            order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+            orderNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            customerName.toLowerCase().includes(searchTerm.toLowerCase());
+        
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter
         return matchesSearch && matchesStatus
     })
@@ -143,17 +147,23 @@ export function MalinhasList() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-full bg-[#FAF3F0] flex items-center justify-center text-[#4A3B32] font-bold text-xs border border-[#C75D3B]/10">
-                                                            {order.customer.name.charAt(0)}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-bold text-[#4A3B32] text-sm">{order.customer.name}</p>
-                                                            <p className="text-[10px] text-gray-400">{order.customer.phone}</p>
-                                                        </div>
-                                                    </div>
-                                                </td>
+                                                                                                 <td className="px-8 py-6">
+                                                                                                     {order.customer ? (
+                                                                                                         <div className="flex items-center gap-3">
+                                                                                                             <div className="w-9 h-9 rounded-full bg-[#FAF3F0] flex items-center justify-center text-[#4A3B32] font-bold text-xs border border-[#C75D3B]/10">
+                                                                                                                 {order.customer.name ? order.customer.name.charAt(0) : '?'}
+                                                                                                             </div>
+                                                                                                             <div>
+                                                                                                                 <p className="font-bold text-[#4A3B32] text-sm">{order.customer.name || 'Cliente desconhecido'}</p>
+                                                                                                                 <p className="text-[10px] text-gray-400">{order.customer.phone || 'Telefone indisponível'}</p>
+                                                                                                             </div>
+                                                                                                         </div>
+                                                                                                     ) : (
+                                                                                                         <div>
+                                                                                                             <p className="font-bold text-red-500 text-sm">Cliente não associado</p>
+                                                                                                         </div>
+                                                                                                     )}
+                                                                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <div className="space-y-2">
                                                         <div className="flex items-center gap-2">

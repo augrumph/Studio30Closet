@@ -110,6 +110,15 @@ export function Checkout() {
         }
     }, [])
 
+    // Scroll para o topo quando muda de step
+    useEffect(() => {
+        window.scrollTo({
+            top: 0,
+            left: 0,
+            behavior: 'auto'
+        })
+    }, [step])
+
     const itemSummary = items.reduce((acc, item) => {
         // Buscar dados do produto usando o productId
         const product = productsData[item.productId] || {};

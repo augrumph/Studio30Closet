@@ -464,6 +464,7 @@ export function Checkout() {
                         </div>
                     ))}
                 </div>
+                </div>
 
                 <div className={cn(
                     "grid gap-6 sm:gap-8",

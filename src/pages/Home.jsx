@@ -84,12 +84,9 @@ export function Home() {
                                 {/* TEXTO (Direita) */}
                                 <div className="text-center lg:text-left space-y-3 md:space-y-4 order-2 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                                     <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-6xl xl:text-7xl text-[#4A3B32] leading-[1.1]">
-                                        <FadeText text="O provador mais" direction="up" className="inline-block" />
-                                        <br />
-                                        <FadeText text="exclusivo é a" direction="up" className="inline-block" framerProps={{ transition: { delay: 0.1 } }} />
-                                        <br className="hidden lg:block" />
+                                        <FadeText text="O provador mais exclusivo é a " direction="up" className="inline-block" />
                                         <span className="text-[#C75D3B] italic font-light">
-                                            <FadeText text="sua casa." direction="up" className="inline-block" framerProps={{ transition: { delay: 0.2 } }} />
+                                            <FadeText text="sua casa." direction="up" className="inline-block" framerProps={{ transition: { delay: 0.1 } }} />
                                         </span>
                                     </h1>
     

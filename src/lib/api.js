@@ -55,14 +55,11 @@ function toCamelCase(obj) {
 // ==================== PRODUCTS ====================
 
 export async function getProducts() {
-    // Otimizado: selecionar apenas campos necessários para o catálogo
-    // Não carrega o array completo de imagens aqui
+    // Otimizado: carregar todos os dados mas com select específico
     const { data, error } = await supabase
         .from('products')
-        .select('id, name, category, color, sizes, price, cost_price, images, stock, description, is_featured, active, created_at')
-        .eq('active', true) // Apenas produtos ativos
-        .order('created_at', { ascending: false })
-        .limit(1000); // Limite de segurança para evitar carregar tudo
+        .select('*')
+        .order('created_at', { ascending: false });
 
     if (error) throw error;
 

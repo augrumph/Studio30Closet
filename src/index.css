@@ -377,6 +377,21 @@
     }
   }
 
+  /* Skeleton card bounce animation */
+  .skeleton-bounce {
+    animation: skeleton-bounce 2s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-bounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
   /* ===== SECTION STYLING ===== */
   .section {
     @apply py-20 md:py-28 lg:py-36;

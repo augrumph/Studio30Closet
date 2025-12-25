@@ -9,6 +9,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { triggerFireworks } from '@/components/magicui/confetti'
 import { NumberTicker } from '@/components/magicui/number-ticker'
+import { SkeletonCard } from '@/components/catalog/SkeletonCard'
 import { supabase } from '@/lib/supabase'
 
 // Gerar número de pedido profissional
@@ -493,7 +494,13 @@ export function Checkout() {
                                     className="bg-white rounded-2xl shadow-xl shadow-black/5 border border-[#4A3B32]/5 p-4 sm:p-6"
                                 >
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                                    {groupedItems.map((item, idx) => (
+                                    {loadingProducts ? (
+                                        // Mostrar skeletons enquanto carrega
+                                        Array.from({ length: items.length || 3 }).map((_, index) => (
+                                            <SkeletonCard key={`skeleton-${index}`} />
+                                        ))
+                                    ) : (
+                                        groupedItems.map((item, idx) => (
                                         <motion.div
                                             key={item.itemIds[0]}
                                             className="group relative touch-target"
@@ -534,7 +541,8 @@ export function Checkout() {
                                                 </p>
                                             </div>
                                         </motion.div>
-                                    ))}
+                                        ))
+                                    )}
                                 </div>
                             </motion.div>
                         ) : step === 3 ? (

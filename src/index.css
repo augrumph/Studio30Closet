@@ -377,9 +377,9 @@
     }
   }
 
-  /* Skeleton card bounce animation */
+  /* Skeleton card bounce animation - fast and natural */
   .skeleton-bounce {
-    animation: skeleton-bounce 2s ease-in-out infinite;
+    animation: skeleton-bounce 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
   }
 
   @keyframes skeleton-bounce {
@@ -388,7 +388,7 @@
     }
 
     50% {
-      transform: translateY(-4px);
+      transform: translateY(-6px);
     }
   }
 

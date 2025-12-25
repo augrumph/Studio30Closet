@@ -2,7 +2,7 @@ import { memo } from 'react'
 
 export function SkeletonCard() {
     return (
-        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 skeleton-bounce">
+        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
             {/* Imagem do produto com shimmer */}
             <div className="relative aspect-[3/4] skeleton-shimmer rounded-t-2xl overflow-hidden">
                 {/* Badges - com stagger animation */}

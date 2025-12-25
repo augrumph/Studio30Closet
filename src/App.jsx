@@ -5,6 +5,7 @@ import { PrivacyPolicy, TermsOfService } from '@/pages'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { LoadingBar } from '@/components/LoadingBar'
+import { AnimatePresence } from 'framer-motion'
 
 // Admin imports
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
@@ -40,7 +41,8 @@ function App() {
             <BrowserRouter>
                 <LoadingBar />
                 <ScrollToTop />
-                <Routes>
+                <AnimatePresence mode="wait">
+                    <Routes>
                 {/* Rotas Públicas */}
                 <Route path="/" element={<Layout />}>
                     <Route index element={<Home />} />
@@ -105,7 +107,8 @@ function App() {
                     <Route path="expenses/new" element={<ExpensesForm />} />
                     <Route path="expenses/:id" element={<ExpensesForm />} />
                 </Route>
-                </Routes>
+                    </Routes>
+                </AnimatePresence>
             </BrowserRouter>
         </ToastProvider>
     )

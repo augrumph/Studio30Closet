@@ -8,6 +8,7 @@ import { CommandPalette } from '../CommandPalette'
 
 export function AdminLayout() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
     return (
         <div className="flex h-screen bg-[#FAF8F5] overflow-hidden max-w-screen">
@@ -28,9 +29,9 @@ export function AdminLayout() {
                 }}
             />
 
-            {/* Desktop Sidebar */}
+            {/* Desktop Sidebar - Collapsible */}
             <div className="hidden lg:block">
-                <AdminSidebar />
+                <AdminSidebar isCollapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)} />
             </div>
 
             {/* Mobile Drawer Overlay */}

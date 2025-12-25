@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, Percent, Truck, ShoppingCart, Settings, X, TrendingDown } from 'lucide-react'
+import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, Percent, Truck, ShoppingCart, Settings, X, TrendingDown, ChevronLeft } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
+import { useState } from 'react'
 
 const menuItems = [
     {
@@ -57,9 +58,10 @@ const menuItems = [
     }
 ]
 
-export function AdminSidebar({ onClose }) {
+export function AdminSidebar({ onClose, isCollapsed = false, onToggleCollapse }) {
     const location = useLocation()
     const logout = useAuthStore(state => state.logout)
+    const [hoveredItem, setHoveredItem] = useState(null)
 
     const isActive = (path) => {
         if (path === '/admin/dashboard') {
@@ -73,20 +75,42 @@ export function AdminSidebar({ onClose }) {
     }
 
     return (
-        <aside className="w-72 bg-white border-r border-gray-100 flex flex-col relative z-20 h-full">
+        <motion.aside
+            animate={{ width: isCollapsed ? 80 : 288 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="bg-white border-r border-gray-100 flex flex-col relative z-20 h-full"
+        >
             {/* Elegant Header with Logo */}
-            <div className="px-6 py-4 border-b border-gray-100 select-none">
+            <div className={cn("border-b border-gray-100 select-none transition-all", isCollapsed ? "px-3 py-4" : "px-6 py-4")}>
                 <div className="flex items-center justify-between">
-                    <Link to="/admin/dashboard" onClick={handleLinkClick} className="flex items-center gap-3">
-                        <img
-                            src="/logomarca.PNG"
-                            alt="Studio 30 Closet"
-                            className="h-12 object-contain"
-                        />
-                        <div className="px-3 py-1 bg-[#FAF3F0] rounded-full">
-                            <span className="text-[9px] font-bold text-[#C75D3B] uppercase tracking-[0.15em]">Painel</span>
-                        </div>
-                    </Link>
+                    {!isCollapsed && (
+                        <Link to="/admin/dashboard" onClick={handleLinkClick} className="flex items-center gap-3 flex-1">
+                            <img
+                                src="/logomarca.PNG"
+                                alt="Studio 30 Closet"
+                                className="h-12 object-contain"
+                            />
+                            <div className="px-3 py-1 bg-[#FAF3F0] rounded-full">
+                                <span className="text-[9px] font-bold text-[#C75D3B] uppercase tracking-[0.15em]">Painel</span>
+                            </div>
+                        </Link>
+                    )}
+
+                    {/* Toggle Button */}
+                    {onToggleCollapse && (
+                        <motion.button
+                            onClick={onToggleCollapse}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors ml-auto"
+                            title={isCollapsed ? "Expandir" : "Retrair"}
+                        >
+                            <motion.div animate={{ rotate: isCollapsed ? 180 : 0 }}>
+                                <ChevronLeft className="w-5 h-5 text-[#4A3B32]" />
+                            </motion.div>
+                        </motion.button>
+                    )}
+
                     {onClose && (
                         <button
                             onClick={onClose}
@@ -99,34 +123,58 @@ export function AdminSidebar({ onClose }) {
             </div>
 
             {/* Premium Navigation Menu */}
-            <nav className="flex-1 px-5 py-3 space-y-1.5 overflow-y-auto custom-scrollbar">
+            <nav className={cn("flex-1 py-3 space-y-1.5 overflow-y-auto custom-scrollbar transition-all", isCollapsed ? "px-2" : "px-5")}>
                 {menuItems.map((item, idx) => (
                     <Link
                         key={item.path}
                         to={item.path}
                         onClick={handleLinkClick}
-                        className="block group"
+                        className="block group relative"
+                        title={isCollapsed ? item.label : undefined}
                     >
                         <motion.div
-                            whileHover={{ x: 4 }}
+                            onHoverStart={() => setHoveredItem(idx)}
+                            onHoverEnd={() => setHoveredItem(null)}
+                            whileHover={{ x: isCollapsed ? 0 : 4 }}
                             whileTap={{ scale: 0.98 }}
                             className={cn(
-                                'relative flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300',
+                                'relative flex items-center justify-center rounded-xl transition-all duration-300',
+                                isCollapsed ? 'px-4 py-3.5' : 'px-4 py-3.5 justify-between',
                                 isActive(item.path)
                                     ? 'bg-[#4A3B32] text-white shadow-lg shadow-[#4A3B32]/10'
                                     : 'text-[#4A3B32]/60 hover:bg-[#FDFBF7] hover:text-[#4A3B32]'
                             )}
                         >
-                            <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                            <div className={cn("flex items-center flex-1", isCollapsed ? "justify-center" : "gap-3.5 min-w-0")}>
                                 <item.icon className={cn(
                                     "w-[22px] h-[22px] transition-transform duration-300 group-hover:scale-110 flex-shrink-0",
                                     isActive(item.path) ? "text-white" : "text-[#4A3B32]/40 group-hover:text-[#C75D3B]"
                                 )} />
-                                <span className="font-bold text-[15px] tracking-tight truncate">{item.label}</span>
+                                {!isCollapsed && (
+                                    <span className="font-bold text-[15px] tracking-tight truncate">{item.label}</span>
+                                )}
                             </div>
 
-                            {isActive(item.path) && (
+                            {!isCollapsed && isActive(item.path) && (
                                 <motion.div layoutId="active-pill" className="w-2 h-2 rounded-full bg-[#C75D3B] flex-shrink-0" />
+                            )}
+
+                            {/* Tooltip quando colapsado */}
+                            {isCollapsed && hoveredItem === idx && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -10 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute left-full ml-2 px-3 py-2 bg-[#4A3B32] text-white text-sm font-bold rounded-lg whitespace-nowrap pointer-events-none z-50"
+                                >
+                                    {item.label}
+                                    <div className="absolute right-full w-2 h-2 bg-[#4A3B32] transform rotate-45" />
+                                </motion.div>
+                            )}
+
+                            {isCollapsed && isActive(item.path) && (
+                                <motion.div className="absolute -right-2.5 w-1 h-6 bg-[#C75D3B] rounded-full" />
                             )}
                         </motion.div>
                     </Link>
@@ -134,15 +182,36 @@ export function AdminSidebar({ onClose }) {
             </nav>
 
             {/* Refined Footer - Logout with Profile Feel */}
-            <div className="px-5 py-3.5 border-t border-gray-100 bg-[#FDFBF7]/30">
-                <button
+            <div className={cn("py-3.5 border-t border-gray-100 bg-[#FDFBF7]/30 transition-all", isCollapsed ? "px-2" : "px-5")}>
+                <motion.button
                     onClick={logout}
-                    className="flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-red-500 hover:bg-red-50 w-full transition-all duration-200 font-bold text-[15px] group"
+                    onHoverStart={() => setHoveredItem('logout')}
+                    onHoverEnd={() => setHoveredItem(null)}
+                    whileTap={{ scale: 0.95 }}
+                    className={cn(
+                        "flex items-center rounded-xl text-red-500 hover:bg-red-50 transition-all duration-200 font-bold group relative",
+                        isCollapsed ? "justify-center px-4 py-3.5" : "gap-3.5 px-4 py-3.5 w-full text-[15px]"
+                    )}
+                    title={isCollapsed ? "Sair do Painel" : undefined}
                 >
                     <LogOut className="w-[22px] h-[22px] transition-transform group-hover:-translate-x-1" />
-                    <span>Sair do Painel</span>
-                </button>
+                    {!isCollapsed && <span>Sair do Painel</span>}
+
+                    {/* Tooltip quando colapsado */}
+                    {isCollapsed && hoveredItem === 'logout' && (
+                        <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-full ml-2 px-3 py-2 bg-red-500 text-white text-sm font-bold rounded-lg whitespace-nowrap pointer-events-none z-50"
+                        >
+                            Sair
+                            <div className="absolute right-full w-2 h-2 bg-red-500 transform rotate-45" />
+                        </motion.div>
+                    )}
+                </motion.button>
             </div>
-        </aside>
+        </motion.aside>
     )
 }

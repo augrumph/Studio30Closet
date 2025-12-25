@@ -117,11 +117,12 @@ export function Header() {
                             )}
                         </Link>
 
-                        {/* Mobile Menu Button */}
+                        {/* Mobile Menu Button - Touch Optimized */}
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="lg:hidden p-2 text-brand-brown hover:text-brand-terracotta transition-colors"
-                            aria-label="Menu"
+                            className="touch-target lg:hidden flex items-center justify-center text-brand-brown hover:text-brand-terracotta transition-all active:scale-90"
+                            aria-label={isMobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+                            aria-expanded={isMobileMenuOpen}
                         >
                             {isMobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
                         </button>

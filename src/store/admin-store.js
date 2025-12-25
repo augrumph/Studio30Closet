@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import {
     getProducts,
+    getAllProducts,
     getOrders,
     getCustomers,
     getVendas,
@@ -59,13 +60,36 @@ export const useAdminStore = create((set, get) => ({
 
     // ==================== PRODUTOS ====================
 
-    loadProducts: async () => {
+    loadProducts: async (page = 1) => {
         set({ productsLoading: true, productsError: null })
         try {
-            const products = await getProducts()
-            // Ordenar por ID decrescente para que os mais novos apareçam primeiro
-            const sortedProducts = [...products].sort((a, b) => b.id - a.id)
-            set({ products: sortedProducts, productsLoading: false })
+            // Carregar apenas 1ª página (20 produtos)
+            // Muito mais rápido que carregar tudo!
+            const result = await getProducts(page, 20)
+            const sortedProducts = [...result.products].sort((a, b) => b.id - a.id)
+            set({
+                products: sortedProducts,
+                productsLoading: false,
+                productsTotal: result.total
+            })
+        } catch (error) {
+            set({ productsError: error.message, productsLoading: false })
+        }
+    },
+
+    // Carregar TODOS os produtos para o Catálogo (com images)
+    loadAllProductsForCatalog: async () => {
+        set({ productsLoading: true, productsError: null })
+        try {
+            console.log('📂 Carregando TODOS os produtos para catálogo...')
+            const allProducts = await getAllProducts()
+            const sortedProducts = [...allProducts].sort((a, b) => b.id - a.id)
+            set({
+                products: sortedProducts,
+                productsLoading: false,
+                productsTotal: allProducts.length
+            })
+            console.log(`✅ ${allProducts.length} produtos carregados para catálogo`)
         } catch (error) {
             set({ productsError: error.message, productsLoading: false })
         }

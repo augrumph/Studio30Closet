@@ -2,6 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   MOBILE-FIRST: Touch Target Optimization
+   ============================================ */
+
+/* Ensure all interactive elements are at least 44x44px (iOS) or 48x48px (Android) */
+@layer components {
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Mobile-optimized inputs */
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  textarea,
+  select {
+    @apply min-h-[44px] text-base;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  /* Safe area padding for notch devices */
+  .safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .safe-right {
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-left {
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+}
+
 /* Instagram Embed Custom Styles */
 .instagram-embed-wrapper {
   @apply bg-[#FDFBF7] rounded-lg shadow-sm border border-[#4A3B32]/10 overflow-hidden;

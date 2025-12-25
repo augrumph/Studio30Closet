@@ -1,8 +1,7 @@
 import { useState, memo } from 'react'
-import { Plus, Check, Eye, ShoppingBag, Trash2, Sparkles } from 'lucide-react'
+import { Plus, Check, Eye, Trash2 } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
-import { motion } from 'framer-motion'
 import { triggerConfetti } from '@/components/magicui/confetti'
 
 function ProductCardComponent({ product, onQuickView }) {
@@ -64,24 +63,18 @@ function ProductCardComponent({ product, onQuickView }) {
 
     const itemInMalinha = items.some(item => item.id === product.id)
 
-    // Fallback para a primeira imagem da primeira variante
+    // Imagens: tenta variants, depois images do catálogo
     const displayImage = product.variants?.[0]?.images?.[0] || product.images?.[0]
 
     return (
-        <motion.div
+        <div
             className="group cursor-pointer"
             onClick={handleCardClick}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -8, transition: { duration: 0.3, ease: "easeOut" } }}
-            transition={{ duration: 0.5 }}
         >
-            <motion.div
-                className="relative aspect-[3/4] overflow-hidden bg-[#FDFBF7] rounded-2xl shadow-lg"
-                whileHover={{ boxShadow: "0 20px 40px rgba(199, 93, 59, 0.15)" }}
-                transition={{ duration: 0.3 }}
+            <div
+                className="relative aspect-[3/4] overflow-hidden bg-[#FDFBF7] rounded-2xl shadow-lg transition-shadow duration-300 hover:shadow-2xl"
             >
-                <motion.img
+                <img
                     src={displayImage}
                     alt={product.name}
                     width="300"
@@ -89,9 +82,7 @@ function ProductCardComponent({ product, onQuickView }) {
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
-                    className="w-full h-full object-cover"
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
 
                 {/* Premium Badges */}
@@ -138,7 +129,7 @@ function ProductCardComponent({ product, onQuickView }) {
                     showActions ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 md:opacity-0"
                 )}>
                     {/* Size Selector */}
-                    <div className="flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2 mb-2 sm:mb-3">
+                    <div className="flex items-center justify-center gap-1 mb-3 flex-wrap">
                         {product.sizes.map((size) => (
                             <button
                                 key={size}
@@ -148,30 +139,32 @@ function ProductCardComponent({ product, onQuickView }) {
                                 }}
                                 aria-label={`Selecionar tamanho ${size}`}
                                 className={cn(
-                                    'w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full text-[10px] sm:text-xs font-medium transition-all duration-200',
+                                    'min-w-[44px] h-[44px] rounded-full text-xs font-bold transition-all duration-200 touch-target',
                                     selectedSize === size
-                                        ? 'bg-white text-brand-brown'
-                                        : 'bg-white/30 text-white hover:bg-white/50'
+                                        ? 'bg-white text-brand-brown ring-2 ring-white'
+                                        : 'bg-white/30 text-white hover:bg-white/50 active:bg-white/60'
                                 )}
+                                type="button"
                             >
                                 {size}
                             </button>
                         ))}
                     </div>
 
-                    {/* Add to Malinha Button */}
+                    {/* Add to Malinha Button - MOBILE OPTIMIZED */}
                     <button
                         onClick={handleAddOrRemoveFromMalinha}
                         disabled={isAdding || (isLimitReached() && !itemInMalinha)}
                         className={cn(
-                            'w-full py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2 transition-all duration-300',
+                            'w-full min-h-[48px] rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-300 touch-target active:scale-95',
                             isAdded
                                 ? 'bg-green-500 text-white'
                                 : itemInMalinha
-                                    ? 'bg-red-500 text-white hover:bg-red-600'
+                                    ? 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700'
                                     : 'bg-white text-brand-brown hover:bg-brand-terracotta hover:text-white active:bg-brand-rust',
                             (isLimitReached() && !itemInMalinha) && 'opacity-50 cursor-not-allowed'
                         )}
+                        type="button"
                     >
                         {isAdding ? (
                             <span className="animate-pulse">Adicionando...</span>
@@ -196,7 +189,7 @@ function ProductCardComponent({ product, onQuickView }) {
                         )}
                     </button>
                 </div>
-            </motion.div>
+            </div>
 
             {/* Info - Alinhado e Clean */}
             <div className="pt-4 pb-2">
@@ -217,7 +210,7 @@ function ProductCardComponent({ product, onQuickView }) {
                     )}
                 </div>
             </div>
-        </motion.div>
+        </div>
     )
 }
 

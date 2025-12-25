@@ -3,17 +3,45 @@ import { useAdminStore } from '@/store/admin-store'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { useEffect, useState, useMemo, memo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { X, SlidersHorizontal } from 'lucide-react'
+import { X, SlidersHorizontal, Search } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { getCachedProducts } from '@/lib/cache'
 
 export function Catalog() {
     const [searchParams, setSearchParams] = useSearchParams()
     const [selectedProduct, setSelectedProduct] = useState(null)
     const [showMobileFilters, setShowMobileFilters] = useState(false)
-    const { products, loadProducts, productsLoading } = useAdminStore()
+    const [searchQuery, setSearchQuery] = useState('')
+    const [page, setPage] = useState(1)
+    const ITEMS_PER_PAGE = 20
+    const { products, loadAllProductsForCatalog, productsLoading } = useAdminStore()
 
     useEffect(() => {
-        loadProducts()
-    }, [loadProducts])
+        const loadProductsOptimized = async () => {
+            // Se já tem produtos em memória, não carregar novamente
+            if (products.length > 0) {
+                console.log('✅ Produtos já em memória (total:', products.length, ')')
+                return
+            }
+
+            // Tentar cache primeiro
+            console.log('🔍 Tentando carregar do cache...')
+            const cachedProducts = await getCachedProducts()
+
+            if (cachedProducts && cachedProducts.length > 0) {
+                console.log('⚡ Cache HIT! Usando', cachedProducts.length, 'produtos do cache')
+                // Usar produtos do cache - será atualizado pelo store
+                await loadAllProductsForCatalog()
+                return
+            }
+
+            // Cache miss ou expirado - carregar do servidor
+            console.log('📡 Cache miss - carregando TODOS os produtos do servidor...')
+            await loadAllProductsForCatalog()
+        }
+
+        loadProductsOptimized()
+    }, [loadAllProductsForCatalog, products.length])
 
     // Filters from URL
     const selectedCategory = searchParams.get('categoria')
@@ -52,23 +80,51 @@ export function Catalog() {
     const categoriesList = ['all', ...new Set(products.map(p => p.category))]
     const allSizes = ['PP', 'P', 'M', 'G', 'GG', 'U']
 
-    // Filter products
+    // Filter products with search
     const filteredProducts = useMemo(() => {
         return products.filter(product => {
+            // Category filter
             if (selectedCategory && selectedCategory !== 'all' && product.category !== selectedCategory) return false
+            // Size filter
             if (selectedSizes.length > 0 && !product.sizes.some(s => selectedSizes.includes(s))) return false
+            // Search filter
+            if (searchQuery.trim()) {
+                const query = searchQuery.toLowerCase()
+                const matchesSearch =
+                    product.name.toLowerCase().includes(query) ||
+                    product.category?.toLowerCase().includes(query) ||
+                    product.color?.toLowerCase().includes(query)
+                return matchesSearch
+            }
             return true
         })
-    }, [products, selectedCategory, selectedSizes])
+    }, [products, selectedCategory, selectedSizes, searchQuery])
 
     const hasActiveFilters = selectedCategory || selectedSizes.length > 0
+
+    // Pagination logic
+    const startIdx = (page - 1) * ITEMS_PER_PAGE
+    const endIdx = startIdx + ITEMS_PER_PAGE
+    const paginatedProducts = filteredProducts.slice(startIdx, endIdx)
+    const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
+    const hasNextPage = page < totalPages
+
+    // Reset page when filters change
+    useEffect(() => {
+        setPage(1)
+    }, [selectedCategory, selectedSizes, searchQuery])
+
+    // Scroll to top when page changes
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }, [page])
 
     return (
         <div className="min-h-screen bg-[#FDFBF7]">
             {/* Main Content */}
-            <div className="container-custom py-20">
-                <div className="grid md:grid-cols-4 gap-16">
-                    {/* Sidebar Filters - Desktop */}
+            <div className="container-custom py-6 md:py-20">
+                <div className="grid md:grid-cols-4 gap-6 md:gap-16">
+                    {/* Sidebar Filters - Desktop Only */}
                     <aside className="hidden md:block">
                         <div className="sticky top-44">
                             <ProductFilters
@@ -85,50 +141,154 @@ export function Catalog() {
 
                     {/* Products Grid */}
                     <div className="md:col-span-3">
-                        {/* Mobile Filter Button */}
-                        <div className="md:hidden mb-6 flex items-center justify-between">
-                            <p className="text-sm text-[#4A3B32]/60">
-                                {filteredProducts.length} {filteredProducts.length === 1 ? 'peça' : 'peças'}
-                            </p>
-                            <button
-                                onClick={() => setShowMobileFilters(true)}
-                                className="flex items-center gap-2 px-4 py-2 border border-[#4A3B32]/20 rounded-lg text-[#4A3B32] hover:border-[#C75D3B] hover:text-[#C75D3B] transition-colors"
-                            >
-                                <SlidersHorizontal className="w-4 h-4" />
-                                <span className="font-medium">Filtros</span>
-                                {hasActiveFilters && (
-                                    <span className="w-2 h-2 rounded-full bg-[#C75D3B]" />
-                                )}
-                            </button>
+                        {/* MOBILE: Search Bar + Filter Controls */}
+                        <div className="md:hidden space-y-3 mb-6">
+                            {/* Search Input - Mobile Optimized */}
+                            <div className="relative touch-target">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar peça..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 h-[48px] bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#C75D3B] transition-all"
+                                    aria-label="Buscar produtos"
+                                />
+                            </div>
+
+                            {/* Filter Button + Count */}
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setShowMobileFilters(true)}
+                                    className="flex-1 touch-target flex items-center justify-center gap-2 bg-white border-2 border-[#4A3B32]/20 text-[#4A3B32] rounded-lg font-semibold transition-all hover:border-[#C75D3B] hover:text-[#C75D3B] active:scale-95"
+                                >
+                                    <SlidersHorizontal className="w-4 h-4" />
+                                    Filtros
+                                    {hasActiveFilters && (
+                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#C75D3B] text-white text-[10px] font-bold ml-1">
+                                            {(selectedSizes.length || 0) + (selectedCategory ? 1 : 0)}
+                                        </span>
+                                    )}
+                                </button>
+                                <div className="text-sm font-medium text-gray-600 whitespace-nowrap">
+                                    {filteredProducts.length} {filteredProducts.length === 1 ? 'peça' : 'peças'}
+                                </div>
+                            </div>
+
+                            {/* Active Filters Display */}
+                            {hasActiveFilters && (
+                                <motion.div
+                                    className="flex flex-wrap gap-2 p-2 bg-[#FDF0ED]/50 rounded-lg border border-[#E8C4B0]"
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                >
+                                    {selectedCategory && selectedCategory !== 'all' && (
+                                        <button
+                                            onClick={() => handleCategoryChange(null)}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full text-xs font-medium text-gray-700 border border-gray-200 hover:border-[#C75D3B] active:scale-95 transition-all"
+                                        >
+                                            {selectedCategory}
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                    {selectedSizes.map(size => (
+                                        <button
+                                            key={size}
+                                            onClick={() => handleSizeChange(size)}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full text-xs font-medium text-gray-700 border border-gray-200 hover:border-[#C75D3B] active:scale-95 transition-all"
+                                        >
+                                            {size}
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    ))}
+                                </motion.div>
+                            )}
                         </div>
 
+                        {/* Product Grid - Mobile First with Pagination */}
                         {productsLoading ? (
-                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                                 {Array.from({ length: 6 }).map((_, index) => (
                                     <SkeletonCard key={`skeleton-${index}`} />
                                 ))}
                             </div>
-                        ) : filteredProducts.length > 0 ? (
-                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                                {filteredProducts.map((product) => (
-                                    <ProductCard
-                                        key={product.id}
-                                        product={product}
-                                        onQuickView={setSelectedProduct}
-                                    />
-                                ))}
-                            </div>
+                        ) : paginatedProducts.length > 0 ? (
+                            <>
+                                <motion.div
+                                    className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    {paginatedProducts.map((product) => (
+                                        <ProductCard
+                                            key={product.id}
+                                            product={product}
+                                            onQuickView={setSelectedProduct}
+                                        />
+                                    ))}
+                                </motion.div>
+
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                    <motion.div
+                                        className="flex items-center justify-center gap-2 sm:gap-3 mt-8 sm:mt-12"
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 }}
+                                    >
+                                        <button
+                                            onClick={() => setPage(Math.max(1, page - 1))}
+                                            disabled={page === 1}
+                                            className="touch-target px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#C75D3B] transition-all active:scale-95"
+                                        >
+                                            ← Anterior
+                                        </button>
+
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                            {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
+                                                const pageNum = idx + Math.max(1, page - 2)
+                                                if (pageNum > totalPages) return null
+                                                return (
+                                                    <button
+                                                        key={pageNum}
+                                                        onClick={() => setPage(pageNum)}
+                                                        className={`touch-target px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${
+                                                            page === pageNum
+                                                                ? 'bg-[#C75D3B] text-white'
+                                                                : 'border-2 border-gray-200 hover:border-[#C75D3B]'
+                                                        }`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+
+                                        <button
+                                            onClick={() => setPage(Math.min(totalPages, page + 1))}
+                                            disabled={!hasNextPage}
+                                            className="touch-target px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#C75D3B] transition-all active:scale-95"
+                                        >
+                                            Próxima →
+                                        </button>
+                                    </motion.div>
+                                )}
+                            </>
                         ) : (
-                            <div className="text-center py-32">
-                                <h2 className="font-display text-6xl text-[#C75D3B]/20 mb-6" style={{ fontStyle: 'italic' }}>
+                            <div className="text-center py-16 sm:py-24 md:py-32">
+                                <h2 className="font-display text-3xl sm:text-5xl md:text-6xl text-[#C75D3B]/20 mb-4 sm:mb-6" style={{ fontStyle: 'italic' }}>
                                     Nada por aqui
                                 </h2>
-                                <p className="text-[#4A3B32]/60 uppercase tracking-widest text-xs mb-8">
+                                <p className="text-[#4A3B32]/60 uppercase tracking-widest text-xs mb-6 sm:mb-8">
                                     Nenhuma peça encontrada
                                 </p>
                                 <button
-                                    onClick={handleClearFilters}
-                                    className="border-b-2 border-[#C75D3B] text-[#4A3B32] pb-1 hover:text-[#C75D3B] transition-colors"
+                                    onClick={() => {
+                                        handleClearFilters()
+                                        setSearchQuery('')
+                                    }}
+                                    className="touch-target px-6 bg-[#C75D3B] text-white rounded-lg font-semibold transition-all hover:bg-[#A64D31] active:scale-95"
                                 >
                                     Limpar filtros
                                 </button>
@@ -138,45 +298,80 @@ export function Catalog() {
                 </div>
             </div>
 
-            {/* Mobile Filters Drawer */}
-            {showMobileFilters && (
-                <div className="fixed inset-0 z-50 md:hidden">
-                    <div
-                        className="absolute inset-0 bg-[#4A3B32]/40 backdrop-blur-sm"
-                        onClick={() => setShowMobileFilters(false)}
-                    />
-                    <div className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white flex flex-col">
-                        <div className="p-6 border-b border-[#4A3B32]/5 flex items-center justify-between">
-                            <h3 className="font-display text-2xl text-[#4A3B32]">Filtros</h3>
-                            <button
-                                onClick={() => setShowMobileFilters(false)}
-                                className="text-[#4A3B32]/40 hover:text-[#4A3B32]"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-6">
-                            <ProductFilters
-                                categories={categoriesList}
-                                selectedCategory={selectedCategory}
-                                onCategoryChange={handleCategoryChange}
-                                sizes={allSizes}
-                                selectedSizes={selectedSizes}
-                                onSizeChange={handleSizeChange}
-                                onClearFilters={handleClearFilters}
-                            />
-                        </div>
-                        <div className="p-6 border-t border-[#4A3B32]/5">
-                            <button
-                                onClick={() => setShowMobileFilters(false)}
-                                className="w-full py-4 bg-[#C75D3B] text-white font-bold tracking-wide hover:bg-[#A64D31] transition-colors"
-                            >
-                                Ver {filteredProducts.length} peças
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Mobile Filters Bottom Sheet - OPTIMIZED */}
+            <AnimatePresence>
+                {showMobileFilters && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            className="fixed inset-0 z-40 md:hidden bg-black/40 backdrop-blur-sm"
+                            onClick={() => setShowMobileFilters(false)}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                        />
+
+                        {/* Bottom Sheet */}
+                        <motion.div
+                            className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white rounded-t-2xl flex flex-col max-h-[85vh]"
+                            initial={{ y: '100%' }}
+                            animate={{ y: 0 }}
+                            exit={{ y: '100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        >
+                            {/* Drag Handle */}
+                            <div className="flex justify-center pt-3 pb-2">
+                                <div className="w-12 h-1 bg-gray-300 rounded-full" />
+                            </div>
+
+                            {/* Header */}
+                            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+                                <h3 className="font-display text-xl text-[#4A3B32]">Filtros</h3>
+                                <button
+                                    onClick={() => setShowMobileFilters(false)}
+                                    className="touch-target flex items-center justify-center text-[#4A3B32]/40 hover:text-[#4A3B32] active:scale-90"
+                                    aria-label="Fechar filtros"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Filters Content - Scrollable */}
+                            <div className="flex-1 overflow-y-auto px-6 py-4">
+                                <ProductFilters
+                                    categories={categoriesList}
+                                    selectedCategory={selectedCategory}
+                                    onCategoryChange={handleCategoryChange}
+                                    sizes={allSizes}
+                                    selectedSizes={selectedSizes}
+                                    onSizeChange={handleSizeChange}
+                                    onClearFilters={handleClearFilters}
+                                />
+                            </div>
+
+                            {/* Footer CTA */}
+                            <div className="border-t border-gray-200 p-6 space-y-3 bg-white rounded-b-2xl sticky bottom-0">
+                                <button
+                                    onClick={() => setShowMobileFilters(false)}
+                                    className="w-full touch-target bg-[#C75D3B] text-white font-bold rounded-lg transition-all hover:bg-[#A64D31] active:scale-95"
+                                >
+                                    Ver {filteredProducts.length} peças
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        handleClearFilters()
+                                        setSearchQuery('')
+                                    }}
+                                    className="w-full touch-target text-[#C75D3B] font-semibold rounded-lg border border-[#C75D3B] transition-all hover:bg-[#FDF0ED] active:scale-95"
+                                >
+                                    Limpar tudo
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Product Modal */}
             <ProductModal

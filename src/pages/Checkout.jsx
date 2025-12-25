@@ -389,90 +389,90 @@ export function Checkout() {
     }
 
     return (
-        <div className="min-h-screen bg-[#FDFBF7] pt-16 sm:pt-24 pb-8 sm:pb-16">
+        <div className="min-h-screen bg-[#FDFBF7] pt-6 sm:pt-16 md:pt-24 pb-8 sm:pb-16">
             <div className="w-full px-4 sm:px-6 max-w-7xl mx-auto">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
-                    <div className="mb-4 sm:mb-0">
-                        <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-semibold text-[#4A3B32]">
+                {/* Header - Mobile Optimized */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 md:mb-8">
+                    <div className="mb-3 sm:mb-0">
+                        <h1 className="font-display text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-[#4A3B32]">
                             Sua Malinha
                         </h1>
-                        <p className="text-sm sm:text-base text-[#4A3B32]/60 mt-1">
+                        <p className="text-xs sm:text-sm md:text-base text-[#4A3B32]/60 mt-1">
                             {items.length}/20 peças selecionadas
                         </p>
                     </div>
                     <Link
                         to="/catalogo"
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base text-white bg-[#C75D3B] hover:bg-[#A64D31] rounded-full transition-colors font-medium min-h-[40px] sm:min-h-[48px]"
+                        className="touch-target inline-flex items-center justify-center gap-2 px-4 text-sm sm:text-base text-white bg-[#C75D3B] hover:bg-[#A64D31] rounded-full transition-all active:scale-95 font-semibold"
                     >
                         <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
-                        <span>Adicionar mais</span>
+                        <span>Adicionar</span>
                     </Link>
                 </div>
 
-                {/* Steps Indicator - Scrollable on mobile */}
-                <div className="overflow-x-auto mb-6 sm:mb-8 -mx-4 sm:mx-0 px-4 sm:px-0">
-                    <div className="flex items-center justify-center gap-1 sm:gap-4 min-w-fit sm:min-w-0">
+                {/* Steps Indicator - Mobile Optimized Compact */}
+                <div className="mb-4 sm:mb-6 md:mb-8">
+                    <div className="flex items-center justify-center gap-2 sm:gap-4">
                         {[
                             { num: 1, label: 'Revisar', icon: ShoppingBag },
                             { num: 2, label: 'Dados', icon: Truck },
                             { num: 3, label: 'Confirmação', icon: Check },
                         ].map((s, i) => (
-                            <div key={s.num} className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                            <motion.div
-                                initial={false}
-                                animate={{
-                                    scale: step === s.num ? 1.1 : 1,
-                                    backgroundColor: step >= s.num ? '#C75D3B' : '#E8C4B0',
-                                }}
-                                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                                className={cn(
-                                    'w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium shadow-lg',
-                                    step >= s.num ? 'text-white shadow-[#C75D3B]/30' : 'text-[#4A3B32] shadow-gray-200'
-                                )}
-                            >
-                                <AnimatePresence mode="wait">
-                                    {step > s.num ? (
-                                        <motion.div
-                                            key="check"
-                                            initial={{ scale: 0, rotate: -180 }}
-                                            animate={{ scale: 1, rotate: 0 }}
-                                            exit={{ scale: 0 }}
-                                            transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                                        >
-                                            <Check className="w-5 h-5" />
-                                        </motion.div>
-                                    ) : (
-                                        <motion.div
-                                            key="icon"
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            exit={{ scale: 0 }}
-                                        >
-                                            <s.icon className="w-5 h-5" />
-                                        </motion.div>
+                            <div key={s.num} className="flex items-center gap-1 sm:gap-2 flex-1 sm:flex-none">
+                                <motion.div
+                                    initial={false}
+                                    animate={{
+                                        scale: step === s.num ? 1.1 : 1,
+                                        backgroundColor: step >= s.num ? '#C75D3B' : '#E8C4B0',
+                                    }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                    className={cn(
+                                        'w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shadow-lg flex-shrink-0',
+                                        step >= s.num ? 'text-white shadow-[#C75D3B]/30' : 'text-[#4A3B32] shadow-gray-200'
                                     )}
-                                </AnimatePresence>
-                            </motion.div>
-                            <span className={cn(
-                                'text-xs sm:text-sm font-bold transition-colors duration-300 whitespace-nowrap',
-                                step >= s.num ? 'text-[#4A3B32]' : 'text-[#4A3B32]/40'
-                            )}>
-                                {s.label}
-                            </span>
-                            {i < 2 && (
-                                <div className="relative w-8 sm:w-16 h-1 bg-gray-200 rounded-full mx-1 sm:mx-2 overflow-hidden flex-shrink-0">
-                                    <motion.div
-                                        initial={{ width: '0%' }}
-                                        animate={{ width: step > s.num ? '100%' : '0%' }}
-                                        transition={{ duration: 0.5, ease: "easeInOut" }}
-                                        className="absolute left-0 top-0 h-full bg-[#C75D3B] rounded-full"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
+                                >
+                                    <AnimatePresence mode="wait">
+                                        {step > s.num ? (
+                                            <motion.div
+                                                key="check"
+                                                initial={{ scale: 0, rotate: -180 }}
+                                                animate={{ scale: 1, rotate: 0 }}
+                                                exit={{ scale: 0 }}
+                                                transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                                            >
+                                                <Check className="w-4 h-4" />
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div
+                                                key="icon"
+                                                initial={{ scale: 0 }}
+                                                animate={{ scale: 1 }}
+                                                exit={{ scale: 0 }}
+                                            >
+                                                <s.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                                <span className={cn(
+                                    'text-[10px] sm:text-xs font-bold transition-colors duration-300 whitespace-nowrap hidden sm:inline',
+                                    step >= s.num ? 'text-[#4A3B32]' : 'text-[#4A3B32]/40'
+                                )}>
+                                    {s.label}
+                                </span>
+                                {i < 2 && (
+                                    <div className="relative h-0.5 bg-gray-200 rounded-full mx-0.5 sm:mx-2 flex-1 sm:flex-none sm:w-12 overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: '0%' }}
+                                            animate={{ width: step > s.num ? '100%' : '0%' }}
+                                            transition={{ duration: 0.5, ease: "easeInOut" }}
+                                            className="absolute left-0 top-0 h-full bg-[#C75D3B] rounded-full"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 <div className={cn(
@@ -492,41 +492,48 @@ export function Checkout() {
                                     transition={{ duration: 0.3 }}
                                     className="bg-white rounded-2xl shadow-xl shadow-black/5 border border-[#4A3B32]/5 p-4 sm:p-6"
                                 >
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
-                                    {groupedItems.map((item) => (
-                                        <div key={item.itemIds[0]} className="group relative">
-                                            <div className="aspect-[3/4] rounded-xl overflow-hidden relative bg-gray-100">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+                                    {groupedItems.map((item, idx) => (
+                                        <motion.div
+                                            key={item.itemIds[0]}
+                                            className="group relative touch-target"
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: idx * 0.05 }}
+                                        >
+                                            <div className="aspect-[3/4] rounded-lg sm:rounded-xl overflow-hidden relative bg-gray-100">
                                                 <img
                                                     src={item.images?.[0] || item.image || 'https://via.placeholder.com/300x400?text=Produto'}
                                                     alt={item.name}
+                                                    loading="lazy"
                                                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                                     onError={(e) => {
                                                         e.target.src = 'https://via.placeholder.com/300x400?text=Produto';
                                                     }}
                                                 />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 md:group-hover:opacity-100 transition-opacity duration-300" />
                                             </div>
                                             {item.count > 1 && (
-                                                <Badge variant="primary" size="lg" className="absolute top-2 right-2 z-10">
+                                                <Badge variant="primary" size="lg" className="absolute top-2 right-2 z-10 text-xs sm:text-sm">
                                                     {item.count}x
                                                 </Badge>
                                             )}
                                             <button
                                                 onClick={() => removeItem(item.itemIds[0])}
-                                                className="absolute top-2 left-2 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:bg-white hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 sm:opacity-0"
-                                                aria-label="Remover item"
+                                                className="absolute top-2 left-2 z-10 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:bg-white hover:text-red-500 flex items-center justify-center transition-all touch-target active:scale-90"
+                                                aria-label={`Remover ${item.name}`}
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                             </button>
-                                            <div className="pt-3">
-                                                <h3 className="font-display text-base text-[#4A3B32] line-clamp-1">
+                                            <div className="pt-2 sm:pt-3">
+                                                <h3 className="font-display text-xs sm:text-base text-[#4A3B32] line-clamp-1">
                                                     {item.name}
                                                 </h3>
-                                                <p className="text-sm text-[#4A3B32]/60">
-                                                    Tamanho: {item.selectedSize}
+                                                <p className="text-[10px] sm:text-sm text-[#4A3B32]/60">
+                                                    {item.selectedSize}
                                                 </p>
                                             </div>
-                                        </div>
+                                        </motion.div>
                                     ))}
                                 </div>
                             </motion.div>

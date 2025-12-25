@@ -20,33 +20,35 @@ function toSnakeCase(obj) {
     return snakeObj;
 }
 
-// Converter snake_case para camelCase - VERSÃO MELHORADA
+// ⚡ Converter snake_case para camelCase - OTIMIZADO
+// Não processa arrays de primitivos (strings/números)
 function toCamelCase(obj) {
     if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
 
     if (Array.isArray(obj)) {
-        return obj.map(item => toCamelCase(item));
+        // Se é array de strings/primitivos, retorna direto (comum em images URLs)
+        if (obj.length === 0 || typeof obj[0] !== 'object') {
+            return obj;
+        }
+        // Caso contrário, processa cada objeto
+        return obj.map(item => typeof item === 'object' ? toCamelCase(item) : item);
     }
 
     const camelObj = {};
     for (const [key, value] of Object.entries(obj)) {
         const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 
-        // Recursivamente converter objetos e arrays
-        if (value === null || value === undefined) {
+        if (value === null || value === undefined || typeof value !== 'object') {
+            // Primitivos: copia direto
             camelObj[camelKey] = value;
         } else if (Array.isArray(value)) {
-            // Se é um array, converter cada item
-            camelObj[camelKey] = value.map(item => {
-                if (typeof item === 'object') return toCamelCase(item);
-                return item;
-            });
-        } else if (typeof value === 'object') {
-            // Se é um objeto, converter recursivamente
-            camelObj[camelKey] = toCamelCase(value);
+            // Arrays: só processa se contém objetos
+            camelObj[camelKey] = typeof value[0] === 'object'
+                ? value.map(item => typeof item === 'object' ? toCamelCase(item) : item)
+                : value;
         } else {
-            // Valores primitivos
-            camelObj[camelKey] = value;
+            // Objetos: converte recursivamente
+            camelObj[camelKey] = toCamelCase(value);
         }
     }
     return camelObj;
@@ -54,31 +56,72 @@ function toCamelCase(obj) {
 
 // ==================== PRODUCTS ====================
 
-export async function getProducts() {
-    // Otimizado: carregar todos os dados
-    const { data, error } = await supabase
+// ⚡ OTIMIZADO: Carregar produtos em LOTES (paginação no servidor)
+export async function getProducts(page = 1, pageSize = 20) {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize - 1;
+
+    console.log(`📡 Buscando produtos página ${page} (${start}-${end})...`);
+
+    const { data, error, count } = await supabase
         .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(start, end);
 
     if (error) {
         console.error('❌ Erro ao buscar produtos:', error);
         throw error;
     }
 
-    console.log('✅ Produtos carregados:', data?.length, 'itens');
-    if (data && data.length > 0) {
-        console.log('📋 Primeiro produto:', data[0]);
+    console.log(`✅ Produtos carregados: ${data?.length} de ${count} total`);
+
+    return {
+        products: data.map(product => {
+            const camelProduct = toCamelCase(product);
+            // Otimizar imagens: manter apenas a primeira imagem para lista
+            if (camelProduct.images && Array.isArray(camelProduct.images)) {
+                camelProduct.images = [camelProduct.images[0]].filter(Boolean);
+            }
+            return camelProduct;
+        }),
+        total: count,
+        page,
+        pageSize
+    };
+}
+
+// ⚡ Catálogo: Usar RPC com função PostgreSQL otimizada
+// Função retorna apenas primeira imagem = MUITO mais rápido
+export async function getAllProducts() {
+    const startTime = performance.now();
+    console.log('📡 [Catálogo] Carregando produtos via RPC...');
+
+    // Usar RPC para chamar função otimizada no banco
+    const queryStart = performance.now();
+    const { data, error } = await supabase.rpc('get_products_catalog');
+    const queryTime = (performance.now() - queryStart).toFixed(0);
+
+    if (error) {
+        console.error('❌ [Catálogo] Erro na query:', error);
+        throw error;
     }
 
-    return data.map(product => {
-        const camelProduct = toCamelCase(product);
-        // Otimizar imagens: manter apenas a primeira imagem para lista
-        if (camelProduct.images && Array.isArray(camelProduct.images)) {
-            camelProduct.images = [camelProduct.images[0]].filter(Boolean);
-        }
-        return camelProduct;
-    });
+    console.log(`⏱️  [Catálogo] Query Supabase: ${queryTime}ms (${data?.length} produtos)`);
+
+    // Converter para camelCase (já tem apenas primeira imagem do PostgreSQL)
+    const convertStart = performance.now();
+    const result = data
+        .map(product => toCamelCase(product))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const convertTime = (performance.now() - convertStart).toFixed(0);
+
+    console.log(`⏱️  [Catálogo] Processamento: ${convertTime}ms`);
+
+    const totalTime = (performance.now() - startTime).toFixed(0);
+    console.log(`✅ [Catálogo] Total: ${totalTime}ms (${result.length} produtos com primeira imagem)`);
+
+    return result;
 }
 
 export async function getProductById(id) {

@@ -8,13 +8,20 @@ import { Particles } from '@/components/magicui/particles'
 import { FadeText } from '@/components/magicui/animated-text'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { motion } from 'framer-motion'
+import { usePrefetchProducts } from '@/hooks/usePrefetchProducts'
 
 export function Home() {
     const { products, loadProducts } = useAdminStore()
 
+    // Prefetch produtos em background assim que a homepage monta
+    usePrefetchProducts()
+
     useEffect(() => {
-        loadProducts()
-    }, [loadProducts])
+        // Se não tem produtos em memória, carregar (fallback)
+        if (products.length === 0) {
+            loadProducts()
+        }
+    }, [products.length, loadProducts])
 
     // Process Instagram embeds with better error handling
     useEffect(() => {

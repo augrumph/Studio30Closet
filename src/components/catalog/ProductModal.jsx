@@ -3,16 +3,35 @@ import { X, ChevronLeft, ChevronRight, Plus, Check } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '@/lib/supabase'
 
 export function ProductModal({ product, isOpen, onClose }) {
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0)
     const [selectedSize, setSelectedSize] = useState(null)
     const [isAdding, setIsAdding] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
+    const [fullImages, setFullImages] = useState(null)
     const { addItem, items, isLimitReached } = useMalinhaStore()
 
+    // Carregar imagens completas quando modal abrir
+    useEffect(() => {
+        if (isOpen && product?.id) {
+            supabase
+                .from('products')
+                .select('images')
+                .eq('id', product.id)
+                .single()
+                .then(({ data }) => {
+                    if (data?.images) {
+                        setFullImages(data.images)
+                    }
+                })
+                .catch(err => console.warn('Erro ao carregar imagens completas:', err))
+        }
+    }, [isOpen, product?.id])
+
     const variants = product?.variants || [
-        { colorName: product?.color || 'Padrão', images: product?.images || [] }
+        { colorName: product?.color || 'Padrão', images: fullImages || product?.images || [] }
     ]
 
     const currentVariant = variants[selectedVariantIndex]

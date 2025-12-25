@@ -1,10 +1,11 @@
 import { cn } from '@/lib/utils'
 
-export function Skeleton({ className, ...props }) {
+export function Skeleton({ className, shimmer = true, ...props }) {
     return (
         <div
             className={cn(
-                "animate-pulse rounded-xl bg-gray-200",
+                "rounded-xl",
+                shimmer ? "skeleton-shimmer" : "skeleton-pulse",
                 className
             )}
             {...props}

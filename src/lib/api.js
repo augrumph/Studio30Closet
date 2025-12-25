@@ -423,6 +423,125 @@ export async function getOrderById(id) {
     return camelData;
 }
 
+/**
+ * Função para decrementar estoque de produtos quando uma venda é feita
+ * @param {Array} items - Items do pedido com productId, quantity, selectedSize, selectedColor
+ * @param {Object} productsMap - Mapa de produtos com dados atuais
+ */
+async function decrementProductStock(items, productsMap) {
+    try {
+        console.log('📦 Iniciando decréscimo de estoque para', items.length, 'produtos');
+
+        // Para cada item do pedido
+        for (const item of items) {
+            const productId = item.productId;
+            const quantity = item.quantity || 1;
+            const selectedSize = item.selectedSize;
+            const selectedColor = item.selectedColor;
+
+            if (!productId) {
+                console.warn('⚠️ Item sem productId, pulando decréscimo de estoque');
+                continue;
+            }
+
+            // Buscar produto atual com variants
+            const { data: currentProduct, error: fetchError } = await supabase
+                .from('products')
+                .select('id, variants, stock')
+                .eq('id', productId)
+                .single();
+
+            if (fetchError) {
+                console.error(`❌ Erro ao buscar produto ${productId}:`, fetchError);
+                throw new Error(`Não foi possível atualizar estoque do produto ${productId}`);
+            }
+
+            if (!currentProduct) {
+                console.warn(`⚠️ Produto ${productId} não encontrado`);
+                continue;
+            }
+
+            console.log(`📍 Decrementando estoque para produto ${productId}:`);
+            console.log(`   - Cor: ${selectedColor}, Tamanho: ${selectedSize}, Quantidade: ${quantity}`);
+
+            // Copiar variants para modificar
+            let updatedVariants = JSON.parse(JSON.stringify(currentProduct.variants || []));
+
+            // Se não houver variants, criar estrutura padrão
+            if (updatedVariants.length === 0) {
+                console.warn(`⚠️ Produto ${productId} sem variantes definidas`);
+                continue;
+            }
+
+            // Encontrar a variante correta (por cor)
+            const variantIndex = updatedVariants.findIndex(
+                v => v.colorName === selectedColor || v.colorName === currentProduct.color
+            );
+
+            if (variantIndex === -1) {
+                console.warn(`⚠️ Cor "${selectedColor}" não encontrada no produto ${productId}`);
+                console.log('   Cores disponíveis:', updatedVariants.map(v => v.colorName).join(', '));
+                continue;
+            }
+
+            const variant = updatedVariants[variantIndex];
+
+            // Encontrar o tamanho correto no sizeStock
+            const sizeStockIndex = variant.sizeStock?.findIndex(s => s.size === selectedSize);
+
+            if (sizeStockIndex === undefined || sizeStockIndex === -1) {
+                console.warn(`⚠️ Tamanho "${selectedSize}" não encontrado na cor "${selectedColor}"`);
+                console.log('   Tamanhos disponíveis:', variant.sizeStock?.map(s => s.size).join(', '));
+                continue;
+            }
+
+            // Verificar se há estoque suficiente
+            const currentStockQuantity = variant.sizeStock[sizeStockIndex].quantity || 0;
+
+            if (currentStockQuantity < quantity) {
+                console.error(
+                    `❌ Estoque insuficiente: ${currentStockQuantity} disponível, ${quantity} solicitado`
+                );
+                throw new Error(
+                    `Estoque insuficiente para ${variant.colorName} - Tamanho ${selectedSize}`
+                );
+            }
+
+            // Decrementar o estoque
+            variant.sizeStock[sizeStockIndex].quantity -= quantity;
+
+            console.log(`✅ Estoque decrementado: ${currentStockQuantity} → ${variant.sizeStock[sizeStockIndex].quantity}`);
+
+            // Calcular novo estoque total
+            const newTotalStock = updatedVariants.reduce((total, v) => {
+                return total + (v.sizeStock || []).reduce((sum, s) => sum + (s.quantity || 0), 0);
+            }, 0);
+
+            // Atualizar produto no banco com novos variants e stock
+            const { error: updateError } = await supabase
+                .from('products')
+                .update({
+                    variants: updatedVariants,
+                    stock: newTotalStock,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', productId);
+
+            if (updateError) {
+                console.error(`❌ Erro ao atualizar estoque do produto ${productId}:`, updateError);
+                throw new Error(`Falha ao atualizar estoque do produto ${productId}`);
+            }
+
+            console.log(`✅ Produto ${productId} atualizado: stock total = ${newTotalStock}`);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('❌ Erro crítico no decréscimo de estoque:', error);
+        throw error;
+    }
+}
+
 export async function createOrder(orderData) {
     console.log('🔍 DEBUG createOrder - Received orderData:', orderData);
 
@@ -560,6 +679,23 @@ export async function createOrder(orderData) {
         console.log('✅ Order items inserted');
     } else {
         console.warn('⚠️ WARNING: No items to insert');
+    }
+
+    // 📦 IMPORTANTE: Decrementar estoque automaticamente para cada item vendido
+    console.log('📦 Iniciando decréscimo automático de estoque...');
+    try {
+        // Adicionar informação de cor aos items para o decréscimo de estoque
+        const itemsWithColor = items.map(item => ({
+            ...item,
+            selectedColor: item.selectedColor || productsData[item.productId]?.color || 'Padrão'
+        }));
+
+        await decrementProductStock(itemsWithColor, productsData);
+        console.log('✅ Estoque decrementado com sucesso');
+    } catch (stockError) {
+        console.error('❌ ERRO CRÍTICO ao decrementar estoque:', stockError);
+        // NÃO lançar erro aqui - o pedido foi criado, mas log o erro
+        // Em produção, poderia enviar um alert para administrador
     }
 
     // 🔄 IMPORTANTE: Buscar os dados completos da ordem criada para retornar com infos do produto

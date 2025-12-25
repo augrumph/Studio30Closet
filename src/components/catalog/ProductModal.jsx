@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 
 export function ProductModal({ product, isOpen, onClose }) {
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0)
+    const [selectedImageIndex, setSelectedImageIndex] = useState(0)
     const [selectedSize, setSelectedSize] = useState(null)
     const [isAdding, setIsAdding] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
@@ -40,8 +41,14 @@ export function ProductModal({ product, isOpen, onClose }) {
         if (product) {
             setSelectedSize(product.sizes[0])
             setSelectedVariantIndex(0)
+            setSelectedImageIndex(0)
         }
     }, [product])
+
+    // Resetar índice de imagem ao trocar variante
+    useEffect(() => {
+        setSelectedImageIndex(0)
+    }, [selectedVariantIndex])
 
     useEffect(() => {
         if (isOpen) {
@@ -104,18 +111,60 @@ export function ProductModal({ product, isOpen, onClose }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-0 overflow-y-auto max-h-[85vh]">
                     {/* Image */}
                     <div className="relative w-full bg-[#FDFBF7] flex items-center justify-center py-4 md:py-0 md:h-full">
-                        <div className="w-full max-w-sm md:max-w-none h-auto md:h-full flex items-center justify-center">
+                        <div className="w-full max-w-sm md:max-w-none h-auto md:h-full flex items-center justify-center relative group">
                             <AnimatePresence mode="wait">
                                 <motion.img
-                                    key={selectedVariantIndex}
+                                    key={`${selectedVariantIndex}-${selectedImageIndex}`}
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    src={currentVariant.images[0]}
-                                    alt={product.name}
+                                    src={currentVariant.images[selectedImageIndex]}
+                                    alt={`${product.name} - Imagem ${selectedImageIndex + 1}`}
                                     className="w-full h-auto max-h-[50vh] md:max-h-none md:h-full object-contain"
                                 />
                             </AnimatePresence>
+
+                            {/* Setas de navegação - mostrar apenas se houver múltiplas imagens */}
+                            {currentVariant.images?.length > 1 && (
+                                <>
+                                    <button
+                                        onClick={() => setSelectedImageIndex(prev =>
+                                            prev === 0 ? currentVariant.images.length - 1 : prev - 1
+                                        )}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 backdrop-blur-sm text-brand-brown hover:bg-white transition-all opacity-0 group-hover:opacity-100 md:opacity-100 z-10"
+                                        aria-label="Imagem anterior"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+
+                                    <button
+                                        onClick={() => setSelectedImageIndex(prev =>
+                                            prev === currentVariant.images.length - 1 ? 0 : prev + 1
+                                        )}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 backdrop-blur-sm text-brand-brown hover:bg-white transition-all opacity-0 group-hover:opacity-100 md:opacity-100 z-10"
+                                        aria-label="Próxima imagem"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+
+                                    {/* Indicador de imagens */}
+                                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                                        {currentVariant.images.map((_, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => setSelectedImageIndex(idx)}
+                                                className={cn(
+                                                    'w-2 h-2 rounded-full transition-all duration-200',
+                                                    idx === selectedImageIndex
+                                                        ? 'bg-brand-terracotta w-3'
+                                                        : 'bg-white/50 hover:bg-white/80'
+                                                )}
+                                                aria-label={`Ver imagem ${idx + 1}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
                         {/* Badges */}
                         <div className="absolute top-4 left-4 flex flex-col gap-2">

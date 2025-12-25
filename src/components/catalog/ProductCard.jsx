@@ -64,7 +64,10 @@ function ProductCardComponent({ product, onQuickView }) {
     const itemInMalinha = items.some(item => item.id === product.id)
 
     // Imagens: tenta variants, depois images do catálogo
-    const displayImage = product.variants?.[0]?.images?.[0] || product.images?.[0]
+    const variantImages = product.variants?.[0]?.images || []
+    const catalogImages = product.images || []
+    const displayImage = variantImages[0] || catalogImages[0]
+    const totalImages = variantImages.length || catalogImages.length
 
     return (
         <div
@@ -82,8 +85,32 @@ function ProductCardComponent({ product, onQuickView }) {
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        onQuickView?.(product)
+                    }}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
                 />
+
+                {/* Indicador de múltiplas imagens */}
+                {totalImages > 1 && (
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-5">
+                        {Array.from({ length: Math.min(totalImages, 5) }).map((_, idx) => (
+                            <div
+                                key={idx}
+                                className={cn(
+                                    'w-1.5 h-1.5 rounded-full transition-all duration-300',
+                                    idx === 0
+                                        ? 'bg-white w-2'
+                                        : 'bg-white/60 hover:bg-white/80'
+                                )}
+                            />
+                        ))}
+                        {totalImages > 5 && (
+                            <span className="text-[10px] text-white/70 ml-1">+{totalImages - 5}</span>
+                        )}
+                    </div>
+                )}
 
                 {/* Premium Badges */}
                 <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col gap-1.5 sm:gap-2 z-10">

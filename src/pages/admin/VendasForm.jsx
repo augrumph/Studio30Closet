@@ -40,6 +40,11 @@ export function VendasForm() {
     const [itemSearch, setItemSearch] = useState('')
     const [customerSearch, setCustomerSearch] = useState('')
 
+    // Estado para modal de seleção de cor/tamanho
+    const [selectedProductForVariant, setSelectedProductForVariant] = useState(null)
+    const [selectedColor, setSelectedColor] = useState(null)
+    const [selectedSize, setSelectedSize] = useState(null)
+
     useEffect(() => {
         reloadAll()
         loadCoupons()
@@ -124,11 +129,29 @@ export function VendasForm() {
             return
         }
 
+        // Se o produto tem variantes (cores), abrir modal de seleção
+        if (product.variants && product.variants.length > 0) {
+            setSelectedProductForVariant(product)
+            setSelectedColor(product.variants[0].colorName) // Pre-selecionar primeira cor
+            setSelectedSize(product.variants[0].sizeStock?.[0]?.size) // Pre-selecionar primeiro tamanho
+            return
+        }
+
+        // Caso contrário, adicionar direto (produtos sem variantes)
+        addItemToVenda(product, null, null)
+    }
+
+    const addItemToVenda = (product, color, size) => {
         // Verificar se já atingiu o limite de estoque se o item já estiver na venda
-        const existingItem = formData.items.find(item => item.productId === product.id)
+        const existingItem = formData.items.find(item =>
+            item.productId === product.id &&
+            item.selectedColor === (color || null) &&
+            item.selectedSize === (size || null)
+        )
+
         if (existingItem && existingItem.quantity >= product.stock) {
             toast.error('Limite de estoque atingido', {
-                description: `Você já adicionou todas as ${product.stock} unidades disponíveis de ${product.name}.`
+                description: `Você já adicionou todas as unidades disponíveis de ${product.name} (${color || 'Padrão'}) - ${size || 'Único'}.`
             })
             return
         }
@@ -138,17 +161,27 @@ export function VendasForm() {
             name: product.name,
             price: product.price,
             costPrice: product.costPrice || 0,
-            quantity: 1
+            quantity: 1,
+            selectedColor: color,
+            selectedSize: size
         }
         setFormData(prev => ({
             ...prev,
             items: [...prev.items, newItem],
             totalValue: prev.totalValue + product.price
         }))
-        toast.success(`${product.name} adicionado à venda.`, {
+
+        const colorText = color ? ` (${color})` : ''
+        const sizeText = size ? ` - ${size}` : ''
+        toast.success(`${product.name}${colorText}${sizeText} adicionado à venda.`, {
             description: `Valor: R$ ${(product.price || 0).toLocaleString('pt-BR')}`,
             icon: '🛒'
         })
+
+        // Fechar modal se estava aberto
+        setSelectedProductForVariant(null)
+        setSelectedColor(null)
+        setSelectedSize(null)
     }
 
     const removeItem = (index) => {
@@ -474,9 +507,19 @@ export function VendasForm() {
                                         >
                                             <div className="flex-1">
                                                 <p className="font-bold text-[#4A3B32]">{item.name}</p>
-                                                <div className="flex items-center gap-2 mt-1">
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                     <span className="text-xs font-bold text-[#C75D3B] bg-[#FDF0ED] px-2 py-0.5 rounded text-[10px]">UNIDADE</span>
                                                     <span className="text-xs text-[#4A3B32]/40">Cód: {item.productId}</span>
+                                                    {item.selectedColor && (
+                                                        <span className="text-xs font-semibold text-white bg-[#4A3B32] px-2 py-0.5 rounded text-[10px]">
+                                                            🎨 {item.selectedColor}
+                                                        </span>
+                                                    )}
+                                                    {item.selectedSize && (
+                                                        <span className="text-xs font-semibold text-white bg-[#C75D3B] px-2 py-0.5 rounded text-[10px]">
+                                                            📏 {item.selectedSize}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-6">
@@ -760,6 +803,94 @@ export function VendasForm() {
                     </Card>
                 </div>
             </form>
+
+            {/* Modal de Seleção de Cor e Tamanho */}
+            {selectedProductForVariant && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-8">
+                        <h2 className="text-2xl font-bold text-[#4A3B32] mb-6">
+                            Selecione Cor e Tamanho
+                        </h2>
+
+                        {/* Seleção de Cor */}
+                        <div className="mb-8">
+                            <label className="text-sm font-bold text-[#4A3B32] uppercase tracking-wider block mb-3">
+                                🎨 Cor
+                            </label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {selectedProductForVariant.variants?.map((variant) => (
+                                    <button
+                                        key={variant.colorName}
+                                        onClick={() => {
+                                            setSelectedColor(variant.colorName)
+                                            setSelectedSize(variant.sizeStock?.[0]?.size)
+                                        }}
+                                        className={cn(
+                                            'p-4 rounded-xl font-semibold transition-all border-2',
+                                            selectedColor === variant.colorName
+                                                ? 'border-[#C75D3B] bg-[#FDF0ED] text-[#C75D3B] shadow-lg'
+                                                : 'border-gray-200 bg-white text-[#4A3B32] hover:border-[#C75D3B]/50'
+                                        )}
+                                    >
+                                        {variant.colorName}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Seleção de Tamanho */}
+                        <div className="mb-8">
+                            <label className="text-sm font-bold text-[#4A3B32] uppercase tracking-wider block mb-3">
+                                📏 Tamanho
+                            </label>
+                            <div className="grid grid-cols-auto gap-3">
+                                {selectedProductForVariant.variants
+                                    ?.find(v => v.colorName === selectedColor)
+                                    ?.sizeStock?.map((sizeStock) => (
+                                        <button
+                                            key={sizeStock.size}
+                                            onClick={() => setSelectedSize(sizeStock.size)}
+                                            className={cn(
+                                                'px-4 py-3 rounded-xl font-semibold transition-all border-2 min-w-max',
+                                                selectedSize === sizeStock.size
+                                                    ? 'border-[#C75D3B] bg-[#FDF0ED] text-[#C75D3B] shadow-lg'
+                                                    : 'border-gray-200 bg-white text-[#4A3B32] hover:border-[#C75D3B]/50'
+                                            )}
+                                        >
+                                            {sizeStock.size}
+                                            <span className="text-xs ml-2 text-gray-400">({sizeStock.quantity} est.)</span>
+                                        </button>
+                                    ))}
+                            </div>
+                        </div>
+
+                        {/* Botões de Ação */}
+                        <div className="flex gap-3 mt-8">
+                            <button
+                                onClick={() => {
+                                    setSelectedProductForVariant(null)
+                                    setSelectedColor(null)
+                                    setSelectedSize(null)
+                                }}
+                                className="flex-1 px-6 py-3 rounded-xl border-2 border-gray-300 text-[#4A3B32] font-semibold hover:bg-gray-50 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (selectedColor && selectedSize) {
+                                        addItemToVenda(selectedProductForVariant, selectedColor, selectedSize)
+                                    }
+                                }}
+                                disabled={!selectedColor || !selectedSize}
+                                className="flex-1 px-6 py-3 rounded-full bg-[#C75D3B] text-white font-semibold hover:bg-[#B84A2B] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                ✓ Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

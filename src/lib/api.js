@@ -557,7 +557,7 @@ export async function createOrder(orderData) {
     let customerId = customerIdFromData;
 
     if (!customerId && customer && customer.phone) {
-        console.log('👤 DEBUG - Creating/finding customer with phone:', customer.phone);
+        console.log('👤 ASSOCIANDO CLIENTE - Buscando por telefone:', customer.phone);
 
         const { data: existingCustomer, error: customerError } = await supabase
             .from('customers')
@@ -566,30 +566,55 @@ export async function createOrder(orderData) {
             .single();
 
         if (customerError && customerError.code !== 'PGRST116') {
-            console.error('❌ ERROR finding customer:', customerError);
+            console.error('❌ ERRO ao buscar cliente:', customerError);
             throw customerError;
         }
 
         if (existingCustomer) {
-            console.log('✅ Found existing customer:', existingCustomer.id);
+            console.log('✅ Cliente encontrado:', existingCustomer.id);
             customerId = existingCustomer.id;
-        } else {
-            console.log('➕ Creating new customer:', customer);
+
+            // ATUALIZAR dados do cliente se houver novas informações
+            console.log('📝 Atualizando dados do cliente existente...');
             const customerSnakeCase = toSnakeCase(customer);
-            console.log('🔄 Converted to snake_case:', customerSnakeCase);
+            const { error: updateError } = await supabase
+                .from('customers')
+                .update(customerSnakeCase)
+                .eq('id', customerId);
+
+            if (updateError) {
+                console.warn('⚠️ AVISO: Não foi possível atualizar cliente, mas pedido será criado:', updateError);
+            } else {
+                console.log('✅ Dados do cliente atualizados com sucesso');
+            }
+        } else {
+            console.log('➕ Cliente não encontrado - CRIANDO NOVO CLIENTE');
+            console.log('   📋 Dados do cliente:', {
+                name: customer.name,
+                phone: customer.phone,
+                email: customer.email || 'não informado',
+                cpf: customer.cpf || 'não informado',
+                addresses: customer.addresses?.length || 0
+            });
+
+            const customerSnakeCase = toSnakeCase(customer);
 
             const { data: newCustomer, error: newCustomerError } = await supabase
                 .from('customers')
                 .insert([customerSnakeCase])
-                .select('id')
+                .select('id, name, phone')
                 .single();
 
             if (newCustomerError) {
-                console.error('❌ ERROR creating customer:', newCustomerError);
-                throw newCustomerError;
+                console.error('❌ ERRO ao criar cliente:', newCustomerError);
+                throw new Error(`Falha ao criar cliente: ${newCustomerError.message}`);
             }
 
-            console.log('✅ Customer created:', newCustomer.id);
+            console.log('✅ NOVO CLIENTE CRIADO:', {
+                id: newCustomer.id,
+                name: newCustomer.name,
+                phone: newCustomer.phone
+            });
             customerId = newCustomer.id;
         }
     }
@@ -699,8 +724,27 @@ export async function createOrder(orderData) {
     }
 
     // 🔄 IMPORTANTE: Buscar os dados completos da ordem criada para retornar com infos do produto
-    console.log('🔄 Fetching complete order data with product info...');
+    console.log('🔄 Buscando dados completos do pedido com informações do cliente...');
     const completeOrderData = await getOrderById(newOrder.id);
+
+    // ✅ CONFIRMAÇÃO FINAL - Cliente Associado com Sucesso
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('✅ VENDA REALIZADA COM SUCESSO!');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📦 PEDIDO:', {
+        orderId: newOrder.id,
+        customerId: customerId,
+        items: items?.length || 0,
+        totalValue: completeOrderData?.totalValue || 'N/A',
+        status: completeOrderData?.status || 'pending'
+    });
+    console.log('👤 CLIENTE ASSOCIADO:', {
+        id: customerId,
+        name: customer?.name || 'N/A',
+        phone: customer?.phone || 'N/A',
+        email: customer?.email || 'N/A'
+    });
+    console.log('═══════════════════════════════════════════════════════════');
 
     return completeOrderData;
 }

@@ -13,6 +13,7 @@ function ProductCardComponent({ product, onQuickView }) {
     const [showActions, setShowActions] = useState(false)
     const [displayImageIndex, setDisplayImageIndex] = useState(0)
     const [isDragging, setIsDragging] = useState(false)
+    const [imageDirection, setImageDirection] = useState(0) // 1 = próxima, -1 = anterior
     const { addItem, removeItem, items, isLimitReached } = useMalinhaStore()
 
     const hasDiscount = product.originalPrice && product.originalPrice > product.price
@@ -42,11 +43,13 @@ function ProductCardComponent({ product, onQuickView }) {
         // Se arrastou ou teve velocidade suficiente
         if (swipeDistance < -50 || swipeVelocity < -500) {
             // Próxima imagem (arrastar para esquerda)
+            setImageDirection(1)
             setDisplayImageIndex(prev =>
                 prev === totalImages - 1 ? 0 : prev + 1
             )
         } else if (swipeDistance > 50 || swipeVelocity > 500) {
             // Imagem anterior (arrastar para direita)
+            setImageDirection(-1)
             setDisplayImageIndex(prev =>
                 prev === 0 ? totalImages - 1 : prev - 1
             )
@@ -146,12 +149,24 @@ function ProductCardComponent({ product, onQuickView }) {
                                 handleImageDragEnd(event, info)
                             }
                         }}
-                        initial={{ opacity: 0, x: 0 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0 }}
+                        initial={{
+                            opacity: 0,
+                            scale: 0.95,
+                            x: imageDirection > 0 ? 40 : -40
+                        }}
+                        animate={{
+                            opacity: 1,
+                            scale: 1,
+                            x: 0
+                        }}
+                        exit={{
+                            opacity: 0,
+                            scale: 0.95,
+                            x: imageDirection > 0 ? -40 : 40
+                        }}
                         transition={{
-                            duration: 0.3,
-                            ease: 'easeInOut'
+                            duration: 0.35,
+                            ease: 'easeOut'
                         }}
                         onClick={(e) => {
                             e.stopPropagation()

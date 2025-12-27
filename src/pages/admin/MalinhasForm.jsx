@@ -89,10 +89,12 @@ export function MalinhasForm() {
             return;
         }
 
-        // SIMPLIFICADO: Armazenar apenas productId e metadados leves
-        // Os dados completos (nome, imagens, etc) serão buscados do banco
+        // Armazenar productId, name, image e outros metadados
         const newItem = {
             productId: product.id,
+            productName: product.name,
+            price: product.price,
+            image: product.images?.[0] || product.image || null,
             selectedSize: size,
             quantity: 1
         }

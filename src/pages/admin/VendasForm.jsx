@@ -188,7 +188,8 @@ export function VendasForm() {
             costPrice: product.costPrice || 0,
             quantity: 1,
             selectedColor: color,
-            selectedSize: size
+            selectedSize: size,
+            image: product.images?.[0] || product.image || null
         }
         setFormData(prev => ({
             ...prev,
@@ -566,13 +567,28 @@ export function VendasForm() {
                                             initial={{ opacity: 0, height: 0, margin: 0 }}
                                             animate={{ opacity: 1, height: "auto", marginBottom: 12 }}
                                             exit={{ opacity: 0, height: 0, padding: 0 }}
-                                            className="p-5 flex items-center justify-between gap-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-[#C75D3B]/20 transition-all group"
+                                            className="p-4 flex items-center justify-between gap-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-[#C75D3B]/20 transition-all group"
                                         >
+                                            {/* Thumbnail */}
+                                            <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+                                                {item.image ? (
+                                                    <img
+                                                        src={item.image}
+                                                        alt={item.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                                                        <Package className="w-8 h-8 text-gray-400" />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Info */}
                                             <div className="flex-1">
-                                                <p className="font-bold text-[#4A3B32]">{item.name}</p>
+                                                <p className="font-bold text-[#4A3B32] text-sm">{item.name}</p>
                                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                    <span className="text-xs font-bold text-[#C75D3B] bg-[#FDF0ED] px-2 py-0.5 rounded text-[10px]">UNIDADE</span>
-                                                    <span className="text-xs text-[#4A3B32]/40">Cód: {item.productId}</span>
+                                                    <span className="text-xs font-bold text-[#C75D3B] bg-[#FDF0ED] px-2 py-0.5 rounded text-[10px]">QTD: {item.quantity}</span>
                                                     {item.selectedColor && (
                                                         <span className="text-xs font-semibold text-white bg-[#4A3B32] px-2 py-0.5 rounded text-[10px]">
                                                             🎨 {item.selectedColor}
@@ -585,14 +601,17 @@ export function VendasForm() {
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-6">
+
+                                            {/* Price & Action */}
+                                            <div className="flex items-center gap-4">
                                                 <div className="text-right">
-                                                    <p className="font-bold text-[#4A3B32]">R$ ${(item.price || 0).toLocaleString('pt-BR')}</p>
+                                                    <p className="font-bold text-[#4A3B32] text-sm">R$ ${(item.price || 0).toLocaleString('pt-BR')}</p>
+                                                    <p className="text-xs text-[#4A3B32]/50">x{item.quantity}</p>
                                                 </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => removeItem(idx)}
-                                                    className="p-3 text-red-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                                    className="p-2 text-red-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                                 >
                                                     <Trash2 className="w-5 h-5" />
                                                 </button>
@@ -623,14 +642,14 @@ export function VendasForm() {
                         </CardHeader>
                         <CardContent className="space-y-8">
                             <div className="space-y-5">
-                                {/* Meio de Pagamento */}
+                                {/* Meio de Pagamento Principal */}
                                 <div>
                                     <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-3 block">Método de Pagamento</label>
                                     <select
                                         value={formData.paymentMethod}
                                         onChange={(e) => {
                                             const newMethod = e.target.value
-                                            setFormData(prev => ({ ...prev, paymentMethod: newMethod, cardBrand: '' }))
+                                            setFormData(prev => ({ ...prev, paymentMethod: newMethod, cardBrand: newMethod === 'debit' || newMethod === 'card_machine' ? '' : prev.cardBrand }))
                                             if (newMethod === 'credito_parcelado') {
                                                 setParcelas(2)
                                                 setIsInstallment(true)
@@ -641,17 +660,18 @@ export function VendasForm() {
                                         }}
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-[#4A3B32] transition-all"
                                     >
+                                        <option value="">Selecione...</option>
                                         <option value="pix">PIX</option>
-                                        <option value="card_machine">Cartão na Máquina</option>
-                                        <option value="payment_link">Link de Pagamento</option>
-                                        <option value="fiado">Crediário (Conta Corrente)</option>
-                                        <option value="credito_parcelado">Crediário Parcelado (Sem Taxa)</option>
+                                        <option value="debit">Débito</option>
+                                        <option value="card_machine">Crédito à Vista</option>
+                                        <option value="credito_parcelado">Crédito Parcelado</option>
+                                        <option value="fiado">Crediário (Sem Juros)</option>
                                         <option value="cash">Dinheiro Espécie</option>
                                     </select>
                                 </div>
 
-                                {/* Cartão na Máquina - Bandeira e Taxa */}
-                                {(formData.paymentMethod === 'card_machine' || formData.paymentMethod === 'payment_link') && (
+                                {/* Bandeira - Para Débito e Crédito à Vista */}
+                                {(formData.paymentMethod === 'debit' || formData.paymentMethod === 'card_machine') && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -679,41 +699,38 @@ export function VendasForm() {
                                             </div>
                                         </div>
 
-                                        {/* Cartão na Máquina - Taxa e Parcelamento */}
-                                        {formData.paymentMethod === 'card_machine' && (
-                                            <div className="space-y-4">
-                                                {/* Taxa automática */}
-                                                {paymentFee && (
-                                                    <div className="bg-white/50 p-3 rounded-lg border border-[#C75D3B]/20">
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-sm font-medium text-[#4A3B32]">Taxa {formData.cardBrand?.toUpperCase()}:</span>
-                                                            <span className="text-lg font-bold text-[#C75D3B]">{paymentFee.feePercentage}%</span>
-                                                        </div>
-                                                        <p className="mt-2 text-[10px] text-[#4A3B32]/50">
-                                                            Valor cobrado: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) * (paymentFee.feePercentage || 0) / 100).toFixed(2)}</span>
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                {/* Parcelamento do Cartão */}
-                                                <div>
-                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Parcelado em Quantas Vezes?</label>
-                                                    <select
-                                                        value={parcelas}
-                                                        onChange={(e) => setParcelas(Number(e.target.value))}
-                                                        className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
-                                                    >
-                                                        <option value={1}>À Vista</option>
-                                                        {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
-                                                            <option key={n} value={n}>{n}x</option>
-                                                        ))}
-                                                    </select>
-                                                    {parcelas > 1 && (
-                                                        <p className="mt-1 text-[10px] text-[#4A3B32]/50">
-                                                            Valor de cada parcela: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) / parcelas).toFixed(2)}</span>
-                                                        </p>
-                                                    )}
+                                        {/* Taxa automática */}
+                                        {paymentFee && (
+                                            <div className="bg-white/50 p-3 rounded-lg border border-[#C75D3B]/20">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium text-[#4A3B32]">Taxa {formData.cardBrand?.toUpperCase()}:</span>
+                                                    <span className="text-lg font-bold text-[#C75D3B]">{paymentFee.feePercentage}%</span>
                                                 </div>
+                                                <p className="mt-2 text-[10px] text-[#4A3B32]/50">
+                                                    Valor cobrado: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) * (paymentFee.feePercentage || 0) / 100).toFixed(2)}</span>
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Parcelamento apenas para Crédito à Vista */}
+                                        {formData.paymentMethod === 'card_machine' && (
+                                            <div>
+                                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Parcelado em Quantas Vezes?</label>
+                                                <select
+                                                    value={parcelas}
+                                                    onChange={(e) => setParcelas(Number(e.target.value))}
+                                                    className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
+                                                >
+                                                    <option value={1}>À Vista</option>
+                                                    {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                                                        <option key={n} value={n}>{n}x</option>
+                                                    ))}
+                                                </select>
+                                                {parcelas > 1 && (
+                                                    <p className="mt-1 text-[10px] text-[#4A3B32]/50">
+                                                        Valor de cada parcela: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) / parcelas).toFixed(2)}</span>
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
                                     </motion.div>
@@ -972,15 +989,38 @@ export function VendasForm() {
             {selectedProductForVariant && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-8">
-                        <h2 className="text-2xl font-bold text-[#4A3B32] mb-6">
+                        {/* Imagem do Produto */}
+                        <div className="mb-8">
+                            <div className="w-full aspect-square rounded-2xl overflow-hidden bg-gray-100">
+                                {selectedProductForVariant.images?.[0] || selectedProductForVariant.image ? (
+                                    <img
+                                        src={selectedProductForVariant.images?.[0] || selectedProductForVariant.image}
+                                        alt={selectedProductForVariant.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <Package className="w-16 h-16 text-gray-300" />
+                                    </div>
+                                )}
+                            </div>
+                            <h2 className="text-2xl font-bold text-[#4A3B32] mt-6 mb-2">
+                                {selectedProductForVariant.name}
+                            </h2>
+                            <p className="text-lg font-bold text-[#C75D3B]">
+                                R$ {(selectedProductForVariant.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                        </div>
+
+                        <h3 className="text-sm font-bold text-[#4A3B32] uppercase tracking-wider mb-6 border-t border-gray-200 pt-6">
                             Selecione Cor e Tamanho
-                        </h2>
+                        </h3>
 
                         {/* Seleção de Cor */}
                         <div className="mb-8">
-                            <label className="text-sm font-bold text-[#4A3B32] uppercase tracking-wider block mb-3">
-                                🎨 Cor
-                            </label>
+                            <p className="text-sm font-bold text-[#4A3B32] uppercase tracking-wider mb-3">
+                                🎨 Cores Disponíveis
+                            </p>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 {selectedProductForVariant.variants?.map((variant) => (
                                     <button
@@ -1004,9 +1044,9 @@ export function VendasForm() {
 
                         {/* Seleção de Tamanho */}
                         <div className="mb-8">
-                            <label className="text-sm font-bold text-[#4A3B32] uppercase tracking-wider block mb-3">
-                                📏 Tamanho
-                            </label>
+                            <p className="text-sm font-bold text-[#4A3B32] uppercase tracking-wider mb-3">
+                                📏 Tamanhos Disponíveis
+                            </p>
                             <div className="grid grid-cols-auto gap-3">
                                 {selectedProductForVariant.variants
                                     ?.find(v => v.colorName === selectedColor)

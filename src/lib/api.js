@@ -1437,7 +1437,15 @@ export async function getPaymentFeeById(id) {
 
 export async function createPaymentFee(feeData) {
     const snakeData = toSnakeCase(feeData);
-    const { data, error } = await supabase.from('payment_fees').insert([snakeData]).select().single();
+
+    // Usar UPSERT: INSERT ou UPDATE se já existir (pela constraint unique)
+    const { data, error } = await supabase.from('payment_fees')
+        .upsert([snakeData], {
+            onConflict: 'payment_method,card_brand'
+        })
+        .select()
+        .single();
+
     if (error) throw error;
     return toCamelCase(data);
 }

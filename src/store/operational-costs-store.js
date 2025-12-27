@@ -45,10 +45,7 @@ export const useOperationalCostsStore = create((set, get) => ({
 
     updatePaymentFees: async (fees) => {
         try {
-            // First, delete all existing payment fees
-            await deleteAllPaymentFees()
-
-            // Then, create all new fees
+            // UPSERT: criar ou atualizar cada taxa (não precisa deletar)
             const createdFees = []
             for (const fee of fees) {
                 const newFee = await createPaymentFee(fee)

@@ -33,7 +33,6 @@ export function Dashboard() {
 
     const [currentTime, setCurrentTime] = useState(new Date())
     const [dashboardData, setDashboardData] = useState(null)
-    const [dashboardLoading, setDashboardLoading] = useState(false)
 
     useEffect(() => {
         // Carregar dados apenas uma vez quando componente monta
@@ -45,40 +44,58 @@ export function Dashboard() {
         return () => clearInterval(timer)
     }, [reloadAll, vendas])
 
-    // Carregar dados adicionais para analytics completo
+    // Carregar dados adicionais para analytics completo (despesas, cupons, installments)
     useEffect(() => {
         const loadDashboardData = async () => {
             try {
-                setDashboardLoading(true)
                 const data = await getDashboardMetrics()
                 setDashboardData(data)
             } catch (error) {
-                console.error('Erro ao carregar métricas do dashboard:', error)
-            } finally {
-                setDashboardLoading(false)
+                console.error('Erro ao carregar métricas adicionais do dashboard:', error)
+                // Continua mesmo se falhar, pois as métricas principais vêm de vendas do Zustand
+                setDashboardData({})
             }
         }
 
-        if (vendas.length) {
-            loadDashboardData()
-        }
-    }, [vendas])
+        loadDashboardData()
+    }, [])
 
     // --- CÁLCULOS FINANCEIROS COMPLETOS (DRE GERENCIAL) ---
     const financialMetrics = useMemo(() => {
-        // (1) RECEITA BRUTA - Apenas vendas pagas
-        const paidSales = vendas.filter(v => v.paymentStatus === 'paid');
-        const grossRevenue = paidSales.reduce((sum, v) => sum + (v.totalValue || 0), 0);
+        // (1) RECEITA BRUTA - TODAS as vendas realizadas (independente do status de pagamento)
+        // O status 'paid' vs 'pending' é sobre recebimento, não se a venda foi feita
+        const allSales = vendas && vendas.length > 0 ? vendas : [];
+
+        // Debug: verificar estrutura das vendas
+        if (allSales.length > 0) {
+            console.log('💰 DEBUG Dashboard - Primeira venda:', allSales[0]);
+            console.log('💰 DEBUG Dashboard - items da primeira venda:', allSales[0].items);
+            if (allSales[0].items && allSales[0].items.length > 0) {
+                console.log('💰 DEBUG Dashboard - primeiro item:', allSales[0].items[0]);
+            }
+        }
+
+        const grossRevenue = allSales.reduce((sum, v) => sum + (v.totalValue || 0), 0);
 
         // (2) RECEITA LÍQUIDA - Após taxas
-        const netRevenue = paidSales.reduce((sum, v) => sum + (v.netAmount || v.totalValue - (v.feeAmount || 0)), 0);
+        const netRevenue = allSales.reduce((sum, v) => sum + (v.netAmount || v.totalValue - (v.feeAmount || 0)), 0);
 
         // (3) NÚMERO DE VENDAS E TICKET MÉDIO
-        const totalPaidSales = paidSales.length;
-        const averageTicket = totalPaidSales > 0 ? grossRevenue / totalPaidSales : 0;
+        const totalSalesCount = allSales.length;
+        const averageTicket = totalSalesCount > 0 ? grossRevenue / totalSalesCount : 0;
 
-        // (4) CPV - Custo dos Produtos Vendidos (usando custo armazenado)
-        const totalCPV = paidSales.reduce((sum, v) => sum + (v.costPrice || 0), 0);
+        // (4) CPV - Custo dos Produtos Vendidos (calculado a partir de items.costPriceAtTime ou costPrice)
+        // Usa o custo histórico de cada item no momento da venda
+        const totalCPV = allSales.reduce((sum, v) => {
+            const itemsCost = (v.items || []).reduce((itemSum, item) => {
+                // Tenta costPriceAtTime (snake_case), depois costPriceAtTime (camelCase)
+                const cost = item.costPriceAtTime || item.cost_price_at_time || item.costPrice || 0;
+                const quantity = item.quantity || item.qty || 1;
+                console.log('💰 Item custo:', { name: item.name, cost, quantity, total: cost * quantity });
+                return itemSum + (cost * quantity);
+            }, 0);
+            return sum + itemsCost;
+        }, 0);
 
         // (5) LUCRO BRUTO
         const grossProfit = grossRevenue - totalCPV;
@@ -87,11 +104,11 @@ export function Dashboard() {
         const grossMarginPercent = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
 
         // (7) TAXAS - Total e percentual
-        const totalFees = paidSales.reduce((sum, v) => sum + (v.feeAmount || 0), 0);
+        const totalFees = allSales.reduce((sum, v) => sum + (v.feeAmount || 0), 0);
         const feePercent = grossRevenue > 0 ? (totalFees / grossRevenue) * 100 : 0;
 
         // (8) DESCONTOS - Cupons + diferença de preço
-        const totalDiscounts = paidSales.reduce((sum, v) => {
+        const totalDiscounts = allSales.reduce((sum, v) => {
             const discount = (v.totalValue || 0) - (v.netAmount || v.totalValue);
             return sum + discount;
         }, 0);
@@ -122,14 +139,25 @@ export function Dashboard() {
         // (11) MARGEM LÍQUIDA
         const netMarginPercent = grossRevenue > 0 ? (operatingProfit / grossRevenue) * 100 : 0;
 
-        // (12) FLUXO DE CAIXA
-        const receivedAmount = netRevenue;
-        const toReceiveAmount = dashboardData?.installments ?
+        // (12) FLUXO DE CAIXA - Separar claramente Recebido vs A Receber
+        // Valores Recebidos: Vendas com payment_status = 'paid'
+        const receivedAmount = allSales
+            .filter(v => v.paymentStatus === 'paid')
+            .reduce((sum, v) => sum + (v.netAmount || v.totalValue - (v.feeAmount || 0)), 0);
+
+        // Valores a Receber: Vendas com payment_status = 'pending' + parcelas de installments
+        const pendingVendasAmount = allSales
+            .filter(v => v.paymentStatus === 'pending')
+            .reduce((sum, v) => sum + (v.totalValue || 0), 0);
+
+        const installmentsRemaining = dashboardData?.installments ?
             dashboardData.installments.reduce((sum, inst) => {
                 const paid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
                 const remaining = (inst.originalAmount || 0) - paid;
                 return sum + Math.max(0, remaining);
             }, 0) : 0;
+
+        const toReceiveAmount = pendingVendasAmount + installmentsRemaining;
 
         // (13) INDICADORES DE RISCO
         let overdueAmount = 0;
@@ -157,25 +185,24 @@ export function Dashboard() {
         return {
             // DRE Metrics
             grossRevenue,                // (1) Receita Bruta
-            netRevenue,                  // (2) Receita Líquida
-            totalPaidSales,              // (3) Número de vendas pagas
-            averageTicket,               // (3) Ticket Médio
-            totalCPV,                    // (4) CPV
-            grossProfit,                 // (5) Lucro Bruto
-            grossMarginPercent,          // (6) Margem Bruta %
-            totalFees,                   // (7) Total de Taxas
-            feePercent,                  // (7) % Taxas
-            totalDiscounts,              // (8) Total Descontos
-            monthlyExpenses,             // (9) Despesas Fixas
-            operatingProfit,             // (10) Lucro Operacional
-            netMarginPercent,            // (11) Margem Líquida %
+            totalSalesCount,             // (2) Número de vendas
+            averageTicket,               // (2) Ticket Médio
+            totalCPV,                    // (3) CPV
+            grossProfit,                 // (4) Lucro Bruto
+            grossMarginPercent,          // (5) Margem Bruta %
+            totalFees,                   // (6) Total de Taxas
+            feePercent,                  // (6) % Taxas
+            totalDiscounts,              // (7) Total Descontos
+            monthlyExpenses,             // (8) Despesas Fixas
+            operatingProfit,             // (9) Lucro Operacional
+            netMarginPercent,            // (10) Margem Líquida %
             // Cash Flow
-            receivedAmount,              // (12) Valores Recebidos
-            toReceiveAmount,             // (12) Valores a Receber
+            receivedAmount,              // (11) Valores Recebidos
+            toReceiveAmount,             // (11) Valores a Receber
             // Risk Indicators
-            overdueAmount,               // (13) Parcelas Atrasadas
-            overdueCount,                // (13) Número de Parcelas Vencidas
-            defaultPercent,              // (13) Inadimplência %
+            overdueAmount,               // (12) Parcelas Atrasadas
+            overdueCount,                // (12) Número de Parcelas Vencidas
+            defaultPercent,              // (12) Inadimplência %
             // Legacy metrics
             totalSales: grossRevenue,
             totalGrossMarginValue: grossProfit,
@@ -204,6 +231,49 @@ export function Dashboard() {
 
     const maxValue = Math.max(...weeklyData.map(d => d.value), 100)
 
+    // --- MONTHLY TREND ANALYTICS (últimas 4 semanas) ---
+    const monthlyData = useMemo(() => {
+        const weeks = []
+        for (let i = 3; i >= 0; i--) {
+            const weekStart = new Date()
+            weekStart.setDate(weekStart.getDate() - (i * 7 + 6))
+            const weekEnd = new Date(weekStart)
+            weekEnd.setDate(weekEnd.getDate() + 6)
+
+            const weekSales = vendas.filter(v => {
+                const vDate = new Date(v.createdAt.split('T')[0])
+                return vDate >= weekStart && vDate <= weekEnd
+            }).reduce((acc, v) => acc + v.totalValue, 0)
+
+            weeks.push({
+                label: `Sem ${i + 1}`,
+                value: weekSales,
+                startDate: weekStart.toISOString().split('T')[0],
+                endDate: weekEnd.toISOString().split('T')[0]
+            })
+        }
+        return weeks
+    }, [vendas])
+
+    const maxMonthlyValue = Math.max(...monthlyData.map(d => d.value), 100)
+
+    // --- ACCUMULATED TREND (vendas acumuladas ao longo do tempo) ---
+    const accumulatedData = useMemo(() => {
+        const sortedVendas = [...vendas].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        let accumulated = 0
+
+        return sortedVendas.map(v => {
+            accumulated += v.totalValue
+            return {
+                date: v.createdAt.split('T')[0],
+                value: accumulated,
+                saleDate: new Date(v.createdAt)
+            }
+        })
+    }, [vendas])
+
+    const maxAccumulatedValue = Math.max(...accumulatedData.map(d => d.value), 100)
+
     // --- TOP PRODUCTS ---
     const topProducts = useMemo(() => {
         const productSales = {}
@@ -226,6 +296,31 @@ export function Dashboard() {
         return Object.values(productSales)
             .sort((a, b) => b.revenue - a.revenue)
             .slice(0, 4)
+    }, [vendas])
+
+    // --- TOP CUSTOMERS (by revenue and frequency) ---
+    const topCustomers = useMemo(() => {
+        const customerStats = {}
+        vendas.forEach(v => {
+            const name = v.customerName
+            if (!customerStats[name]) {
+                customerStats[name] = {
+                    name: name,
+                    revenue: 0,
+                    frequency: 0,
+                    lastPurchase: v.createdAt
+                }
+            }
+            customerStats[name].revenue += (v.totalValue || 0)
+            customerStats[name].frequency += 1
+            customerStats[name].lastPurchase = new Date(v.createdAt) > new Date(customerStats[name].lastPurchase)
+                ? v.createdAt
+                : customerStats[name].lastPurchase
+        })
+
+        return Object.values(customerStats)
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5)
     }, [vendas])
 
     const greetings = () => {
@@ -289,12 +384,11 @@ export function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 {[
                     // Receita
-                    { label: 'Receita Bruta', value: financialMetrics.grossRevenue, icon: DollarSign, color: 'blue', description: 'Vendas pagas' },
-                    { label: 'Receita Líquida', value: financialMetrics.netRevenue, icon: DollarSign, color: 'cyan', description: 'Após taxas' },
-                    { label: 'Ticket Médio', value: financialMetrics.averageTicket, icon: ShoppingBag, color: 'sky', description: `${financialMetrics.totalPaidSales} vendas pagas` },
+                    { label: 'Receita Bruta', value: financialMetrics.grossRevenue, icon: DollarSign, color: 'blue', description: `${financialMetrics.totalSalesCount} vendas` },
+                    { label: 'Ticket Médio', value: financialMetrics.averageTicket, icon: ShoppingBag, color: 'sky', description: `${financialMetrics.totalSalesCount} vendas` },
 
                     // Custos e Margens
-                    { label: 'CPV', value: financialMetrics.totalCPV, icon: Package, color: 'amber', description: 'Custo produtos vendidos' },
+                    { label: 'CPV (Custo da Venda)', value: financialMetrics.totalCPV, icon: Package, color: 'amber', description: 'Custo histórico' },
                     { label: 'Lucro Bruto', value: financialMetrics.grossProfit, icon: ArrowUpRight, color: 'green', description: 'Receita - CPV' },
                     { label: 'Margem Bruta', value: financialMetrics.grossMarginPercent, icon: TrendingUp, color: 'emerald', description: (financialMetrics.grossMarginPercent).toFixed(1) + '%', isPercentage: true },
 
@@ -547,6 +641,150 @@ export function Dashboard() {
                         <Link to="/admin/products" className="mt-10 w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-gray-100 rounded-2xl text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:border-[#C75D3B]/20 hover:text-[#C75D3B] transition-all">
                             Ver Catálogo Completo
                         </Link>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* 3.2 RANKINGS - TOP CUSTOMERS */}
+            <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                <CardHeader className="p-6 md:p-8 border-b border-gray-50">
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32]">Clientes VIP</CardTitle>
+                            <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium">Top 5 por faturamento e frequência</p>
+                        </div>
+                        <div className="p-3 md:p-4 bg-[#FDF0ED] rounded-2xl flex-shrink-0">
+                            <Users className="w-5 h-5 md:w-6 md:h-6 text-[#C75D3B]" />
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    {topCustomers.length > 0 ? (
+                        topCustomers.map((customer, idx) => (
+                            <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-5 md:p-8 border-b border-gray-50 last:border-b-0 active:bg-[#FDFBF7] md:hover:bg-[#FDFBF7] transition-all group">
+                                <div className="flex items-center gap-3 md:gap-5 mb-3 md:mb-0">
+                                    <div className={cn(
+                                        "w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center font-bold text-white text-lg md:text-xl ring-4 ring-transparent group-active:ring-[#C75D3B]/10 md:group-hover:ring-[#C75D3B]/10 transition-all flex-shrink-0",
+                                        idx === 0 ? "bg-gradient-to-br from-[#C75D3B] to-[#FF8C6B]" :
+                                        idx === 1 ? "bg-gradient-to-br from-amber-400 to-amber-500" :
+                                        idx === 2 ? "bg-gradient-to-br from-orange-300 to-orange-400" :
+                                        "bg-gray-200 text-gray-600"
+                                    )}>
+                                        {idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : customer.name.charAt(0)}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-bold text-[#4A3B32] text-base md:text-lg">{customer.name}</p>
+                                        <p className="text-xs md:text-sm text-gray-400 font-medium">{customer.frequency} {customer.frequency === 1 ? 'compra' : 'compras'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between md:justify-end gap-3 md:gap-10">
+                                    <div className="text-right">
+                                        <p className="font-black text-[#4A3B32] text-lg md:text-xl">R$ {(customer.revenue || 0).toLocaleString('pt-BR')}</p>
+                                        <p className="text-[9px] md:text-[10px] text-gray-300 font-bold uppercase tracking-tight">Total gasto</p>
+                                    </div>
+                                    {idx < 3 && (
+                                        <div className="text-2xl md:text-3xl flex-shrink-0">
+                                            {idx === 0 ? '👑' : idx === 1 ? '⭐' : '✨'}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="py-10 text-center text-gray-300 italic text-sm">Aguardando dados de clientes...</div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* 3.5 TEMPORAL ANALYSIS - MONTHLY & ACCUMULATED */}
+            <div className="grid lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
+                {/* Monthly Trend - Last 4 Weeks */}
+                <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                    <CardHeader className="p-6 md:p-8 pb-0">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32]">Desempenho Semanal</CardTitle>
+                                <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium">Últimas 4 semanas</p>
+                            </div>
+                            <div className="p-3 md:p-4 bg-[#FDF0ED] rounded-2xl flex-shrink-0">
+                                <Calendar className="w-5 h-5 md:w-6 md:h-6 text-[#C75D3B]" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-5 md:p-8">
+                        <div className="h-[180px] md:h-[250px] w-full flex items-end gap-2 md:gap-4 mt-6 md:mt-8">
+                            {monthlyData.map((week, idx) => (
+                                <div key={idx} className="flex-1 flex flex-col items-center gap-3 md:gap-4 group">
+                                    <div className="relative w-full flex flex-col justify-end h-[140px] md:h-[200px]">
+                                        <motion.div
+                                            initial={{ height: 0 }}
+                                            animate={{ height: `${(week.value / maxMonthlyValue) * 100}%` }}
+                                            transition={{ delay: idx * 0.1, duration: 1, ease: "easeOut" }}
+                                            className={cn(
+                                                "w-full rounded-t-xl md:rounded-t-2xl transition-all relative touch-manipulation",
+                                                idx === 3 ? "bg-[#C75D3B]" : "bg-gray-100 group-active:bg-gray-200 md:group-hover:bg-gray-200"
+                                            )}
+                                        >
+                                            {week.value > 0 && (
+                                                <div className="absolute -top-8 md:-top-10 left-1/2 -translate-x-1/2 bg-[#4A3B32] text-white text-[8px] md:text-[9px] font-bold py-1 px-1.5 md:px-2 rounded-lg opacity-0 group-active:opacity-100 md:group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
+                                                    R$ {(week.value || 0).toLocaleString('pt-BR')}
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    </div>
+                                    <span className="text-[8px] md:text-[10px] font-bold text-gray-300 uppercase tracking-widest group-active:text-[#4A3B32] md:group-hover:text-[#4A3B32] transition-colors font-mono">
+                                        {week.label}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Accumulated Sales Trend */}
+                <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                    <CardHeader className="p-6 md:p-8 pb-0">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32]">Crescimento Acumulado</CardTitle>
+                                <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium">Faturamento total ao longo do tempo</p>
+                            </div>
+                            <div className="p-3 md:p-4 bg-[#FDF0ED] rounded-2xl flex-shrink-0">
+                                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-[#C75D3B]" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-5 md:p-8">
+                        {accumulatedData.length > 0 ? (
+                            <div className="h-[180px] md:h-[250px] w-full flex items-center justify-between mt-6 md:mt-8 px-2">
+                                {/* Simplified line chart representation using bars at intervals */}
+                                {accumulatedData.slice(-12).map((point, idx) => (
+                                    <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
+                                        <div className="relative w-full flex flex-col justify-end h-[140px] md:h-[200px]">
+                                            <motion.div
+                                                initial={{ height: 0 }}
+                                                animate={{ height: `${(point.value / maxAccumulatedValue) * 100}%` }}
+                                                transition={{ delay: idx * 0.05, duration: 1, ease: "easeOut" }}
+                                                className="w-full bg-gradient-to-t from-[#C75D3B] to-[#FF8C6B] rounded-t-xl md:rounded-t-2xl transition-all relative touch-manipulation opacity-70 group-active:opacity-100 md:group-hover:opacity-100"
+                                            >
+                                                {point.value > 0 && (
+                                                    <div className="absolute -top-8 md:-top-10 left-1/2 -translate-x-1/2 bg-[#4A3B32] text-white text-[7px] md:text-[8px] font-bold py-0.5 px-1 md:px-1.5 rounded opacity-0 group-active:opacity-100 md:group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
+                                                        R$ {(point.value || 0).toLocaleString('pt-BR')}
+                                                    </div>
+                                                )}
+                                            </motion.div>
+                                        </div>
+                                        <span className="text-[7px] md:text-[9px] font-bold text-gray-300 uppercase tracking-widest font-mono">
+                                            +{idx}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="h-[200px] flex items-center justify-center text-gray-300 italic">
+                                Aguardando dados de vendas...
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>

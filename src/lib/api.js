@@ -226,7 +226,7 @@ export async function getCustomers(page = 1, limit = 50) {
     const offset = (page - 1) * limit;
     const { data, error, count } = await supabase
         .from('customers')
-        .select('id, name, phone, email, cpf, created_at, updated_at', { count: 'exact' })
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -590,71 +590,8 @@ export async function createOrder(orderData) {
 
     let customerId = customerIdFromData;
 
-    if (!customerId && customer && customer.phone) {
-        console.log('👤 ASSOCIANDO CLIENTE - Buscando por telefone:', customer.phone);
-
-        const { data: existingCustomer, error: customerError } = await supabase
-            .from('customers')
-            .select('id')
-            .eq('phone', customer.phone)
-            .single();
-
-        if (customerError && customerError.code !== 'PGRST116') {
-            console.error('❌ ERRO ao buscar cliente:', customerError);
-            throw customerError;
-        }
-
-        if (existingCustomer) {
-            console.log('✅ Cliente encontrado:', existingCustomer.id);
-            customerId = existingCustomer.id;
-
-            // ATUALIZAR dados do cliente se houver novas informações
-            console.log('📝 Atualizando dados do cliente existente...');
-            const customerSnakeCase = toSnakeCase(customer);
-            const { error: updateError } = await supabase
-                .from('customers')
-                .update(customerSnakeCase)
-                .eq('id', customerId);
-
-            if (updateError) {
-                console.warn('⚠️ AVISO: Não foi possível atualizar cliente, mas pedido será criado:', updateError);
-            } else {
-                console.log('✅ Dados do cliente atualizados com sucesso');
-            }
-        } else {
-            console.log('➕ Cliente não encontrado - CRIANDO NOVO CLIENTE');
-            console.log('   📋 Dados do cliente:', {
-                name: customer.name,
-                phone: customer.phone,
-                email: customer.email || 'não informado',
-                cpf: customer.cpf || 'não informado',
-                addresses: customer.addresses?.length || 0
-            });
-
-            const customerSnakeCase = toSnakeCase(customer);
-
-            const { data: newCustomer, error: newCustomerError } = await supabase
-                .from('customers')
-                .insert([customerSnakeCase])
-                .select('id, name, phone')
-                .single();
-
-            if (newCustomerError) {
-                console.error('❌ ERRO ao criar cliente:', newCustomerError);
-                throw new Error(`Falha ao criar cliente: ${newCustomerError.message}`);
-            }
-
-            console.log('✅ NOVO CLIENTE CRIADO:', {
-                id: newCustomer.id,
-                name: newCustomer.name,
-                phone: newCustomer.phone
-            });
-            customerId = newCustomer.id;
-        }
-    }
-
     if (!customerId) {
-        throw new Error("Não foi possível associar um cliente ao pedido.");
+        throw new Error("customerId é obrigatório para criar um pedido. Selecione um cliente antes de salvar.");
     }
 
     console.log('📝 Creating order record with customer_id:', customerId);
@@ -866,7 +803,7 @@ export async function getVendas(page = 1, limit = 30) {
     const offset = (page - 1) * limit;
     const { data, error, count } = await supabase
         .from('vendas')
-        .select('id, customer_id, total_value, payment_method, payment_status, created_at, customers(id, name)', { count: 'exact' })
+        .select('id, customer_id, total_value, payment_method, payment_status, created_at, fee_amount, net_amount, items, customers(id, name)', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -879,10 +816,18 @@ export async function getVendas(page = 1, limit = 30) {
 
     const camelCasedData = data.map(toCamelCase);
 
+    // Debug: verificar se items estão sendo carregados
+    if (camelCasedData.length > 0) {
+        console.log('🔍 DEBUG getVendas - Primeira venda RAW:', data[0]);
+        console.log('🔍 DEBUG getVendas - Primeira venda CAMELCASE:', camelCasedData[0]);
+        console.log('🔍 DEBUG getVendas - items:', camelCasedData[0].items);
+    }
+
     return {
         vendas: camelCasedData.map(venda => ({
             ...venda,
             customerName: venda.customers ? venda.customers.name : 'Cliente desconhecido',
+            items: venda.items || [] // items já vem do JSON da venda
         })),
         total: count,
         page,
@@ -1888,24 +1833,14 @@ export async function getDashboardMetrics() {
     console.log('📊 API: Buscando métricas do dashboard...');
 
     try {
-        // 1. VENDAS (apenas pagas)
-        const { data: vendasData, error: vendasError } = await supabase
-            .from('vendas')
-            .select('*, customers(id, name)')
-            .eq('payment_status', 'paid')
-            .order('created_at', { ascending: false });
-
-        if (vendasError) throw vendasError;
-
-        // 2. DESPESAS FIXAS
+        // 1. DESPESAS FIXAS
         const { data: expensesData, error: expensesError } = await supabase
             .from('fixed_expenses')
-            .select('*')
-            .eq('paid', true);
+            .select('*');
 
         if (expensesError) throw expensesError;
 
-        // 3. CUPONS APLICADOS
+        // 2. CUPONS APLICADOS
         const { data: couponsData, error: couponsError } = await supabase
             .from('coupons')
             .select('*')
@@ -1913,23 +1848,30 @@ export async function getDashboardMetrics() {
 
         if (couponsError) throw couponsError;
 
-        // 4. INSTALLMENTS (para análise de fluxo de caixa)
+        // 3. INSTALLMENTS (para análise de fluxo de caixa)
         const { data: installmentsData, error: installmentsError } = await supabase
             .from('installments')
             .select('*, installment_payments(*)');
 
         if (installmentsError) throw installmentsError;
 
-        const camelVendas = vendasData.map(toCamelCase);
+        // 4. COMPRAS (para análise de custo de estoque)
+        const { data: purchasesData, error: purchasesError } = await supabase
+            .from('purchases')
+            .select('*, suppliers(id, name)');
+
+        if (purchasesError) throw purchasesError;
+
         const camelExpenses = expensesData.map(toCamelCase);
         const camelCoupons = couponsData.map(toCamelCase);
         const camelInstallments = installmentsData.map(toCamelCase);
+        const camelPurchases = purchasesData.map(toCamelCase);
 
         return {
-            vendas: camelVendas,
             expenses: camelExpenses,
             coupons: camelCoupons,
-            installments: camelInstallments
+            installments: camelInstallments,
+            purchases: camelPurchases
         };
     } catch (err) {
         console.error('❌ Erro ao buscar métricas do dashboard:', err);

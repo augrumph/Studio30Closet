@@ -14,7 +14,7 @@ export function VendasForm() {
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = Boolean(id)
-    const { products, customers, coupons, loadCoupons, addVenda, editVenda, getVendaById, reloadAll } = useAdminStore()
+    const { products, customers, coupons, loadCoupons, loadCustomers, addVenda, editVenda, getVendaById, reloadAll, createInstallments } = useAdminStore()
     const { calculateFee } = useOperationalCostsStore()
 
     const [formData, setFormData] = useState({
@@ -32,6 +32,9 @@ export function VendasForm() {
     })
 
     const [parcelas, setParcelas] = useState(1)
+    const [isInstallment, setIsInstallment] = useState(false)
+    const [entryPayment, setEntryPayment] = useState(0)
+    const [installmentStartDate, setInstallmentStartDate] = useState('')
     const [feeInfo, setFeeInfo] = useState({ feePercentage: 0, feeValue: 0, netValue: 0 })
 
     const [couponInput, setCouponInput] = useState('')
@@ -46,17 +49,32 @@ export function VendasForm() {
     const [selectedSize, setSelectedSize] = useState(null)
 
     useEffect(() => {
+        // Carregar produtos e todos os clientes para o formulário
         reloadAll()
+        loadCustomers()
         loadCoupons()
         if (isEdit) {
             const venda = getVendaById(parseInt(id))
             if (venda) {
+                // Garantir que items é um array (pode vir como string JSON do banco)
+                let parsedItems = venda.items
+                if (typeof parsedItems === 'string') {
+                    try {
+                        parsedItems = JSON.parse(parsedItems)
+                    } catch (e) {
+                        parsedItems = []
+                    }
+                }
+                if (!Array.isArray(parsedItems)) {
+                    parsedItems = []
+                }
+
                 setFormData({
                     customerId: venda.customerId,
                     customerName: venda.customerName,
                     paymentMethod: venda.paymentMethod,
                     paymentStatus: venda.paymentStatus,
-                    items: venda.items,
+                    items: parsedItems,
                     totalValue: venda.originalTotal || venda.totalValue, // Usar o total original para cálculos
                     notes: venda.notes || '',
                     couponId: venda.couponId || '',
@@ -71,7 +89,7 @@ export function VendasForm() {
                 navigate('/admin/vendas')
             }
         }
-    }, [id, isEdit, getVendaById, reloadAll, navigate])
+    }, [id, isEdit, getVendaById, reloadAll, loadCustomers, navigate])
 
     // Calcular taxa automaticamente quando mudar método de pagamento, bandeira ou valor
     useEffect(() => {
@@ -296,6 +314,22 @@ export function VendasForm() {
             return
         }
 
+        // Validar crediário parcelado
+        if (formData.paymentMethod === 'credito_parcelado') {
+            if (!installmentStartDate) {
+                toast.error('Data de início das parcelas obrigatória', {
+                    description: 'Defina quando a primeira parcela vence.'
+                })
+                return
+            }
+            if (parcelas < 2) {
+                toast.error('Número de parcelas inválido', {
+                    description: 'Escolha pelo menos 2 parcelas.'
+                })
+                return
+            }
+        }
+
         // Se o status for pendente, forçar pagamento como crediário (fiado internamente)
         const finalPaymentMethod = formData.paymentStatus === 'pending' ? 'fiado' : formData.paymentMethod
 
@@ -309,7 +343,12 @@ export function VendasForm() {
             // Incluir informações de taxa automáticas
             feePercentage: feeInfo.feePercentage || 0,
             feeAmount: feeInfo.feeValue || 0,
-            netAmount: feeInfo.netValue || (formData.totalValue - formData.discountAmount)
+            netAmount: feeInfo.netValue || (formData.totalValue - formData.discountAmount),
+            // Crediário
+            isInstallment: formData.paymentMethod === 'credito_parcelado',
+            numInstallments: formData.paymentMethod === 'credito_parcelado' ? parcelas : 1,
+            entryPayment: formData.paymentMethod === 'credito_parcelado' ? entryPayment : 0,
+            installmentStartDate: formData.paymentMethod === 'credito_parcelado' ? installmentStartDate : null
         }
 
         const action = isEdit ? editVenda(parseInt(id), payload) : addVenda(payload)
@@ -318,8 +357,25 @@ export function VendasForm() {
 
         toast.promise(action, {
             loading: loadingMsg,
-            success: (result) => {
+            success: async (result) => {
                 if (result.success) {
+                    // Se é crediário, criar parcelas automaticamente
+                    if (formData.paymentMethod === 'credito_parcelado' && !isEdit) {
+                        const vendaId = result.venda.id
+                        const installmentsResult = await createInstallments(
+                            vendaId,
+                            parcelas,
+                            entryPayment,
+                            installmentStartDate
+                        )
+                        if (!installmentsResult.success) {
+                            toast.error('Erro ao criar parcelas', {
+                                description: installmentsResult.error
+                            })
+                        } else {
+                            toast.success(`✅ ${installmentsResult.installments.length} parcelas criadas automaticamente!`)
+                        }
+                    }
                     navigate('/admin/vendas')
                     return successTemplate
                 }
@@ -497,7 +553,7 @@ export function VendasForm() {
 
                             <div className="space-y-3">
                                 <AnimatePresence initial={false}>
-                                    {formData.items.map((item, idx) => (
+                                    {(formData.items && Array.isArray(formData.items) ? formData.items : []).map((item, idx) => (
                                         <motion.div
                                             key={`${item.productId}-${idx}`}
                                             initial={{ opacity: 0, height: 0, margin: 0 }}
@@ -563,36 +619,30 @@ export function VendasForm() {
                                 <div>
                                     <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Meio de Pagamento</label>
                                     <select
-                                        value={formData.paymentStatus === 'pending' ? 'fiado' : formData.paymentMethod}
-                                        disabled={formData.paymentStatus === 'pending'}
+                                        value={formData.paymentMethod}
                                         onChange={(e) => {
                                             setFormData(prev => ({ ...prev, paymentMethod: e.target.value, cardBrand: '' }))
                                             if (e.target.value === 'credito_parcelado') {
                                                 setParcelas(2)
+                                                setIsInstallment(true)
                                             } else {
                                                 setParcelas(1)
+                                                setIsInstallment(false)
                                             }
                                         }}
-                                        className={cn(
-                                            "w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all",
-                                            formData.paymentStatus === 'pending' && "opacity-80 cursor-not-allowed bg-amber-50/50"
-                                        )}
+                                        className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
                                     >
                                         <option value="pix">📱 PIX</option>
                                         <option value="card_machine">💳 Cartão na Máquina</option>
                                         <option value="payment_link">🔗 Link de Pagamento</option>
                                         <option value="fiado">🤝 Crediário (Conta Corrente)</option>
+                                        <option value="credito_parcelado">📅 Crediário Parcelado (Sem Taxa)</option>
                                         <option value="cash">💵 Dinheiro Espécie</option>
                                     </select>
-                                    {formData.paymentStatus === 'pending' && (
-                                        <p className="mt-2 text-[10px] text-amber-600 font-bold uppercase tracking-wider animate-pulse flex items-center gap-1.5 pl-1">
-                                            <Info className="w-3 h-3" /> Automático: Aguardando = Crediário
-                                        </p>
-                                    )}
                                 </div>
 
                                 {/* Bandeira do Cartão - aparece se for card_machine ou payment_link */}
-                                {(formData.paymentMethod === 'card_machine' || formData.paymentMethod === 'payment_link') && formData.paymentStatus !== 'pending' && (
+                                {(formData.paymentMethod === 'card_machine' || formData.paymentMethod === 'payment_link') && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -618,31 +668,81 @@ export function VendasForm() {
                                     </motion.div>
                                 )}
 
-                                {/* Parcelas selector quando for crédito parcelado */}
-                                {formData.paymentMethod === 'credito_parcelado' && formData.paymentStatus !== 'pending' && (
+                                {/* Crediário Parcelado - Campos de configuração */}
+                                {formData.paymentMethod === 'credito_parcelado' && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
                                         exit={{ opacity: 0, height: 0 }}
+                                        className="space-y-5 p-5 bg-[#FDF0ED]/50 rounded-2xl border-2 border-[#C75D3B]/30"
                                     >
-                                        <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Número de Parcelas</label>
-                                        <select
-                                            value={parcelas}
-                                            onChange={(e) => setParcelas(Number(e.target.value))}
-                                            className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
-                                        >
-                                            <option value={2}>2x</option>
-                                            <option value={3}>3x</option>
-                                            <option value={4}>4x</option>
-                                            <option value={5}>5x</option>
-                                            <option value={6}>6x</option>
-                                            <option value={7}>7x</option>
-                                            <option value={8}>8x</option>
-                                            <option value={9}>9x</option>
-                                            <option value={10}>10x</option>
-                                            <option value={11}>11x</option>
-                                            <option value={12}>12x</option>
-                                        </select>
+                                        <div className="text-xs text-[#C75D3B] font-bold uppercase tracking-widest">⚙️ Configuração de Parcelamento</div>
+
+                                        {/* Número de Parcelas */}
+                                        <div>
+                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Quantas Vezes? 📅</label>
+                                            <select
+                                                value={parcelas}
+                                                onChange={(e) => setParcelas(Number(e.target.value))}
+                                                className="w-full px-4 py-4 bg-white border-2 border-[#C75D3B]/20 rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
+                                            >
+                                                <option value={2}>2x sem taxa</option>
+                                                <option value={3}>3x sem taxa</option>
+                                                <option value={4}>4x sem taxa</option>
+                                                <option value={5}>5x sem taxa</option>
+                                                <option value={6}>6x sem taxa</option>
+                                                <option value={7}>7x sem taxa</option>
+                                                <option value={8}>8x sem taxa</option>
+                                                <option value={9}>9x sem taxa</option>
+                                                <option value={10}>10x sem taxa</option>
+                                                <option value={11}>11x sem taxa</option>
+                                                <option value={12}>12x sem taxa</option>
+                                            </select>
+                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">Valor de cada parcela: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount - entryPayment) / parcelas).toFixed(2)}</span></p>
+                                        </div>
+
+                                        {/* Valor de Entrada */}
+                                        <div>
+                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Entrada no Ato 💵</label>
+                                            <input
+                                                type="number"
+                                                value={entryPayment}
+                                                onChange={(e) => setEntryPayment(parseFloat(e.target.value) || 0)}
+                                                placeholder="0,00"
+                                                className="w-full px-4 py-4 bg-white border-2 border-[#C75D3B]/20 rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
+                                                step="0.01"
+                                                min="0"
+                                            />
+                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">Total sem entrada: <span className="font-bold text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount - entryPayment).toFixed(2)}</span></p>
+                                        </div>
+
+                                        {/* Data de Início das Parcelas */}
+                                        <div>
+                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Primeira Parcela em 🗓️</label>
+                                            <input
+                                                type="date"
+                                                value={installmentStartDate}
+                                                onChange={(e) => setInstallmentStartDate(e.target.value)}
+                                                className="w-full px-4 py-4 bg-white border-2 border-[#C75D3B]/20 rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
+                                            />
+                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">Próximas parcelas serão mensais</p>
+                                        </div>
+
+                                        {/* Resumo */}
+                                        <div className="bg-white/70 p-4 rounded-xl border border-[#C75D3B]/20 space-y-2">
+                                            <div className="flex justify-between text-xs font-bold">
+                                                <span className="text-[#4A3B32]">Total:</span>
+                                                <span className="text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount).toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs font-bold">
+                                                <span className="text-[#4A3B32]">- Entrada:</span>
+                                                <span className="text-[#C75D3B]">R$ {entryPayment.toFixed(2)}</span>
+                                            </div>
+                                            <div className="border-t border-[#C75D3B]/20 pt-2 flex justify-between text-xs font-bold">
+                                                <span className="text-[#4A3B32]">A Parcelar:</span>
+                                                <span className="text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount - entryPayment).toFixed(2)} em {parcelas}x</span>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 )}
 

@@ -165,8 +165,7 @@ export function MalinhasForm() {
                     price: 0,                       // Será preenchido do banco
                     costPrice: 0                    // Será preenchido do banco
                 };
-            }),
-            customer: selectedCustomer  // Este é usado apenas para referência no frontend
+            })
         }
 
         console.log('Payload enviado:', payload)

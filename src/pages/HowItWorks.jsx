@@ -72,10 +72,10 @@ export function HowItWorks() {
                                     Receba com Carinho
                                 </h2>
                                 <p className="text-lg text-[#4A3B32]/70 leading-relaxed max-w-md">
-                                    Sua malinha chega embalada com todo cuidado, cada peça protegida individualmente. Agende o melhor horário para você.
+                                    Sua malinha chega embalada com todo cuidado e com nosso cheirinho especial. Agende o melhor horário para você.
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    {['Entrega grátis', 'Embalagem premium', 'Rastreamento'].map((tag) => (
+                                    {['Entrega grátis', 'Conforto', 'Segurança'].map((tag) => (
                                         <span key={tag} className="px-4 py-2 bg-white border border-[#E8C4B0] rounded-full text-sm text-[#4A3B32]/60">
                                             {tag}
                                         </span>
@@ -94,7 +94,7 @@ export function HowItWorks() {
                                     Experimente em Casa
                                 </h2>
                                 <p className="text-lg text-[#4A3B32]/70 leading-relaxed max-w-md lg:ml-auto">
-                                    48 horas para provar tudo com calma. Combine com seu guarda-roupa, veja na luz natural, peça opinião.
+                                    24 horas para provar tudo com calma. Combine com seu guarda-roupa, escolha a melhor iluminação, e fique somente com o que amar.
                                 </p>
                                 <div className="flex flex-wrap gap-2 lg:justify-end">
                                     {['Sem pressa', 'Seu espelho', 'Conforto total'].map((tag) => (
@@ -114,7 +114,7 @@ export function HowItWorks() {
                                 </div>
                                 {/* Badge flutuante */}
                                 <div className="absolute -top-4 -right-4 bg-[#C75D3B] px-6 py-3 rounded-2xl shadow-lg">
-                                    <p className="font-display text-4xl text-white">48h</p>
+                                    <p className="font-display text-4xl text-white">24h</p>
                                     <p className="text-sm text-white/80">para decidir</p>
                                 </div>
                             </div>
@@ -171,10 +171,10 @@ export function HowItWorks() {
 
                     <div className="grid md:grid-cols-2 gap-6">
                         {[
-                            { q: 'É realmente grátis?', a: 'Sim! Entrega e coleta são 100% gratuitas. Você só paga pelas peças que ficar.' },
-                            { q: 'Quanto tempo tenho?', a: 'Você tem 48 horas para experimentar todas as peças com calma em casa.' },
-                            { q: 'E se não servir nada?', a: 'Sem problemas! Devolvemos tudo sem custo algum para você.' },
-                            { q: 'Como pago?', a: 'Aceitamos PIX, cartão de crédito em até 12x e débito.' },
+                            { q: 'É realmente grátis?', a: 'Sim! Entrega e coleta são 100% gratuitas com agendamento prévio.' },
+                            { q: 'Quanto tempo tenho?', a: 'Você tem 24 horas para experimentar todas as peças com calma em casa.' },
+                            { q: 'E se não quiser ficar com nada?', a: 'Sem problemas! Cobramos apenas a taxa de coleta.' },
+                            { q: 'Como pago?', a: 'Aceitamos PIX, cartão de crédito, débito e dinheiro.' },
                         ].map((faq, i) => (
                             <div key={i} className="bg-[#FDFBF7] p-8 rounded-2xl border border-[#E8C4B0]/50 hover:border-[#C75D3B]/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                                 <div className="flex items-start gap-4">

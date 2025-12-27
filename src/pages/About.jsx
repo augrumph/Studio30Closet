@@ -32,7 +32,7 @@ export function About() {
                         </div>
                         {/* Badge flutuante */}
                         <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-[#C75D3B] px-8 py-4 rounded-full shadow-2xl">
-                            <p className="font-display text-2xl text-white">Fundadores</p>
+                            <p className="font-display text-2xl text-white">Sócios</p>
                         </div>
                     </div>
                 </div>

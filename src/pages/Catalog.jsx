@@ -14,30 +14,34 @@ export function Catalog() {
     const [searchQuery, setSearchQuery] = useState('')
     const [page, setPage] = useState(1)
     const ITEMS_PER_PAGE = 20
-    const { products, loadAllProductsForCatalog, productsLoading } = useAdminStore()
+    const { products, loadAllProductsForCatalog, productsLoading, productsError } = useAdminStore()
 
     useEffect(() => {
         const loadProductsOptimized = async () => {
-            // Se já tem produtos em memória, não carregar novamente
-            if (products.length > 0) {
-                console.log('✅ Produtos já em memória (total:', products.length, ')')
-                return
-            }
+            try {
+                // Se já tem produtos em memória, não carregar novamente
+                if (products.length > 0) {
+                    console.log('✅ Produtos já em memória (total:', products.length, ')')
+                    return
+                }
 
-            // Tentar cache primeiro
-            console.log('🔍 Tentando carregar do cache...')
-            const cachedProducts = await getCachedProducts()
+                // Tentar cache primeiro
+                console.log('🔍 Tentando carregar do cache...')
+                const cachedProducts = await getCachedProducts()
 
-            if (cachedProducts && cachedProducts.length > 0) {
-                console.log('⚡ Cache HIT! Usando', cachedProducts.length, 'produtos do cache')
-                // Usar produtos do cache - será atualizado pelo store
+                if (cachedProducts && cachedProducts.length > 0) {
+                    console.log('⚡ Cache HIT! Usando', cachedProducts.length, 'produtos do cache')
+                    // Usar produtos do cache - será atualizado pelo store
+                    await loadAllProductsForCatalog()
+                    return
+                }
+
+                // Cache miss ou expirado - carregar do servidor
+                console.log('📡 Cache miss - carregando TODOS os produtos do servidor...')
                 await loadAllProductsForCatalog()
-                return
+            } catch (error) {
+                console.error('❌ Erro ao carregar produtos no catálogo:', error)
             }
-
-            // Cache miss ou expirado - carregar do servidor
-            console.log('📡 Cache miss - carregando TODOS os produtos do servidor...')
-            await loadAllProductsForCatalog()
         }
 
         loadProductsOptimized()
@@ -211,6 +215,21 @@ export function Catalog() {
                                 {Array.from({ length: 6 }).map((_, index) => (
                                     <SkeletonCard key={`skeleton-${index}`} />
                                 ))}
+                            </div>
+                        ) : productsError ? (
+                            <div className="text-center py-16 sm:py-24 md:py-32">
+                                <h2 className="font-display text-3xl sm:text-5xl md:text-6xl text-red-500 mb-4 sm:mb-6">
+                                    Erro ao carregar
+                                </h2>
+                                <p className="text-[#4A3B32]/60 uppercase tracking-widest text-xs mb-6 sm:mb-8">
+                                    {productsError}
+                                </p>
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="touch-target px-6 bg-[#C75D3B] text-white rounded-lg font-semibold transition-all hover:bg-[#A64D31] active:scale-95"
+                                >
+                                    Tentar novamente
+                                </button>
                             </div>
                         ) : paginatedProducts.length > 0 ? (
                             <>

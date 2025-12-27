@@ -14,13 +14,16 @@ import {
     CreditCard,
     ArrowDownRight,
     MoreHorizontal,
-    Search
+    Search,
+    AlertTriangle,
+    TrendingDown
 } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
+import { getDashboardMetrics } from '@/lib/api'
 
 export function Dashboard() {
     const vendas = useAdminStore(state => state.vendas)
@@ -28,6 +31,8 @@ export function Dashboard() {
     const reloadAll = useAdminStore(state => state.reloadAll)
 
     const [currentTime, setCurrentTime] = useState(new Date())
+    const [dashboardData, setDashboardData] = useState(null)
+    const [dashboardLoading, setDashboardLoading] = useState(false)
 
     useEffect(() => {
         // Carregar dados apenas uma vez quando componente monta
@@ -39,62 +44,147 @@ export function Dashboard() {
         return () => clearInterval(timer)
     }, [reloadAll, vendas])
 
-    // --- CÁLCULOS FINANCEIROS ---
+    // Carregar dados adicionais para analytics completo
+    useEffect(() => {
+        const loadDashboardData = async () => {
+            try {
+                setDashboardLoading(true)
+                const data = await getDashboardMetrics()
+                setDashboardData(data)
+            } catch (error) {
+                console.error('Erro ao carregar métricas do dashboard:', error)
+            } finally {
+                setDashboardLoading(false)
+            }
+        }
+
+        if (vendas.length) {
+            loadDashboardData()
+        }
+    }, [vendas])
+
+    // --- CÁLCULOS FINANCEIROS COMPLETOS (DRE GERENCIAL) ---
     const financialMetrics = useMemo(() => {
-        // Calculating gross margin and net margin according to specifications
-        // Using the stored costPrice from vendas table which is properly calculated during sale creation
-        const calculations = vendas.map(venda => {
-            // Using the stored costPrice from the venda record
-            const costPrice = venda.costPrice || 0;
+        // (1) RECEITA BRUTA - Apenas vendas pagas
+        const paidSales = vendas.filter(v => v.paymentStatus === 'paid');
+        const grossRevenue = paidSales.reduce((sum, v) => sum + (v.totalValue || 0), 0);
 
-            // Margem Bruta (R$) = total_value - costPrice
-            const grossMarginValue = venda.totalValue - costPrice;
+        // (2) RECEITA LÍQUIDA - Após taxas
+        const netRevenue = paidSales.reduce((sum, v) => sum + (v.netAmount || v.totalValue - (v.feeAmount || 0)), 0);
 
-            // Margem Bruta (%) = (margem_bruta / total_value) * 100
-            const grossMarginPercent = venda.totalValue > 0 ? (grossMarginValue / venda.totalValue) * 100 : 0;
+        // (3) NÚMERO DE VENDAS E TICKET MÉDIO
+        const totalPaidSales = paidSales.length;
+        const averageTicket = totalPaidSales > 0 ? grossRevenue / totalPaidSales : 0;
 
-            // Margem Líquida (R$) = total_value - costPrice - fee_amount
-            const netMarginValue = venda.totalValue - costPrice - (venda.feeAmount || 0);
+        // (4) CPV - Custo dos Produtos Vendidos (usando custo armazenado)
+        const totalCPV = paidSales.reduce((sum, v) => sum + (v.costPrice || 0), 0);
 
-            // Margem Líquida (%) = (margem_liquida / total_value) * 100
-            const netMarginPercent = venda.totalValue > 0 ? (netMarginValue / venda.totalValue) * 100 : 0;
+        // (5) LUCRO BRUTO
+        const grossProfit = grossRevenue - totalCPV;
 
-            return {
-                totalValue: venda.totalValue,
-                costPrice,
-                feeAmount: venda.feeAmount || 0,
-                grossMarginValue,
-                grossMarginPercent,
-                netMarginValue,
-                netMarginPercent
-            };
-        });
+        // (6) MARGEM BRUTA PERCENTUAL
+        const grossMarginPercent = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
 
-        const totalSales = calculations.reduce((sum, calc) => sum + calc.totalValue, 0);
-        const totalGrossMarginValue = calculations.reduce((sum, calc) => sum + calc.grossMarginValue, 0);
-        const totalNetMarginValue = calculations.reduce((sum, calc) => sum + calc.netMarginValue, 0);
-        const totalCostPrice = calculations.reduce((sum, calc) => sum + calc.costPrice, 0);
-        const totalFees = calculations.reduce((sum, calc) => sum + calc.feeAmount, 0);
+        // (7) TAXAS - Total e percentual
+        const totalFees = paidSales.reduce((sum, v) => sum + (v.feeAmount || 0), 0);
+        const feePercent = grossRevenue > 0 ? (totalFees / grossRevenue) * 100 : 0;
 
-        // Overall gross and net margin percentages
-        const overallGrossMarginPercent = totalSales > 0 ? (totalGrossMarginValue / totalSales) * 100 : 0;
-        const overallNetMarginPercent = totalSales > 0 ? (totalNetMarginValue / totalSales) * 100 : 0;
+        // (8) DESCONTOS - Cupons + diferença de preço
+        const totalDiscounts = paidSales.reduce((sum, v) => {
+            const discount = (v.totalValue || 0) - (v.netAmount || v.totalValue);
+            return sum + discount;
+        }, 0);
 
-        const pendingCrediario = vendas
+        // (9) DESPESAS FIXAS MENSALIZADAS
+        let monthlyExpenses = 0;
+        if (dashboardData?.expenses && dashboardData.expenses.length > 0) {
+            monthlyExpenses = dashboardData.expenses.reduce((sum, expense) => {
+                let monthlyValue = expense.value || 0;
+                const recurrence = expense.recurrence?.toLowerCase() || 'mensal';
+
+                if (recurrence === 'diário' || recurrence === 'daily') {
+                    monthlyValue *= 30;
+                } else if (recurrence === 'semanal' || recurrence === 'weekly') {
+                    monthlyValue *= 4.33;
+                } else if (recurrence === 'trimestral' || recurrence === 'quarterly') {
+                    monthlyValue /= 3;
+                } else if (recurrence === 'anual' || recurrence === 'yearly') {
+                    monthlyValue /= 12;
+                }
+                return sum + monthlyValue;
+            }, 0);
+        }
+
+        // (10) LUCRO OPERACIONAL
+        const operatingProfit = grossProfit - monthlyExpenses;
+
+        // (11) MARGEM LÍQUIDA
+        const netMarginPercent = grossRevenue > 0 ? (operatingProfit / grossRevenue) * 100 : 0;
+
+        // (12) FLUXO DE CAIXA
+        const receivedAmount = netRevenue;
+        const toReceiveAmount = dashboardData?.installments ?
+            dashboardData.installments.reduce((sum, inst) => {
+                const paid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
+                const remaining = (inst.originalAmount || 0) - paid;
+                return sum + Math.max(0, remaining);
+            }, 0) : 0;
+
+        // (13) INDICADORES DE RISCO
+        let overdueAmount = 0;
+        let overdueCount = 0;
+        if (dashboardData?.installments) {
+            dashboardData.installments.forEach(inst => {
+                const dueDate = new Date(inst.dueDate);
+                if (dueDate < new Date()) {
+                    const paid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
+                    const remaining = (inst.originalAmount || 0) - paid;
+                    if (remaining > 0) {
+                        overdueAmount += remaining;
+                        overdueCount += 1;
+                    }
+                }
+            });
+        }
+        const defaultPercent = grossRevenue > 0 ? (overdueAmount / (grossRevenue + toReceiveAmount + overdueAmount)) * 100 : 0;
+
+        // Pending fiado (not paid)
+        const pendingFiado = vendas
             .filter(v => v.paymentMethod === 'fiado' && v.paymentStatus === 'pending')
-            .reduce((acc, curr) => acc + curr.totalValue, 0);
+            .reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
         return {
-            totalSales,
-            totalGrossMarginValue,
-            totalNetMarginValue,
-            totalCostPrice,
-            totalFees,
-            overallGrossMarginPercent,
-            overallNetMarginPercent,
-            pendingCrediario
+            // DRE Metrics
+            grossRevenue,                // (1) Receita Bruta
+            netRevenue,                  // (2) Receita Líquida
+            totalPaidSales,              // (3) Número de vendas pagas
+            averageTicket,               // (3) Ticket Médio
+            totalCPV,                    // (4) CPV
+            grossProfit,                 // (5) Lucro Bruto
+            grossMarginPercent,          // (6) Margem Bruta %
+            totalFees,                   // (7) Total de Taxas
+            feePercent,                  // (7) % Taxas
+            totalDiscounts,              // (8) Total Descontos
+            monthlyExpenses,             // (9) Despesas Fixas
+            operatingProfit,             // (10) Lucro Operacional
+            netMarginPercent,            // (11) Margem Líquida %
+            // Cash Flow
+            receivedAmount,              // (12) Valores Recebidos
+            toReceiveAmount,             // (12) Valores a Receber
+            // Risk Indicators
+            overdueAmount,               // (13) Parcelas Atrasadas
+            overdueCount,                // (13) Número de Parcelas Vencidas
+            defaultPercent,              // (13) Inadimplência %
+            // Legacy metrics
+            totalSales: grossRevenue,
+            totalGrossMarginValue: grossProfit,
+            totalNetMarginValue: operatingProfit,
+            totalCostPrice: totalCPV,
+            overallGrossMarginPercent: grossMarginPercent,
+            overallNetMarginPercent: netMarginPercent,
+            pendingFiado
         };
-    }, [vendas])
+    }, [vendas, dashboardData])
 
     // --- TREND ANALYTICS (Últimos 7 dias) ---
     const weeklyData = useMemo(() => {
@@ -194,15 +284,27 @@ export function Dashboard() {
                 </div>
             </motion.div>
 
-            {/* 2. FINANCIAL SCOREBOARD */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {/* 2. FINANCIAL SCOREBOARD - DRE GERENCIAL */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 {[
-                    { label: 'Total de Vendas', value: financialMetrics.totalSales, icon: DollarSign, color: 'blue', description: 'Valor cobrado dos clientes' },
-                    { label: 'Custos dos Produtos', value: financialMetrics.totalCostPrice, icon: Package, color: 'amber', description: 'Custo total dos produtos vendidos' },
-                    { label: 'Margem Bruta (R$)', value: financialMetrics.totalGrossMarginValue, icon: ArrowUpRight, color: 'green', description: 'Lucro bruto em reais', isPercentage: false },
-                    { label: 'Margem Bruta (%)', value: financialMetrics.overallGrossMarginPercent, icon: ArrowUpRight, color: 'emerald', description: 'Lucro bruto sobre receita', isPercentage: true },
-                    { label: 'Margem Líquida (R$)', value: financialMetrics.totalNetMarginValue, icon: Target, color: 'purple', description: 'Lucro líquido em reais', isPercentage: false },
-                    { label: 'Margem Líquida (%)', value: financialMetrics.overallNetMarginPercent, icon: Target, color: 'indigo', description: 'Lucro líquido sobre receita', isPercentage: true }
+                    // Receita
+                    { label: 'Receita Bruta', value: financialMetrics.grossRevenue, icon: DollarSign, color: 'blue', description: 'Vendas pagas' },
+                    { label: 'Receita Líquida', value: financialMetrics.netRevenue, icon: DollarSign, color: 'cyan', description: 'Após taxas' },
+                    { label: 'Ticket Médio', value: financialMetrics.averageTicket, icon: ShoppingBag, color: 'sky', description: `${financialMetrics.totalPaidSales} vendas pagas` },
+
+                    // Custos e Margens
+                    { label: 'CPV', value: financialMetrics.totalCPV, icon: Package, color: 'amber', description: 'Custo produtos vendidos' },
+                    { label: 'Lucro Bruto', value: financialMetrics.grossProfit, icon: ArrowUpRight, color: 'green', description: 'Receita - CPV' },
+                    { label: 'Margem Bruta', value: financialMetrics.grossMarginPercent, icon: TrendingUp, color: 'emerald', description: (financialMetrics.grossMarginPercent).toFixed(1) + '%', isPercentage: true },
+
+                    // Taxas e Descontos
+                    { label: 'Taxas Pagto', value: financialMetrics.totalFees, icon: CreditCard, color: 'orange', description: (financialMetrics.feePercent).toFixed(1) + '% da receita' },
+                    { label: 'Descontos', value: financialMetrics.totalDiscounts, icon: ArrowDownRight, color: 'red', description: 'Cupons e ajustes' },
+
+                    // Despesas e Lucro
+                    { label: 'Despesas Fixas', value: financialMetrics.monthlyExpenses, icon: Calendar, color: 'slate', description: 'Mensalizadas' },
+                    { label: 'Lucro Operacional', value: financialMetrics.operatingProfit, icon: Target, color: 'purple', description: 'Lucro Bruto - Despesas' },
+                    { label: 'Margem Líquida', value: financialMetrics.netMarginPercent, icon: TrendingUp, color: 'indigo', description: (financialMetrics.netMarginPercent).toFixed(1) + '%', isPercentage: true }
                 ].map((stat, i) => (
                     <motion.div
                         key={i}
@@ -218,10 +320,14 @@ export function Dashboard() {
                                 <div className={cn(
                                     "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
                                     stat.color === 'blue' ? "bg-blue-100 text-blue-600" :
+                                    stat.color === 'cyan' ? "bg-cyan-100 text-cyan-600" :
+                                    stat.color === 'sky' ? "bg-sky-100 text-sky-600" :
                                     stat.color === 'amber' ? "bg-amber-100 text-amber-600" :
                                     stat.color === 'emerald' ? "bg-emerald-100 text-emerald-600" :
                                     stat.color === 'purple' ? "bg-purple-100 text-purple-600" :
                                     stat.color === 'indigo' ? "bg-indigo-100 text-indigo-600" :
+                                    stat.color === 'orange' ? "bg-orange-100 text-orange-600" :
+                                    stat.color === 'slate' ? "bg-slate-100 text-slate-600" :
                                     stat.color === 'green' ? "bg-green-100 text-green-600" :
                                     "bg-red-100 text-red-600"
                                 )}>
@@ -241,8 +347,9 @@ export function Dashboard() {
                 ))}
             </div>
 
-            {/* Crediário Pendente Card - Separated for visibility */}
+            {/* CASH FLOW & RISK INDICATORS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                {/* Fluxo de Caixa - Recebido */}
                 <motion.div
                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -253,21 +360,104 @@ export function Dashboard() {
                     <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                     <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
                         <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                <ArrowDownRight className="w-6 h-6 md:w-7 md:h-7" />
+                            </div>
+                        </div>
+                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Valores Recebidos</p>
+                        <h3 className="text-2xl md:text-3xl font-display font-bold text-emerald-600 mb-3 leading-tight">
+                            R$ {(financialMetrics.receivedAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium">Caixa efetivo</p>
+                    </div>
+                </motion.div>
+
+                {/* Fluxo de Caixa - A Receber */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    transition={{ delay: 0.56, duration: 0.4 }}
+                    className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                    <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-4">
                             <div className={cn(
-                                "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
-                                financialMetrics.pendingCrediario > 0 ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"
+                                "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center",
+                                financialMetrics.toReceiveAmount > 0 ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"
                             )}>
                                 <Clock className="w-6 h-6 md:w-7 md:h-7" />
                             </div>
                         </div>
-                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Crediário Pendente</p>
+                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Valores a Receber</p>
                         <h3 className={cn(
                             "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
-                            financialMetrics.pendingCrediario > 0 ? "text-red-600" : "text-emerald-600"
+                            financialMetrics.toReceiveAmount > 0 ? "text-amber-600" : "text-green-600"
                         )}>
-                            R$ {(financialMetrics.pendingCrediario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {(financialMetrics.toReceiveAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </h3>
-                        <p className="text-xs text-gray-500 font-medium">Valores a receber de clientes</p>
+                        <p className="text-xs text-gray-500 font-medium">Parcelas pendentes</p>
+                    </div>
+                </motion.div>
+
+                {/* Inadimplência */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    transition={{ delay: 0.64, duration: 0.4 }}
+                    className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                    <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className={cn(
+                                "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center",
+                                financialMetrics.overdueAmount > 0 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+                            )}>
+                                <AlertTriangle className="w-6 h-6 md:w-7 md:h-7" />
+                            </div>
+                        </div>
+                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Inadimplência</p>
+                        <h3 className={cn(
+                            "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
+                            financialMetrics.overdueAmount > 0 ? "text-red-600" : "text-green-600"
+                        )}>
+                            {(financialMetrics.defaultPercent || 0).toFixed(1)}%
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium">
+                            {financialMetrics.overdueCount > 0 ? `${financialMetrics.overdueCount} parcelas atrasadas` : 'Nenhuma parcela vencida'}
+                        </p>
+                    </div>
+                </motion.div>
+
+                {/* Crediário Pendente (legacy) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    transition={{ delay: 0.72, duration: 0.4 }}
+                    className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                    <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className={cn(
+                                "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
+                                financialMetrics.pendingFiado > 0 ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"
+                            )}>
+                                <CreditCard className="w-6 h-6 md:w-7 md:h-7" />
+                            </div>
+                        </div>
+                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Fiado Pendente</p>
+                        <h3 className={cn(
+                            "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
+                            financialMetrics.pendingFiado > 0 ? "text-red-600" : "text-emerald-600"
+                        )}>
+                            R$ {(financialMetrics.pendingFiado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium">Vendas não pagas</p>
                     </div>
                 </motion.div>
             </div>

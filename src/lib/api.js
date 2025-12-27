@@ -1876,3 +1876,63 @@ export async function getOpenInstallmentSales(page = 1, limit = 30) {
         throw err;
     }
 }
+
+
+// ==================== DASHBOARD ANALYTICS ====================
+
+/**
+ * Obter métricas financeiras completas para DRE gerencial
+ * @returns {Object} Métricas de receita, custos, despesas, lucro
+ */
+export async function getDashboardMetrics() {
+    console.log('📊 API: Buscando métricas do dashboard...');
+
+    try {
+        // 1. VENDAS (apenas pagas)
+        const { data: vendasData, error: vendasError } = await supabase
+            .from('vendas')
+            .select('*, customers(id, name)')
+            .eq('payment_status', 'paid')
+            .order('created_at', { ascending: false });
+
+        if (vendasError) throw vendasError;
+
+        // 2. DESPESAS FIXAS
+        const { data: expensesData, error: expensesError } = await supabase
+            .from('fixed_expenses')
+            .select('*')
+            .eq('paid', true);
+
+        if (expensesError) throw expensesError;
+
+        // 3. CUPONS APLICADOS
+        const { data: couponsData, error: couponsError } = await supabase
+            .from('coupons')
+            .select('*')
+            .eq('is_active', true);
+
+        if (couponsError) throw couponsError;
+
+        // 4. INSTALLMENTS (para análise de fluxo de caixa)
+        const { data: installmentsData, error: installmentsError } = await supabase
+            .from('installments')
+            .select('*, installment_payments(*)');
+
+        if (installmentsError) throw installmentsError;
+
+        const camelVendas = vendasData.map(toCamelCase);
+        const camelExpenses = expensesData.map(toCamelCase);
+        const camelCoupons = couponsData.map(toCamelCase);
+        const camelInstallments = installmentsData.map(toCamelCase);
+
+        return {
+            vendas: camelVendas,
+            expenses: camelExpenses,
+            coupons: camelCoupons,
+            installments: camelInstallments
+        };
+    } catch (err) {
+        console.error('❌ Erro ao buscar métricas do dashboard:', err);
+        throw err;
+    }
+}

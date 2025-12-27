@@ -23,26 +23,21 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
 
 export function Dashboard() {
-    const {
-        products,
-        orders,
-        customers,
-        vendas,
-        reloadAll,
-        vendasLoading
-    } = useAdminStore()
+    const vendas = useAdminStore(state => state.vendas)
+    const vendasLoading = useAdminStore(state => state.vendasLoading)
+    const reloadAll = useAdminStore(state => state.reloadAll)
 
     const [currentTime, setCurrentTime] = useState(new Date())
 
     useEffect(() => {
         // Carregar dados apenas uma vez quando componente monta
-        // Se dados já existem, não recarregar (usar cache do Zustand)
-        if (!products.length || !orders.length || !customers.length || !vendas.length) {
+        // Dashboard apenas precisa de vendas para suas métricas
+        if (!vendas.length) {
             reloadAll()
         }
         const timer = setInterval(() => setCurrentTime(new Date()), 60000)
         return () => clearInterval(timer)
-    }, [])
+    }, [reloadAll, vendas])
 
     // --- CÁLCULOS FINANCEIROS ---
     const financialMetrics = useMemo(() => {
@@ -140,11 +135,7 @@ export function Dashboard() {
         return Object.values(productSales)
             .sort((a, b) => b.revenue - a.revenue)
             .slice(0, 4)
-            .map(p => {
-                const productInfo = products.find(prod => prod.id === p.productId)
-                return { ...p, image: productInfo?.variants?.[0]?.images?.[0] }
-            })
-    }, [vendas, products])
+    }, [vendas])
 
     const greetings = () => {
         const hour = currentTime.getHours()

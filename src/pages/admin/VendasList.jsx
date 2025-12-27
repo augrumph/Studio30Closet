@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
@@ -14,13 +14,16 @@ export function VendasList() {
     const [searchTerm, setSearchTerm] = useState('')
     const [filterType, setFilterType] = useState('all')
     const [filterPaymentStatus, setFilterPaymentStatus] = useState('all') // Novo filtro
+    const [currentPage, setCurrentPage] = useState(1)
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, vendaId: null, customerName: '' })
+
+    const itemsPerPage = 10
 
     useEffect(() => {
         loadVendas()
     }, [loadVendas])
 
-    const filteredVendas = vendas.filter(venda => {
+    const filteredVendas = useMemo(() => vendas.filter(venda => {
         const matchesSearch = (venda.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
         const matchesType = filterType === 'all' || venda.paymentMethod === filterType
         const matchesPaymentStatus =
@@ -28,30 +31,45 @@ export function VendasList() {
             (filterPaymentStatus === 'pending' && venda.paymentStatus === 'pending') ||
             (filterPaymentStatus === 'paid' && venda.paymentStatus === 'paid')
         return matchesSearch && matchesType && matchesPaymentStatus
-    })
+    }), [vendas, searchTerm, filterType, filterPaymentStatus])
 
-    // DEBUG: Ver estrutura das vendas
+    // Paginação: Calcular vendas da página atual
+    const totalPages = Math.ceil(filteredVendas.length / itemsPerPage)
+    const paginatedVendas = useMemo(() => {
+        const startIdx = (currentPage - 1) * itemsPerPage
+        const endIdx = startIdx + itemsPerPage
+        return filteredVendas.slice(startIdx, endIdx)
+    }, [filteredVendas, currentPage, itemsPerPage])
+
+    // Reset page quando filtros mudam
     useEffect(() => {
-        if (vendas.length > 0) {
-            console.log('=== DEBUG VENDAS ===')
-            console.log('Total de vendas:', vendas.length)
-            console.log('Primeira venda:', vendas[0])
-            console.log('Vendas com fiado:', vendas.filter(v => v.paymentMethod === 'fiado'))
-            console.log('Vendas pending:', vendas.filter(v => v.paymentStatus === 'pending'))
-        }
-    }, [vendas])
+        setCurrentPage(1)
+    }, [searchTerm, filterType, filterPaymentStatus])
+
 
     // Usar TODAS as vendas para os cards de métricas (não filtradas)
-    const totalRevenue = vendas.reduce((acc, curr) => acc + curr.totalValue, 0)
-    const pendingFiado = vendas
-        .filter(v => v.paymentMethod === 'fiado' && v.paymentStatus === 'pending')
-        .reduce((acc, curr) => acc + curr.totalValue, 0)
+    // Otimizado: única passagem para calcular todas as métricas
+    const metrics = useMemo(() => {
+        let totalRevenue = 0
+        let pendingFiado = 0
+        let totalDevedores = 0
+        let valorDevedores = 0
 
-    // Calcular total de devedores (qualquer método com status pendente)
-    const totalDevedores = vendas.filter(v => v.paymentStatus === 'pending').length
-    const valorDevedores = vendas
-        .filter(v => v.paymentStatus === 'pending')
-        .reduce((acc, curr) => acc + curr.totalValue, 0)
+        vendas.forEach(v => {
+            totalRevenue += v.totalValue || 0
+
+            if (v.paymentStatus === 'pending') {
+                totalDevedores += 1
+                valorDevedores += v.totalValue || 0
+
+                if (v.paymentMethod === 'fiado') {
+                    pendingFiado += v.totalValue || 0
+                }
+            }
+        })
+
+        return { totalRevenue, pendingFiado, totalDevedores, valorDevedores }
+    }, [vendas])
 
     const paymentMethods = {
         pix: { label: 'PIX', color: 'bg-emerald-100 text-emerald-700' },
@@ -116,7 +134,7 @@ export function VendasList() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            R$ {(totalRevenue || 0).toLocaleString('pt-BR')}
+                            R$ {(metrics.totalRevenue || 0).toLocaleString('pt-BR')}
                             <p className="text-xs text-emerald-600 font-medium mt-1">+12% em relação ao mês anterior</p>
                         </CardContent>
                     </Card>
@@ -132,7 +150,7 @@ export function VendasList() {
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-baseline gap-1 text-3xl font-display font-bold text-[#4A3B32]">
-                                R$ {(pendingFiado || 0).toLocaleString('pt-BR')}
+                                R$ {(metrics.pendingFiado || 0).toLocaleString('pt-BR')}
                             </div>
                             <p className="text-xs text-amber-600 font-medium mt-1">Aguardando liquidação</p>
                         </CardContent>
@@ -166,19 +184,19 @@ export function VendasList() {
                                     <div className="p-2 bg-red-100 rounded-xl"><CreditCard className="w-5 h-5 text-red-600" /></div>
                                     <span className="text-xs font-bold text-red-600 uppercase tracking-widest">⚠️ Devedores</span>
                                 </div>
-                                {totalDevedores > 0 && (
+                                {metrics.totalDevedores > 0 && (
                                     <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
-                                        {totalDevedores}
+                                        {metrics.totalDevedores}
                                     </span>
                                 )}
                             </div>
                         </CardHeader>
                         <CardContent>
                             <div className="text-3xl font-display font-bold text-red-600">
-                                R$ {(valorDevedores || 0).toLocaleString('pt-BR')}
+                                R$ {(metrics.valorDevedores || 0).toLocaleString('pt-BR')}
                             </div>
                             <p className="text-xs text-red-500 font-medium mt-1">
-                                {totalDevedores} {totalDevedores === 1 ? 'venda pendente' : 'vendas pendentes'}
+                                {metrics.totalDevedores} {metrics.totalDevedores === 1 ? 'venda pendente' : 'vendas pendentes'}
                             </p>
                         </CardContent>
                     </Card>
@@ -276,13 +294,13 @@ export function VendasList() {
                             <AnimatePresence>
                                 {vendasLoading ? (
                                     <tr><td colSpan="6" className="py-24 text-center text-gray-300 italic font-medium">Sincronizando registros da Studio 30...</td></tr>
-                                ) : filteredVendas.length > 0 ? (
-                                    filteredVendas.map((venda, idx) => (
+                                ) : paginatedVendas.length > 0 ? (
+                                    paginatedVendas.map((venda, idx) => (
                                         <motion.tr
                                             key={venda.id}
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
-                                            transition={{ delay: idx * 0.05 }}
+                                            transition={{ duration: 0.3 }}
                                             className="hover:bg-[#FDFBF7]/40 transition-colors group cursor-default"
                                         >
                                             <td className="px-8 py-6">
@@ -365,10 +383,25 @@ export function VendasList() {
                 </div>
 
                 <CardFooter className="bg-[#FAF8F5]/30 border-t border-gray-50 flex justify-between p-6">
-                    <p className="text-xs text-gray-400 font-medium">Exibindo {filteredVendas.length} de {vendas.length} registros</p>
+                    <p className="text-xs text-gray-400 font-medium">
+                        Exibindo {paginatedVendas.length} de {filteredVendas.length} filtrados (Total: {vendas.length})
+                        {totalPages > 1 && ` • Página ${currentPage} de ${totalPages}`}
+                    </p>
                     <div className="flex gap-2">
-                        <button className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-[10px] font-bold text-gray-400 disabled:opacity-50" disabled>Anterior</button>
-                        <button className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-[10px] font-bold text-gray-400 disabled:opacity-50" disabled>Próxima</button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-[10px] font-bold text-gray-700 hover:text-[#4A3B32] hover:border-[#4A3B32] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Anterior
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                            className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-[10px] font-bold text-gray-700 hover:text-[#4A3B32] hover:border-[#4A3B32] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Próxima
+                        </button>
                     </div>
                 </CardFooter>
             </Card>

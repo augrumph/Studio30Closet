@@ -91,16 +91,15 @@ export async function getProducts(page = 1, pageSize = 20) {
     };
 }
 
-// ⚡ Catálogo: Carregar todos os produtos com variantes e múltiplas imagens
+// ⚡ Catálogo: Carregar todos os produtos
 export async function getAllProducts() {
     const startTime = performance.now();
-    console.log('📡 [Catálogo] Carregando produtos com variantes...');
+    console.log('📡 [Catálogo] Carregando todos os produtos...');
 
     const queryStart = performance.now();
     const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('active', true)
         .order('created_at', { ascending: false });
 
     const queryTime = (performance.now() - queryStart).toFixed(0);
@@ -110,14 +109,14 @@ export async function getAllProducts() {
         throw error;
     }
 
-    console.log(`⏱️  [Catálogo] Query Supabase: ${queryTime}ms (${data?.length} produtos)`);
+    console.log(`⏱️  [Catálogo] Query Supabase: ${queryTime}ms (${data?.length} produtos encontrados)`);
 
     // Converter para camelCase
     const convertStart = performance.now();
     const result = data
         .map(product => {
             const camel = toCamelCase(product);
-            // Garantir que variants é um array
+            // Garantir que variants é um array (se existir na tabela)
             if (!camel.variants) {
                 camel.variants = [];
             }
@@ -129,7 +128,7 @@ export async function getAllProducts() {
     console.log(`⏱️  [Catálogo] Processamento: ${convertTime}ms`);
 
     const totalTime = (performance.now() - startTime).toFixed(0);
-    console.log(`✅ [Catálogo] Total: ${totalTime}ms (${result.length} produtos com variantes completas)`);
+    console.log(`✅ [Catálogo] Total: ${totalTime}ms (${result.length} produtos carregados)`);
 
     return result;
 }

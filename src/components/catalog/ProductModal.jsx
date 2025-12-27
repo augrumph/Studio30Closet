@@ -4,6 +4,7 @@ import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
+import { triggerConfetti } from '@/components/magicui/confetti'
 
 export function ProductModal({ product, isOpen, onClose }) {
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0)
@@ -138,6 +139,8 @@ export function ProductModal({ product, isOpen, onClose }) {
             addItem(productWithColor, selectedSize)
             setIsAdding(false)
             setIsAdded(true)
+            // Trigger confetti when product is added to malinha
+            triggerConfetti({ particleCount: 50, spread: 60 })
             setTimeout(() => {
                 setIsAdded(false)
                 onClose()

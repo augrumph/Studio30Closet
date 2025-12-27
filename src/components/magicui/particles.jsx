@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { cn } from "@/lib/utils"
 
 export function Particles({
@@ -17,6 +17,10 @@ export function Particles({
   const circles = useRef([])
   const canvasSize = useRef({ w: 0, h: 0 })
   const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1
+
+  // ✅ OTIMIZAÇÃO: Throttle para mouse move (evita cálculos em cada frame)
+  const lastMouseMove = useRef(0)
+  const throttleDelay = 16 // ~60fps
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -40,7 +44,13 @@ export function Particles({
     drawParticles()
   }
 
-  const onMouseMove = (e) => {
+  // ✅ OTIMIZAÇÃO: Throttle onMouseMove para evitar cálculos excessivos
+  const onMouseMove = useCallback((e) => {
+    const now = Date.now()
+    if (now - lastMouseMove.current < throttleDelay) return
+
+    lastMouseMove.current = now
+
     if (canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect()
       const x = e.clientX - rect.left
@@ -60,7 +70,7 @@ export function Particles({
         }
       })
     }
-  }
+  }, [throttleDelay])
 
   const resizeCanvas = () => {
     if (canvasContainerRef.current && canvasRef.current && context.current) {

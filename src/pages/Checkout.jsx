@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Heart, Truck, Gift, Loader } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
@@ -120,36 +120,40 @@ export function Checkout() {
         })
     }, [step])
 
-    const itemSummary = items.reduce((acc, item) => {
-        // Buscar dados do produto usando o productId
-        const product = productsData[item.productId] || {};
+    // ✅ OTIMIZAÇÃO: Memoizar itemSummary para evitar recálculo em cada render
+    const itemSummary = useMemo(() => {
+        return items.reduce((acc, item) => {
+            // Buscar dados do produto usando o productId
+            const product = productsData[item.productId] || {};
 
-        const key = `${product.name || 'Produto'}-${item.selectedSize}`; // Group by name and size
-        if (acc[key]) {
-            acc[key].count += 1;
-            acc[key].itemIds.push(item.itemId);
-        } else {
-            acc[key] = {
-                // Usar dados do produto + dados do item
-                id: item.productId,
-                productId: item.productId,
-                itemId: item.itemId,
-                name: product.name || 'Produto indisponível',
-                price: product.price || 0,
-                costPrice: product.costPrice || 0,
-                images: product.images || [],
-                image: product.images?.[0] || 'https://via.placeholder.com/300x400?text=Produto',
-                description: product.description || '',
-                color: product.color || '',
-                category: product.category || '',
-                selectedSize: item.selectedSize,
-                count: 1,
-                itemIds: [item.itemId],
-            };
-        }
-        return acc;
-    }, {});
-    const groupedItems = Object.values(itemSummary);
+            const key = `${product.name || 'Produto'}-${item.selectedSize}`; // Group by name and size
+            if (acc[key]) {
+                acc[key].count += 1;
+                acc[key].itemIds.push(item.itemId);
+            } else {
+                acc[key] = {
+                    // Usar dados do produto + dados do item
+                    id: item.productId,
+                    productId: item.productId,
+                    itemId: item.itemId,
+                    name: product.name || 'Produto indisponível',
+                    price: product.price || 0,
+                    costPrice: product.costPrice || 0,
+                    images: product.images || [],
+                    image: product.images?.[0] || 'https://via.placeholder.com/300x400?text=Produto',
+                    description: product.description || '',
+                    color: product.color || '',
+                    category: product.category || '',
+                    selectedSize: item.selectedSize,
+                    count: 1,
+                    itemIds: [item.itemId],
+                };
+            }
+            return acc;
+        }, {});
+    }, [items, productsData]);
+
+    const groupedItems = useMemo(() => Object.values(itemSummary), [itemSummary]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target

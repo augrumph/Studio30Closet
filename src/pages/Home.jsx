@@ -26,38 +26,38 @@ export function Home() {
 
     // Process Instagram embeds with better error handling
     useEffect(() => {
+        // ✅ OTIMIZAÇÃO: Remover triple setTimeout (causava delays e memory leaks)
+        // Apenas processar uma vez quando o script carrega
         const processInstagramEmbeds = () => {
             try {
                 if (window.instgrm && window.instgrm.Embeds) {
                     window.instgrm.Embeds.process();
-                } else {
-                    // Load Instagram embed script if not present
-                    if (!document.getElementById('instagram-embed-script')) {
-                        const script = document.createElement('script');
-                        script.id = 'instagram-embed-script';
-                        script.src = "https://www.instagram.com/embed.js";
-                        script.async = true;
-                        document.body.appendChild(script);
-                        script.onload = () => {
-                            if (window.instgrm && window.instgrm.Embeds) {
-                                window.instgrm.Embeds.process();
-                            }
-                        };
-                    }
                 }
             } catch (error) {
-                console.log('Instagram embed loading...');
+                console.log('Instagram embed processing...');
             }
         };
 
-        // Process immediately and also on a delay for dynamically loaded content
-        const timers = [
-            setTimeout(processInstagramEmbeds, 100),
-            setTimeout(processInstagramEmbeds, 500),
-            setTimeout(processInstagramEmbeds, 1500)
-        ];
+        // Se script já está carregado, processar imediatamente
+        if (window.instgrm && window.instgrm.Embeds) {
+            processInstagramEmbeds();
+            return;
+        }
 
-        return () => timers.forEach(timer => clearTimeout(timer));
+        // Caso contrário, carregar script
+        if (!document.getElementById('instagram-embed-script')) {
+            const script = document.createElement('script');
+            script.id = 'instagram-embed-script';
+            script.src = "https://www.instagram.com/embed.js";
+            script.async = true;
+            script.onload = processInstagramEmbeds;
+            document.body.appendChild(script);
+
+            // Cleanup: remover listener se componente desmontar durante carregamento
+            return () => {
+                script.removeEventListener('load', processInstagramEmbeds);
+            };
+        }
     }, []);
 
     // Filtrar produtos em destaque que tenham o campo isFeatured como true

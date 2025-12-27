@@ -118,9 +118,11 @@ export function Catalog() {
         setPage(1)
     }, [selectedCategory, selectedSizes, searchQuery])
 
-    // Scroll to top when page changes
+    // ✅ OTIMIZAÇÃO: Scroll suave apenas em Safari é lento - usar auto
+    // E scrollar apenas quando paginação muda, não quando filtros mudam
     useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
+        // Usar 'auto' para evitar layout thrashing no Safari
+        window.scrollTo({ top: 0, behavior: 'auto' })
     }, [page])
 
     return (

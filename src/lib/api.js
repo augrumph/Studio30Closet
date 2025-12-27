@@ -79,9 +79,9 @@ export async function getProducts(page = 1, pageSize = 20) {
     return {
         products: data.map(product => {
             const camelProduct = toCamelCase(product);
-            // Otimizar imagens: manter apenas a primeira imagem para lista
-            if (camelProduct.images && Array.isArray(camelProduct.images)) {
-                camelProduct.images = [camelProduct.images[0]].filter(Boolean);
+            // Garantir que variants é um array
+            if (!camelProduct.variants) {
+                camelProduct.variants = [];
             }
             return camelProduct;
         }),
@@ -91,15 +91,18 @@ export async function getProducts(page = 1, pageSize = 20) {
     };
 }
 
-// ⚡ Catálogo: Usar RPC com função PostgreSQL otimizada
-// Função retorna apenas primeira imagem = MUITO mais rápido
+// ⚡ Catálogo: Carregar todos os produtos com variantes e múltiplas imagens
 export async function getAllProducts() {
     const startTime = performance.now();
-    console.log('📡 [Catálogo] Carregando produtos via RPC...');
+    console.log('📡 [Catálogo] Carregando produtos com variantes...');
 
-    // Usar RPC para chamar função otimizada no banco
     const queryStart = performance.now();
-    const { data, error } = await supabase.rpc('get_products_catalog');
+    const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('active', true)
+        .order('created_at', { ascending: false });
+
     const queryTime = (performance.now() - queryStart).toFixed(0);
 
     if (error) {
@@ -109,17 +112,24 @@ export async function getAllProducts() {
 
     console.log(`⏱️  [Catálogo] Query Supabase: ${queryTime}ms (${data?.length} produtos)`);
 
-    // Converter para camelCase (já tem apenas primeira imagem do PostgreSQL)
+    // Converter para camelCase
     const convertStart = performance.now();
     const result = data
-        .map(product => toCamelCase(product))
+        .map(product => {
+            const camel = toCamelCase(product);
+            // Garantir que variants é um array
+            if (!camel.variants) {
+                camel.variants = [];
+            }
+            return camel;
+        })
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const convertTime = (performance.now() - convertStart).toFixed(0);
 
     console.log(`⏱️  [Catálogo] Processamento: ${convertTime}ms`);
 
     const totalTime = (performance.now() - startTime).toFixed(0);
-    console.log(`✅ [Catálogo] Total: ${totalTime}ms (${result.length} produtos com primeira imagem)`);
+    console.log(`✅ [Catálogo] Total: ${totalTime}ms (${result.length} produtos com variantes completas)`);
 
     return result;
 }

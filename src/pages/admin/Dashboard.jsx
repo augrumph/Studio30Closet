@@ -27,6 +27,7 @@ import { getDashboardMetrics } from '@/lib/api'
 
 export function Dashboard() {
     const vendas = useAdminStore(state => state.vendas)
+    const customers = useAdminStore(state => state.customers)
     const vendasLoading = useAdminStore(state => state.vendasLoading)
     const reloadAll = useAdminStore(state => state.reloadAll)
 
@@ -657,18 +658,18 @@ export function Dashboard() {
                                 <Users className="w-8 h-8 md:w-10 md:h-10 text-emerald-600" />
                             </div>
                             <div>
-                                <h4 className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32]">{customers.length}</h4>
+                                <h4 className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32]">{customers?.length || 0}</h4>
                                 <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Clientes na Base</p>
                             </div>
                             <div className="flex -space-x-3">
-                                {customers.slice(0, 5).map((c, i) => (
+                                {customers?.slice(0, 5).map((c, i) => (
                                     <div key={i} className="w-12 h-12 rounded-full border-4 border-white bg-[#FDF0ED] flex items-center justify-center text-[#C75D3B] font-bold text-sm shadow-sm">
                                         {c.name.charAt(0)}
                                     </div>
                                 ))}
-                                {customers.length > 5 && (
+                                {(customers?.length || 0) > 5 && (
                                     <div className="w-12 h-12 rounded-full border-4 border-white bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-xs">
-                                        +{customers.length - 5}
+                                        +{(customers?.length || 0) - 5}
                                     </div>
                                 )}
                             </div>

@@ -166,7 +166,7 @@ export function About() {
                         </h2>
 
                         <p className="text-xl text-[#4A3B32]/70 leading-relaxed">
-                            Monte sua primeira malinha e descubra por que centenas de mulheres já se apaixonaram pela nossa forma de fazer moda.
+                            Monte sua primeira malinha e descubra por que essa experiência vale a pena.
                         </p>
 
                         <div className="pt-4">

@@ -679,16 +679,41 @@ export function VendasForm() {
                                             </div>
                                         </div>
 
-                                        {/* Taxa da Máquina - Automática baseada na bandeira */}
-                                        {formData.paymentMethod === 'card_machine' && paymentFee && (
-                                            <div className="bg-white/50 p-3 rounded-lg border border-[#C75D3B]/20">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-sm font-medium text-[#4A3B32]">Taxa {formData.cardBrand?.toUpperCase()}:</span>
-                                                    <span className="text-lg font-bold text-[#C75D3B]">{paymentFee.feePercentage}%</span>
+                                        {/* Cartão na Máquina - Taxa e Parcelamento */}
+                                        {formData.paymentMethod === 'card_machine' && (
+                                            <div className="space-y-4">
+                                                {/* Taxa automática */}
+                                                {paymentFee && (
+                                                    <div className="bg-white/50 p-3 rounded-lg border border-[#C75D3B]/20">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-sm font-medium text-[#4A3B32]">Taxa {formData.cardBrand?.toUpperCase()}:</span>
+                                                            <span className="text-lg font-bold text-[#C75D3B]">{paymentFee.feePercentage}%</span>
+                                                        </div>
+                                                        <p className="mt-2 text-[10px] text-[#4A3B32]/50">
+                                                            Valor cobrado: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) * (paymentFee.feePercentage || 0) / 100).toFixed(2)}</span>
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {/* Parcelamento do Cartão */}
+                                                <div>
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Parcelado em Quantas Vezes?</label>
+                                                    <select
+                                                        value={parcelas}
+                                                        onChange={(e) => setParcelas(Number(e.target.value))}
+                                                        className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
+                                                    >
+                                                        <option value={1}>À Vista</option>
+                                                        {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                                                            <option key={n} value={n}>{n}x</option>
+                                                        ))}
+                                                    </select>
+                                                    {parcelas > 1 && (
+                                                        <p className="mt-1 text-[10px] text-[#4A3B32]/50">
+                                                            Valor de cada parcela: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) / parcelas).toFixed(2)}</span>
+                                                        </p>
+                                                    )}
                                                 </div>
-                                                <p className="mt-2 text-[10px] text-[#4A3B32]/50">
-                                                    Valor cobrado: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) * (paymentFee.feePercentage || 0) / 100).toFixed(2)}</span>
-                                                </p>
                                             </div>
                                         )}
                                     </motion.div>
@@ -863,14 +888,14 @@ export function VendasForm() {
                                     </div>
 
                                     {/* Parcelamento */}
-                                    {isInstallment && (
+                                    {(isInstallment || (formData.paymentMethod === 'card_machine' && parcelas > 1)) && (
                                         <motion.div
                                             initial={{ opacity: 0, y: -10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             className="flex justify-between items-center text-[#C75D3B] text-sm pt-2"
                                         >
                                             <span className="font-medium">Parcelado em {parcelas}x</span>
-                                            <span className="font-bold">R$ {(((formData.totalValue || 0) - (formData.discountAmount || 0) - entryPayment) / parcelas).toFixed(2)}</span>
+                                            <span className="font-bold">R$ {(((formData.totalValue || 0) - (formData.discountAmount || 0) - (isInstallment ? entryPayment : 0)) / parcelas).toFixed(2)}</span>
                                         </motion.div>
                                     )}
 

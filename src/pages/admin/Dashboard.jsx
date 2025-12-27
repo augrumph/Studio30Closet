@@ -35,10 +35,14 @@ export function Dashboard() {
     const [currentTime, setCurrentTime] = useState(new Date())
 
     useEffect(() => {
-        reloadAll()
+        // Carregar dados apenas uma vez quando componente monta
+        // Se dados já existem, não recarregar (usar cache do Zustand)
+        if (!products.length || !orders.length || !customers.length || !vendas.length) {
+            reloadAll()
+        }
         const timer = setInterval(() => setCurrentTime(new Date()), 60000)
         return () => clearInterval(timer)
-    }, [reloadAll])
+    }, [])
 
     // --- CÁLCULOS FINANCEIROS ---
     const financialMetrics = useMemo(() => {

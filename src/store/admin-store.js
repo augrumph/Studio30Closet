@@ -165,11 +165,14 @@ export const useAdminStore = create((set, get) => ({
 
     // ==================== PEDIDOS ====================
 
-    loadOrders: async () => {
+    loadOrders: async (page = 1) => {
         set({ ordersLoading: true, ordersError: null })
         try {
-            const orders = await getOrders()
-            set({ orders, ordersLoading: false })
+            console.log(`⏳ Carregando pedidos (página ${page})...`);
+            const result = await getOrders(page, 30)
+            const orders = result.orders.sort((a, b) => b.id - a.id)
+            set({ orders, ordersLoading: false, ordersTotal: result.total, ordersPage: page })
+            console.log(`✅ ${orders.length} pedidos carregados`);
         } catch (error) {
             set({ ordersError: error.message, ordersLoading: false })
         }
@@ -308,9 +311,8 @@ export const useAdminStore = create((set, get) => ({
                 ordersLoading: false
             }))
 
-            // 7. Sincronizar estoque
+            // 7. Sincronizar estoque (apenas estoque, clientes não mudam)
             get().loadProducts()
-            get().loadCustomers()
 
             // 8. Consumir embalagem
             const { consumePackaging } = useOperationalCostsStore.getState()
@@ -345,11 +347,14 @@ export const useAdminStore = create((set, get) => ({
 
     // ==================== VENDAS ====================
 
-    loadVendas: async () => {
+    loadVendas: async (page = 1) => {
+        console.log(`⏳ Carregando vendas (página ${page})...`);
         set({ vendasLoading: true, vendasError: null })
         try {
-            const vendas = await getVendas()
-            set({ vendas, vendasLoading: false })
+            const result = await getVendas(page, 30)
+            const vendas = result.vendas.sort((a, b) => b.id - a.id)
+            console.log(`✅ ${vendas.length} vendas carregadas (total: ${result.total})`);
+            set({ vendas, vendasLoading: false, vendasTotal: result.total, vendasPage: page })
         } catch (error) {
             set({ vendasError: error.message, vendasLoading: false })
         }
@@ -363,8 +368,8 @@ export const useAdminStore = create((set, get) => ({
                 vendas: [newVenda, ...state.vendas],
                 vendasLoading: false
             }))
-            get().loadProducts()
-            get().loadCustomers()
+            // Não recarregar tudo - usar optimistic update
+            get().loadProducts() // Apenas estoque muda
 
             // Consumir embalagem do estoque (abater 1 unidade)
             const { consumePackaging } = useOperationalCostsStore.getState()
@@ -388,7 +393,7 @@ export const useAdminStore = create((set, get) => ({
                 ),
                 vendasLoading: false
             }))
-            get().loadProducts()
+            // Não recarregar estoque - apenas vendas mudaram
             return { success: true, venda: updatedVenda }
         } catch (error) {
             const userFriendlyError = formatUserFriendlyError(error);
@@ -405,7 +410,7 @@ export const useAdminStore = create((set, get) => ({
                 vendas: state.vendas.filter(v => v.id !== parseInt(id)),
                 vendasLoading: false
             }))
-            get().loadProducts()
+            // Não recarregar estoque - apenas vendas mudaram
             return { success: true }
         } catch (error) {
             const userFriendlyError = formatUserFriendlyError(error);
@@ -478,15 +483,16 @@ export const useAdminStore = create((set, get) => ({
 
     // ==================== CLIENTES ====================
 
-    loadCustomers: async () => {
-        console.log('Store: Loading customers...');
+    loadCustomers: async (page = 1) => {
+        console.log(`⏳ Carregando clientes (página ${page})...`);
         set({ customersLoading: true, customersError: null })
         try {
-            const customers = await getCustomers()
-            console.log('Store: Loaded customers:', customers);
-            set({ customers, customersLoading: false })
+            const result = await getCustomers(page, 50)
+            const customers = result.customers.sort((a, b) => b.id - a.id)
+            console.log(`✅ ${customers.length} clientes carregados (total: ${result.total})`);
+            set({ customers, customersLoading: false, customersTotal: result.total, customersPage: page })
         } catch (error) {
-            console.error('Store: Error loading customers:', error);
+            console.error('❌ Erro ao carregar clientes:', error);
             set({ customersError: error.message, customersLoading: false })
         }
     },

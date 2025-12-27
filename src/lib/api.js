@@ -97,9 +97,10 @@ export async function getAllProducts() {
     console.log('📡 [Catálogo] Carregando todos os produtos...');
 
     const queryStart = performance.now();
+    // Selecionar apenas campos essenciais para catálogo (sem colunas pesadas)
     const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('id, name, price, original_price, images, brand, category, is_new, is_featured, sizes, color, variants, stock, description')
         .order('created_at', { ascending: false });
 
     const queryTime = (performance.now() - queryStart).toFixed(0);
@@ -121,8 +122,8 @@ export async function getAllProducts() {
                 camel.variants = [];
             }
             return camel;
-        })
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        });
+    // Já vem ordenado do banco (order_by), não precisa fazer sort em JS
     const convertTime = (performance.now() - convertStart).toFixed(0);
 
     console.log(`⏱️  [Catálogo] Processamento: ${convertTime}ms`);
@@ -220,15 +221,26 @@ export async function deleteMultipleProducts(productIds) {
 
 // ==================== CUSTOMERS ====================
 
-export async function getCustomers() {
-    console.log('API: Getting customers...');
-    const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
+export async function getCustomers(page = 1, limit = 50) {
+    console.log(`🔍 API: Getting customers (page ${page}, limit ${limit})...`);
+    const offset = (page - 1) * limit;
+    const { data, error, count } = await supabase
+        .from('customers')
+        .select('id, name, phone, email, cpf, created_at, updated_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
     if (error) {
-        console.error('API Error getting customers:', error);
+        console.error('❌ API Error getting customers:', error);
         throw error;
     }
-    console.log('API: Got customers:', data);
-    return data.map(toCamelCase);
+    console.log(`✅ API: Got ${data?.length || 0} customers (total: ${count})`);
+    return {
+        customers: data.map(toCamelCase),
+        total: count,
+        page,
+        limit
+    };
 }
 
 export async function getCustomerById(id) {
@@ -292,21 +304,34 @@ export async function deleteCustomer(id) {
 
 // ==================== ORDERS ====================
 
-export async function getOrders() {
-    const { data, error } = await supabase
+export async function getOrders(page = 1, limit = 30) {
+    console.log(`🔍 API: Getting orders (page ${page}, limit ${limit})...`);
+    const offset = (page - 1) * limit;
+    const { data, error, count } = await supabase
         .from('orders')
-        .select('*, customers ( * ), order_items (count)')
-        .order('created_at', { ascending: false });
-    if (error) throw error;
+        .select('id, customer_id, status, total_value, created_at, customers(id, name, phone)', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+    if (error) {
+        console.error('❌ API Error getting orders:', error);
+        throw error;
+    }
+
+    console.log(`✅ API: Got ${data?.length || 0} orders (total: ${count})`);
 
     const camelCasedData = data.map(toCamelCase);
 
-    return camelCasedData.map(order => ({
-        ...order,
-        orderNumber: `#${String(order.id).padStart(6, '0')}`,
-        itemsCount: order.orderItems && order.orderItems.length > 0 ? order.orderItems[0].count : 0,
-        customer: order.customers // Mapear customers (plural) para customer (singular)
-    }));
+    return {
+        orders: camelCasedData.map(order => ({
+            ...order,
+            orderNumber: `#${String(order.id).padStart(6, '0')}`,
+            customer: order.customers
+        })),
+        total: count,
+        page,
+        limit
+    };
 }
 
 export async function getOrderById(id) {
@@ -836,19 +861,33 @@ export async function updateOrderSchedule(id, scheduleData) {
 
 // ==================== VENDAS ====================
 
-export async function getVendas() {
-    const { data, error } = await supabase
+export async function getVendas(page = 1, limit = 30) {
+    console.log(`🔍 API: Getting vendas (page ${page}, limit ${limit})...`);
+    const offset = (page - 1) * limit;
+    const { data, error, count } = await supabase
         .from('vendas')
-        .select('*, customers ( name )')
-        .order('created_at', { ascending: false });
-    if (error) throw error;
+        .select('id, customer_id, total_value, payment_method, payment_status, created_at, customers(id, name)', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+    if (error) {
+        console.error('❌ API Error getting vendas:', error);
+        throw error;
+    }
+
+    console.log(`✅ API: Got ${data?.length || 0} vendas (total: ${count})`);
 
     const camelCasedData = data.map(toCamelCase);
 
-    return camelCasedData.map(venda => ({
-        ...venda,
-        customerName: venda.customers ? venda.customers.name : 'Cliente desconhecido',
-    }));
+    return {
+        vendas: camelCasedData.map(venda => ({
+            ...venda,
+            customerName: venda.customers ? venda.customers.name : 'Cliente desconhecido',
+        })),
+        total: count,
+        page,
+        limit
+    };
 }
 
 export async function createVenda(vendaData) {

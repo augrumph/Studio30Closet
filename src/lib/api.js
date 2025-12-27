@@ -100,7 +100,7 @@ export async function getAllProducts() {
     // Selecionar apenas campos essenciais para catálogo (sem colunas pesadas)
     const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, original_price, images, brand, category, is_new, is_featured, sizes, color, variants, stock, description')
+        .select('id, name, price, original_price, images, category, is_new, is_featured, sizes, color, variants, stock, description')
         .order('created_at', { ascending: false });
 
     const queryTime = (performance.now() - queryStart).toFixed(0);

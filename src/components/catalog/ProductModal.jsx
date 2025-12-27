@@ -73,14 +73,14 @@ export function ProductModal({ product, isOpen, onClose }) {
     }
 
     const handleTouchEnd = (e) => {
-        setTouchEndX(e.changedTouches[0].clientX)
-        handleSwipe(e)
+        const touchEnd = e.changedTouches[0].clientX
+        handleSwipe(touchStartX, touchEnd)
     }
 
-    const handleSwipe = (e) => {
-        if (!touchStartX || !touchEndX) return
+    const handleSwipe = (startX, endX) => {
+        if (!startX || !endX) return
 
-        const distance = touchStartX - touchEndX
+        const distance = startX - endX
         const isLeftSwipe = distance > 50 // Swipe para esquerda (próxima imagem)
         const isRightSwipe = distance < -50 // Swipe para direita (imagem anterior)
 

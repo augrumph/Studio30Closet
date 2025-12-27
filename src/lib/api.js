@@ -309,7 +309,7 @@ export async function getOrders(page = 1, limit = 30) {
     const offset = (page - 1) * limit;
     const { data, error, count } = await supabase
         .from('orders')
-        .select('id, customer_id, status, total_value, created_at, customers(id, name, phone)', { count: 'exact' })
+        .select('id, customer_id, status, total_value, created_at', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -322,12 +322,33 @@ export async function getOrders(page = 1, limit = 30) {
 
     const camelCasedData = data.map(toCamelCase);
 
+    // Buscar dados dos clientes para cada pedido
+    const ordersWithCustomers = await Promise.all(
+        camelCasedData.map(async (order) => {
+            let customer = null;
+
+            if (order.customerId) {
+                const { data: customerData } = await supabase
+                    .from('customers')
+                    .select('id, name, phone')
+                    .eq('id', order.customerId)
+                    .single();
+
+                if (customerData) {
+                    customer = toCamelCase(customerData);
+                }
+            }
+
+            return {
+                ...order,
+                orderNumber: `#${String(order.id).padStart(6, '0')}`,
+                customer: customer
+            };
+        })
+    );
+
     return {
-        orders: camelCasedData.map(order => ({
-            ...order,
-            orderNumber: `#${String(order.id).padStart(6, '0')}`,
-            customer: order.customers
-        })),
+        orders: ordersWithCustomers,
         total: count,
         page,
         limit
@@ -339,7 +360,7 @@ export async function getOrderById(id) {
 
     const { data, error } = await supabase
         .from('orders')
-        .select('*, customers ( * ), order_items ( * )')
+        .select('*, order_items ( * )')
         .eq('id', id)
         .single();
 
@@ -356,6 +377,25 @@ export async function getOrderById(id) {
     }
 
     const camelData = toCamelCase(data);
+
+    // Buscar dados do cliente usando customer_id
+    if (camelData.customerId) {
+        console.log('👤 Buscando cliente com ID:', camelData.customerId);
+        const { data: customerData, error: customerError } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('id', camelData.customerId)
+            .single();
+
+        if (customerError) {
+            console.warn('⚠️ Erro ao buscar cliente:', customerError);
+        } else if (customerData) {
+            console.log('✅ Cliente encontrado:', customerData);
+            camelData.customer = toCamelCase(customerData);
+        }
+    } else {
+        console.warn('⚠️ Order sem customer_id:', camelData.id);
+    }
 
     console.log('📦 Camel cased order_items:', camelData.orderItems);
     if (camelData.orderItems && camelData.orderItems.length > 0) {

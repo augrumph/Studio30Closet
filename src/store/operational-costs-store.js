@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import {
     getPaymentFees,
+    createPaymentFee,
     updatePaymentFee,
     getMaterialsStock,
     createMaterial,

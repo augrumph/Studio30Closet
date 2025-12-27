@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Truck, Star, Shield, Clock, Quote, Instagram, ArrowUpRight } from 'lucide-react'
-import { ProductCard } from '@/components/catalog/ProductCard'
+import { ProductCard, ProductModal } from '@/components/catalog'
 import { useAdminStore } from '@/store/admin-store'
-import { useEffect, useRef, useLayoutEffect } from 'react'
+import { useEffect, useRef, useLayoutEffect, useState } from 'react'
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from '@/components/ui/Carousel'
 import { Particles } from '@/components/magicui/particles'
 import { FadeText } from '@/components/magicui/animated-text'
@@ -12,6 +12,7 @@ import { usePrefetchProducts } from '@/hooks/usePrefetchProducts'
 
 export function Home() {
     const { products, loadProducts } = useAdminStore()
+    const [selectedProduct, setSelectedProduct] = useState(null)
 
     // Prefetch produtos em background assim que a homepage monta
     usePrefetchProducts()
@@ -73,10 +74,10 @@ export function Home() {
                 <section className="relative overflow-hidden min-h-screen md:h-screen flex flex-col">
                     <div className="absolute inset-0 pointer-events-none z-0" style={{ backgroundImage: paperTexture }} />
 
-                    {/* Particles Background - Hidden on mobile for better performance */}
+                    {/* Particles Background - Mobile optimized */}
                     <Particles
-                        className="absolute inset-0 z-0 hidden sm:block"
-                        quantity={40}
+                        className="absolute inset-0 z-0"
+                        quantity={typeof window !== 'undefined' && window.innerWidth < 640 ? 20 : 40}
                         staticity={30}
                         color="#C75D3B"
                         ease={50}
@@ -217,7 +218,7 @@ export function Home() {
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                             {featuredProducts.slice(0, 4).map((product) => (
-                                <ProductCard key={product.id} product={product} />
+                                <ProductCard key={product.id} product={product} onQuickView={setSelectedProduct} />
                             ))}
                         </div>
                         <div className="mt-12 md:mt-16 text-center">
@@ -625,6 +626,13 @@ export function Home() {
                         </div>
                     </div>
                 </section>
+
+                {/* Product Modal */}
+                <ProductModal
+                    product={selectedProduct}
+                    isOpen={!!selectedProduct}
+                    onClose={() => setSelectedProduct(null)}
+                />
             </div >
         )
-    }    
+    }

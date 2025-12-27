@@ -70,11 +70,13 @@ export function AdminLogin() {
 
         setIsSubmitting(true)
 
-        const result = login(username, password)
+        // ✅ IMPORTANTE: Aguardar resultado da função assíncrona de login
+        const result = await login(username, password)
 
-        if (result.success) {
+        if (result && result.success) {
             loginAttemptsRef.current = 0
             lockoutTimeRef.current = null
+            toast.success('Login realizado com sucesso!')
             navigate('/admin/dashboard')
         } else {
             loginAttemptsRef.current += 1

@@ -137,7 +137,7 @@ export function About() {
                         </div>
 
                         <blockquote className="text-4xl md:text-5xl text-white font-display leading-tight">
-                            Acreditamos que moda de luxo deve ser acessível, pessoal e — acima de tudo — uma experiência prazerosa.
+                            Acreditamos em uma moda em que o luxo está na experiência, no conforto e na proximidade.
                         </blockquote>
 
                         <div className="space-y-3">
@@ -145,7 +145,7 @@ export function About() {
                                 Augusto & Thais
                             </p>
                             <p className="text-white/60 text-sm uppercase tracking-widest">
-                                Fundadores da Studio 30 Closet
+                                Criadores da Studio 30 Closet
                             </p>
                         </div>
                     </div>

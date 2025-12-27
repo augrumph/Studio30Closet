@@ -36,6 +36,7 @@ export function VendasForm() {
     const [entryPayment, setEntryPayment] = useState(0)
     const [installmentStartDate, setInstallmentStartDate] = useState('')
     const [feeInfo, setFeeInfo] = useState({ feePercentage: 0, feeValue: 0, netValue: 0 })
+    const [paymentFee, setPaymentFee] = useState(null)
 
     const [couponInput, setCouponInput] = useState('')
     const [couponLoading, setCouponLoading] = useState(false)
@@ -118,20 +119,26 @@ export function VendasForm() {
                             feeValue,
                             netValue
                         })
+
+                        // Armazenar o objeto completo de taxa para exibição (especialmente para card_machine)
+                        setPaymentFee(feeData)
                     } else {
                         // Sem taxa configurada - avisar o usuário
                         console.warn('Nenhuma taxa configurada para:', formData.paymentMethod, formData.cardBrand)
                         toast.warning('Taxa não configurada para este método de pagamento')
                         setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: valorFinal })
+                        setPaymentFee(null)
                     }
                 } catch (error) {
                     console.error('Erro ao calcular taxa de pagamento:', error)
                     toast.error('Erro ao calcular taxa de pagamento. Verifique a configuração de taxas.')
                     // Usar valores zerados em caso de erro para não quebrar o fluxo
                     setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: valorFinal })
+                    setPaymentFee(null)
                 }
             } else {
                 setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: formData.totalValue - formData.discountAmount })
+                setPaymentFee(null)
             }
         }
 
@@ -672,22 +679,15 @@ export function VendasForm() {
                                             </div>
                                         </div>
 
-                                        {/* Taxa da Máquina */}
-                                        {formData.paymentMethod === 'card_machine' && (
-                                            <div>
-                                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Taxa Máquina (%)</label>
-                                                <input
-                                                    type="number"
-                                                    value={formData.machineRate || 0}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, machineRate: parseFloat(e.target.value) || 0 }))}
-                                                    placeholder="0"
-                                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
-                                                    step="0.01"
-                                                    min="0"
-                                                    max="100"
-                                                />
-                                                <p className="mt-1 text-[10px] text-[#4A3B32]/50">
-                                                    Taxa: R$ {((formData.totalValue - formData.discountAmount) * (formData.machineRate || 0) / 100).toFixed(2)}
+                                        {/* Taxa da Máquina - Automática baseada na bandeira */}
+                                        {formData.paymentMethod === 'card_machine' && paymentFee && (
+                                            <div className="bg-white/50 p-3 rounded-lg border border-[#C75D3B]/20">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium text-[#4A3B32]">Taxa {formData.cardBrand?.toUpperCase()}:</span>
+                                                    <span className="text-lg font-bold text-[#C75D3B]">{paymentFee.feePercentage}%</span>
+                                                </div>
+                                                <p className="mt-2 text-[10px] text-[#4A3B32]/50">
+                                                    Valor cobrado: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) * (paymentFee.feePercentage || 0) / 100).toFixed(2)}</span>
                                                 </p>
                                             </div>
                                         )}
@@ -861,6 +861,18 @@ export function VendasForm() {
                                         <span className="font-bold">Valor da Venda</span>
                                         <span className="font-bold text-lg">R$ {((formData.totalValue || 0) - (formData.discountAmount || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                     </div>
+
+                                    {/* Parcelamento */}
+                                    {isInstallment && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="flex justify-between items-center text-[#C75D3B] text-sm pt-2"
+                                        >
+                                            <span className="font-medium">Parcelado em {parcelas}x</span>
+                                            <span className="font-bold">R$ {(((formData.totalValue || 0) - (formData.discountAmount || 0) - entryPayment) / parcelas).toFixed(2)}</span>
+                                        </motion.div>
+                                    )}
 
                                     {/* Taxa da maquininha */}
                                     {feeInfo.feeValue > 0 && formData.paymentStatus !== 'pending' && (

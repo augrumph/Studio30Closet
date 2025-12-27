@@ -99,35 +99,48 @@ export function VendasForm() {
                 const valorFinal = formData.totalValue - formData.discountAmount
 
                 try {
-                    // Buscar taxa da tabela payment_fees
-                    const feeData = await getPaymentFee(formData.paymentMethod, formData.cardBrand || null)
-
-                    if (feeData) {
-                        const feePercentage = feeData.feePercentage || 0
-                        const feeFixed = feeData.feeFixed || 0
-                        const feeValue = (valorFinal * feePercentage / 100) + feeFixed
-                        const netValue = valorFinal - feeValue
-
-                        // Validar que os cálculos fazem sentido
-                        if (isNaN(feeValue) || isNaN(netValue) || netValue < 0) {
-                            throw new Error('Cálculo de taxa resultou em valores inválidos')
-                        }
+                    // Para credito_parcelado, usar a store para calcular com o número de parcelas
+                    if (formData.paymentMethod === 'credito_parcelado') {
+                        const { feePercentage, feeValue, netValue } = calculateFee(valorFinal, formData.paymentMethod, formData.cardBrand || null, parcelas)
 
                         setFeeInfo({
                             feePercentage,
-                            feeFixed,
+                            feeFixed: 0,
                             feeValue,
                             netValue
                         })
-
-                        // Armazenar o objeto completo de taxa para exibição (especialmente para card_machine)
-                        setPaymentFee(feeData)
-                    } else {
-                        // Sem taxa configurada - avisar o usuário
-                        console.warn('Nenhuma taxa configurada para:', formData.paymentMethod, formData.cardBrand)
-                        toast.warning('Taxa não configurada para este método de pagamento')
-                        setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: valorFinal })
                         setPaymentFee(null)
+                    } else {
+                        // Buscar taxa da tabela payment_fees para outros métodos
+                        const feeData = await getPaymentFee(formData.paymentMethod, formData.cardBrand || null)
+
+                        if (feeData) {
+                            const feePercentage = feeData.feePercentage || 0
+                            const feeFixed = feeData.feeFixed || 0
+                            const feeValue = (valorFinal * feePercentage / 100) + feeFixed
+                            const netValue = valorFinal - feeValue
+
+                            // Validar que os cálculos fazem sentido
+                            if (isNaN(feeValue) || isNaN(netValue) || netValue < 0) {
+                                throw new Error('Cálculo de taxa resultou em valores inválidos')
+                            }
+
+                            setFeeInfo({
+                                feePercentage,
+                                feeFixed,
+                                feeValue,
+                                netValue
+                            })
+
+                            // Armazenar o objeto completo de taxa para exibição (especialmente para card_machine)
+                            setPaymentFee(feeData)
+                        } else {
+                            // Sem taxa configurada - avisar o usuário
+                            console.warn('Nenhuma taxa configurada para:', formData.paymentMethod, formData.cardBrand)
+                            toast.warning('Taxa não configurada para este método de pagamento')
+                            setFeeInfo({ feePercentage: 0, feeFixed: 0, feeValue: 0, netValue: valorFinal })
+                            setPaymentFee(null)
+                        }
                     }
                 } catch (error) {
                     console.error('Erro ao calcular taxa de pagamento:', error)
@@ -143,7 +156,7 @@ export function VendasForm() {
         }
 
         calculatePaymentFee()
-    }, [formData.paymentMethod, formData.cardBrand, formData.totalValue, formData.discountAmount, formData.paymentStatus])
+    }, [formData.paymentMethod, formData.cardBrand, formData.totalValue, formData.discountAmount, formData.paymentStatus, parcelas, calculateFee])
 
     const addItem = (product) => {
         // Validação de estoque
@@ -324,12 +337,6 @@ export function VendasForm() {
 
         // Validar crediário parcelado
         if (formData.paymentMethod === 'credito_parcelado') {
-            if (!installmentStartDate) {
-                toast.error('Data de início das parcelas obrigatória', {
-                    description: 'Defina quando a primeira parcela vence.'
-                })
-                return
-            }
             if (parcelas < 2) {
                 toast.error('Número de parcelas inválido', {
                     description: 'Escolha pelo menos 2 parcelas.'
@@ -681,7 +688,7 @@ export function VendasForm() {
                                         <div>
                                             <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-3 block">Bandeira *</label>
                                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                {['visa', 'mastercard', 'amex', 'elo'].map((brand) => (
+                                                {['visa', 'mastercard', 'elo'].map((brand) => (
                                                     <button
                                                         key={brand}
                                                         type="button"
@@ -746,70 +753,50 @@ export function VendasForm() {
                                     >
                                         <p className="text-xs text-[#C75D3B] font-bold uppercase tracking-widest">Configuração de Parcelamento</p>
 
-                                        {/* Grid 2 colunas em mobile/tablet */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {/* Número de Parcelas */}
-                                            <div>
-                                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Parcelas</label>
-                                                <select
-                                                    value={parcelas}
-                                                    onChange={(e) => setParcelas(Number(e.target.value))}
-                                                    className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
-                                                >
-                                                    {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
-                                                        <option key={n} value={n}>{n}x sem taxa</option>
-                                                    ))}
-                                                </select>
-                                                <p className="mt-1 text-[10px] text-[#4A3B32]/50">
-                                                    Parcela: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount - entryPayment) / parcelas).toFixed(2)}</span>
-                                                </p>
-                                            </div>
-
-                                            {/* Valor de Entrada */}
-                                            <div>
-                                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Entrada</label>
-                                                <input
-                                                    type="number"
-                                                    value={entryPayment}
-                                                    onChange={(e) => setEntryPayment(parseFloat(e.target.value) || 0)}
-                                                    placeholder="0,00"
-                                                    className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
-                                                    step="0.01"
-                                                    min="0"
-                                                />
-                                                <p className="mt-1 text-[10px] text-[#4A3B32]/50">
-                                                    A parcelar: <span className="font-bold text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount - entryPayment).toFixed(2)}</span>
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Data de Início das Parcelas - Full width */}
+                                        {/* Número de Parcelas */}
                                         <div>
-                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">1ª Parcela em</label>
-                                            <input
-                                                type="date"
-                                                value={installmentStartDate}
-                                                onChange={(e) => setInstallmentStartDate(e.target.value)}
+                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Parcelas</label>
+                                            <select
+                                                value={parcelas}
+                                                onChange={(e) => setParcelas(Number(e.target.value))}
                                                 className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
-                                            />
-                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">Próximas parcelas: mensais</p>
+                                            >
+                                                {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                                                    <option key={n} value={n}>
+                                                        {n}x {n <= 3 ? 'sem taxa' : `(Taxa: ${feeInfo.feePercentage}%)`}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">
+                                                Valor da parcela: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) / parcelas).toFixed(2)}</span>
+                                            </p>
                                         </div>
 
-                                        {/* Resumo Compacto */}
+                                        {/* Mostrar taxa apenas se 4x ou mais */}
+                                        {parcelas >= 4 && (
+                                            <div className="bg-yellow-50/70 p-3 rounded-lg border border-yellow-200">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium text-[#4A3B32]">Taxa a cobrar do cliente:</span>
+                                                    <span className="text-lg font-bold text-[#C75D3B]">{feeInfo.feePercentage}%</span>
+                                                </div>
+                                                <p className="mt-2 text-[10px] text-[#4A3B32]/70">
+                                                    Desconto na máquina: <span className="font-bold text-red-600">R$ {feeInfo.feeValue.toFixed(2)}</span>
+                                                </p>
+                                                <p className="mt-1 text-[10px] text-[#4A3B32]/70">
+                                                    Você recebe: <span className="font-bold text-green-600">R$ {feeInfo.netValue.toFixed(2)}</span>
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Resumo */}
                                         <div className="bg-white/70 p-3 rounded-xl border border-[#C75D3B]/20 space-y-1.5 text-sm">
                                             <div className="flex justify-between">
                                                 <span className="text-[#4A3B32]">Total:</span>
                                                 <span className="font-bold text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount).toFixed(2)}</span>
                                             </div>
-                                            {entryPayment > 0 && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-[#4A3B32]">Entrada:</span>
-                                                    <span className="font-bold text-[#C75D3B]">- R$ {entryPayment.toFixed(2)}</span>
-                                                </div>
-                                            )}
                                             <div className="border-t border-[#C75D3B]/20 pt-1.5 flex justify-between font-bold">
                                                 <span className="text-[#4A3B32]">{parcelas}x de:</span>
-                                                <span className="text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount - entryPayment) / parcelas).toFixed(2)}</span>
+                                                <span className="text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount) / parcelas).toFixed(2)}</span>
                                             </div>
                                         </div>
                                     </motion.div>

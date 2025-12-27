@@ -109,8 +109,11 @@ export const useOperationalCostsStore = create((set, get) => ({
                     break
                 case 'credito_parcelado':
                 case 'credit_parcelado':
-                    if (parcelas === 2) feePercentage = 4.99
-                    else if (parcelas === 3) feePercentage = 5.49
+                    // Até 3x: sem taxa (loja cobre)
+                    if (parcelas <= 3) {
+                        feePercentage = 0
+                    }
+                    // 4x ou mais: cobra a taxa do cliente
                     else if (parcelas === 4) feePercentage = 5.99
                     else if (parcelas === 5) feePercentage = 6.49
                     else feePercentage = 6.99

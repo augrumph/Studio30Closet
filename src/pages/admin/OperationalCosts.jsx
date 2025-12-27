@@ -27,7 +27,7 @@ export function OperationalCosts() {
         const feesMap = {}
 
         // Bandeiras de cartão
-        const brands = ['visa', 'mastercard', 'amex', 'elo']
+        const brands = ['visa', 'mastercard', 'elo']
 
         // Métodos de pagamento (sem PIX que é sempre 0)
         const methods = ['debit', 'credito_vista', 'credito_2x', 'credito_3x', 'credito_4x', 'credito_5x', 'credito_6x']
@@ -78,7 +78,7 @@ export function OperationalCosts() {
         setSavingFees(true)
 
         const feesArray = []
-        const brands = ['visa', 'mastercard', 'amex', 'elo']
+        const brands = ['visa', 'mastercard', 'elo']
 
         brands.forEach(brand => {
             // Débito
@@ -126,7 +126,7 @@ export function OperationalCosts() {
         }
     }
 
-    const brands = ['visa', 'mastercard', 'amex', 'elo']
+    const brands = ['visa', 'mastercard', 'elo']
     const installmentOptions = [
         { key: 'credito_2x', label: '2x' },
         { key: 'credito_3x', label: '3x' },

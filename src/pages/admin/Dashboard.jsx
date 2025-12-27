@@ -33,6 +33,8 @@ export function Dashboard() {
 
     const [currentTime, setCurrentTime] = useState(new Date())
     const [dashboardData, setDashboardData] = useState(null)
+    const [periodFilter, setPeriodFilter] = useState('last7days')
+    const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
 
     useEffect(() => {
         // Carregar dados apenas uma vez quando componente monta
@@ -60,21 +62,65 @@ export function Dashboard() {
         loadDashboardData()
     }, [])
 
-    // --- CÁLCULOS FINANCEIROS COMPLETOS (DRE GERENCIAL) ---
-    const financialMetrics = useMemo(() => {
-        // (1) RECEITA BRUTA - TODAS as vendas realizadas (independente do status de pagamento)
-        // O status 'paid' vs 'pending' é sobre recebimento, não se a venda foi feita
-        const allSales = vendas && vendas.length > 0 ? vendas : [];
+    // --- CÁLCULO DE PERÍODO DINÂMICO ---
+    const periodDays = useMemo(() => {
+        const now = new Date()
 
-        // Debug: verificar estrutura das vendas
-        if (allSales.length > 0) {
-            console.log('💰 DEBUG Dashboard - Primeira venda:', allSales[0]);
-            console.log('💰 DEBUG Dashboard - items da primeira venda:', allSales[0].items);
-            if (allSales[0].items && allSales[0].items.length > 0) {
-                console.log('💰 DEBUG Dashboard - primeiro item:', allSales[0].items[0]);
-            }
+        if (periodFilter === 'last7days') return 7
+        if (periodFilter === 'last30days') return 30
+
+        if (periodFilter === 'currentMonth') {
+            // Último dia do mês atual = dia 0 do próximo mês
+            return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
         }
 
+        if (periodFilter === 'custom' && customDateRange.start && customDateRange.end) {
+            const diff = new Date(customDateRange.end).getTime() - new Date(customDateRange.start).getTime()
+            return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1
+        }
+
+        return 30 // fallback
+    }, [periodFilter, customDateRange])
+
+    // --- FILTRAGEM DE VENDAS POR PERÍODO ---
+    const filteredVendas = useMemo(() => {
+        const now = new Date()
+
+        return vendas.filter(v => {
+            const saleDate = new Date(v.createdAt)
+
+            if (periodFilter === 'last7days') {
+                const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+                return saleDate >= cutoff
+            }
+
+            if (periodFilter === 'last30days') {
+                const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+                return saleDate >= cutoff
+            }
+
+            if (periodFilter === 'currentMonth') {
+                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+                const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+                return saleDate >= monthStart && saleDate <= monthEnd
+            }
+
+            if (periodFilter === 'custom' && customDateRange.start && customDateRange.end) {
+                const start = new Date(customDateRange.start)
+                const end = new Date(customDateRange.end)
+                end.setHours(23, 59, 59)
+                return saleDate >= start && saleDate <= end
+            }
+
+            return true
+        })
+    }, [vendas, periodFilter, customDateRange])
+
+    // --- CÁLCULOS FINANCEIROS COMPLETOS (DRE GERENCIAL) ---
+    const financialMetrics = useMemo(() => {
+        const allSales = filteredVendas && filteredVendas.length > 0 ? filteredVendas : [];
+
+        // (1) RECEITA BRUTA - TODAS as vendas realizadas (independente do status de pagamento)
         const grossRevenue = allSales.reduce((sum, v) => sum + (v.totalValue || 0), 0);
 
         // (2) RECEITA LÍQUIDA - Após taxas
@@ -84,18 +130,32 @@ export function Dashboard() {
         const totalSalesCount = allSales.length;
         const averageTicket = totalSalesCount > 0 ? grossRevenue / totalSalesCount : 0;
 
-        // (4) CPV - Custo dos Produtos Vendidos (calculado a partir de items.costPriceAtTime ou costPrice)
+        // (4) CPV - Custo dos Produtos Vendidos (OBRIGATÓRIO para produtos físicos)
         // Usa o custo histórico de cada item no momento da venda
+        let costWarnings = 0
         const totalCPV = allSales.reduce((sum, v) => {
             const itemsCost = (v.items || []).reduce((itemSum, item) => {
                 // Tenta costPriceAtTime (snake_case), depois costPriceAtTime (camelCase)
-                const cost = item.costPriceAtTime || item.cost_price_at_time || item.costPrice || 0;
-                const quantity = item.quantity || item.qty || 1;
-                console.log('💰 Item custo:', { name: item.name, cost, quantity, total: cost * quantity });
-                return itemSum + (cost * quantity);
-            }, 0);
-            return sum + itemsCost;
-        }, 0);
+                let cost = item.costPriceAtTime || item.cost_price_at_time || item.costPrice
+                const quantity = item.quantity || item.qty || 1
+
+                // VALIDAÇÃO: CPV obrigatório - se zero, avisar e usar estimativa
+                if (!cost || cost <= 0) {
+                    costWarnings++
+                    // Usar 60% do preço como fallback para produtos sem custo cadastrado
+                    cost = (item.price || 0) * 0.6
+                    console.warn(`⚠️ CPV não encontrado para: ${item.name} em venda #${v.id}. Usando estimativa (60% preço).`)
+                }
+
+                return itemSum + (cost * quantity)
+            }, 0)
+            return sum + itemsCost
+        }, 0)
+
+        // Log de warning se houver produtos sem custo
+        if (costWarnings > 0) {
+            console.warn(`⚠️ ${costWarnings} item(ns) com custo estimado no período`)
+        }
 
         // (5) LUCRO BRUTO
         const grossProfit = grossRevenue - totalCPV;
@@ -113,8 +173,11 @@ export function Dashboard() {
             return sum + discount;
         }, 0);
 
-        // (9) DESPESAS FIXAS MENSALIZADAS
+        // (9) DESPESAS FIXAS - PROPORCIONALIZADAS AO PERÍODO
+        // Fórmula: (despesaMensal / 30) × diasDoPeriodo
         let monthlyExpenses = 0;
+        let proportionalExpenses = 0;
+
         if (dashboardData?.expenses && dashboardData.expenses.length > 0) {
             monthlyExpenses = dashboardData.expenses.reduce((sum, expense) => {
                 let monthlyValue = expense.value || 0;
@@ -131,10 +194,15 @@ export function Dashboard() {
                 }
                 return sum + monthlyValue;
             }, 0);
+
+            // IMPORTANTE: Proporcionalizar ao período selecionado
+            // Se período é 7 dias, despesas = (mensal / 30) × 7
+            // Se período é 30 dias, despesas = mensal
+            proportionalExpenses = (monthlyExpenses / 30) * periodDays;
         }
 
-        // (10) LUCRO OPERACIONAL
-        const operatingProfit = grossProfit - monthlyExpenses;
+        // (10) LUCRO OPERACIONAL - usando despesas PROPORCIONAIS ao período
+        const operatingProfit = grossProfit - proportionalExpenses;
 
         // (11) MARGEM LÍQUIDA
         const netMarginPercent = grossRevenue > 0 ? (operatingProfit / grossRevenue) * 100 : 0;
@@ -159,15 +227,24 @@ export function Dashboard() {
 
         const toReceiveAmount = pendingVendasAmount + installmentsRemaining;
 
-        // (13) INDICADORES DE RISCO
+        // (13) INDICADORES DE RISCO - INADIMPLÊNCIA
+        // Apenas parcelas VENCIDAS e NÃO PAGAS completamente
         let overdueAmount = 0;
         let overdueCount = 0;
+        let totalInstallments = 0;
+
         if (dashboardData?.installments) {
             dashboardData.installments.forEach(inst => {
+                totalInstallments++;
                 const dueDate = new Date(inst.dueDate);
-                if (dueDate < new Date()) {
+                const now = new Date();
+
+                // Verificar se está vencida
+                if (dueDate < now) {
                     const paid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
                     const remaining = (inst.originalAmount || 0) - paid;
+
+                    // Contar apenas se ainda há saldo não pago
                     if (remaining > 0) {
                         overdueAmount += remaining;
                         overdueCount += 1;
@@ -175,7 +252,9 @@ export function Dashboard() {
                 }
             });
         }
-        const defaultPercent = grossRevenue > 0 ? (overdueAmount / (grossRevenue + toReceiveAmount + overdueAmount)) * 100 : 0;
+
+        // Inadimplência = parcelas vencidas / total de parcelas (apenas se há parcelas)
+        const defaultPercent = totalInstallments > 0 ? (overdueCount / totalInstallments) * 100 : 0;
 
         // Pending fiado (not paid)
         const pendingFiado = vendas
@@ -185,6 +264,7 @@ export function Dashboard() {
         return {
             // DRE Metrics
             grossRevenue,                // (1) Receita Bruta
+            netRevenue,                  // (1b) Receita Líquida
             totalSalesCount,             // (2) Número de vendas
             averageTicket,               // (2) Ticket Médio
             totalCPV,                    // (3) CPV
@@ -193,7 +273,8 @@ export function Dashboard() {
             totalFees,                   // (6) Total de Taxas
             feePercent,                  // (6) % Taxas
             totalDiscounts,              // (7) Total Descontos
-            monthlyExpenses,             // (8) Despesas Fixas
+            monthlyExpenses,             // (8) Despesas Mensais (referência)
+            proportionalExpenses,        // (8b) Despesas Proporcionais ao Período
             operatingProfit,             // (9) Lucro Operacional
             netMarginPercent,            // (10) Margem Líquida %
             // Cash Flow
@@ -210,9 +291,12 @@ export function Dashboard() {
             totalCostPrice: totalCPV,
             overallGrossMarginPercent: grossMarginPercent,
             overallNetMarginPercent: netMarginPercent,
-            pendingFiado
+            pendingFiado,
+            // Period info
+            periodDays,
+            costWarnings
         };
-    }, [vendas, dashboardData])
+    }, [filteredVendas, dashboardData, periodDays])
 
     // --- TREND ANALYTICS (Últimos 7 dias) ---
     const weeklyData = useMemo(() => {
@@ -380,6 +464,72 @@ export function Dashboard() {
                 </div>
             </motion.div>
 
+            {/* 1.5 PERÍODO DE ANÁLISE - PERIOD SELECTOR */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="bg-white rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md p-6 md:p-8"
+            >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <h3 className="text-lg md:text-xl font-display font-bold text-[#4A3B32] mb-2">Período de Análise</h3>
+                        <p className="text-sm text-gray-500">Selecione o período para analisar o DRE e fluxo de caixa</p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+                        {[
+                            { value: 'last7days', label: 'Últimos 7 dias' },
+                            { value: 'last30days', label: 'Últimos 30 dias' },
+                            { value: 'currentMonth', label: 'Mês atual' },
+                            { value: 'custom', label: 'Customizado' }
+                        ].map(period => (
+                            <button
+                                key={period.value}
+                                onClick={() => setPeriodFilter(period.value)}
+                                className={cn(
+                                    'px-4 py-2.5 rounded-xl font-semibold text-sm transition-all',
+                                    periodFilter === period.value
+                                        ? 'bg-[#C75D3B] text-white shadow-md'
+                                        : 'bg-gray-100 text-[#4A3B32] hover:bg-gray-200'
+                                )}
+                            >
+                                {period.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Custom Date Range */}
+                {periodFilter === 'custom' && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-6 pt-6 border-t border-gray-200 flex flex-col sm:flex-row gap-4"
+                    >
+                        <div className="flex-1">
+                            <label className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-widest block mb-2">Data Início</label>
+                            <input
+                                type="date"
+                                value={customDateRange.start}
+                                onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-[#4A3B32]"
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <label className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-widest block mb-2">Data Fim</label>
+                            <input
+                                type="date"
+                                value={customDateRange.end}
+                                onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-[#4A3B32]"
+                            />
+                        </div>
+                    </motion.div>
+                )}
+            </motion.div>
+
             {/* 2. FINANCIAL SCOREBOARD - DRE GERENCIAL */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 {[
@@ -397,7 +547,7 @@ export function Dashboard() {
                     { label: 'Descontos', value: financialMetrics.totalDiscounts, icon: ArrowDownRight, color: 'red', description: 'Cupons e ajustes' },
 
                     // Despesas e Lucro
-                    { label: 'Despesas Fixas', value: financialMetrics.monthlyExpenses, icon: Calendar, color: 'slate', description: 'Mensalizadas' },
+                    { label: 'Despesas Fixas', value: financialMetrics.proportionalExpenses, icon: Calendar, color: 'slate', description: `Proporcionalizadas (${financialMetrics.periodDays} dias)` },
                     { label: 'Lucro Operacional', value: financialMetrics.operatingProfit, icon: Target, color: 'purple', description: 'Lucro Bruto - Despesas' },
                     { label: 'Margem Líquida', value: financialMetrics.netMarginPercent, icon: TrendingUp, color: 'indigo', description: (financialMetrics.netMarginPercent).toFixed(1) + '%', isPercentage: true }
                 ].map((stat, i) => (

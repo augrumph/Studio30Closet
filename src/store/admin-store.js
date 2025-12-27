@@ -267,22 +267,65 @@ export const useAdminStore = create((set, get) => ({
         }
     },
 
-    // finalizeMalinha: async (id, keptItemsIndexes, vendaData) => {
-    //     set({ ordersLoading: true, ordersError: null })
-    //     try {
-    //         const { order, venda } = await finalizeMalinhaAsSale(id, keptItemsIndexes, vendaData)
-    //         set(state => ({
-    //             orders: state.orders.map(o => o.id === parseInt(id) ? order : o),
-    //             vendas: [venda, ...state.vendas],
-    //             ordersLoading: false
-    //         }))
-    //         get().loadProducts() // Sincronizar estoque real
-    //         return { success: true, order, venda }
-    //     } catch (error) {
-    //         set({ ordersError: error.message, ordersLoading: false })
-    //         return { success: false, error: error.message }
-    //     }
-    // },
+    finalizeMalinha: async (id, keptItemsIndexes, vendaData) => {
+        set({ ordersLoading: true, ordersError: null })
+        try {
+            // 1. Buscar os dados da order
+            const order = await getOrderByIdFromApi(id)
+            if (!order) {
+                throw new Error('Malinha não encontrada')
+            }
+
+            // 2. Garantir que temos customer_id - CRÍTICO PARA ASSOCIAÇÃO
+            if (!order.customer_id) {
+                throw new Error('Malinha não tem cliente associado')
+            }
+
+            console.log('✅ Malinha tem customer_id:', order.customer_id)
+
+            // 3. Preparar dados da venda com customer_id OBRIGATÓRIO
+            const vendaDataWithCustomer = {
+                ...vendaData,
+                customerId: order.customer_id,  // IMPORTANTE: Usar o customer_id da order
+                orderId: order.id
+            }
+
+            console.log('📝 Criando venda com dados:', vendaDataWithCustomer)
+
+            // 4. Criar a venda
+            const newVenda = await createVenda(vendaDataWithCustomer)
+
+            // 5. Atualizar a order para marcar como converted_to_sale
+            const updatedOrder = await updateOrder(id, {
+                status: 'completed',
+                convertedToSale: true
+            })
+
+            // 6. Atualizar estado local
+            set(state => ({
+                orders: state.orders.map(o => o.id === parseInt(id) ? updatedOrder : o),
+                vendas: [newVenda, ...state.vendas],
+                ordersLoading: false
+            }))
+
+            // 7. Sincronizar estoque
+            get().loadProducts()
+            get().loadCustomers()
+
+            // 8. Consumir embalagem
+            const { consumePackaging } = useOperationalCostsStore.getState()
+            consumePackaging()
+
+            console.log('✅ Venda finalizada com sucesso! Customer ID:', order.customer_id)
+
+            return { success: true, order: updatedOrder, venda: newVenda }
+        } catch (error) {
+            console.error('❌ Erro ao finalizar malinha:', error)
+            const userFriendlyError = formatUserFriendlyError(error)
+            set({ ordersError: userFriendlyError, ordersLoading: false })
+            return { success: false, error: userFriendlyError }
+        }
+    },
 
     removeOrder: async (id) => {
         set({ ordersLoading: true, ordersError: null })

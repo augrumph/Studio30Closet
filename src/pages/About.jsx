@@ -46,7 +46,7 @@ export function About() {
                         </div>
 
                         <h1 className="font-display text-6xl md:text-7xl text-[#4A3B32]">
-                            Somos <span className="text-[#C75D3B]">Augusto</span> & <span className="text-[#C75D3B]">Thais</span>
+                            Somos <span className="text-[#C75D3B]">Thais</span> & <span className="text-[#C75D3B]">Augusto</span>
                         </h1>
 
                         <div className="space-y-6 text-lg text-[#4A3B32]/80 leading-relaxed">

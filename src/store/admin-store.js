@@ -279,8 +279,8 @@ export const useAdminStore = create((set, get) => ({
                 throw new Error('Malinha não encontrada')
             }
 
-            // 2. Garantir que temos customer_id - CRÍTICO PARA ASSOCIAÇÃO
-            if (!order.customer_id) {
+            // 2. Garantir que temos customerId - CRÍTICO PARA ASSOCIAÇÃO
+            if (!order.customerId) {
                 console.error('❌ ERRO: Malinha sem cliente associado:', order);
                 throw new Error(
                     'Esta malinha não tem cliente associado. ' +
@@ -289,12 +289,12 @@ export const useAdminStore = create((set, get) => ({
                 )
             }
 
-            console.log('✅ Malinha tem customer_id:', order.customer_id)
+            console.log('✅ Malinha tem customerId:', order.customerId)
 
-            // 3. Preparar dados da venda com customer_id OBRIGATÓRIO
+            // 3. Preparar dados da venda com customerId OBRIGATÓRIO
             const vendaDataWithCustomer = {
                 ...vendaData,
-                customerId: order.customer_id,  // Cliente vem da malinha (criado no site)
+                customerId: order.customerId,  // Cliente vem da malinha (criado no site)
                 orderId: order.id
             }
 
@@ -323,7 +323,7 @@ export const useAdminStore = create((set, get) => ({
             const { consumePackaging } = useOperationalCostsStore.getState()
             consumePackaging()
 
-            console.log('✅ Venda finalizada com sucesso! Customer ID:', order.customer_id)
+            console.log('✅ Venda finalizada com sucesso! Customer ID:', order.customerId)
 
             return { success: true, order: updatedOrder, venda: newVenda }
         } catch (error) {

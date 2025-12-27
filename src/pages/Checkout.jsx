@@ -91,7 +91,7 @@ export function Checkout() {
         }
 
         fetchProductData()
-    }, [items, toast])
+    }, [items])
 
     // Garantir que addresses sempre existe e tem pelo menos um objeto
     useEffect(() => {

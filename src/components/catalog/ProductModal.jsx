@@ -18,18 +18,39 @@ export function ProductModal({ product, isOpen, onClose }) {
 
     // Carregar imagens completas quando modal abrir
     useEffect(() => {
-        if (isOpen && product?.id) {
-            supabase
-                .from('products')
-                .select('images')
-                .eq('id', product.id)
-                .single()
-                .then(({ data }) => {
-                    if (data?.images) {
-                        setFullImages(data.images)
-                    }
-                })
-                .catch(err => console.warn('Erro ao carregar imagens completas:', err))
+        if (!isOpen || !product?.id) return
+
+        let isMounted = true
+
+        const loadImages = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('images')
+                    .eq('id', product.id)
+                    .single()
+
+                if (!isMounted) return
+
+                if (error) {
+                    console.warn('Erro ao carregar imagens completas:', error)
+                    return
+                }
+
+                if (data?.images) {
+                    setFullImages(data.images)
+                }
+            } catch (err) {
+                if (isMounted) {
+                    console.warn('Erro ao carregar imagens completas:', err)
+                }
+            }
+        }
+
+        loadImages()
+
+        return () => {
+            isMounted = false
         }
     }, [isOpen, product?.id])
 

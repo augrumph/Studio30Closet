@@ -149,14 +149,13 @@ function ProductCardComponent({ product, onQuickView }) {
                     </div>
                 )}
 
-                {/* Actions overlay - Shows on hover (desktop) or tap (mobile) */}
+                {/* Actions overlay - Desktop ONLY: Shows on hover */}
                 <div className={cn(
-                    "absolute bottom-0 left-0 right-0 p-2 sm:p-3 md:p-4 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-all duration-300",
-                    "md:opacity-0 md:group-hover:opacity-100 md:translate-y-2 md:group-hover:translate-y-0",
-                    showActions ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 md:opacity-0"
+                    "hidden md:flex absolute bottom-0 left-0 right-0 p-3 md:p-4 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-all duration-300 flex-col gap-3",
+                    "md:opacity-0 md:group-hover:opacity-100 md:translate-y-2 md:group-hover:translate-y-0"
                 )}>
-                    {/* Size Selector */}
-                    <div className="flex items-center justify-center gap-1 mb-3 flex-wrap">
+                    {/* Size Selector - Desktop */}
+                    <div className="flex items-center justify-center gap-1 flex-wrap">
                         {product.sizes.map((size) => (
                             <button
                                 key={size}
@@ -166,7 +165,7 @@ function ProductCardComponent({ product, onQuickView }) {
                                 }}
                                 aria-label={`Selecionar tamanho ${size}`}
                                 className={cn(
-                                    'min-w-[44px] h-[44px] rounded-full text-xs font-bold transition-all duration-200 touch-target',
+                                    'min-w-[44px] h-[44px] rounded-full text-xs font-bold transition-all duration-200',
                                     selectedSize === size
                                         ? 'bg-white text-brand-brown ring-2 ring-white'
                                         : 'bg-white/30 text-white hover:bg-white/50 active:bg-white/60'
@@ -178,18 +177,17 @@ function ProductCardComponent({ product, onQuickView }) {
                         ))}
                     </div>
 
-                    {/* Add to Malinha Button - MOBILE OPTIMIZED */}
+                    {/* Add to Malinha Button - Desktop */}
                     <button
                         onClick={handleAddOrRemoveFromMalinha}
                         disabled={isAdding || (isLimitReached() && !itemInMalinha)}
                         className={cn(
-                            'w-full min-h-[48px] rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-300 touch-target active:scale-95',
+                            'w-full min-h-[48px] rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-300 active:scale-95',
                             isAdded
                                 ? 'bg-green-500 text-white'
                                 : itemInMalinha
                                     ? 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700'
-                                    : 'bg-white text-brand-brown hover:bg-brand-terracotta hover:text-white active:bg-brand-rust',
-                            (isLimitReached() && !itemInMalinha) && 'opacity-50 cursor-not-allowed'
+                                    : 'bg-white text-brand-brown hover:bg-brand-terracotta hover:text-white active:bg-brand-rust'
                         )}
                         type="button"
                     >
@@ -198,24 +196,82 @@ function ProductCardComponent({ product, onQuickView }) {
                         ) : isAdded ? (
                             <>
                                 <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                <span className="hidden sm:inline">Concluído!</span>
-                                <span className="sm:hidden">✓</span>
+                                <span>Concluído!</span>
                             </>
                         ) : itemInMalinha ? (
                             <>
                                 <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                <span className="hidden sm:inline">Remover</span>
-                                <span className="sm:hidden">-</span>
+                                <span>Remover</span>
                             </>
                         ) : (
                             <>
                                 <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                <span className="hidden sm:inline">Adicionar</span>
-                                <span className="sm:hidden">+</span>
+                                <span>Adicionar</span>
                             </>
                         )}
                     </button>
                 </div>
+            </div>
+
+            {/* Mobile Actions - Below image */}
+            <div className="md:hidden pt-3 pb-2 space-y-2">
+                {/* Size Selector - Mobile */}
+                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                    {product.sizes.map((size) => (
+                        <button
+                            key={size}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedSize(size)
+                            }}
+                            aria-label={`Selecionar tamanho ${size}`}
+                            className={cn(
+                                'min-w-[40px] h-[40px] rounded-full text-xs font-bold transition-all duration-200 touch-target',
+                                selectedSize === size
+                                    ? 'bg-brand-terracotta text-white ring-2 ring-brand-terracotta'
+                                    : 'bg-gray-100 text-[#4A3B32] active:bg-gray-200'
+                            )}
+                            type="button"
+                        >
+                            {size}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Add to Malinha Button - Mobile */}
+                <button
+                    onClick={handleAddOrRemoveFromMalinha}
+                    disabled={isAdding || (isLimitReached() && !itemInMalinha)}
+                    className={cn(
+                        'w-full min-h-[44px] rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-300 touch-target active:scale-95',
+                        isAdded
+                            ? 'bg-green-500 text-white'
+                            : itemInMalinha
+                                ? 'bg-red-500 text-white active:bg-red-600'
+                                : 'bg-brand-terracotta text-white active:bg-brand-rust',
+                        (isLimitReached() && !itemInMalinha) && 'opacity-50 cursor-not-allowed'
+                    )}
+                    type="button"
+                >
+                    {isAdding ? (
+                        <span className="animate-pulse">Adicionando...</span>
+                    ) : isAdded ? (
+                        <>
+                            <Check className="w-4 h-4" />
+                            <span>Pronto!</span>
+                        </>
+                    ) : itemInMalinha ? (
+                        <>
+                            <Trash2 className="w-4 h-4" />
+                            <span>Remover</span>
+                        </>
+                    ) : (
+                        <>
+                            <Plus className="w-4 h-4" />
+                            <span>Adicionar</span>
+                        </>
+                    )}
+                </button>
             </div>
 
             {/* Info - Alinhado e Clean */}

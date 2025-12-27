@@ -3,6 +3,7 @@ import { Plus, Check, Eye, Trash2 } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
 import { triggerConfetti } from '@/components/magicui/confetti'
+import { motion, AnimatePresence } from 'framer-motion'
 
 function ProductCardComponent({ product, onQuickView }) {
     const [selectedColorIndex, setSelectedColorIndex] = useState(0)
@@ -10,6 +11,8 @@ function ProductCardComponent({ product, onQuickView }) {
     const [isAdding, setIsAdding] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
     const [showActions, setShowActions] = useState(false)
+    const [displayImageIndex, setDisplayImageIndex] = useState(0)
+    const [isDragging, setIsDragging] = useState(false)
     const { addItem, removeItem, items, isLimitReached } = useMalinhaStore()
 
     const hasDiscount = product.originalPrice && product.originalPrice > product.price
@@ -25,9 +28,29 @@ function ProductCardComponent({ product, onQuickView }) {
     // Atualizar tamanho quando trocar cor
     const handleColorChange = (colorIndex) => {
         setSelectedColorIndex(colorIndex)
+        setDisplayImageIndex(0) // Reset imagem ao trocar cor
         // Selecionar primeiro tamanho disponível da nova cor
         const sizes = product.variants[colorIndex]?.sizeStock?.map(s => s.size) || product.sizes || []
         setSelectedSize(sizes[0] || null)
+    }
+
+    // Lidar com drag/swipe de imagens
+    const handleImageDragEnd = (event, info) => {
+        const swipeDistance = info.offset.x
+        const swipeVelocity = info.velocity.x
+
+        // Se arrastou ou teve velocidade suficiente
+        if (swipeDistance < -50 || swipeVelocity < -500) {
+            // Próxima imagem (arrastar para esquerda)
+            setDisplayImageIndex(prev =>
+                prev === totalImages - 1 ? 0 : prev + 1
+            )
+        } else if (swipeDistance > 50 || swipeVelocity > 500) {
+            // Imagem anterior (arrastar para direita)
+            setDisplayImageIndex(prev =>
+                prev === 0 ? totalImages - 1 : prev - 1
+            )
+        }
     }
 
     const handleAddOrRemoveFromMalinha = (e) => {
@@ -86,8 +109,9 @@ function ProductCardComponent({ product, onQuickView }) {
     // Imagens: usa a cor selecionada se houver variantes, senão usa catálogo
     const variantImages = hasVariants ? product.variants[selectedColorIndex]?.images || [] : []
     const catalogImages = product.images || []
-    const displayImage = variantImages[0] || catalogImages[0]
-    const totalImages = variantImages.length || catalogImages.length
+    const allImages = variantImages.length > 0 ? variantImages : catalogImages
+    const displayImage = allImages[displayImageIndex] || allImages[0]
+    const totalImages = allImages.length
 
     // Inicializar tamanho selecionado se estiver vazio
     if (selectedSize === null && availableSizes.length > 0) {
@@ -102,32 +126,60 @@ function ProductCardComponent({ product, onQuickView }) {
             <div
                 className="relative aspect-[3/4] overflow-hidden bg-[#FDFBF7] rounded-2xl shadow-lg transition-shadow duration-300 hover:shadow-2xl"
             >
-                <img
-                    src={displayImage}
-                    alt={product.name}
-                    width="300"
-                    height="400"
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        onQuickView?.(product)
-                    }}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
-                />
+                <AnimatePresence mode="wait">
+                    <motion.img
+                        key={displayImageIndex}
+                        src={displayImage}
+                        alt={product.name}
+                        width="300"
+                        height="400"
+                        loading="lazy"
+                        decoding="async"
+                        fetchPriority="low"
+                        drag={totalImages > 1 ? 'x' : false}
+                        dragElastic={0.2}
+                        dragConstraints={{ left: 0, right: 0 }}
+                        onDragStart={() => setIsDragging(true)}
+                        onDragEnd={(event, info) => {
+                            setIsDragging(false)
+                            if (totalImages > 1) {
+                                handleImageDragEnd(event, info)
+                            }
+                        }}
+                        initial={{ opacity: 0, x: 0 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{
+                            duration: 0.3,
+                            ease: 'easeInOut'
+                        }}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            if (!isDragging) {
+                                onQuickView?.(product)
+                            }
+                        }}
+                        className="w-full h-full object-cover group-hover:scale-105 cursor-grab active:cursor-grabbing select-none"
+                    />
+                </AnimatePresence>
 
                 {/* Indicador de múltiplas imagens */}
                 {totalImages > 1 && (
                     <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-5">
                         {Array.from({ length: Math.min(totalImages, 5) }).map((_, idx) => (
-                            <div
+                            <motion.div
                                 key={idx}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setDisplayImageIndex(idx)
+                                }}
+                                animate={{
+                                    width: idx === displayImageIndex ? 24 : 6,
+                                    backgroundColor: idx === displayImageIndex ? '#ffffff' : 'rgba(255, 255, 255, 0.6)'
+                                }}
+                                transition={{ duration: 0.3 }}
                                 className={cn(
-                                    'w-1.5 h-1.5 rounded-full transition-all duration-300',
-                                    idx === 0
-                                        ? 'bg-white w-2'
-                                        : 'bg-white/60 hover:bg-white/80'
+                                    'h-1.5 rounded-full cursor-pointer'
                                 )}
                             />
                         ))}

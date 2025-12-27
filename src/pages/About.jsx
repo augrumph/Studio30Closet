@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Heart, Sparkles, TrendingUp, Users2 } from 'lucide-react'
+import { ArrowRight, Heart, Sparkles, Users2 } from 'lucide-react'
 
 export function About() {
     return (
@@ -51,13 +51,13 @@ export function About() {
 
                         <div className="space-y-6 text-lg text-[#4A3B32]/80 leading-relaxed">
                             <p>
-                                Um casal apaixonado por moda e pela missão de transformar a forma como as pessoas compram roupas.
+                                Somos um casal apaixonado por moda e por criar experiencias que vão além da compra.
                             </p>
                             <p>
-                                Cansados dos provadores apertados, filas e vendedores insistentes, pensamos: <strong className="text-[#C75D3B]">"e se a boutique fosse até a cliente?"</strong>
+                                Assim nasceu a <strong className="text-[#4A3B32]">Studio 30 Closet</strong> um novo jeito de consumir moda, onde você experimenta peças selecionadas com curadoria, conforto e privacidade no aconchego do seu lar.
                             </p>
                             <p>
-                                Assim nasceu a <strong className="text-[#4A3B32]">Studio 30 Closet</strong> – onde você experimenta moda de luxo no conforto da sua casa.
+                                Aqui, o luxo está na experiência: tempo, atenção, conforto e escolhas que realmente fazem sentido para você.
                             </p>
                         </div>
 
@@ -120,42 +120,6 @@ export function About() {
 
                                     {/* Decoração de canto */}
                                     <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-[#C75D3B]/20 rounded-tr-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Números */}
-            <section className="py-24 bg-[#FDFBF7]">
-                <div className="container-custom">
-                    <div className="text-center max-w-3xl mx-auto mb-20">
-                        <h2 className="font-display text-5xl md:text-6xl text-[#4A3B32] mb-6">
-                            Números que <span className="text-[#C75D3B]">Contam Nossa História</span>
-                        </h2>
-                    </div>
-
-                    <div className="grid md:grid-cols-3 gap-12 max-w-5xl mx-auto">
-                        {[
-                            { number: '500+', label: 'Clientes Felizes', sublabel: 'e crescendo todo dia' },
-                            { number: '1.000+', label: 'Malinhas Enviadas', sublabel: 'com amor e cuidado' },
-                            { number: '98%', label: 'Satisfação', sublabel: 'avaliações 5 estrelas' }
-                        ].map((stat, i) => (
-                            <div key={i} className="text-center group">
-                                <div className="bg-white rounded-3xl p-10 border-2 border-[#E8C4B0]/50 hover:border-[#C75D3B]/50 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2">
-                                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#C75D3B] mb-6 group-hover:scale-110 transition-transform">
-                                        <TrendingUp className="w-10 h-10 text-white" strokeWidth={2} />
-                                    </div>
-                                    <p className="font-display text-6xl text-[#C75D3B] mb-3 tabular-nums">
-                                        {stat.number}
-                                    </p>
-                                    <p className="text-xl text-[#4A3B32] font-medium mb-2">
-                                        {stat.label}
-                                    </p>
-                                    <p className="text-sm text-[#4A3B32]/60">
-                                        {stat.sublabel}
-                                    </p>
                                 </div>
                             </div>
                         ))}

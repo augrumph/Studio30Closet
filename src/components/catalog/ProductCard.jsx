@@ -97,7 +97,6 @@ function ProductCardComponent({ product, onQuickView }) {
     const variantImages = hasVariants ? product.variants[selectedColorIndex]?.images || [] : []
     const catalogImages = product.images || []
     const allImages = variantImages.length > 0 ? variantImages : catalogImages
-    const displayImage = allImages[displayImageIndex] || allImages[0]
     const totalImages = allImages.length
 
     // Inicializar tamanho selecionado se estiver vazio

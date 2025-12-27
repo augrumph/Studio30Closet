@@ -616,13 +616,15 @@ export function VendasForm() {
                         </CardHeader>
                         <CardContent className="space-y-8">
                             <div className="space-y-5">
+                                {/* Meio de Pagamento */}
                                 <div>
-                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Meio de Pagamento</label>
+                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-3 block">Método de Pagamento</label>
                                     <select
                                         value={formData.paymentMethod}
                                         onChange={(e) => {
-                                            setFormData(prev => ({ ...prev, paymentMethod: e.target.value, cardBrand: '' }))
-                                            if (e.target.value === 'credito_parcelado') {
+                                            const newMethod = e.target.value
+                                            setFormData(prev => ({ ...prev, paymentMethod: newMethod, cardBrand: '' }))
+                                            if (newMethod === 'credito_parcelado') {
                                                 setParcelas(2)
                                                 setIsInstallment(true)
                                             } else {
@@ -630,41 +632,65 @@ export function VendasForm() {
                                                 setIsInstallment(false)
                                             }
                                         }}
-                                        className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-[#4A3B32] transition-all"
                                     >
-                                        <option value="pix">📱 PIX</option>
-                                        <option value="card_machine">💳 Cartão na Máquina</option>
-                                        <option value="payment_link">🔗 Link de Pagamento</option>
-                                        <option value="fiado">🤝 Crediário (Conta Corrente)</option>
-                                        <option value="credito_parcelado">📅 Crediário Parcelado (Sem Taxa)</option>
-                                        <option value="cash">💵 Dinheiro Espécie</option>
+                                        <option value="pix">PIX</option>
+                                        <option value="card_machine">Cartão na Máquina</option>
+                                        <option value="payment_link">Link de Pagamento</option>
+                                        <option value="fiado">Crediário (Conta Corrente)</option>
+                                        <option value="credito_parcelado">Crediário Parcelado (Sem Taxa)</option>
+                                        <option value="cash">Dinheiro Espécie</option>
                                     </select>
                                 </div>
 
-                                {/* Bandeira do Cartão - aparece se for card_machine ou payment_link */}
+                                {/* Cartão na Máquina - Bandeira e Taxa */}
                                 {(formData.paymentMethod === 'card_machine' || formData.paymentMethod === 'payment_link') && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
                                         exit={{ opacity: 0, height: 0 }}
+                                        className="space-y-4"
                                     >
-                                        <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-3 block">Bandeira do Cartão *</label>
-                                        <Tabs value={formData.cardBrand} onValueChange={(value) => setFormData(prev => ({ ...prev, cardBrand: value }))}>
-                                            <TabsList className="grid w-full grid-cols-4 gap-2 p-1 bg-gray-100 rounded-2xl">
-                                                <TabsTrigger value="visa" className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#C75D3B] data-[state=active]:shadow-sm">
-                                                    💳 Visa
-                                                </TabsTrigger>
-                                                <TabsTrigger value="mastercard" className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#C75D3B] data-[state=active]:shadow-sm">
-                                                    💳 MC
-                                                </TabsTrigger>
-                                                <TabsTrigger value="amex" className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#C75D3B] data-[state=active]:shadow-sm">
-                                                    💳 Amex
-                                                </TabsTrigger>
-                                                <TabsTrigger value="elo" className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#C75D3B] data-[state=active]:shadow-sm">
-                                                    💳 Elo
-                                                </TabsTrigger>
-                                            </TabsList>
-                                        </Tabs>
+                                        <div>
+                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-3 block">Bandeira *</label>
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                {['visa', 'mastercard', 'amex', 'elo'].map((brand) => (
+                                                    <button
+                                                        key={brand}
+                                                        type="button"
+                                                        onClick={() => setFormData(prev => ({ ...prev, cardBrand: brand }))}
+                                                        className={cn(
+                                                            "py-2.5 px-3 rounded-lg font-medium text-sm transition-all",
+                                                            formData.cardBrand === brand
+                                                                ? "bg-[#C75D3B] text-white shadow-md"
+                                                                : "bg-gray-100 text-[#4A3B32] hover:bg-gray-200"
+                                                        )}
+                                                    >
+                                                        {brand === 'mastercard' ? 'MC' : brand.charAt(0).toUpperCase() + brand.slice(1)}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Taxa da Máquina */}
+                                        {formData.paymentMethod === 'card_machine' && (
+                                            <div>
+                                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Taxa Máquina (%)</label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.machineRate || 0}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, machineRate: parseFloat(e.target.value) || 0 }))}
+                                                    placeholder="0"
+                                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
+                                                    step="0.01"
+                                                    min="0"
+                                                    max="100"
+                                                />
+                                                <p className="mt-1 text-[10px] text-[#4A3B32]/50">
+                                                    Taxa: R$ {((formData.totalValue - formData.discountAmount) * (formData.machineRate || 0) / 100).toFixed(2)}
+                                                </p>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 )}
 
@@ -674,73 +700,74 @@ export function VendasForm() {
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
                                         exit={{ opacity: 0, height: 0 }}
-                                        className="space-y-5 p-5 bg-[#FDF0ED]/50 rounded-2xl border-2 border-[#C75D3B]/30"
+                                        className="space-y-4 p-4 bg-[#FDF0ED]/50 rounded-2xl border-2 border-[#C75D3B]/30"
                                     >
-                                        <div className="text-xs text-[#C75D3B] font-bold uppercase tracking-widest">⚙️ Configuração de Parcelamento</div>
+                                        <p className="text-xs text-[#C75D3B] font-bold uppercase tracking-widest">Configuração de Parcelamento</p>
 
-                                        {/* Número de Parcelas */}
-                                        <div>
-                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Quantas Vezes? 📅</label>
-                                            <select
-                                                value={parcelas}
-                                                onChange={(e) => setParcelas(Number(e.target.value))}
-                                                className="w-full px-4 py-4 bg-white border-2 border-[#C75D3B]/20 rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
-                                            >
-                                                <option value={2}>2x sem taxa</option>
-                                                <option value={3}>3x sem taxa</option>
-                                                <option value={4}>4x sem taxa</option>
-                                                <option value={5}>5x sem taxa</option>
-                                                <option value={6}>6x sem taxa</option>
-                                                <option value={7}>7x sem taxa</option>
-                                                <option value={8}>8x sem taxa</option>
-                                                <option value={9}>9x sem taxa</option>
-                                                <option value={10}>10x sem taxa</option>
-                                                <option value={11}>11x sem taxa</option>
-                                                <option value={12}>12x sem taxa</option>
-                                            </select>
-                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">Valor de cada parcela: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount - entryPayment) / parcelas).toFixed(2)}</span></p>
+                                        {/* Grid 2 colunas em mobile/tablet */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {/* Número de Parcelas */}
+                                            <div>
+                                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Parcelas</label>
+                                                <select
+                                                    value={parcelas}
+                                                    onChange={(e) => setParcelas(Number(e.target.value))}
+                                                    className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
+                                                >
+                                                    {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                                                        <option key={n} value={n}>{n}x sem taxa</option>
+                                                    ))}
+                                                </select>
+                                                <p className="mt-1 text-[10px] text-[#4A3B32]/50">
+                                                    Parcela: <span className="font-bold text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount - entryPayment) / parcelas).toFixed(2)}</span>
+                                                </p>
+                                            </div>
+
+                                            {/* Valor de Entrada */}
+                                            <div>
+                                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">Entrada</label>
+                                                <input
+                                                    type="number"
+                                                    value={entryPayment}
+                                                    onChange={(e) => setEntryPayment(parseFloat(e.target.value) || 0)}
+                                                    placeholder="0,00"
+                                                    className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
+                                                    step="0.01"
+                                                    min="0"
+                                                />
+                                                <p className="mt-1 text-[10px] text-[#4A3B32]/50">
+                                                    A parcelar: <span className="font-bold text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount - entryPayment).toFixed(2)}</span>
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        {/* Valor de Entrada */}
+                                        {/* Data de Início das Parcelas - Full width */}
                                         <div>
-                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Entrada no Ato 💵</label>
-                                            <input
-                                                type="number"
-                                                value={entryPayment}
-                                                onChange={(e) => setEntryPayment(parseFloat(e.target.value) || 0)}
-                                                placeholder="0,00"
-                                                className="w-full px-4 py-4 bg-white border-2 border-[#C75D3B]/20 rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
-                                                step="0.01"
-                                                min="0"
-                                            />
-                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">Total sem entrada: <span className="font-bold text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount - entryPayment).toFixed(2)}</span></p>
-                                        </div>
-
-                                        {/* Data de Início das Parcelas */}
-                                        <div>
-                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2.5 block">Primeira Parcela em 🗓️</label>
+                                            <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-[0.1em] mb-2 block">1ª Parcela em</label>
                                             <input
                                                 type="date"
                                                 value={installmentStartDate}
                                                 onChange={(e) => setInstallmentStartDate(e.target.value)}
-                                                className="w-full px-4 py-4 bg-white border-2 border-[#C75D3B]/20 rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] transition-all"
+                                                className="w-full px-3 py-2.5 bg-white border border-[#C75D3B]/20 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-sm text-[#4A3B32] transition-all"
                                             />
-                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">Próximas parcelas serão mensais</p>
+                                            <p className="mt-1 text-[10px] text-[#4A3B32]/50">Próximas parcelas: mensais</p>
                                         </div>
 
-                                        {/* Resumo */}
-                                        <div className="bg-white/70 p-4 rounded-xl border border-[#C75D3B]/20 space-y-2">
-                                            <div className="flex justify-between text-xs font-bold">
+                                        {/* Resumo Compacto */}
+                                        <div className="bg-white/70 p-3 rounded-xl border border-[#C75D3B]/20 space-y-1.5 text-sm">
+                                            <div className="flex justify-between">
                                                 <span className="text-[#4A3B32]">Total:</span>
-                                                <span className="text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount).toFixed(2)}</span>
+                                                <span className="font-bold text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount).toFixed(2)}</span>
                                             </div>
-                                            <div className="flex justify-between text-xs font-bold">
-                                                <span className="text-[#4A3B32]">- Entrada:</span>
-                                                <span className="text-[#C75D3B]">R$ {entryPayment.toFixed(2)}</span>
-                                            </div>
-                                            <div className="border-t border-[#C75D3B]/20 pt-2 flex justify-between text-xs font-bold">
-                                                <span className="text-[#4A3B32]">A Parcelar:</span>
-                                                <span className="text-[#C75D3B]">R$ {(formData.totalValue - formData.discountAmount - entryPayment).toFixed(2)} em {parcelas}x</span>
+                                            {entryPayment > 0 && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-[#4A3B32]">Entrada:</span>
+                                                    <span className="font-bold text-[#C75D3B]">- R$ {entryPayment.toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                            <div className="border-t border-[#C75D3B]/20 pt-1.5 flex justify-between font-bold">
+                                                <span className="text-[#4A3B32]">{parcelas}x de:</span>
+                                                <span className="text-[#C75D3B]">R$ {((formData.totalValue - formData.discountAmount - entryPayment) / parcelas).toFixed(2)}</span>
                                             </div>
                                         </div>
                                     </motion.div>

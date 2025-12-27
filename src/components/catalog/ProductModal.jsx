@@ -12,6 +12,8 @@ export function ProductModal({ product, isOpen, onClose }) {
     const [isAdding, setIsAdding] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
     const [fullImages, setFullImages] = useState(null)
+    const [touchStartX, setTouchStartX] = useState(0)
+    const [touchEndX, setTouchEndX] = useState(0)
     const { addItem, items, isLimitReached } = useMalinhaStore()
 
     // Carregar imagens completas quando modal abrir
@@ -66,6 +68,39 @@ export function ProductModal({ product, isOpen, onClose }) {
     const hasDiscount = product.originalPrice && product.originalPrice > product.price
     const itemInMalinha = items.some(item => item.id === product.id)
 
+    const handleTouchStart = (e) => {
+        setTouchStartX(e.targetTouches[0].clientX)
+    }
+
+    const handleTouchEnd = (e) => {
+        setTouchEndX(e.changedTouches[0].clientX)
+        handleSwipe(e)
+    }
+
+    const handleSwipe = (e) => {
+        if (!touchStartX || !touchEndX) return
+
+        const distance = touchStartX - touchEndX
+        const isLeftSwipe = distance > 50 // Swipe para esquerda (próxima imagem)
+        const isRightSwipe = distance < -50 // Swipe para direita (imagem anterior)
+
+        if (isLeftSwipe) {
+            // Próxima imagem
+            setSelectedImageIndex(prev =>
+                prev === currentVariant.images.length - 1 ? 0 : prev + 1
+            )
+        } else if (isRightSwipe) {
+            // Imagem anterior
+            setSelectedImageIndex(prev =>
+                prev === 0 ? currentVariant.images.length - 1 : prev - 1
+            )
+        }
+
+        // Reset
+        setTouchStartX(0)
+        setTouchEndX(0)
+    }
+
     const handleAddToMalinha = () => {
         if (!selectedSize || isLimitReached()) return
 
@@ -111,7 +146,11 @@ export function ProductModal({ product, isOpen, onClose }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-0 overflow-y-auto max-h-[85vh]">
                     {/* Image */}
                     <div className="relative w-full bg-[#FDFBF7] flex items-center justify-center py-4 md:py-0 md:h-full">
-                        <div className="w-full max-w-sm md:max-w-none h-auto md:h-full flex items-center justify-center relative group">
+                        <div
+                            className="w-full max-w-sm md:max-w-none h-auto md:h-full flex items-center justify-center relative group cursor-grab active:cursor-grabbing"
+                            onTouchStart={handleTouchStart}
+                            onTouchEnd={handleTouchEnd}
+                        >
                             <AnimatePresence mode="wait">
                                 <motion.img
                                     key={`${selectedVariantIndex}-${selectedImageIndex}`}
@@ -120,7 +159,8 @@ export function ProductModal({ product, isOpen, onClose }) {
                                     exit={{ opacity: 0 }}
                                     src={currentVariant.images[selectedImageIndex]}
                                     alt={`${product.name} - Imagem ${selectedImageIndex + 1}`}
-                                    className="w-full h-auto max-h-[50vh] md:max-h-none md:h-full object-contain"
+                                    className="w-full h-auto max-h-[50vh] md:max-h-none md:h-full object-contain select-none pointer-events-none"
+                                    draggable="false"
                                 />
                             </AnimatePresence>
 

@@ -84,18 +84,38 @@ function ProductCardComponent({ product, onQuickView }) {
                 {/* Pagination customizado para aparecer por cima */}
                 <style>{`
                     .swiper-pagination {
-                        bottom: 12px !important;
+                        bottom: 16px !important;
                         z-index: 10 !important;
+                        display: flex !important;
+                        justify-content: center !important;
+                        align-items: center !important;
+                        gap: 6px !important;
                     }
+
                     .swiper-pagination-bullet {
-                        background: rgba(255, 255, 255, 0.7) !important;
-                        width: 6px !important;
-                        height: 6px !important;
-                        margin: 0 4px !important;
+                        background: rgba(255, 255, 255, 0.5) !important;
+                        width: 8px !important;
+                        height: 8px !important;
+                        margin: 0 !important;
+                        border-radius: 50% !important;
+                        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+                        cursor: pointer !important;
+                        border: 2px solid transparent !important;
                     }
+
+                    .swiper-pagination-bullet:hover {
+                        background: rgba(255, 255, 255, 0.8) !important;
+                        transform: scale(1.1) !important;
+                    }
+
                     .swiper-pagination-bullet-active {
-                        background: #ffffff !important;
-                        width: 24px !important;
+                        background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%) !important;
+                        width: 28px !important;
+                        height: 10px !important;
+                        border-radius: 10px !important;
+                        box-shadow: 0 4px 16px rgba(255, 255, 255, 0.6), 0 0 20px rgba(255, 255, 255, 0.3) !important;
+                        border: 2px solid rgba(255, 255, 255, 0.9) !important;
                     }
                 `}</style>
 

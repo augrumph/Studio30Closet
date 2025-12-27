@@ -96,7 +96,7 @@ function ProductCardComponent({ product, onQuickView }) {
     // Imagens: usa a cor selecionada se houver variantes, senão usa catálogo
     const variantImages = hasVariants ? product.variants[selectedColorIndex]?.images || [] : []
     const catalogImages = product.images || []
-    const allImages = variantImages.length > 0 ? variantImages : catalogImages
+    const allImages = (variantImages.length > 0 ? variantImages : catalogImages).filter(Boolean)
     const totalImages = allImages.length
 
     // Inicializar tamanho selecionado se estiver vazio
@@ -134,21 +134,31 @@ function ProductCardComponent({ product, onQuickView }) {
                     className="w-full h-full"
                     style={{ cursor: totalImages > 1 ? 'grab' : 'pointer' }}
                 >
-                    {allImages.map((image, idx) => (
-                        <SwiperSlide key={idx} className="flex items-center justify-center">
-                            <img
-                                src={image}
-                                alt={`${product.name} - Imagem ${idx + 1}`}
-                                width="300"
-                                height="400"
-                                loading="lazy"
-                                decoding="async"
-                                fetchPriority={idx === 0 ? 'high' : 'low'}
-                                className="w-full h-full object-cover group-hover:scale-105 select-none pointer-events-none transition-transform duration-300"
-                                draggable="false"
-                            />
+                    {allImages.length > 0 ? (
+                        allImages.map((image, idx) => (
+                            image && (
+                                <SwiperSlide key={idx} className="flex items-center justify-center">
+                                    <img
+                                        src={image}
+                                        alt={`${product.name} - Imagem ${idx + 1}`}
+                                        width="300"
+                                        height="400"
+                                        loading="lazy"
+                                        decoding="async"
+                                        fetchPriority={idx === 0 ? 'high' : 'low'}
+                                        className="w-full h-full object-cover group-hover:scale-105 select-none pointer-events-none transition-transform duration-300"
+                                        draggable="false"
+                                    />
+                                </SwiperSlide>
+                            )
+                        ))
+                    ) : (
+                        <SwiperSlide className="flex items-center justify-center bg-gray-200">
+                            <div className="text-center text-gray-500">
+                                <p>Sem imagem</p>
+                            </div>
                         </SwiperSlide>
-                    ))}
+                    )}
                 </Swiper>
 
                 {/* Pagination customizado para aparecer por cima */}

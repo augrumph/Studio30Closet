@@ -5,7 +5,8 @@ import { formatPrice, cn } from '@/lib/utils'
 import { triggerConfetti } from '@/components/magicui/confetti'
 
 function ProductCardComponent({ product, onQuickView }) {
-    const [selectedSize, setSelectedSize] = useState(product.sizes[0])
+    const [selectedColorIndex, setSelectedColorIndex] = useState(0)
+    const [selectedSize, setSelectedSize] = useState(null)
     const [isAdding, setIsAdding] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
     const [showActions, setShowActions] = useState(false)
@@ -15,6 +16,19 @@ function ProductCardComponent({ product, onQuickView }) {
     const discountPercent = hasDiscount
         ? Math.round((1 - product.price / product.originalPrice) * 100)
         : 0
+
+    // Obter variantes e dados da cor selecionada
+    const hasVariants = product.variants && product.variants.length > 0
+    const currentVariant = hasVariants ? product.variants[selectedColorIndex] : null
+    const availableSizes = currentVariant?.sizeStock?.map(s => s.size) || product.sizes || []
+
+    // Atualizar tamanho quando trocar cor
+    const handleColorChange = (colorIndex) => {
+        setSelectedColorIndex(colorIndex)
+        // Selecionar primeiro tamanho disponível da nova cor
+        const sizes = product.variants[colorIndex]?.sizeStock?.map(s => s.size) || product.sizes || []
+        setSelectedSize(sizes[0] || null)
+    }
 
     const handleAddOrRemoveFromMalinha = (e) => {
         e.stopPropagation()
@@ -37,7 +51,13 @@ function ProductCardComponent({ product, onQuickView }) {
 
             setIsAdding(true)
             setTimeout(() => {
-                addItem(product, selectedSize)
+                // Passar produto com cor e tamanho selecionados
+                const productWithColor = {
+                    ...product,
+                    selectedColor: hasVariants ? product.variants[selectedColorIndex].colorName : null,
+                    images: variantImages.length > 0 ? variantImages : product.images
+                }
+                addItem(productWithColor, selectedSize)
                 setIsAdding(false)
                 setIsAdded(true)
                 // Trigger confetti on add
@@ -63,11 +83,16 @@ function ProductCardComponent({ product, onQuickView }) {
 
     const itemInMalinha = items.some(item => item.id === product.id)
 
-    // Imagens: tenta variants, depois images do catálogo
-    const variantImages = product.variants?.[0]?.images || []
+    // Imagens: usa a cor selecionada se houver variantes, senão usa catálogo
+    const variantImages = hasVariants ? product.variants[selectedColorIndex]?.images || [] : []
     const catalogImages = product.images || []
     const displayImage = variantImages[0] || catalogImages[0]
     const totalImages = variantImages.length || catalogImages.length
+
+    // Inicializar tamanho selecionado se estiver vazio
+    if (selectedSize === null && availableSizes.length > 0) {
+        setSelectedSize(availableSizes[0])
+    }
 
     return (
         <div
@@ -215,9 +240,34 @@ function ProductCardComponent({ product, onQuickView }) {
 
             {/* Mobile Actions - Below image */}
             <div className="md:hidden pt-3 pb-2 space-y-2">
+                {/* Color Selector - Mobile */}
+                {hasVariants && (
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                        {product.variants.map((variant, idx) => (
+                            <button
+                                key={idx}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleColorChange(idx)
+                                }}
+                                aria-label={`Selecionar cor ${variant.colorName}`}
+                                className={cn(
+                                    'px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 touch-target border-2',
+                                    selectedColorIndex === idx
+                                        ? 'border-brand-terracotta bg-brand-terracotta/10 text-brand-terracotta'
+                                        : 'border-gray-200 bg-white text-[#4A3B32] active:bg-gray-50'
+                                )}
+                                type="button"
+                            >
+                                {variant.colorName}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {/* Size Selector - Mobile */}
                 <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                    {product.sizes.map((size) => (
+                    {availableSizes.map((size) => (
                         <button
                             key={size}
                             onClick={(e) => {

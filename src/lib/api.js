@@ -1918,11 +1918,16 @@ export async function getOpenInstallmentSales(page = 1, limit = 30) {
         const vendasComResumo = await Promise.all(
             data.map(async (venda) => {
                 const summary = await getInstallmentSummary(venda.id);
+                const camelVenda = toCamelCase(venda);
+
                 return {
-                    ...toCamelCase(venda),
+                    ...camelVenda,
+                    // ✅ Mapear corretamente o nome do cliente (JOIN com customers)
+                    customerName: venda.customers?.name || 'Cliente desconhecido',
+                    customers: venda.customers ? toCamelCase(venda.customers) : null,
                     // ✅ Mapear campos do summary para a raiz (para compatibilidade com UI)
                     dueAmount: summary.remainingValue,
-                    paidAmount: summary.totalValue - summary.remainingValue,
+                    paidAmount: summary.totalValue - summary.remainingAmount,
                     overdueCount: 0, // TODO: Calcular do banco
                     summary
                 };

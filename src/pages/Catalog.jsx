@@ -1,7 +1,7 @@
 import { ProductCard, ProductModal, ProductFilters, SkeletonCard } from '@/components/catalog'
 import { useAdminStore } from '@/store/admin-store'
 import { useMalinhaStore } from '@/store/malinha-store'
-import { useEffect, useState, useMemo, memo } from 'react'
+import { useEffect, useState, useMemo, memo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { X, SlidersHorizontal, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -16,7 +16,14 @@ export function Catalog() {
     const ITEMS_PER_PAGE = 20
     const { products, loadAllProductsForCatalog, productsLoading, productsError } = useAdminStore()
 
+    // ✅ OTIMIZAÇÃO: useRef para controlar se já iniciou o carregamento
+    const hasInitialized = useRef(false)
+
     useEffect(() => {
+        // ✅ EVITAR CHAMADAS DUPLICADAS: Se já inicializou, não fazer nada
+        if (hasInitialized.current) return
+        hasInitialized.current = true
+
         const loadProductsOptimized = async () => {
             try {
                 // Se já tem produtos em memória, não carregar novamente
@@ -25,19 +32,8 @@ export function Catalog() {
                     return
                 }
 
-                // Tentar cache primeiro
-                console.log('🔍 Tentando carregar do cache...')
-                const cachedProducts = await getCachedProducts()
-
-                if (cachedProducts && cachedProducts.length > 0) {
-                    console.log('⚡ Cache HIT! Usando', cachedProducts.length, 'produtos do cache')
-                    // Usar produtos do cache - será atualizado pelo store
-                    await loadAllProductsForCatalog()
-                    return
-                }
-
-                // Cache miss ou expirado - carregar do servidor
-                console.log('📡 Cache miss - carregando TODOS os produtos do servidor...')
+                // Carregar produtos - o cache é gerenciado dentro do loadAllProductsForCatalog
+                console.log('📡 Carregando produtos para catálogo...')
                 await loadAllProductsForCatalog()
             } catch (error) {
                 console.error('❌ Erro ao carregar produtos no catálogo:', error)
@@ -45,7 +41,7 @@ export function Catalog() {
         }
 
         loadProductsOptimized()
-    }, [loadAllProductsForCatalog, products.length])
+    }, []) // ✅ SEM DEPENDÊNCIAS - executa apenas uma vez
 
     // Filters from URL
     const selectedCategory = searchParams.get('categoria')
@@ -274,11 +270,10 @@ export function Catalog() {
                                                     <button
                                                         key={pageNum}
                                                         onClick={() => setPage(pageNum)}
-                                                        className={`touch-target px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${
-                                                            page === pageNum
+                                                        className={`touch-target px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${page === pageNum
                                                                 ? 'bg-[#C75D3B] text-white'
                                                                 : 'border-2 border-gray-200 hover:border-[#C75D3B]'
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {pageNum}
                                                     </button>

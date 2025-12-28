@@ -23,9 +23,11 @@ import { useAdminStore } from '@/store/admin-store'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
 import { getDashboardMetrics } from '@/lib/api'
 import { CatalogPDFButton } from '@/components/admin/CatalogPDFButton'
+import { Info } from 'lucide-react'
 
 export function Dashboard() {
     const vendas = useAdminStore(state => state.vendas)
@@ -371,7 +373,8 @@ export function Dashboard() {
                         name: item.name,
                         quantity: 0,
                         revenue: 0,
-                        productId: id
+                        productId: id,
+                        image: item.images?.[0] || item.image || item.variant?.images?.[0] || null
                     }
                 }
                 productSales[id].quantity += (item.quantity || 1)
@@ -540,26 +543,99 @@ export function Dashboard() {
             </motion.div>
 
             {/* 2. FINANCIAL SCOREBOARD - DRE GERENCIAL */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                {[
-                    // Receita
-                    { label: 'Receita Bruta', value: financialMetrics.grossRevenue, icon: DollarSign, color: 'blue', description: `${financialMetrics.totalSalesCount} vendas` },
-                    { label: 'Ticket Médio', value: financialMetrics.averageTicket, icon: ShoppingBag, color: 'sky', description: `${financialMetrics.totalSalesCount} vendas` },
+            <TooltipProvider delayDuration={200}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                    {[
+                        // Receita
+                        {
+                            label: 'Receita Bruta',
+                            value: financialMetrics.grossRevenue,
+                            icon: DollarSign,
+                            color: 'blue',
+                            description: `${financialMetrics.totalSalesCount} vendas`,
+                            tooltip: 'Valor total de todas as vendas realizadas no período, antes de qualquer desconto ou dedução. É o faturamento bruto da loja.'
+                        },
+                        {
+                            label: 'Ticket Médio',
+                            value: financialMetrics.averageTicket,
+                            icon: ShoppingBag,
+                            color: 'sky',
+                            description: `${financialMetrics.totalSalesCount} vendas`,
+                            tooltip: 'Valor médio que cada cliente gasta por compra. Calculado dividindo a Receita Bruta pelo número total de vendas. Um ticket médio maior indica vendas de maior valor.'
+                        },
 
-                    // Custos e Margens
-                    { label: 'CPV (Custo da Venda)', value: financialMetrics.totalCPV, icon: Package, color: 'amber', description: 'Custo histórico' },
-                    { label: 'Lucro Bruto', value: financialMetrics.grossProfit, icon: ArrowUpRight, color: 'green', description: 'Receita - CPV' },
-                    { label: 'Margem Bruta', value: financialMetrics.grossMarginPercent, icon: TrendingUp, color: 'emerald', description: (financialMetrics.grossMarginPercent).toFixed(1) + '%', isPercentage: true },
+                        // Custos e Margens
+                        {
+                            label: 'CPV (Custo da Venda)',
+                            value: financialMetrics.totalCPV,
+                            icon: Package,
+                            color: 'amber',
+                            description: 'Custo histórico',
+                            tooltip: 'Custo de Produto Vendido: quanto você pagou pelos produtos que foram vendidos. É o preço de custo das mercadorias registrado no cadastro de cada produto.'
+                        },
+                        {
+                            label: 'Lucro Bruto',
+                            value: financialMetrics.grossProfit,
+                            icon: ArrowUpRight,
+                            color: 'green',
+                            description: 'Receita - CPV',
+                            tooltip: 'Diferença entre a Receita Bruta e o CPV (Receita - CPV). Mostra quanto você ganhou com as vendas antes de pagar despesas operacionais, taxas e descontos.'
+                        },
+                        {
+                            label: 'Margem Bruta',
+                            value: financialMetrics.grossMarginPercent,
+                            icon: TrendingUp,
+                            color: 'emerald',
+                            description: (financialMetrics.grossMarginPercent).toFixed(1) + '%',
+                            isPercentage: true,
+                            tooltip: 'Percentual de lucro sobre cada venda, antes das despesas. Calculado como (Lucro Bruto ÷ Receita Bruta) × 100. Indica a rentabilidade dos seus produtos.'
+                        },
 
-                    // Taxas e Descontos
-                    { label: 'Taxas Pagto', value: financialMetrics.totalFees, icon: CreditCard, color: 'orange', description: (financialMetrics.feePercent).toFixed(1) + '% da receita' },
-                    { label: 'Descontos', value: financialMetrics.totalDiscounts, icon: ArrowDownRight, color: 'red', description: 'Cupons e ajustes' },
+                        // Taxas e Descontos
+                        {
+                            label: 'Taxas Pagto',
+                            value: financialMetrics.totalFees,
+                            icon: CreditCard,
+                            color: 'orange',
+                            description: (financialMetrics.feePercent).toFixed(1) + '% da receita',
+                            tooltip: 'Total de taxas cobradas pelas maquininhas de cartão e meios de pagamento eletrônicos (débito, crédito, PIX). Esse valor reduz o dinheiro que efetivamente entra no caixa.'
+                        },
+                        {
+                            label: 'Descontos',
+                            value: financialMetrics.totalDiscounts,
+                            icon: ArrowDownRight,
+                            color: 'red',
+                            description: 'Cupons e ajustes',
+                            tooltip: 'Total de descontos concedidos através de cupons, promoções especiais e ajustes de preço. Reduz a receita efetiva das vendas.'
+                        },
 
-                    // Despesas e Lucro
-                    { label: 'Despesas Fixas', value: financialMetrics.proportionalExpenses, icon: Calendar, color: 'slate', description: `Proporcionalizadas (${financialMetrics.periodDays} dias)` },
-                    { label: 'Lucro Operacional', value: financialMetrics.operatingProfit, icon: Target, color: 'purple', description: 'Lucro Bruto - Despesas' },
-                    { label: 'Margem Líquida', value: financialMetrics.netMarginPercent, icon: TrendingUp, color: 'indigo', description: (financialMetrics.netMarginPercent).toFixed(1) + '%', isPercentage: true }
-                ].map((stat, i) => (
+                        // Despesas e Lucro
+                        {
+                            label: 'Despesas Fixas',
+                            value: financialMetrics.proportionalExpenses,
+                            icon: Calendar,
+                            color: 'slate',
+                            description: `Proporcionalizadas (${financialMetrics.periodDays} dias)`,
+                            tooltip: 'Custos operacionais fixos do período (aluguel, energia, internet, salários, etc.). O valor é proporcional aos dias do período selecionado para uma comparação justa.'
+                        },
+                        {
+                            label: 'Lucro Operacional',
+                            value: financialMetrics.operatingProfit,
+                            icon: Target,
+                            color: 'purple',
+                            description: 'Lucro Bruto - Despesas',
+                            tooltip: 'Lucro real do negócio após todas as deduções: Lucro Bruto menos Despesas Fixas, Taxas de Pagamento e Descontos. É o dinheiro que sobra no final do período.'
+                        },
+                        {
+                            label: 'Margem Líquida',
+                            value: financialMetrics.netMarginPercent,
+                            icon: TrendingUp,
+                            color: 'indigo',
+                            description: (financialMetrics.netMarginPercent).toFixed(1) + '%',
+                            isPercentage: true,
+                            tooltip: 'Percentual de lucro final sobre cada real vendido. Calculado como (Lucro Operacional ÷ Receita Bruta) × 100. Mostra a eficiência real do negócio. Quanto maior, melhor!'
+                        }
+                    ].map((stat, i) => (
                     <motion.div
                         key={i}
                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -587,6 +663,18 @@ export function Dashboard() {
                                 )}>
                                     <stat.icon className="w-6 h-6 md:w-7 md:h-7" />
                                 </div>
+                                {/* Tooltip de explicação */}
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                            <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
+                                        <p className="font-semibold mb-1">{stat.label}</p>
+                                        <p className="text-gray-300">{stat.tooltip}</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
                             <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">{stat.label}</p>
                             <h3 className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32] mb-3 leading-tight">
@@ -599,7 +687,8 @@ export function Dashboard() {
                         </div>
                     </motion.div>
                 ))}
-            </div>
+                </div>
+            </TooltipProvider>
 
             {/* CASH FLOW & RISK INDICATORS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">

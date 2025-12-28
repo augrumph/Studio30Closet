@@ -26,7 +26,9 @@ import {
     updateOrder,
     getOrderById as getOrderByIdFromApi,
     reserveStockForMalinha,
-    releaseStockForMalinha
+    releaseStockForMalinha,
+    getCustomerPreferences,
+    updateCustomerPreferences
 } from '@/lib/api'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { useOperationalCostsStore } from './operational-costs-store'

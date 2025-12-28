@@ -1,9 +1,9 @@
+/* Import react-day-picker styles (must be first) */
+@import 'react-day-picker/dist/style.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import react-day-picker styles */
-@import 'react-day-picker/dist/style.css';
 
 /* ============================================
    MOBILE-FIRST: Touch Target Optimization

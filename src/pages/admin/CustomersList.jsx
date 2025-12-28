@@ -9,10 +9,23 @@ import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from "@/components/ui/Pagination"
+import { CardFooter } from '@/components/ui/Card'
 
 export function CustomersList() {
     const { customers, customersLoading, loadCustomers, removeCustomer, vendas, loadVendas, orders, loadOrders } = useAdminStore()
     const [search, setSearch] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage] = useState(10)
+    const [filterSegment, setFilterSegment] = useState('all') // 'all', 'active', 'inactive'
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, customerId: null, customerName: '' })
 
     useEffect(() => {
@@ -75,11 +88,34 @@ export function CustomersList() {
         }
     }, [vendas, orders, customers])
 
-    const filteredCustomers = processedCustomers.filter(customer =>
-        customer.name.toLowerCase().includes(search.toLowerCase()) ||
-        (customer.phone && customer.phone.includes(search)) ||
-        (customer.email && customer.email.toLowerCase().includes(search.toLowerCase()))
-    )
+    const filteredCustomers = useMemo(() => {
+        return processedCustomers.filter(customer => {
+            const matchesSearch = customer.name.toLowerCase().includes(search.toLowerCase()) ||
+                (customer.phone && customer.phone.includes(search)) ||
+                (customer.email && customer.email.toLowerCase().includes(search.toLowerCase()))
+
+            let matchesSegment = true
+            if (filterSegment === 'active') {
+                matchesSegment = customer.totalOrders > 0
+            } else if (filterSegment === 'inactive') {
+                matchesSegment = customer.totalOrders === 0
+            }
+
+            return matchesSearch && matchesSegment
+        })
+    }, [processedCustomers, search, filterSegment])
+
+    // Paginação
+    const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage)
+    const paginatedCustomers = useMemo(() => {
+        const startIdx = (currentPage - 1) * itemsPerPage
+        return filteredCustomers.slice(startIdx, startIdx + itemsPerPage)
+    }, [filteredCustomers, currentPage, itemsPerPage])
+
+    // Reset page quando filtros mudam
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [search, filterSegment])
 
     const handleDelete = (id, name) => {
         setConfirmDelete({ isOpen: true, customerId: id, customerName: name })
@@ -245,9 +281,26 @@ export function CustomersList() {
                                 className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
                             />
                         </div>
-                        <button className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-100 rounded-2xl text-xs font-bold text-[#4A3B32] hover:bg-gray-50 transition-all">
-                            <Filter className="w-4 h-4" /> Filtros Avançados
-                        </button>
+                        <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl">
+                            {[
+                                { id: 'all', label: 'Todos' },
+                                { id: 'active', label: 'Com Compra' },
+                                { id: 'inactive', label: 'Sem Compra' }
+                            ].map(seg => (
+                                <button
+                                    key={seg.id}
+                                    onClick={() => setFilterSegment(seg.id)}
+                                    className={cn(
+                                        "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all",
+                                        filterSegment === seg.id
+                                            ? "bg-[#4A3B32] text-white shadow-sm"
+                                            : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
+                                    )}
+                                >
+                                    {seg.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -265,8 +318,8 @@ export function CustomersList() {
                                 <AnimatePresence>
                                     {customersLoading ? (
                                         <tr><td colSpan="5" className="py-24 text-center text-gray-300 italic font-medium">Carregando CRM...</td></tr>
-                                    ) : filteredCustomers.length > 0 ? (
-                                        filteredCustomers.map((customer, idx) => (
+                                    ) : paginatedCustomers.length > 0 ? (
+                                        paginatedCustomers.map((customer, idx) => (
                                             <motion.tr
                                                 key={customer.id}
                                                 initial={{ opacity: 0 }}
@@ -326,6 +379,59 @@ export function CustomersList() {
                             </tbody>
                         </table>
                     </div>
+
+                    <CardFooter className="bg-white border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 p-6">
+                        <p className="text-xs text-gray-400 font-medium">
+                            Mostrando <span className="text-[#4A3B32] font-bold">{paginatedCustomers.length}</span> de <span className="text-[#4A3B32] font-bold">{filteredCustomers.length}</span> clientes
+                        </p>
+
+                        {totalPages > 1 && (
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                            className="cursor-pointer"
+                                        />
+                                    </PaginationItem>
+
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                        if (
+                                            page === 1 ||
+                                            page === totalPages ||
+                                            (page >= currentPage - 1 && page <= currentPage + 1)
+                                        ) {
+                                            return (
+                                                <PaginationItem key={page}>
+                                                    <PaginationLink
+                                                        onClick={() => setCurrentPage(page)}
+                                                        isActive={currentPage === page}
+                                                    >
+                                                        {page}
+                                                    </PaginationLink>
+                                                </PaginationItem>
+                                            )
+                                        } else if (
+                                            page === currentPage - 2 ||
+                                            page === currentPage + 2
+                                        ) {
+                                            return <PaginationEllipsis key={page} />
+                                        }
+                                        return null
+                                    })}
+
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="cursor-pointer"
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                        )}
+                    </CardFooter>
                 </Card>
 
                 <AlertDialog

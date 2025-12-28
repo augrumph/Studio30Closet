@@ -1062,7 +1062,7 @@ export async function getVendas(page = 1, limit = 30) {
     const offset = (page - 1) * limit;
     const { data, error, count } = await supabase
         .from('vendas')
-        .select('id, customer_id, total_value, payment_method, payment_status, created_at, fee_amount, net_amount, items, customers(id, name)', { count: 'exact' })
+        .select('id, customer_id, total_value, payment_method, payment_status, created_at, fee_amount, net_amount, items, entry_payment, is_installment, customers(id, name)', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 

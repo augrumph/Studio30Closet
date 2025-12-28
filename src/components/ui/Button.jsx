@@ -11,7 +11,19 @@ const variants = {
 const sizes = {
     sm: 'px-3 py-1.5 text-sm',
     md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg'
+    lg: 'px-6 py-3 text-lg',
+    icon: 'h-9 w-9 p-0',
+    default: 'px-4 py-2'
+}
+
+// Export buttonVariants function for use in other components
+export const buttonVariants = ({ variant = 'primary', size = 'md', className = '' } = {}) => {
+    return cn(
+        'rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center',
+        variants[variant] || variants.primary,
+        sizes[size] || sizes.md,
+        className
+    )
 }
 
 export function Button({
@@ -24,12 +36,7 @@ export function Button({
 }) {
     return (
         <button
-            className={cn(
-                'rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
-                variants[variant],
-                sizes[size],
-                className
-            )}
+            className={buttonVariants({ variant, size, className })}
             disabled={disabled}
             {...props}
         >

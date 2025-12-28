@@ -6,14 +6,28 @@ import { AlertDialog } from '@/components/ui/AlertDialog'
 import { useAdminStore } from '@/store/admin-store'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
+import { Info, TrendingUp, DollarSign } from 'lucide-react'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from "@/components/ui/Pagination"
 
 
 export function MalinhasList() {
     const { orders, loadOrders, removeOrder, ordersLoading } = useAdminStore()
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
+    const [dateFilter, setDateFilter] = useState('all') // 'all', 'today', 'month'
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage] = useState(10)
     const [deleteAlert, setDeleteAlert] = useState({ isOpen: false, orderId: null })
 
     useEffect(() => {
@@ -23,14 +37,33 @@ export function MalinhasList() {
     const filteredOrders = orders.filter(order => {
         const orderNum = order.orderNumber || '';
         const customerName = order.customer ? order.customer.name || '' : '';
+        const orderDate = new Date(order.createdAt)
+        const now = new Date()
 
         const matchesSearch =
             orderNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
             customerName.toLowerCase().includes(searchTerm.toLowerCase());
-        
+
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter
-        return matchesSearch && matchesStatus
+
+        let matchesDate = true
+        if (dateFilter === 'today') {
+            matchesDate = orderDate.toDateString() === now.toDateString()
+        } else if (dateFilter === 'month') {
+            matchesDate = orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear()
+        }
+
+        return matchesSearch && matchesStatus && matchesDate
     })
+
+    // Paginação
+    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
+    const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+    // Reset page quando filtros mudam
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [searchTerm, statusFilter, dateFilter])
     const handleDelete = (id, e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -57,7 +90,16 @@ export function MalinhasList() {
         cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700', icon: XCircle },
     }
 
-    const pendingCount = orders.filter(o => o.status === 'pending').length
+    const metrics = {
+        totalActive: orders.filter(o => ['pending', 'shipped', 'delivered', 'pickup_scheduled'].includes(o.status)).length,
+        pending: orders.filter(o => o.status === 'pending').length,
+        completedMonth: orders.filter(o => {
+            const date = new Date(o.createdAt)
+            const now = new Date()
+            return o.status === 'completed' && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+        }).length,
+        totalItems: orders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + (o.itemsCount || 0), 0)
+    }
 
     return (
         <div className="space-y-10 pb-20">
@@ -91,6 +133,119 @@ export function MalinhasList() {
                 </ShimmerButton>
             </motion.div>
 
+            {/* Quick Insights - Bento Style Cards */}
+            <TooltipProvider delayDuration={200}>
+                <div className="grid md:grid-cols-4 gap-6">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                        <Card className="border-purple-50 bg-white group overflow-hidden relative">
+                            <CardHeader className="pb-2 text-left">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-purple-50 rounded-xl"><Package className="w-5 h-5 text-purple-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ativas</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Malinhas em trânsito, com cliente ou aguardando envio/coleta.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="text-left">
+                                <div className="text-3xl font-display font-bold text-[#4A3B32]">{metrics.totalActive}</div>
+                                <p className="text-xs text-purple-600 font-medium mt-1">Total em circulação</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                        <Card className="border-amber-50 bg-white group overflow-hidden relative">
+                            <CardHeader className="pb-2 text-left">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-amber-50 rounded-xl"><Clock className="w-5 h-5 text-amber-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Pendentes</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Malinhas criadas que ainda aguardam o primeiro passo logístico.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="text-left">
+                                <div className="text-3xl font-display font-bold text-[#4A3B32]">{metrics.pending}</div>
+                                <p className="text-xs text-amber-600 font-medium mt-1">Aguardando início</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                        <Card className="border-emerald-50 bg-white group overflow-hidden relative">
+                            <CardHeader className="pb-2 text-left">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-emerald-50 rounded-xl"><CheckCircle className="w-5 h-5 text-emerald-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Concluídas</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Malinhas concluídas com sucesso no mês atual.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="text-left">
+                                <div className="text-3xl font-display font-bold text-[#4A3B32]">{metrics.completedMonth}</div>
+                                <p className="text-xs text-emerald-600 font-medium mt-1">Este mês</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                        <Card className="border-blue-50 bg-white group overflow-hidden relative">
+                            <CardHeader className="pb-2 text-left">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-blue-50 rounded-xl"><ShoppingBag className="w-5 h-5 text-blue-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Peças</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Soma total de peças enviadas em todas as malinhas (exceto canceladas).</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="text-left">
+                                <div className="text-3xl font-display font-bold text-[#4A3B32]">{metrics.totalItems}</div>
+                                <p className="text-xs text-blue-600 font-medium mt-1">Volume em circulação</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                </div>
+            </TooltipProvider>
+
             {/* Premium Filtering Area */}
             <Card className="border-none shadow-xl overflow-visible">
                 <CardHeader className="bg-white p-6 border-b border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -105,26 +260,48 @@ export function MalinhasList() {
                         />
                     </div>
 
-                    <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl w-full md:w-auto overflow-x-auto custom-scrollbar">
-                        {['all', 'pending', 'shipped', 'delivered', 'pickup_scheduled', 'completed'].map(status => (
-                            <button
-                                key={status}
-                                onClick={() => setStatusFilter(status)}
-                                className={cn(
-                                    "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap",
-                                    statusFilter === status
-                                        ? "bg-white text-[#4A3B32] shadow-sm"
-                                        : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
-                                )}
-                            >
-                                {status === 'all' ? 'Ver Tudo' :
-                                 status === 'pending' ? 'Pendentes' :
-                                 status === 'shipped' ? 'Enviados' :
-                                 status === 'delivered' ? 'Entregues' :
-                                 status === 'pickup_scheduled' ? 'Coleta Agendada' :
-                                 'Concluídos'}
-                            </button>
-                        ))}
+                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                        <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl overflow-x-auto">
+                            {[
+                                { id: 'all', label: 'Tudo' },
+                                { id: 'today', label: 'Hoje' },
+                                { id: 'month', label: 'Mês' }
+                            ].map(period => (
+                                <button
+                                    key={period.id}
+                                    onClick={() => setDateFilter(period.id)}
+                                    className={cn(
+                                        "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap",
+                                        dateFilter === period.id
+                                            ? "bg-[#4A3B32] text-white shadow-sm"
+                                            : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
+                                    )}
+                                >
+                                    {period.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl overflow-x-auto">
+                            {['all', 'pending', 'shipped', 'delivered', 'completed'].map(status => (
+                                <button
+                                    key={status}
+                                    onClick={() => setStatusFilter(status)}
+                                    className={cn(
+                                        "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap",
+                                        statusFilter === status
+                                            ? "bg-white text-[#4A3B32] shadow-sm"
+                                            : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
+                                    )}
+                                >
+                                    {status === 'all' ? 'Status' :
+                                        status === 'pending' ? 'Pendentes' :
+                                            status === 'shipped' ? 'Enviados' :
+                                                status === 'delivered' ? 'Entregues' :
+                                                    'Concluídos'}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </CardHeader>
 
@@ -143,8 +320,8 @@ export function MalinhasList() {
                             <AnimatePresence>
                                 {ordersLoading ? (
                                     <tr><td colSpan="5" className="py-24 text-center text-gray-300 italic">Carregando agendamentos...</td></tr>
-                                ) : filteredOrders.length > 0 ? (
-                                    filteredOrders.map((order, idx) => {
+                                ) : paginatedOrders.length > 0 ? (
+                                    paginatedOrders.map((order, idx) => {
                                         const status = statusMap[order.status] || statusMap.pending
                                         return (
                                             <motion.tr
@@ -163,23 +340,23 @@ export function MalinhasList() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                                                                 <td className="px-8 py-6">
-                                                                                                     {order.customer ? (
-                                                                                                         <div className="flex items-center gap-3">
-                                                                                                             <div className="w-9 h-9 rounded-full bg-[#FAF3F0] flex items-center justify-center text-[#4A3B32] font-bold text-xs border border-[#C75D3B]/10">
-                                                                                                                 {order.customer.name ? order.customer.name.charAt(0) : '?'}
-                                                                                                             </div>
-                                                                                                             <div>
-                                                                                                                 <p className="font-bold text-[#4A3B32] text-sm">{order.customer.name || 'Cliente desconhecido'}</p>
-                                                                                                                 <p className="text-[10px] text-gray-400">{order.customer.phone || 'Telefone indisponível'}</p>
-                                                                                                             </div>
-                                                                                                         </div>
-                                                                                                     ) : (
-                                                                                                         <div>
-                                                                                                             <p className="font-bold text-red-500 text-sm">Cliente não associado</p>
-                                                                                                         </div>
-                                                                                                     )}
-                                                                                                 </td>
+                                                <td className="px-8 py-6">
+                                                    {order.customer ? (
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-9 h-9 rounded-full bg-[#FAF3F0] flex items-center justify-center text-[#4A3B32] font-bold text-xs border border-[#C75D3B]/10">
+                                                                {order.customer.name ? order.customer.name.charAt(0) : '?'}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-[#4A3B32] text-sm">{order.customer.name || 'Cliente desconhecido'}</p>
+                                                                <p className="text-[10px] text-gray-400">{order.customer.phone || 'Telefone indisponível'}</p>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <p className="font-bold text-red-500 text-sm">Cliente não associado</p>
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="px-8 py-6">
                                                     <div className="space-y-2">
                                                         <div className="flex items-center gap-2">
@@ -247,6 +424,59 @@ export function MalinhasList() {
                         </tbody>
                     </table>
                 </div>
+
+                <CardFooter className="bg-white border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 p-6">
+                    <p className="text-xs text-gray-400 font-medium">
+                        Mostrando <span className="text-[#4A3B32] font-bold">{paginatedOrders.length}</span> de <span className="text-[#4A3B32] font-bold">{filteredOrders.length}</span> malinhas
+                    </p>
+
+                    {totalPages > 1 && (
+                        <Pagination>
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="cursor-pointer"
+                                    />
+                                </PaginationItem>
+
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                    if (
+                                        page === 1 ||
+                                        page === totalPages ||
+                                        (page >= currentPage - 1 && page <= currentPage + 1)
+                                    ) {
+                                        return (
+                                            <PaginationItem key={page}>
+                                                <PaginationLink
+                                                    onClick={() => setCurrentPage(page)}
+                                                    isActive={currentPage === page}
+                                                >
+                                                    {page}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                        )
+                                    } else if (
+                                        page === currentPage - 2 ||
+                                        page === currentPage + 2
+                                    ) {
+                                        return <PaginationEllipsis key={page} />
+                                    }
+                                    return null
+                                })}
+
+                                <PaginationItem>
+                                    <PaginationNext
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="cursor-pointer"
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    )}
+                </CardFooter>
             </Card>
 
             <AlertDialog

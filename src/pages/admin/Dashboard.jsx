@@ -212,24 +212,95 @@ export function Dashboard() {
         const netMarginPercent = grossRevenue > 0 ? (operatingProfit / grossRevenue) * 100 : 0;
 
         // (12) FLUXO DE CAIXA - Separar claramente Recebido vs A Receber
-        // Valores Recebidos: Vendas com payment_status = 'paid'
-        const receivedAmount = allSales
-            .filter(v => v.paymentStatus === 'paid')
-            .reduce((sum, v) => sum + (v.netAmount || v.totalValue - (v.feeAmount || 0)), 0);
+        const now = new Date();
+        const isInPeriod = (dateStr) => {
+            const date = new Date(dateStr);
+            if (periodFilter === 'last7days') {
+                const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+                return date >= cutoff;
+            }
+            if (periodFilter === 'last30days') {
+                const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+                return date >= cutoff;
+            }
+            if (periodFilter === 'currentMonth') {
+                return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+            }
+            if (periodFilter === 'custom' && customDateRange.start && customDateRange.end) {
+                const start = new Date(customDateRange.start);
+                const end = new Date(customDateRange.end);
+                end.setHours(23, 59, 59, 999);
+                return date >= start && date <= end;
+            }
+            return true; // fallback ou all-time
+        };
 
-        // Valores a Receber: Vendas com payment_status = 'pending' + parcelas de installments
-        const pendingVendasAmount = allSales
-            .filter(v => v.paymentStatus === 'pending')
-            .reduce((sum, v) => sum + (v.totalValue || 0), 0);
+        // Valores Recebidos (no período): 
+        // 1. Vendas realizadas no período:
+        // - Se à vista e paga: valor líquido total
+        // - Se parcelada ou fiado: apenas o valor da ENTRADA (entryPayment)
+        const receivedFromSales = allSales.reduce((sum, v) => {
+            const status = v.paymentStatus || v.payment_status;
+            const isInstallment = v.isInstallment || v.is_installment === true;
+            const net = Number(v.netAmount || v.net_amount || 0);
+            const total = Number(v.totalValue || v.total_value || 0);
+            const fee = Number(v.feeAmount || v.fee_amount || 0);
+            const entry = Number(v.entryPayment || v.entry_payment || 0);
 
-        const installmentsRemaining = dashboardData?.installments ?
+            // 1. Vendas à vista pagas (contamos o valor líquido total)
+            if (status === 'paid' && !isInstallment) {
+                return sum + (net || total - fee);
+            }
+            // 2. Vendas pendentes ou parceladas (contamos apenas o valor da entrada/adiantamento que já entrou no bolso)
+            return sum + entry;
+        }, 0);
+
+        // 2. Pagamentos de parcelas realizados NO PERÍODO (parcelas pagas posteriormente)
+        let receivedFromInstallments = 0;
+        if (dashboardData?.installments) {
+            dashboardData.installments.forEach(inst => {
+                (inst.installmentPayments || []).forEach(payment => {
+                    const paymentDate = payment.createdAt || payment.paymentDate;
+                    if (isInPeriod(paymentDate)) {
+                        receivedFromInstallments += (payment.paymentAmount || 0);
+                    }
+                });
+            });
+        }
+
+        const receivedAmount = receivedFromSales + receivedFromInstallments;
+
+        // Valores a Receber (Total Atual - Global): 
+        // Soma o saldo devedor de todas as vendas pendentes e parcelas ativas no sistema
+
+        // 1. Dívida de vendas simples (Fiado/Crediário SEM parcelamento formal)
+        // Usamos 'vendas' (lista global do store) para que o saldo seja o total que o cliente deve hoje
+        // 1. Dívida de vendas simples (Qualquer venda Pendente que não tenha parcelamento formal)
+        // Usamos 'vendas' (lista global do store) para que o saldo seja o total que o cliente deve hoje
+        const toReceiveFromSimpleSales = (vendas || []).reduce((sum, v) => {
+            const status = v.paymentStatus || v.payment_status;
+            const isInstallment = v.isInstallment || v.is_installment === true;
+            const total = Number(v.totalValue || v.total_value || 0);
+            const entry = Number(v.entryPayment || v.entry_payment || 0);
+
+            // Consideramos qualquer venda pendente que não seja via parcelamento (tabela de installments)
+            // Se o usuário esqueceu de criar as parcelas ou é apenas fiado simples, cai aqui.
+            if (status === 'pending' && !isInstallment) {
+                const balance = total - entry;
+                return sum + Math.max(0, balance);
+            }
+            return sum;
+        }, 0);
+
+        // 2. Dívida de vendas parceladas (via Tabela Installments)
+        const toReceiveFromInstallments = dashboardData?.installments ?
             dashboardData.installments.reduce((sum, inst) => {
-                const paid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
-                const remaining = (inst.originalAmount || 0) - paid;
+                const totalPaid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
+                const remaining = (inst.originalAmount || 0) - totalPaid;
                 return sum + Math.max(0, remaining);
             }, 0) : 0;
 
-        const toReceiveAmount = pendingVendasAmount + installmentsRemaining;
+        const toReceiveAmount = toReceiveFromSimpleSales + toReceiveFromInstallments;
 
         // (13) INDICADORES DE RISCO - INADIMPLÊNCIA
         // Apenas parcelas VENCIDAS e NÃO PAGAS completamente
@@ -636,34 +707,77 @@ export function Dashboard() {
                             tooltip: 'Percentual de lucro final sobre cada real vendido. Calculado como (Lucro Operacional ÷ Receita Bruta) × 100. Mostra a eficiência real do negócio. Quanto maior, melhor!'
                         }
                     ].map((stat, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            whileHover={{ y: -4, scale: 1.02 }}
+                            transition={{ delay: i * 0.08, duration: 0.4 }}
+                            className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                            <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className={cn(
+                                        "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
+                                        stat.color === 'blue' ? "bg-blue-100 text-blue-600" :
+                                            stat.color === 'cyan' ? "bg-cyan-100 text-cyan-600" :
+                                                stat.color === 'sky' ? "bg-sky-100 text-sky-600" :
+                                                    stat.color === 'amber' ? "bg-amber-100 text-amber-600" :
+                                                        stat.color === 'emerald' ? "bg-emerald-100 text-emerald-600" :
+                                                            stat.color === 'purple' ? "bg-purple-100 text-purple-600" :
+                                                                stat.color === 'indigo' ? "bg-indigo-100 text-indigo-600" :
+                                                                    stat.color === 'orange' ? "bg-orange-100 text-orange-600" :
+                                                                        stat.color === 'slate' ? "bg-slate-100 text-slate-600" :
+                                                                            stat.color === 'green' ? "bg-green-100 text-green-600" :
+                                                                                "bg-red-100 text-red-600"
+                                    )}>
+                                        <stat.icon className="w-6 h-6 md:w-7 md:h-7" />
+                                    </div>
+                                    {/* Tooltip de explicação */}
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
+                                            <p className="font-semibold mb-1">{stat.label}</p>
+                                            <p className="text-gray-300">{stat.tooltip}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                                <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">{stat.label}</p>
+                                <h3 className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32] mb-3 leading-tight">
+                                    {stat.isPercentage ?
+                                        `${(stat.value || 0).toFixed(1)}%` :
+                                        `R$ ${(stat.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                    }
+                                </h3>
+                                <p className="text-xs text-gray-500 font-medium line-clamp-2">{stat.description}</p>
+                            </div>
+                        </motion.div>
+                    ))}
+                </div>
+            </TooltipProvider>
+
+            {/* CASH FLOW & RISK INDICATORS */}
+            <TooltipProvider delayDuration={200}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                    {/* Fluxo de Caixa - Recebido */}
                     <motion.div
-                        key={i}
                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         whileHover={{ y: -4, scale: 1.02 }}
-                        transition={{ delay: i * 0.08, duration: 0.4 }}
+                        transition={{ delay: 0.48, duration: 0.4 }}
                         className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
                     >
                         <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                         <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
                             <div className="flex items-center justify-between mb-4">
-                                <div className={cn(
-                                    "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
-                                    stat.color === 'blue' ? "bg-blue-100 text-blue-600" :
-                                    stat.color === 'cyan' ? "bg-cyan-100 text-cyan-600" :
-                                    stat.color === 'sky' ? "bg-sky-100 text-sky-600" :
-                                    stat.color === 'amber' ? "bg-amber-100 text-amber-600" :
-                                    stat.color === 'emerald' ? "bg-emerald-100 text-emerald-600" :
-                                    stat.color === 'purple' ? "bg-purple-100 text-purple-600" :
-                                    stat.color === 'indigo' ? "bg-indigo-100 text-indigo-600" :
-                                    stat.color === 'orange' ? "bg-orange-100 text-orange-600" :
-                                    stat.color === 'slate' ? "bg-slate-100 text-slate-600" :
-                                    stat.color === 'green' ? "bg-green-100 text-green-600" :
-                                    "bg-red-100 text-red-600"
-                                )}>
-                                    <stat.icon className="w-6 h-6 md:w-7 md:h-7" />
+                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                    <ArrowDownRight className="w-6 h-6 md:w-7 md:h-7" />
                                 </div>
-                                {/* Tooltip de explicação */}
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
@@ -671,145 +785,135 @@ export function Dashboard() {
                                         </button>
                                     </TooltipTrigger>
                                     <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
-                                        <p className="font-semibold mb-1">{stat.label}</p>
-                                        <p className="text-gray-300">{stat.tooltip}</p>
+                                        <p className="font-semibold mb-1">Valores Recebidos (Caixa Efetivo)</p>
+                                        <p className="text-gray-300">Total de dinheiro que entrou no caixa no período selecionado. Inclui vendas pagas e todos os adiantamentos ou parcelas pagos pelos clientes.</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
-                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">{stat.label}</p>
-                            <h3 className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32] mb-3 leading-tight">
-                                {stat.isPercentage ?
-                                    `${(stat.value || 0).toFixed(1)}%` :
-                                    `R$ ${(stat.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                }
+                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Valores Recebidos</p>
+                            <h3 className="text-2xl md:text-3xl font-display font-bold text-emerald-600 mb-3 leading-tight">
+                                R$ {(financialMetrics.receivedAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </h3>
-                            <p className="text-xs text-gray-500 font-medium line-clamp-2">{stat.description}</p>
+                            <p className="text-xs text-emerald-600 font-medium font-display tracking-tight">Valor bruto que entrou no caixa</p>
                         </div>
                     </motion.div>
-                ))}
+
+                    {/* Fluxo de Caixa - A Receber */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        whileHover={{ y: -4, scale: 1.02 }}
+                        transition={{ delay: 0.56, duration: 0.4 }}
+                        className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className={cn(
+                                    "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center",
+                                    financialMetrics.toReceiveAmount > 0 ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"
+                                )}>
+                                    <Clock className="w-6 h-6 md:w-7 md:h-7" />
+                                </div>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                            <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
+                                        <p className="font-semibold mb-1">Valores a Receber (Fiado/Parcelas)</p>
+                                        <p className="text-gray-300">Saldo total que os clientes ainda devem (crediário/fiado). Representa o que falta pagar de todas as parcelas ativas no sistema.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Valores a Receber</p>
+                            <h3 className={cn(
+                                "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
+                                financialMetrics.toReceiveAmount > 0 ? "text-amber-600" : "text-green-600"
+                            )}>
+                                R$ {(financialMetrics.toReceiveAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </h3>
+                            <p className="text-xs text-gray-400 font-medium font-display tracking-tight">Saldo a liquidar</p>
+                        </div>
+                    </motion.div>
+
+                    {/* Inadimplência */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        whileHover={{ y: -4, scale: 1.02 }}
+                        transition={{ delay: 0.64, duration: 0.4 }}
+                        className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className={cn(
+                                    "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center",
+                                    financialMetrics.overdueAmount > 0 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+                                )}>
+                                    <AlertTriangle className="w-6 h-6 md:w-7 md:h-7" />
+                                </div>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                            <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
+                                        <p className="font-semibold mb-1">Inadimplência (Atrasos)</p>
+                                        <p className="text-gray-300">Valor das parcelas que já venceram e não foram pagas. Indica o risco real de perda financeira no momento.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Inadimplência</p>
+                            <h3 className={cn(
+                                "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
+                                financialMetrics.overdueAmount > 0 ? "text-red-600" : "text-green-600"
+                            )}>
+                                R$ {(financialMetrics.overdueAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </h3>
+                            <p className="text-xs text-gray-500 font-medium font-display tracking-tight">Total vencido e não pago</p>
+                        </div>
+                    </motion.div>
+
+                    {/* Fiado Pendente (LEGACY / SUMMARY) */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        whileHover={{ y: -4, scale: 1.02 }}
+                        transition={{ delay: 0.72, duration: 0.4 }}
+                        className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className={cn(
+                                    "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
+                                    financialMetrics.pendingFiado > 0 ? "bg-stone-100 text-stone-600" : "bg-emerald-100 text-emerald-600"
+                                )}>
+                                    <CreditCard className="w-6 h-6 md:w-7 md:h-7" />
+                                </div>
+                            </div>
+                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Vendas Fiado</p>
+                            <h3 className={cn(
+                                "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
+                                financialMetrics.pendingFiado > 0 ? "text-stone-600" : "text-emerald-600"
+                            )}>
+                                R$ {(financialMetrics.pendingFiado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </h3>
+                            <p className="text-xs text-gray-500 font-medium font-display tracking-tight">Período selecionado</p>
+                        </div>
+                    </motion.div>
                 </div>
-            </TooltipProvider>
-
-            {/* CASH FLOW & RISK INDICATORS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {/* Fluxo de Caixa - Recebido */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    whileHover={{ y: -4, scale: 1.02 }}
-                    transition={{ delay: 0.48, duration: 0.4 }}
-                    className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                    <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                                <ArrowDownRight className="w-6 h-6 md:w-7 md:h-7" />
-                            </div>
-                        </div>
-                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Valores Recebidos</p>
-                        <h3 className="text-2xl md:text-3xl font-display font-bold text-emerald-600 mb-3 leading-tight">
-                            R$ {(financialMetrics.receivedAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </h3>
-                        <p className="text-xs text-gray-500 font-medium">Caixa efetivo</p>
-                    </div>
-                </motion.div>
-
-                {/* Fluxo de Caixa - A Receber */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    whileHover={{ y: -4, scale: 1.02 }}
-                    transition={{ delay: 0.56, duration: 0.4 }}
-                    className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                    <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className={cn(
-                                "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center",
-                                financialMetrics.toReceiveAmount > 0 ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"
-                            )}>
-                                <Clock className="w-6 h-6 md:w-7 md:h-7" />
-                            </div>
-                        </div>
-                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Valores a Receber</p>
-                        <h3 className={cn(
-                            "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
-                            financialMetrics.toReceiveAmount > 0 ? "text-amber-600" : "text-green-600"
-                        )}>
-                            R$ {(financialMetrics.toReceiveAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </h3>
-                        <p className="text-xs text-gray-500 font-medium">Parcelas pendentes</p>
-                    </div>
-                </motion.div>
-
-                {/* Inadimplência */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    whileHover={{ y: -4, scale: 1.02 }}
-                    transition={{ delay: 0.64, duration: 0.4 }}
-                    className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                    <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className={cn(
-                                "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center",
-                                financialMetrics.overdueAmount > 0 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
-                            )}>
-                                <AlertTriangle className="w-6 h-6 md:w-7 md:h-7" />
-                            </div>
-                        </div>
-                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Inadimplência</p>
-                        <h3 className={cn(
-                            "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
-                            financialMetrics.overdueAmount > 0 ? "text-red-600" : "text-green-600"
-                        )}>
-                            {(financialMetrics.defaultPercent || 0).toFixed(1)}%
-                        </h3>
-                        <p className="text-xs text-gray-500 font-medium">
-                            {financialMetrics.overdueCount > 0 ? `${financialMetrics.overdueCount} parcelas atrasadas` : 'Nenhuma parcela vencida'}
-                        </p>
-                    </div>
-                </motion.div>
-
-                {/* Crediário Pendente (legacy) */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    whileHover={{ y: -4, scale: 1.02 }}
-                    transition={{ delay: 0.72, duration: 0.4 }}
-                    className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                    <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className={cn(
-                                "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
-                                financialMetrics.pendingFiado > 0 ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"
-                            )}>
-                                <CreditCard className="w-6 h-6 md:w-7 md:h-7" />
-                            </div>
-                        </div>
-                        <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Fiado Pendente</p>
-                        <h3 className={cn(
-                            "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
-                            financialMetrics.pendingFiado > 0 ? "text-red-600" : "text-emerald-600"
-                        )}>
-                            R$ {(financialMetrics.pendingFiado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </h3>
-                        <p className="text-xs text-gray-500 font-medium">Vendas não pagas</p>
-                    </div>
-                </motion.div>
-            </div>
+            </TooltipProvider >
 
             {/* 3. TRENDS & TOP PRODUCTS */}
-            <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
+            < div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8" >
 
                 {/* Trend Chart Area */}
-                <Card className="lg:col-span-2 rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                < Card className="lg:col-span-2 rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
                     <CardHeader className="p-6 md:p-8 pb-0">
                         <div className="flex items-center justify-between gap-4">
                             <div>
@@ -849,10 +953,10 @@ export function Dashboard() {
                             ))}
                         </div>
                     </CardContent>
-                </Card>
+                </Card >
 
                 {/* Top Products */}
-                <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                < Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
                     <CardHeader className="p-6 md:p-8">
                         <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32]">Produtos Estrela</CardTitle>
                         <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium">Os queridinhos do Studio 30</p>
@@ -890,11 +994,11 @@ export function Dashboard() {
                             Ver Catálogo Completo
                         </Link>
                     </CardContent>
-                </Card>
-            </div>
+                </Card >
+            </div >
 
             {/* 3.2 RANKINGS - TOP CUSTOMERS */}
-            <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+            < Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
                 <CardHeader className="p-6 md:p-8 border-b border-gray-50">
                     <div className="flex items-center justify-between gap-4">
                         <div>
@@ -914,9 +1018,9 @@ export function Dashboard() {
                                     <div className={cn(
                                         "w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center font-bold text-white text-lg md:text-xl ring-4 ring-transparent group-active:ring-[#C75D3B]/10 md:group-hover:ring-[#C75D3B]/10 transition-all flex-shrink-0",
                                         idx === 0 ? "bg-gradient-to-br from-[#C75D3B] to-[#FF8C6B]" :
-                                        idx === 1 ? "bg-gradient-to-br from-amber-400 to-amber-500" :
-                                        idx === 2 ? "bg-gradient-to-br from-orange-300 to-orange-400" :
-                                        "bg-gray-200 text-gray-600"
+                                            idx === 1 ? "bg-gradient-to-br from-amber-400 to-amber-500" :
+                                                idx === 2 ? "bg-gradient-to-br from-orange-300 to-orange-400" :
+                                                    "bg-gray-200 text-gray-600"
                                     )}>
                                         {idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : customer.name.charAt(0)}
                                     </div>
@@ -942,12 +1046,12 @@ export function Dashboard() {
                         <div className="py-10 text-center text-gray-300 italic text-sm">Aguardando dados de clientes...</div>
                     )}
                 </CardContent>
-            </Card>
+            </Card >
 
             {/* 3.5 TEMPORAL ANALYSIS - MONTHLY & ACCUMULATED */}
-            <div className="grid lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
+            < div className="grid lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8" >
                 {/* Monthly Trend - Last 4 Weeks */}
-                <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                < Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
                     <CardHeader className="p-6 md:p-8 pb-0">
                         <div className="flex items-center justify-between gap-4">
                             <div>
@@ -987,10 +1091,10 @@ export function Dashboard() {
                             ))}
                         </div>
                     </CardContent>
-                </Card>
+                </Card >
 
                 {/* Accumulated Sales Trend */}
-                <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
+                < Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
                     <CardHeader className="p-6 md:p-8 pb-0">
                         <div className="flex items-center justify-between gap-4">
                             <div>
@@ -1034,13 +1138,13 @@ export function Dashboard() {
                             </div>
                         )}
                     </CardContent>
-                </Card>
-            </div>
+                </Card >
+            </div >
 
             {/* 4. RECENT ACTIVITY & MONTHLY GOAL */}
-            <div className="grid lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8">
+            < div className="grid lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8" >
                 {/* Recent Items List */}
-                <Card className="lg:col-span-8 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md bg-white overflow-hidden">
+                < Card className="lg:col-span-8 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md bg-white overflow-hidden" >
                     <CardHeader className="p-6 md:p-8 border-b border-gray-50 flex flex-row items-center justify-between gap-4">
                         <div className="min-w-0 flex-1">
                             <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32] truncate">Atividade Operacional</CardTitle>
@@ -1084,10 +1188,10 @@ export function Dashboard() {
                             </div>
                         ))}
                     </div>
-                </Card>
+                </Card >
 
                 {/* Performance Goal Mastery */}
-                <div className="lg:col-span-4 space-y-4 md:space-y-6 lg:space-y-8">
+                < div className="lg:col-span-4 space-y-4 md:space-y-6 lg:space-y-8" >
                     <Card className="rounded-2xl md:rounded-[32px] border border-white/10 shadow-md bg-[#4A3B32] text-white p-6 md:p-8 overflow-hidden relative group">
                         <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none group-hover:bg-white/10 transition-colors" />
                         <CardHeader className="p-0 mb-6 md:mb-10">
@@ -1165,8 +1269,8 @@ export function Dashboard() {
                             </Link>
                         </div>
                     </Card>
-                </div>
-            </div>
-        </div>
+                </div >
+            </div >
+        </div >
     )
 }

@@ -8,6 +8,17 @@ import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
+import { Info } from 'lucide-react'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from "@/components/ui/Pagination"
 
 export function VendasList() {
     const { vendas, loadVendas, vendasLoading, removeVenda } = useAdminStore()
@@ -15,23 +26,36 @@ export function VendasList() {
     const [filterType, setFilterType] = useState('all')
     const [filterPaymentStatus, setFilterPaymentStatus] = useState('all') // Novo filtro
     const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage] = useState(10)
+    const [dateFilter, setDateFilter] = useState('all') // 'all', 'today', 'month'
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, vendaId: null, customerName: '' })
 
-    const itemsPerPage = 10
 
     useEffect(() => {
         loadVendas()
     }, [loadVendas])
 
-    const filteredVendas = useMemo(() => vendas.filter(venda => {
-        const matchesSearch = (venda.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
-        const matchesType = filterType === 'all' || venda.paymentMethod === filterType
-        const matchesPaymentStatus =
-            filterPaymentStatus === 'all' ||
-            (filterPaymentStatus === 'pending' && venda.paymentStatus === 'pending') ||
-            (filterPaymentStatus === 'paid' && venda.paymentStatus === 'paid')
-        return matchesSearch && matchesType && matchesPaymentStatus
-    }), [vendas, searchTerm, filterType, filterPaymentStatus])
+    const filteredVendas = useMemo(() => {
+        const now = new Date()
+        return vendas.filter(venda => {
+            const saleDate = new Date(venda.createdAt)
+            const matchesSearch = (venda.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
+            const matchesType = filterType === 'all' || venda.paymentMethod === filterType
+            const matchesPaymentStatus =
+                filterPaymentStatus === 'all' ||
+                (filterPaymentStatus === 'pending' && venda.paymentStatus === 'pending') ||
+                (filterPaymentStatus === 'paid' && venda.paymentStatus === 'paid')
+
+            let matchesDate = true
+            if (dateFilter === 'today') {
+                matchesDate = saleDate.toDateString() === now.toDateString()
+            } else if (dateFilter === 'month') {
+                matchesDate = saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear()
+            }
+
+            return matchesSearch && matchesType && matchesPaymentStatus && matchesDate
+        })
+    }, [vendas, searchTerm, filterType, filterPaymentStatus, dateFilter])
 
     // Paginação: Calcular vendas da página atual
     const totalPages = Math.ceil(filteredVendas.length / itemsPerPage)
@@ -44,7 +68,7 @@ export function VendasList() {
     // Reset page quando filtros mudam
     useEffect(() => {
         setCurrentPage(1)
-    }, [searchTerm, filterType, filterPaymentStatus])
+    }, [searchTerm, filterType, filterPaymentStatus, dateFilter])
 
 
     // Usar TODAS as vendas para os cards de métricas (não filtradas)
@@ -128,84 +152,138 @@ export function VendasList() {
             </motion.div>
 
             {/* Quick Insights - Bento Style Cards */}
-            <div className="grid md:grid-cols-4 gap-6">
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                    <Card className="border-emerald-50 bg-white">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-50 rounded-xl"><DollarSign className="w-5 h-5 text-emerald-600" /></div>
-                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Faturamento</span>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            R$ {(metrics.totalRevenue || 0).toLocaleString('pt-BR')}
-                            <p className="text-xs text-emerald-600 font-medium mt-1">+12% em relação ao mês anterior</p>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                    <Card className="border-amber-50 bg-white">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-amber-50 rounded-xl"><CreditCard className="w-5 h-5 text-amber-600" /></div>
-                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Crediário (Pendente)</span>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-baseline gap-1 text-3xl font-display font-bold text-[#4A3B32]">
-                                R$ {(metrics.pendingFiado || 0).toLocaleString('pt-BR')}
-                            </div>
-                            <p className="text-xs text-amber-600 font-medium mt-1">Aguardando liquidação</p>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                    <Card className="border-[#FDF0ED] bg-white">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-[#FDF0ED] rounded-xl"><TrendingUp className="w-5 h-5 text-[#C75D3B]" /></div>
-                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Performance Hoje</span>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-display font-bold text-[#4A3B32]">
-                                {vendas.filter(v => new Date(v.createdAt).toDateString() === new Date().toDateString()).length}
-                                <span className="text-sm font-medium text-gray-400 ml-2">vendas hoje</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-
-                {/* Card de Devedores - DESTAQUE */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                    <Card className="border-red-100 bg-gradient-to-br from-red-50 to-white cursor-pointer hover:shadow-lg transition-all"
-                        onClick={() => setFilterPaymentStatus('pending')}>
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-red-100 rounded-xl"><CreditCard className="w-5 h-5 text-red-600" /></div>
-                                    <span className="text-xs font-bold text-red-600 uppercase tracking-widest">⚠️ Devedores</span>
+            <TooltipProvider delayDuration={200}>
+                <div className="grid md:grid-cols-4 gap-6">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                        <Card className="border-emerald-50 bg-white group overflow-hidden relative">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-emerald-50 rounded-xl"><DollarSign className="w-5 h-5 text-emerald-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Faturamento</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Soma total de todas as vendas registradas (Pagas e Pendentes).</p>
+                                        </TooltipContent>
+                                    </Tooltip>
                                 </div>
-                                {metrics.totalDevedores > 0 && (
-                                    <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
-                                        {metrics.totalDevedores}
-                                    </span>
-                                )}
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-display font-bold text-red-600">
-                                R$ {(metrics.valorDevedores || 0).toLocaleString('pt-BR')}
-                            </div>
-                            <p className="text-xs text-red-500 font-medium mt-1">
-                                {metrics.totalDevedores} {metrics.totalDevedores === 1 ? 'venda pendente' : 'vendas pendentes'}
-                            </p>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-            </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-display font-bold text-[#4A3B32]">
+                                    R$ {(metrics.totalRevenue || 0).toLocaleString('pt-BR')}
+                                </div>
+                                <p className="text-xs text-emerald-600 font-medium mt-1">Total bruto acumulado</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                        <Card className="border-amber-50 bg-white group overflow-hidden relative">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-amber-50 rounded-xl"><CreditCard className="w-5 h-5 text-amber-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Crediário (Pendente)</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Valor total de vendas marcadas como "Fiado" que ainda não foram liquidadas.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex items-baseline gap-1 text-3xl font-display font-bold text-[#4A3B32]">
+                                    R$ {(metrics.pendingFiado || 0).toLocaleString('pt-BR')}
+                                </div>
+                                <p className="text-xs text-amber-600 font-medium mt-1">Aguardando liquidação</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                        <Card className="border-[#FDF0ED] bg-white group overflow-hidden relative">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-[#FDF0ED] rounded-xl"><TrendingUp className="w-5 h-5 text-[#C75D3B]" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Performance Hoje</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Quantidade total de vendas realizadas no dia de hoje.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-display font-bold text-[#4A3B32]">
+                                    {vendas.filter(v => new Date(v.createdAt).toDateString() === new Date().toDateString()).length}
+                                    <span className="text-sm font-medium text-gray-400 ml-2">vendas hoje</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    {/* Card de Devedores - DESTAQUE */}
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                        <Card className="border-red-100 bg-gradient-to-br from-red-50 to-white cursor-pointer hover:shadow-lg transition-all group overflow-hidden relative"
+                            onClick={() => setFilterPaymentStatus('pending')}>
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between w-full">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-red-100 rounded-xl"><CreditCard className="w-5 h-5 text-red-600" /></div>
+                                            <span className="text-xs font-bold text-red-600 uppercase tracking-widest">⚠️ Devedores</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {metrics.totalDevedores > 0 && (
+                                                <span className="px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
+                                                    {metrics.totalDevedores}
+                                                </span>
+                                            )}
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button className="p-1.5 hover:bg-red-200/50 rounded-full transition-colors">
+                                                        <Info className="w-4 h-4 text-red-400" />
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                                    <p>Soma total de TODAS as vendas pendentes (Fiado e outros métodos aguardando pagamento).</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-display font-bold text-red-600">
+                                    R$ {(metrics.valorDevedores || 0).toLocaleString('pt-BR')}
+                                </div>
+                                <p className="text-xs text-red-500 font-medium mt-1">
+                                    {metrics.totalDevedores} {metrics.totalDevedores === 1 ? 'venda pendente' : 'vendas pendentes'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                </div>
+            </TooltipProvider>
 
             {/* Premium Table Area */}
             <Card className="overflow-hidden border-none shadow-xl">
@@ -225,6 +303,28 @@ export function VendasList() {
                     </div>
 
                     <div className="flex flex-col md:flex-row gap-3">
+                        {/* Filtro de Período */}
+                        <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl">
+                            {[
+                                { id: 'all', label: 'Tudo' },
+                                { id: 'today', label: 'Hoje' },
+                                { id: 'month', label: 'Mês' }
+                            ].map(period => (
+                                <button
+                                    key={period.id}
+                                    onClick={() => setDateFilter(period.id)}
+                                    className={cn(
+                                        "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all",
+                                        dateFilter === period.id
+                                            ? "bg-[#4A3B32] text-white shadow-sm"
+                                            : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
+                                    )}
+                                >
+                                    {period.label}
+                                </button>
+                            ))}
+                        </div>
+
                         {/* Filtro de Método de Pagamento */}
                         <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl">
                             {['all', 'pix', 'card', 'fiado'].map(type => (
@@ -238,7 +338,7 @@ export function VendasList() {
                                             : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
                                     )}
                                 >
-                                    {type === 'all' ? 'Todos' : type === 'fiado' ? 'Crediário' : type}
+                                    {type === 'all' ? 'Método' : type === 'fiado' ? 'Crediário' : type.toUpperCase()}
                                 </button>
                             ))}
                         </div>
@@ -386,27 +486,58 @@ export function VendasList() {
                     </table>
                 </div>
 
-                <CardFooter className="bg-[#FAF8F5]/30 border-t border-gray-50 flex justify-between p-6">
+                <CardFooter className="bg-white border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 p-6">
                     <p className="text-xs text-gray-400 font-medium">
-                        Exibindo {paginatedVendas.length} de {filteredVendas.length} filtrados (Total: {vendas.length})
-                        {totalPages > 1 && ` • Página ${currentPage} de ${totalPages}`}
+                        Mostrando <span className="text-[#4A3B32] font-bold">{paginatedVendas.length}</span> de <span className="text-[#4A3B32] font-bold">{filteredVendas.length}</span> registros
                     </p>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                            className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-[10px] font-bold text-gray-700 hover:text-[#4A3B32] hover:border-[#4A3B32] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                            Anterior
-                        </button>
-                        <button
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-[10px] font-bold text-gray-700 hover:text-[#4A3B32] hover:border-[#4A3B32] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                            Próxima
-                        </button>
-                    </div>
+
+                    {totalPages > 1 && (
+                        <Pagination>
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="cursor-pointer"
+                                    />
+                                </PaginationItem>
+
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                    // Lógica básica para não mostrar todas as páginas se forem muitas
+                                    if (
+                                        page === 1 ||
+                                        page === totalPages ||
+                                        (page >= currentPage - 1 && page <= currentPage + 1)
+                                    ) {
+                                        return (
+                                            <PaginationItem key={page}>
+                                                <PaginationLink
+                                                    onClick={() => setCurrentPage(page)}
+                                                    isActive={currentPage === page}
+                                                >
+                                                    {page}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                        )
+                                    } else if (
+                                        page === currentPage - 2 ||
+                                        page === currentPage + 2
+                                    ) {
+                                        return <PaginationEllipsis key={page} />
+                                    }
+                                    return null
+                                })}
+
+                                <PaginationItem>
+                                    <PaginationNext
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="cursor-pointer"
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    )}
                 </CardFooter>
             </Card>
 

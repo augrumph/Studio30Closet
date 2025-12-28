@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Filter, Tag, Package, ChevronRight, MoreHorizontal, Trash2, Edit2 } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
@@ -6,13 +6,28 @@ import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card'
 import { EmptyState, ErrorState, LoadingState, TableWrapper } from '@/components/admin/shared'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
+import { Info, TrendingUp, DollarSign, AlertTriangle } from 'lucide-react'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from "@/components/ui/Pagination"
 
 export function ProductsList() {
     const { products, productsLoading, loadProducts, removeProduct, removeMultipleProducts } = useAdminStore()
     const [search, setSearch] = useState('')
+    const [categoryFilter, setCategoryFilter] = useState('all')
+    const [stockFilter, setStockFilter] = useState('all') // 'all', 'low'
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage] = useState(10)
     const [selectedProducts, setSelectedProducts] = useState([])
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, productId: null, productName: '' })
     const [confirmMultiDelete, setConfirmMultiDelete] = useState(false)
@@ -32,11 +47,44 @@ export function ProductsList() {
         fetchProducts()
     }, [loadProducts])
 
-    const filteredProducts = products.filter(product =>
-        product.name.toLowerCase().includes(search.toLowerCase()) ||
-        product.category.toLowerCase().includes(search.toLowerCase()) ||
-        product.id.toString().includes(search)
-    )
+    const filteredProducts = useMemo(() => {
+        return products.filter(product => {
+            const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) ||
+                product.category.toLowerCase().includes(search.toLowerCase()) ||
+                product.id.toString().includes(search)
+
+            const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter
+            const matchesStock = stockFilter === 'all' || (stockFilter === 'low' && product.stock <= 2)
+
+            return matchesSearch && matchesCategory && matchesStock
+        })
+    }, [products, search, categoryFilter, stockFilter])
+
+    // Paginação
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+    const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+    // Reset page quando filtros mudam
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [search, categoryFilter, stockFilter])
+
+    // Categorias únicas para o filtro
+    const categories = useMemo(() => {
+        const cats = new Set(products.map(p => p.category))
+        return Array.from(cats).sort()
+    }, [products])
+
+    // Métricas
+    const metrics = useMemo(() => {
+        return {
+            totalValue: products.reduce((acc, p) => acc + ((p.price || 0) * (p.stock || 0)), 0),
+            totalCost: products.reduce((acc, p) => acc + ((p.costPrice || 0) * (p.stock || 0)), 0),
+            totalItems: products.reduce((acc, p) => acc + (p.stock || 0), 0),
+            totalProducts: products.length,
+            lowStock: products.filter(p => p.stock <= 2).length
+        }
+    }, [products])
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -120,6 +168,153 @@ export function ProductsList() {
                 </div>
             </motion.div>
 
+            {/* Quick Insights - Bento Style Cards */}
+            <TooltipProvider delayDuration={200}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                        <Card className="border-emerald-50 bg-white group overflow-hidden relative h-full">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-emerald-50 rounded-xl"><TrendingUp className="w-5 h-5 text-emerald-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Valor de Venda</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Soma total do valor de venda de todos os produtos em estoque (Preço x Quantidade).</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-display font-bold text-[#4A3B32]">
+                                    R$ {(metrics.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </div>
+                                <p className="text-[10px] text-emerald-600 font-medium mt-1">Potencial de faturamento</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                        <Card className="border-amber-50 bg-white group overflow-hidden relative h-full">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-amber-50 rounded-xl"><DollarSign className="w-5 h-5 text-amber-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Custo de Estoque</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Soma total do valor de custo de todos os produtos parados no estoque (Custo x Quantidade).</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-display font-bold text-[#4A3B32]">
+                                    R$ {(metrics.totalCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </div>
+                                <p className="text-[10px] text-amber-600 font-medium mt-1">Capital imobilizado</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                        <Card className="border-blue-50 bg-white group overflow-hidden relative h-full">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-blue-50 rounded-xl"><Package className="w-5 h-5 text-blue-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total de Peças</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Soma total da quantidade de todas as peças cadastradas e disponíveis.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-display font-bold text-[#4A3B32]">{metrics.totalItems}</div>
+                                <p className="text-[10px] text-blue-600 font-medium mt-1">Unidades físicas</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                        <Card className="border-purple-50 bg-white group overflow-hidden relative h-full">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-purple-50 rounded-xl"><Tag className="w-5 h-5 text-purple-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">SKUs</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-gray-300" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Quantidade de modelos de produtos diferentes cadastrados no catálogo.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-display font-bold text-[#4A3B32]">{metrics.totalProducts}</div>
+                                <p className="text-[10px] text-purple-600 font-medium mt-1">Modelos ativos</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                        <Card className={cn(
+                            "border-red-50 bg-white group overflow-hidden relative cursor-pointer hover:shadow-lg transition-all",
+                            metrics.lowStock > 0 && "bg-red-50/30"
+                        )} onClick={() => setStockFilter(stockFilter === 'low' ? 'all' : 'low')}>
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-red-100 rounded-xl"><AlertTriangle className="w-5 h-5 text-red-600" /></div>
+                                        <span className="text-xs font-bold text-red-600 uppercase tracking-widest">Estoque Baixo</span>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button className="p-1.5 hover:bg-red-200/50 rounded-full transition-colors">
+                                                <Info className="w-4 h-4 text-red-400" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                            <p>Produtos com 2 ou menos unidades em estoque. Clique para filtrar.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-3xl font-display font-bold text-red-600">{metrics.lowStock}</div>
+                                <p className="text-xs text-red-500 font-medium mt-1">Precisam de reposição</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                </div>
+            </TooltipProvider>
+
             {/* Main Content Card */}
             <Card className="overflow-hidden border-none shadow-2xl shadow-gray-100">
                 <div className="p-6 border-b border-gray-50 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -132,6 +327,31 @@ export function ProductsList() {
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
                         />
+                    </div>
+
+                    <div className="flex gap-2 p-1 bg-gray-50 rounded-2xl overflow-x-auto">
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="bg-transparent border-none text-[10px] font-bold uppercase tracking-wider text-[#4A3B32] outline-none px-4 py-2 cursor-pointer"
+                        >
+                            <option value="all">Todas Categorias</option>
+                            {categories.map(cat => (
+                                <option key={cat} value={cat}>{cat.toUpperCase()}</option>
+                            ))}
+                        </select>
+                        <div className="w-[1px] bg-gray-200 my-2" />
+                        <button
+                            onClick={() => setStockFilter(stockFilter === 'low' ? 'all' : 'low')}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all",
+                                stockFilter === 'low'
+                                    ? "bg-red-500 text-white shadow-sm"
+                                    : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
+                            )}
+                        >
+                            Estoque Baixo
+                        </button>
                     </div>
                 </div>
 
@@ -176,8 +396,8 @@ export function ProductsList() {
                                             <LoadingState text="Sincronizando catálogo..." />
                                         </td>
                                     </tr>
-                                ) : filteredProducts.length > 0 ? (
-                                    filteredProducts.map((product, idx) => (
+                                ) : paginatedProducts.length > 0 ? (
+                                    paginatedProducts.map((product, idx) => (
                                         <motion.tr
                                             key={product.id}
                                             initial={{ opacity: 0 }}
@@ -279,6 +499,59 @@ export function ProductsList() {
                         </tbody>
                     </table>
                 </TableWrapper>
+
+                <CardFooter className="bg-white border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 p-6">
+                    <p className="text-xs text-gray-400 font-medium">
+                        Mostrando <span className="text-[#4A3B32] font-bold">{paginatedProducts.length}</span> de <span className="text-[#4A3B32] font-bold">{filteredProducts.length}</span> produtos
+                    </p>
+
+                    {totalPages > 1 && (
+                        <Pagination>
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="cursor-pointer"
+                                    />
+                                </PaginationItem>
+
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                    if (
+                                        page === 1 ||
+                                        page === totalPages ||
+                                        (page >= currentPage - 1 && page <= currentPage + 1)
+                                    ) {
+                                        return (
+                                            <PaginationItem key={page}>
+                                                <PaginationLink
+                                                    onClick={() => setCurrentPage(page)}
+                                                    isActive={currentPage === page}
+                                                >
+                                                    {page}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                        )
+                                    } else if (
+                                        page === currentPage - 2 ||
+                                        page === currentPage + 2
+                                    ) {
+                                        return <PaginationEllipsis key={page} />
+                                    }
+                                    return null
+                                })}
+
+                                <PaginationItem>
+                                    <PaginationNext
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="cursor-pointer"
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    )}
+                </CardFooter>
             </Card>
 
             <AlertDialog

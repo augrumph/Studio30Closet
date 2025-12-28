@@ -1920,6 +1920,10 @@ export async function getOpenInstallmentSales(page = 1, limit = 30) {
                 const summary = await getInstallmentSummary(venda.id);
                 return {
                     ...toCamelCase(venda),
+                    // ✅ Mapear campos do summary para a raiz (para compatibilidade com UI)
+                    dueAmount: summary.remainingValue,
+                    paidAmount: summary.totalValue - summary.remainingValue,
+                    overdueCount: 0, // TODO: Calcular do banco
                     summary
                 };
             })

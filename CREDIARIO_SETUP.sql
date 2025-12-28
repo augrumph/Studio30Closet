@@ -126,29 +126,33 @@ CREATE OR REPLACE FUNCTION create_installments(
 )
 RETURNS TABLE(installment_id INTEGER, installment_number INTEGER, due_date DATE, amount DECIMAL) AS $$
 DECLARE
-    v_venda RECORD;
+    v_venda_total_value DECIMAL;
     v_remaining_amount DECIMAL;
     v_installment_amount DECIMAL;
     v_installment_num INTEGER;
     v_due_date DATE;
+    v_id BIGINT;
+    v_inst_number INTEGER;
+    v_due DATE;
+    v_amount DECIMAL;
 BEGIN
     -- Buscar dados da venda
-    SELECT total_value INTO v_venda FROM vendas WHERE id = p_venda_id;
+    SELECT total_value INTO v_venda_total_value FROM vendas WHERE id = p_venda_id;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Venda não encontrada';
     END IF;
 
     -- Calcular valor restante (total - entrada)
-    v_remaining_amount := COALESCE(v_venda.total_value, 0) - COALESCE(p_entry_payment, 0);
+    v_remaining_amount := COALESCE(v_venda_total_value, 0) - COALESCE(p_entry_payment, 0);
 
     -- Calcular valor de cada parcela
     v_installment_amount := ROUND(v_remaining_amount / p_num_installments, 2);
 
     -- Criar cada parcela
     FOR v_installment_num IN 1..p_num_installments LOOP
-        -- Calcular data de vencimento (a cada mês)
-        v_due_date := p_installment_start_date + (v_installment_num - 1) || ' month';
+        -- Calcular data de vencimento (a cada mês) - CORRIGIDO: usar parentheses e INTERVAL
+        v_due_date := p_installment_start_date + ((v_installment_num - 1) || ' month')::INTERVAL;
 
         -- Última parcela pega o resto (para evitar arredondamentos)
         IF v_installment_num = p_num_installments THEN
@@ -173,14 +177,15 @@ BEGIN
             v_installment_amount,
             'pending'
         )
-        RETURNING
-            installments.id,
-            installments.installment_number,
-            installments.due_date,
-            installments.original_amount
-        INTO installment_id, installment_number, due_date, amount;
+        RETURNING id, installment_number, due_date, original_amount
+        INTO v_id, v_inst_number, v_due, v_amount;
 
-        YIELD NEXT;
+        -- Retornar linha para a TABLE
+        installment_id := v_id;
+        installment_number := v_inst_number;
+        due_date := v_due;
+        amount := v_amount;
+        RETURN NEXT;
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;

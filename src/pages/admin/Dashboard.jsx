@@ -16,7 +16,8 @@ import {
     MoreHorizontal,
     Search,
     AlertTriangle,
-    TrendingDown
+    TrendingDown,
+    Download
 } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { Link } from 'react-router-dom'
@@ -24,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
 import { getDashboardMetrics } from '@/lib/api'
+import { CatalogPDFButton } from '@/components/admin/CatalogPDFButton'
 
 export function Dashboard() {
     const vendas = useAdminStore(state => state.vendas)
@@ -441,7 +443,7 @@ export function Dashboard() {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 md:gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                         <Link
                             to="/admin/vendas/new"
                             className="p-4 md:p-6 bg-[#C75D3B] active:bg-[#A64D31] md:hover:bg-[#A64D31] rounded-2xl md:rounded-3xl transition-all shadow-xl group flex flex-col gap-2 md:gap-3"
@@ -460,6 +462,13 @@ export function Dashboard() {
                             </div>
                             <span className="font-bold text-xs md:text-sm tracking-tight uppercase">Montar Malinha</span>
                         </Link>
+                        <div className="p-4 md:p-6 bg-gradient-to-br from-emerald-500 to-teal-600 active:from-emerald-600 active:to-teal-700 rounded-2xl md:rounded-3xl transition-all shadow-xl group flex flex-col gap-2 md:gap-3">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl md:rounded-2xl flex items-center justify-center group-active:scale-95 md:group-hover:scale-110 transition-transform">
+                                <Download className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                            </div>
+                            <span className="font-bold text-xs md:text-sm tracking-tight uppercase text-white">Catálogo PDF</span>
+                            <CatalogPDFButton />
+                        </div>
                     </div>
                 </div>
             </motion.div>

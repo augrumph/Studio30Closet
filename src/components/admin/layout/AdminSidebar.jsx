@@ -47,8 +47,8 @@ const menuItems = [
         icon: ShoppingCart
     },
     {
-        path: '/admin/operational-costs',
-        label: 'Taxas de Pagamento',
+        path: '/admin/installments',
+        label: 'Crediário',
         icon: DollarSign
     },
     {

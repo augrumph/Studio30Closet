@@ -107,9 +107,13 @@ export function OperationalCosts() {
             ]
 
             installmentMethods.forEach(inst => {
+                // Extrair número de parcelas do key (credito_2x -> 2)
+                const numInstallments = parseInt(inst.key.replace('credito_', '').replace('x', '')) || 6
+
                 feesArray.push({
                     payment_method: 'credito_parcelado',
                     card_brand: brand,
+                    num_installments: numInstallments,
                     fee_percentage: fees[`${brand}_${inst.key}`] || 0,
                     description: `Crédito Parcelado ${inst.label} ${brand.charAt(0).toUpperCase() + brand.slice(1)}`
                 })

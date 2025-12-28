@@ -616,6 +616,225 @@ async function decrementProductStock(items, productsMap) {
     }
 }
 
+/**
+ * Reservar estoque quando uma malinha é ativada (emprestada)
+ * Decrementa o estoque de cada item para indicar que está reservado
+ * @param {Array} items - Items da malinha com productId, selectedSize, selectedColor, quantity
+ * @returns {Promise<{success: boolean, reserved: Array, error?: string}>}
+ */
+export async function reserveStockForMalinha(items) {
+    console.log('🔒 Reservando estoque para malinha:', items.length, 'itens');
+    const reserved = [];
+
+    try {
+        for (const item of items) {
+            const productId = item.productId;
+            const quantity = item.quantity || 1;
+            const selectedSize = item.selectedSize;
+            const selectedColor = item.selectedColor;
+
+            if (!productId) {
+                console.warn('⚠️ Item sem productId, pulando reserva');
+                continue;
+            }
+
+            // Buscar produto atual
+            const { data: product, error: fetchError } = await supabase
+                .from('products')
+                .select('id, name, variants, stock')
+                .eq('id', productId)
+                .single();
+
+            if (fetchError || !product) {
+                console.error(`❌ Produto ${productId} não encontrado:`, fetchError);
+                continue;
+            }
+
+            // Copiar variants para modificar
+            let updatedVariants = JSON.parse(JSON.stringify(product.variants || []));
+
+            if (updatedVariants.length === 0) {
+                console.warn(`⚠️ Produto ${productId} sem variantes`);
+                continue;
+            }
+
+            // Encontrar variante pela cor
+            const variantIndex = updatedVariants.findIndex(
+                v => v.colorName === selectedColor || (!selectedColor && v.colorName)
+            );
+
+            if (variantIndex === -1) {
+                console.warn(`⚠️ Cor "${selectedColor}" não encontrada no produto ${productId}`);
+                continue;
+            }
+
+            const variant = updatedVariants[variantIndex];
+
+            // Encontrar tamanho
+            const sizeStockIndex = variant.sizeStock?.findIndex(s => s.size === selectedSize);
+
+            if (sizeStockIndex === undefined || sizeStockIndex === -1) {
+                console.warn(`⚠️ Tamanho "${selectedSize}" não encontrado na cor "${selectedColor}"`);
+                continue;
+            }
+
+            const currentQty = variant.sizeStock[sizeStockIndex].quantity || 0;
+
+            if (currentQty < quantity) {
+                console.error(`❌ Estoque insuficiente: ${currentQty} disponível, ${quantity} solicitado`);
+                throw new Error(`Estoque insuficiente para ${product.name} (${selectedColor} - ${selectedSize})`);
+            }
+
+            // Decrementar estoque
+            variant.sizeStock[sizeStockIndex].quantity -= quantity;
+
+            // Calcular novo total
+            const newTotalStock = updatedVariants.reduce((total, v) => {
+                return total + (v.sizeStock || []).reduce((sum, s) => sum + (s.quantity || 0), 0);
+            }, 0);
+
+            // Atualizar no banco
+            const { error: updateError } = await supabase
+                .from('products')
+                .update({
+                    variants: updatedVariants,
+                    stock: newTotalStock,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', productId);
+
+            if (updateError) {
+                console.error(`❌ Erro ao reservar estoque do produto ${productId}:`, updateError);
+                throw updateError;
+            }
+
+            reserved.push({
+                productId,
+                productName: product.name,
+                selectedColor,
+                selectedSize,
+                quantity
+            });
+
+            console.log(`✅ Reservado: ${product.name} (${selectedColor} - ${selectedSize}) x${quantity}`);
+        }
+
+        console.log(`✅ ${reserved.length} itens reservados com sucesso`);
+        return { success: true, reserved };
+
+    } catch (error) {
+        console.error('❌ Erro ao reservar estoque:', error);
+        return { success: false, reserved, error: error.message };
+    }
+}
+
+/**
+ * Liberar/restaurar estoque quando itens da malinha são devolvidos
+ * Incrementa o estoque de cada item devolvido
+ * @param {Array} items - Items a serem restaurados com productId, selectedSize, selectedColor, quantity
+ * @returns {Promise<{success: boolean, released: Array, error?: string}>}
+ */
+export async function releaseStockForMalinha(items) {
+    console.log('🔓 Restaurando estoque de malinha:', items.length, 'itens');
+    const released = [];
+
+    try {
+        for (const item of items) {
+            const productId = item.productId;
+            const quantity = item.quantity || 1;
+            const selectedSize = item.selectedSize;
+            const selectedColor = item.selectedColor;
+
+            if (!productId) {
+                console.warn('⚠️ Item sem productId, pulando restauração');
+                continue;
+            }
+
+            // Buscar produto atual
+            const { data: product, error: fetchError } = await supabase
+                .from('products')
+                .select('id, name, variants, stock')
+                .eq('id', productId)
+                .single();
+
+            if (fetchError || !product) {
+                console.error(`❌ Produto ${productId} não encontrado:`, fetchError);
+                continue;
+            }
+
+            // Copiar variants para modificar
+            let updatedVariants = JSON.parse(JSON.stringify(product.variants || []));
+
+            if (updatedVariants.length === 0) {
+                console.warn(`⚠️ Produto ${productId} sem variantes`);
+                continue;
+            }
+
+            // Encontrar variante pela cor
+            const variantIndex = updatedVariants.findIndex(
+                v => v.colorName === selectedColor || (!selectedColor && v.colorName)
+            );
+
+            if (variantIndex === -1) {
+                console.warn(`⚠️ Cor "${selectedColor}" não encontrada, criando entrada`);
+                continue;
+            }
+
+            const variant = updatedVariants[variantIndex];
+
+            // Encontrar tamanho
+            const sizeStockIndex = variant.sizeStock?.findIndex(s => s.size === selectedSize);
+
+            if (sizeStockIndex === undefined || sizeStockIndex === -1) {
+                console.warn(`⚠️ Tamanho "${selectedSize}" não encontrado, criando entrada`);
+                // Criar entrada se não existir
+                variant.sizeStock = variant.sizeStock || [];
+                variant.sizeStock.push({ size: selectedSize, quantity: quantity });
+            } else {
+                // Incrementar estoque
+                variant.sizeStock[sizeStockIndex].quantity += quantity;
+            }
+
+            // Calcular novo total
+            const newTotalStock = updatedVariants.reduce((total, v) => {
+                return total + (v.sizeStock || []).reduce((sum, s) => sum + (s.quantity || 0), 0);
+            }, 0);
+
+            // Atualizar no banco
+            const { error: updateError } = await supabase
+                .from('products')
+                .update({
+                    variants: updatedVariants,
+                    stock: newTotalStock,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', productId);
+
+            if (updateError) {
+                console.error(`❌ Erro ao restaurar estoque do produto ${productId}:`, updateError);
+                throw updateError;
+            }
+
+            released.push({
+                productId,
+                productName: product.name,
+                selectedColor,
+                selectedSize,
+                quantity
+            });
+
+            console.log(`✅ Restaurado: ${product.name} (${selectedColor} - ${selectedSize}) x${quantity}`);
+        }
+
+        console.log(`✅ ${released.length} itens restaurados com sucesso`);
+        return { success: true, released };
+
+    } catch (error) {
+        console.error('❌ Erro ao restaurar estoque:', error);
+        return { success: false, released, error: error.message };
+    }
+}
+
 export async function createOrder(orderData) {
     console.log('🔍 DEBUG createOrder - Received orderData:', orderData);
 
@@ -1583,11 +1802,14 @@ export async function createInstallments(
     console.log(`💳 Criando ${numInstallments}x | Venda: #${vendaId} | Entrada: R$ ${entryPayment}`);
 
     try {
-        const { data, error } = await supabase.rpc('create_installments', {
-            p_venda_id: vendaId,
-            p_num_installments: numInstallments,
-            p_entry_payment: entryPayment || 0, // Usar 0 se undefined
-            p_installment_start_date: startDate
+        // ✅ IMPORTANTE: Como a função agora é RETURNS SETOF RECORD,
+        // chamamos apenas pelo efeito colateral (criar parcelas no banco)
+        // NÃO usamos o retorno 'data'
+        const { error } = await supabase.rpc('create_installments', {
+            p_venda_id: Number(vendaId), // ✅ BIGINT explícito
+            p_num_installments: Number(numInstallments), // ✅ INTEGER explícito
+            p_entry_payment: Number(entryPayment || 0), // ✅ DECIMAL explícito
+            p_installment_start_date: startDate || null // ✅ DATE ou null
         });
 
         if (error) {
@@ -1598,12 +1820,11 @@ export async function createInstallments(
             };
         }
 
-        const count = data?.length || 0;
-        console.log(`✅ ${count} parcelas criadas com sucesso para venda #${vendaId}`);
+        console.log(`✅ ${numInstallments} parcelas criadas com sucesso para venda #${vendaId}`);
 
         return {
             success: true,
-            installments: (data || []).map(toCamelCase)
+            count: numInstallments
         };
     } catch (err) {
         console.error(`❌ Exceção ao criar parcelas (venda #${vendaId}):`, err.message);

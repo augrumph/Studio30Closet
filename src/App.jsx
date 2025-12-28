@@ -27,7 +27,7 @@ import { SuppliersList } from '@/pages/admin/SuppliersList'
 import { SuppliersForm } from '@/pages/admin/SuppliersForm'
 import { PurchasesList } from '@/pages/admin/PurchasesList'
 import { PurchasesForm } from '@/pages/admin/PurchasesForm'
-import { OperationalCosts } from '@/pages/admin/OperationalCosts'
+import { InstallmentsList } from '@/pages/admin/InstallmentsList'
 import { ExpensesList } from '@/pages/admin/ExpensesList'
 import { ExpensesForm } from '@/pages/admin/ExpensesForm'
 
@@ -99,8 +99,8 @@ function App() {
                     <Route path="purchases/new" element={<PurchasesForm />} />
                     <Route path="purchases/:id" element={<PurchasesForm />} />
 
-                    {/* Custos Operacionais */}
-                    <Route path="operational-costs" element={<OperationalCosts />} />
+                    {/* Crediário */}
+                    <Route path="installments" element={<InstallmentsList />} />
 
                     {/* Despesas Fixas */}
                     <Route path="expenses" element={<ExpensesList />} />

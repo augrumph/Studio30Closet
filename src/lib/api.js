@@ -892,7 +892,12 @@ export async function createVenda(vendaData) {
         card_brand: snakeData.card_brand || null,
         fee_percentage: snakeData.fee_percentage || 0,
         fee_amount: snakeData.fee_amount || 0,
-        net_amount: snakeData.net_amount
+        net_amount: snakeData.net_amount,
+        // ✅ CAMPOS DE PARCELAMENTO (CORRIGIDO)
+        is_installment: snakeData.is_installment || false,
+        num_installments: snakeData.num_installments || 1,
+        entry_payment: snakeData.entry_payment || 0,
+        installment_start_date: snakeData.installment_start_date || null
     };
 
     console.log('API: Prepared record for insert:', vendaRecord);
@@ -928,7 +933,12 @@ export async function updateVenda(id, vendaData) {
         card_brand: snakeData.card_brand || null,
         fee_percentage: snakeData.fee_percentage || 0,
         fee_amount: snakeData.fee_amount || 0,
-        net_amount: snakeData.net_amount
+        net_amount: snakeData.net_amount,
+        // ✅ CAMPOS DE PARCELAMENTO (CORRIGIDO)
+        is_installment: snakeData.is_installment || false,
+        num_installments: snakeData.num_installments || 1,
+        entry_payment: snakeData.entry_payment || 0,
+        installment_start_date: snakeData.installment_start_date || null
     };
 
     console.log('API: Prepared record for update:', vendaRecord);
@@ -1495,53 +1505,112 @@ export async function deleteAllPaymentFees() {
     return true;
 }
 
-// Buscar taxa específica por método e bandeira
-export async function getPaymentFee(paymentMethod, cardBrand = null) {
-    let query = supabase.from('payment_fees').select('*').eq('payment_method', paymentMethod);
+/**
+ * Buscar taxa de pagamento do banco de dados
+ * @param {string} paymentMethod - 'pix', 'debito', 'credito'
+ * @param {string} cardBrand - 'visa', 'mastercard', 'elo' (opcional)
+ * @param {number} installments - número de parcelas 1-6 (opcional)
+ * @returns {Promise<{feePercentage: number} | null>}
+ */
+export async function getPaymentFee(paymentMethod, cardBrand = null, installments = null) {
+    try {
+        // Construir query dinamicamente
+        let query = supabase
+            .from('payment_fees')
+            .select('*')
+            .eq('payment_method', paymentMethod)
+            .eq('is_active', true);
 
-    if (cardBrand) {
-        query = query.eq('card_brand', cardBrand);
-    } else {
-        query = query.is('card_brand', null);
+        // Filtrar por bandeira
+        if (cardBrand) {
+            query = query.eq('card_brand', cardBrand);
+        } else {
+            query = query.is('card_brand', null);
+        }
+
+        // Filtrar por parcelas
+        if (installments !== null && installments !== undefined) {
+            query = query.eq('installments', installments);
+        } else {
+            query = query.is('installments', null);
+        }
+
+        const { data, error } = await query.single();
+
+        if (error) {
+            // Log silencioso para PIX (que nunca terá erro, pois sempre tem 0%)
+            if (paymentMethod !== 'pix') {
+                console.warn(`⚠️ Taxa não encontrada: ${paymentMethod}${cardBrand ? ` (${cardBrand})` : ''}${installments ? ` (${installments}x)` : ''}`);
+            }
+            return null;
+        }
+
+        return toCamelCase(data);
+    } catch (err) {
+        console.error(`❌ Erro ao buscar taxa de pagamento:`, err.message);
+        return null;
     }
-
-    const { data, error } = await query.single();
-    if (error) return null;
-    return toCamelCase(data);
 }
 
 // ==================== CREDIÁRIO PARCELADO ====================
 
 /**
- * Criar parcelas automaticamente para uma venda com crediário
- * @param {number} vendaId - ID da venda
- * @param {number} numInstallments - Número de parcelas
- * @param {number} entryPayment - Valor de entrada
- * @param {string} installmentStartDate - Data de início (YYYY-MM-DD)
- * @returns {Array} Lista de parcelas criadas
+ * Criar parcelas automaticamente para uma venda com crediário/parcelado
+ * @param {number} vendaId - ID da venda (obrigatório)
+ * @param {number} numInstallments - Número de parcelas (obrigatório, mín: 1)
+ * @param {number} entryPayment - Valor de entrada pago no ato (padrão: 0)
+ * @param {string} installmentStartDate - Data de início em YYYY-MM-DD (padrão: hoje)
+ * @returns {Promise<{success: boolean, installments?: Array, error?: string}>}
  */
-export async function createInstallments(vendaId, numInstallments, entryPayment, installmentStartDate) {
-    console.log(`💳 API: Criando ${numInstallments} parcelas para venda ${vendaId}`);
-    console.log(`   Entrada: R$ ${entryPayment} | Início: ${installmentStartDate}`);
+export async function createInstallments(
+    vendaId,
+    numInstallments,
+    entryPayment = 0,
+    installmentStartDate = null
+) {
+    // Validar parâmetros obrigatórios
+    if (!vendaId || !numInstallments) {
+        console.error('❌ Parâmetros obrigatórios faltando: vendaId e numInstallments');
+        return {
+            success: false,
+            error: 'Parâmetros obrigatórios inválidos'
+        };
+    }
+
+    // Usar data atual como padrão se não fornecida
+    const startDate = installmentStartDate || new Date().toISOString().split('T')[0];
+
+    console.log(`💳 Criando ${numInstallments}x | Venda: #${vendaId} | Entrada: R$ ${entryPayment}`);
 
     try {
         const { data, error } = await supabase.rpc('create_installments', {
             p_venda_id: vendaId,
             p_num_installments: numInstallments,
-            p_entry_payment: entryPayment,
-            p_installment_start_date: installmentStartDate
+            p_entry_payment: entryPayment || 0, // Usar 0 se undefined
+            p_installment_start_date: startDate
         });
 
         if (error) {
-            console.error('❌ Erro ao criar parcelas:', error);
-            throw error;
+            console.error(`❌ Erro ao criar parcelas (venda #${vendaId}):`, error.message);
+            return {
+                success: false,
+                error: error.message || 'Erro ao criar parcelas'
+            };
         }
 
-        console.log(`✅ ${data.length} parcelas criadas com sucesso`);
-        return data.map(toCamelCase);
+        const count = data?.length || 0;
+        console.log(`✅ ${count} parcelas criadas com sucesso para venda #${vendaId}`);
+
+        return {
+            success: true,
+            installments: (data || []).map(toCamelCase)
+        };
     } catch (err) {
-        console.error('❌ Exceção ao criar parcelas:', err);
-        throw err;
+        console.error(`❌ Exceção ao criar parcelas (venda #${vendaId}):`, err.message);
+        return {
+            success: false,
+            error: err.message || 'Erro ao criar parcelas'
+        };
     }
 }
 

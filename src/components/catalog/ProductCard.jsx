@@ -159,19 +159,16 @@ function ProductCardComponent({ product, onQuickView }) {
                     </div>
                 )}
 
-                {/* 🚫 Overlay de Esgotado */}
+                {/* 🚫 Overlay de Esgotado - Visual sutil e elegante */}
                 {isOutOfStock && (
                     <>
-                        {/* Overlay escuro sobre a imagem */}
-                        <div className="absolute inset-0 bg-black/40 z-10 pointer-events-none" />
+                        {/* Overlay sutil sobre a imagem */}
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 pointer-events-none" />
 
-                        {/* Fita diagonal "ESGOTADO" */}
-                        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none overflow-hidden">
-                            <div
-                                className="w-[150%] bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 py-2 rotate-[-15deg] shadow-lg"
-                                style={{ transform: 'rotate(-15deg)' }}
-                            >
-                                <p className="text-center text-white font-bold text-sm sm:text-base uppercase tracking-[0.15em]">
+                        {/* Badge elegante "Esgotado" */}
+                        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                            <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-gray-200">
+                                <p className="text-[#4A3B32] font-medium text-xs sm:text-sm uppercase tracking-wide">
                                     Esgotado
                                 </p>
                             </div>

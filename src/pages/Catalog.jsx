@@ -6,13 +6,14 @@ import { useSearchParams } from 'react-router-dom'
 import { X, SlidersHorizontal, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getCachedProducts } from '@/lib/cache'
+import { cn } from '@/lib/utils'
 
 export function Catalog() {
     const [searchParams, setSearchParams] = useSearchParams()
     const [selectedProduct, setSelectedProduct] = useState(null)
     const [showMobileFilters, setShowMobileFilters] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
-    const [showOnlyAvailable, setShowOnlyAvailable] = useState(true) // Por padrão, mostrar só disponíveis
+    const [showOnlyAvailable, setShowOnlyAvailable] = useState(false) // Por padrão, mostrar tudo
     const [page, setPage] = useState(1)
     const ITEMS_PER_PAGE = 20
     const { products, loadAllProductsForCatalog, productsLoading, productsError } = useAdminStore()
@@ -140,6 +141,8 @@ export function Catalog() {
                                 selectedSizes={selectedSizes}
                                 onSizeChange={handleSizeChange}
                                 onClearFilters={handleClearFilters}
+                                showOnlyAvailable={showOnlyAvailable}
+                                onAvailabilityChange={setShowOnlyAvailable}
                             />
                         </div>
                     </aside>
@@ -179,29 +182,6 @@ export function Catalog() {
                                     {filteredProducts.length} {filteredProducts.length === 1 ? 'peça' : 'peças'}
                                 </div>
                             </div>
-
-                            {/* Toggle: Apenas Disponíveis */}
-                            <label className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 cursor-pointer active:scale-[0.98] transition-transform">
-                                <span className="text-sm font-medium text-[#4A3B32]">
-                                    Apenas peças disponíveis
-                                </span>
-                                <button
-                                    onClick={() => setShowOnlyAvailable(!showOnlyAvailable)}
-                                    className={cn(
-                                        "relative w-11 h-6 rounded-full transition-colors duration-200",
-                                        showOnlyAvailable ? "bg-[#C75D3B]" : "bg-gray-300"
-                                    )}
-                                    role="switch"
-                                    aria-checked={showOnlyAvailable}
-                                >
-                                    <span
-                                        className={cn(
-                                            "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200",
-                                            showOnlyAvailable && "translate-x-5"
-                                        )}
-                                    />
-                                </button>
-                            </label>
 
                             {/* Active Filters Display */}
                             {hasActiveFilters && (
@@ -389,6 +369,8 @@ export function Catalog() {
                                     selectedSizes={selectedSizes}
                                     onSizeChange={handleSizeChange}
                                     onClearFilters={handleClearFilters}
+                                    showOnlyAvailable={showOnlyAvailable}
+                                    onAvailabilityChange={setShowOnlyAvailable}
                                 />
                             </div>
 

@@ -6,6 +6,7 @@ export const triggerConfetti = (options = {}) => {
     spread: 70,
     origin: { y: 0.6 },
     colors: ['#C75D3B', '#4A3B32', '#E8C4B0', '#FDF0ED'],
+    zIndex: 999999, // Garante que apareça na frente de modais
   }
 
   confetti({

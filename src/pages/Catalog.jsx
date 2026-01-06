@@ -12,6 +12,7 @@ export function Catalog() {
     const [selectedProduct, setSelectedProduct] = useState(null)
     const [showMobileFilters, setShowMobileFilters] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [showOnlyAvailable, setShowOnlyAvailable] = useState(true) // Por padrão, mostrar só disponíveis
     const [page, setPage] = useState(1)
     const ITEMS_PER_PAGE = 20
     const { products, loadAllProductsForCatalog, productsLoading, productsError } = useAdminStore()
@@ -83,6 +84,8 @@ export function Catalog() {
     // Filter products with search
     const filteredProducts = useMemo(() => {
         return products.filter(product => {
+            // Availability filter (stock)
+            if (showOnlyAvailable && product.stock <= 0) return false
             // Category filter
             if (selectedCategory && selectedCategory !== 'all' && product.category !== selectedCategory) return false
             // Size filter
@@ -98,7 +101,7 @@ export function Catalog() {
             }
             return true
         })
-    }, [products, selectedCategory, selectedSizes, searchQuery])
+    }, [products, selectedCategory, selectedSizes, searchQuery, showOnlyAvailable])
 
     const hasActiveFilters = selectedCategory || selectedSizes.length > 0
 
@@ -176,6 +179,29 @@ export function Catalog() {
                                     {filteredProducts.length} {filteredProducts.length === 1 ? 'peça' : 'peças'}
                                 </div>
                             </div>
+
+                            {/* Toggle: Apenas Disponíveis */}
+                            <label className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 cursor-pointer active:scale-[0.98] transition-transform">
+                                <span className="text-sm font-medium text-[#4A3B32]">
+                                    Apenas peças disponíveis
+                                </span>
+                                <button
+                                    onClick={() => setShowOnlyAvailable(!showOnlyAvailable)}
+                                    className={cn(
+                                        "relative w-11 h-6 rounded-full transition-colors duration-200",
+                                        showOnlyAvailable ? "bg-[#C75D3B]" : "bg-gray-300"
+                                    )}
+                                    role="switch"
+                                    aria-checked={showOnlyAvailable}
+                                >
+                                    <span
+                                        className={cn(
+                                            "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200",
+                                            showOnlyAvailable && "translate-x-5"
+                                        )}
+                                    />
+                                </button>
+                            </label>
 
                             {/* Active Filters Display */}
                             {hasActiveFilters && (

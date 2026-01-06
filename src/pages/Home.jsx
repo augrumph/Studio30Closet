@@ -434,47 +434,64 @@ export function Home() {
 
                     {/* Instagram Posts Grid with Polaroid Effect */}
                     <div className="max-w-6xl mx-auto px-4">
-                        {/* Mobile Carousel */}
-                        <div className="md:hidden mb-8 -mx-4 px-4">
-                            <Carousel
-                                opts={{
-                                    align: "center",
-                                    loop: true,
-                                    dragFree: true
-                                }}
-                                className="w-full"
+                        {/* Mobile: Cards clicáveis direto para Instagram */}
+                        <div className="md:hidden space-y-4 mb-8">
+                            {[
+                                {
+                                    url: "https://www.instagram.com/p/DSiWPWoEext/",
+                                    image: "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=400&h=400&fit=crop",
+                                    caption: "✨ Nova coleção"
+                                },
+                                {
+                                    url: "https://www.instagram.com/p/DSaVwuKgENY/",
+                                    image: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=400&fit=crop",
+                                    caption: "💕 Looks do dia"
+                                },
+                                {
+                                    url: "https://www.instagram.com/p/DSdRL9oETly/",
+                                    image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&h=400&fit=crop",
+                                    caption: "🛍️ Peças favoritas"
+                                }
+                            ].map((post, i) => (
+                                <motion.a
+                                    key={i}
+                                    href={post.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ delay: i * 0.1 }}
+                                    className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-lg border border-gray-100 active:scale-[0.98] transition-transform"
+                                >
+                                    <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
+                                        <img
+                                            src={post.image}
+                                            alt={post.caption}
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-[#4A3B32] text-sm mb-1">@studio30closet</p>
+                                        <p className="text-[#4A3B32]/70 text-sm truncate">{post.caption}</p>
+                                    </div>
+                                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-[#C75D3B] to-[#E8C4B0] rounded-full flex items-center justify-center">
+                                        <Instagram className="w-4 h-4 text-white" />
+                                    </div>
+                                </motion.a>
+                            ))}
+
+                            {/* CTA para Instagram */}
+                            <a
+                                href="https://www.instagram.com/studio30closet/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block w-full p-4 text-center bg-gradient-to-r from-[#C75D3B] to-[#E8C4B0] text-white font-bold rounded-2xl shadow-lg active:scale-[0.98] transition-transform"
                             >
-                                <CarouselContent className="-ml-2 md:-ml-4">
-                                    {[
-                                        "https://www.instagram.com/p/DSiWPWoEext/?utm_source=ig_embed&amp;utm_campaign=loading",
-                                        "https://www.instagram.com/p/DSaVwuKgENY/?utm_source=ig_embed&amp;utm_campaign=loading",
-                                        "https://www.instagram.com/p/DSdRL9oETly/?utm_source=ig_embed&amp;utm_campaign=loading"
-                                    ].map((url, i) => (
-                                        <CarouselItem key={i} className="pl-2 md:pl-4 basis-full sm:basis-3/4">
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.9 }}
-                                                whileInView={{ opacity: 1, scale: 1 }}
-                                                viewport={{ once: true }}
-                                                transition={{ delay: i * 0.1 }}
-                                                className="p-1"
-                                            >
-                                                <div className="bg-white p-3 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow duration-300 border-2 border-white overflow-hidden">
-                                                    <div className="instagram-embed-wrapper max-w-sm mx-auto">
-                                                        <blockquote
-                                                            className="instagram-media"
-                                                            data-instgrm-permalink={url}
-                                                            data-instgrm-version="14"
-                                                            style={{ maxWidth: '100%', minWidth: '280px' }}
-                                                        ></blockquote>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        </CarouselItem>
-                                    ))}
-                                </CarouselContent>
-                                <CarouselPrevious className="left-0 bg-white shadow-lg border-2 border-[#C75D3B]/20 h-10 w-10" />
-                                <CarouselNext className="right-0 bg-white shadow-lg border-2 border-[#C75D3B]/20 h-10 w-10" />
-                            </Carousel>
+                                <Instagram className="w-5 h-5 inline-block mr-2" />
+                                Ver mais no Instagram
+                            </a>
                         </div>
 
                         {/* Desktop Grid - Polaroid Style */}

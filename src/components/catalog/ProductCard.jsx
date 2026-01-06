@@ -25,6 +25,13 @@ function ProductCardComponent({ product, onQuickView }) {
 
     const itemInMalinha = items.some(item => item.id === product.id)
 
+    // Verificar se está esgotado (stock <= 0 ou sem variants com estoque)
+    const isOutOfStock = product.stock <= 0 || (
+        hasVariants && product.variants.every(v =>
+            !v.sizeStock || v.sizeStock.every(s => s.quantity <= 0)
+        )
+    )
+
     return (
         <div
             className="group cursor-pointer"
@@ -146,10 +153,30 @@ function ProductCardComponent({ product, onQuickView }) {
                 </button>
 
                 {/* Already in malinha indicator */}
-                {itemInMalinha && (
+                {itemInMalinha && !isOutOfStock && (
                     <div className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 rounded-full bg-green-500 text-white">
                         <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </div>
+                )}
+
+                {/* 🚫 Overlay de Esgotado */}
+                {isOutOfStock && (
+                    <>
+                        {/* Overlay escuro sobre a imagem */}
+                        <div className="absolute inset-0 bg-black/40 z-10 pointer-events-none" />
+
+                        {/* Fita diagonal "ESGOTADO" */}
+                        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none overflow-hidden">
+                            <div
+                                className="w-[150%] bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 py-2 rotate-[-15deg] shadow-lg"
+                                style={{ transform: 'rotate(-15deg)' }}
+                            >
+                                <p className="text-center text-white font-bold text-sm sm:text-base uppercase tracking-[0.15em]">
+                                    Esgotado
+                                </p>
+                            </div>
+                        </div>
+                    </>
                 )}
             </div>
 

@@ -64,7 +64,9 @@ export function ProductModal({ product, isOpen, onClose }) {
 
     useEffect(() => {
         if (product) {
-            setSelectedSize(product.sizes[0])
+            // ✅ Verificação defensiva: garante que sizes existe e tem elementos
+            const firstSize = product.sizes?.[0] || null
+            setSelectedSize(firstSize)
             setSelectedVariantIndex(0)
             setSelectedImageIndex(0)
         }

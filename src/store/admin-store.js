@@ -184,11 +184,28 @@ export const useAdminStore = create((set, get) => ({
     addOrder: async (orderData) => {
         set({ ordersLoading: true, ordersError: null })
         try {
+            // 1. Criar a malinha no banco
             const newOrder = await createOrder(orderData)
+
+            // 2. 🔒 Reservar estoque imediatamente
+            // Usamos os itens enviados no orderData pois o newOrder pode demorar para sincronizar
+            if (orderData.items && orderData.items.length > 0) {
+                console.log('🔒 Reservando estoque automaticamente para nova malinha...');
+                const reserveResult = await reserveStockForMalinha(orderData.items);
+                if (!reserveResult.success) {
+                    // Se falhar a reserva, podemos opcionalmente deletar a order ou apenas avisar
+                    console.error('⚠️ Falha ao reservar estoque para nova malinha:', reserveResult.error);
+                }
+            }
+
             set(state => ({
                 orders: [newOrder, ...state.orders],
                 ordersLoading: false
             }))
+
+            // Recarregar produtos para atualizar estoque na UI
+            get().loadProducts();
+
             return { success: true, order: newOrder }
         } catch (error) {
             const userFriendlyError = formatUserFriendlyError(error);
@@ -200,13 +217,41 @@ export const useAdminStore = create((set, get) => ({
     updateOrder: async (id, orderData) => {
         set({ ordersLoading: true, ordersError: null })
         try {
+            // Status que LIBERAM estoque (malinha finalizada/cancelada)
+            const statusesThatReleaseStock = ['completed', 'cancelled', 'delivered'];
+
+            // 1. Buscar a malinha ATUAL para saber o que estornar
+            // Tentamos pegar do estado local primeiro
+            let currentOrder = get().orders.find(o => o.id === parseInt(id));
+            if (!currentOrder || !currentOrder.items) {
+                currentOrder = await getOrderByIdFromApi(id);
+            }
+
+            // 2. 🔓 Estornar estoque dos itens ANTIGOS se a malinha tinha estoque reservado
+            if (currentOrder && currentOrder.items && !statusesThatReleaseStock.includes(currentOrder.status)) {
+                console.log('🔓 Estornando estoque dos itens anteriores para atualização...');
+                await releaseStockForMalinha(currentOrder.items);
+            }
+
+            // 3. Atualizar no banco
             const updatedOrder = await updateOrder(id, orderData)
+
+            // 4. 🔒 Reservar estoque dos NOVOS itens se o status mantém reserva
+            if (orderData.items && orderData.items.length > 0 && !statusesThatReleaseStock.includes(orderData.status)) {
+                console.log('🔒 Reservando estoque dos novos itens...');
+                await reserveStockForMalinha(orderData.items);
+            }
+
             set(state => ({
                 orders: state.orders.map(o =>
                     o.id === parseInt(id) ? updatedOrder : o
                 ),
                 ordersLoading: false
             }))
+
+            // Recarregar produtos
+            get().loadProducts();
+
             return { success: true, order: updatedOrder }
         } catch (error) {
             const userFriendlyError = formatUserFriendlyError(error);
@@ -222,9 +267,29 @@ export const useAdminStore = create((set, get) => ({
             const currentOrder = get().orders.find(o => o.id === parseInt(id));
             const previousStatus = currentOrder?.status;
 
-            // 🔒 MALINHA: Reservar estoque ao ativar
-            if (status === 'active' && previousStatus !== 'active') {
-                console.log('🔒 Ativando malinha - reservando estoque...');
+            // Status que LIBERAM estoque (malinha finalizada/cancelada)
+            const statusesThatReleaseStock = ['completed', 'cancelled', 'delivered'];
+            // Status que MANTÊM estoque reservado (malinha ativa)
+            const statusesThatReserveStock = ['pending', 'shipped', 'active'];
+
+            // 🔓 MALINHA: Liberar estoque se mudar para status final (completed, cancelled, delivered)
+            if (statusesThatReleaseStock.includes(status) && !statusesThatReleaseStock.includes(previousStatus)) {
+                console.log(`🔓 Malinha mudando para "${status}" - liberando estoque...`);
+                const items = currentOrder?.items || [];
+                if (items.length > 0) {
+                    const releaseResult = await releaseStockForMalinha(items);
+                    if (!releaseResult.success) {
+                        console.warn('⚠️ Aviso: Erro ao liberar estoque:', releaseResult.error);
+                    } else {
+                        console.log('✅ Estoque liberado');
+                    }
+                }
+            }
+
+            // 🔒 MALINHA: Reservar estoque se voltar de status final para status ativo
+            // (exemplo: cancelamento desfeito)
+            if (statusesThatReserveStock.includes(status) && statusesThatReleaseStock.includes(previousStatus)) {
+                console.log(`🔒 Malinha voltando para "${status}" - reservando estoque novamente...`);
                 const items = currentOrder?.items || [];
                 if (items.length > 0) {
                     const reserveResult = await reserveStockForMalinha(items);
@@ -232,20 +297,6 @@ export const useAdminStore = create((set, get) => ({
                         throw new Error(`Erro ao reservar estoque: ${reserveResult.error}`);
                     }
                     console.log('✅ Estoque reservado para malinha');
-                }
-            }
-
-            // 🔓 MALINHA: Restaurar estoque se cancelar (voltar para pending)
-            if (status === 'pending' && previousStatus === 'active') {
-                console.log('🔓 Cancelando malinha ativa - restaurando estoque...');
-                const items = currentOrder?.items || [];
-                if (items.length > 0) {
-                    const releaseResult = await releaseStockForMalinha(items);
-                    if (!releaseResult.success) {
-                        console.warn('⚠️ Aviso: Erro ao restaurar estoque:', releaseResult.error);
-                    } else {
-                        console.log('✅ Estoque restaurado');
-                    }
                 }
             }
 
@@ -270,8 +321,11 @@ export const useAdminStore = create((set, get) => ({
                 ordersLoading: false
             }))
 
-            // Recarregar produtos para atualizar estoque na UI
-            if (status === 'active' || (status === 'pending' && previousStatus === 'active')) {
+            // Recarregar produtos para atualizar estoque na UI se houve mudança de estoque
+            if (
+                (statusesThatReleaseStock.includes(status) && !statusesThatReleaseStock.includes(previousStatus)) ||
+                (statusesThatReserveStock.includes(status) && statusesThatReleaseStock.includes(previousStatus))
+            ) {
                 get().loadProducts();
             }
 
@@ -390,11 +444,29 @@ export const useAdminStore = create((set, get) => ({
     removeOrder: async (id) => {
         set({ ordersLoading: true, ordersError: null })
         try {
+            // Status que LIBERAM estoque (malinha finalizada/cancelada)
+            const statusesThatReleaseStock = ['completed', 'cancelled', 'delivered'];
+
+            // 1. Buscar order para estornar estoque
+            const order = get().orders.find(o => o.id === parseInt(id)) || await getOrderByIdFromApi(id);
+
+            // 2. 🔓 Estornar estoque se necessário (se estava reservado)
+            if (order && order.items && !statusesThatReleaseStock.includes(order.status)) {
+                console.log('🔓 Estornando estoque por exclusão de malinha...');
+                await releaseStockForMalinha(order.items);
+            }
+
+            // 3. Deletar
             await deleteOrder(id)
+
             set(state => ({
                 orders: state.orders.filter(o => o.id !== parseInt(id)),
                 ordersLoading: false
             }))
+
+            // Recarregar produtos
+            get().loadProducts();
+
             return { success: true }
         } catch (error) {
             const userFriendlyError = formatUserFriendlyError(error);
@@ -618,7 +690,7 @@ export const useAdminStore = create((set, get) => ({
             const preferences = await getCustomerPreferences(customerId);
             return preferences || {};
         } catch (error) {
-            console.error('Error loading customer preferences:', error);
+            // Silencioso pois a API já trata casos esperados
             return {};
         }
     },

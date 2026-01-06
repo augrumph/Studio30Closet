@@ -31,7 +31,7 @@ export function MalinhasForm() {
         loadCustomers,
         addOrder,
         updateOrder,
-        getOrderById
+        fetchOrder
     } = useAdminStore()
 
     const [formData, setFormData] = useState({
@@ -48,30 +48,35 @@ export function MalinhasForm() {
     const [showCustomerSearch, setShowCustomerSearch] = useState(false)
 
     useEffect(() => {
-        loadProducts()
-        loadCustomers()
+        const loadInitialData = async () => {
+            loadProducts()
+            loadCustomers()
 
-        if (isEdit) {
-            const order = getOrderById(parseInt(id))
-            if (order) {
-                setFormData({
-                    customerId: order.customer.id,
-                    customerName: order.customer.name,
-                    deliveryDate: order.deliveryDate ? order.deliveryDate.split('T')[0] : '',
-                    pickupDate: order.pickupDate ? order.pickupDate.split('T')[0] : '',
-                    status: order.status,
-                    items: order.items.map(item => ({
-                        productId: item.productId,
-                        productName: item.productName,
-                        price: item.price,
-                        costPrice: item.costPrice || 0,
-                        selectedSize: item.selectedSize,
-                        image: item.image
-                    }))
-                })
+            if (isEdit) {
+                const order = await fetchOrder(parseInt(id))
+                if (order) {
+                    setFormData({
+                        customerId: order.customerId || order.customer?.id,
+                        customerName: order.customerName || order.customer?.name,
+                        deliveryDate: order.deliveryDate ? order.deliveryDate.split('T')[0] : '',
+                        pickupDate: order.pickupDate ? order.pickupDate.split('T')[0] : '',
+                        status: order.status,
+                        items: (order.items || []).map(item => ({
+                            productId: item.productId,
+                            productName: item.productName,
+                            price: item.price,
+                            costPrice: item.costPrice || 0,
+                            selectedSize: item.selectedSize,
+                            selectedColor: item.selectedColor || item.color || 'Padrão', // 🎨 Garantir cor
+                            image: item.image
+                        }))
+                    })
+                }
             }
         }
-    }, [id, isEdit, loadProducts, loadCustomers, getOrderById])
+
+        loadInitialData()
+    }, [id, isEdit, fetchOrder, loadProducts, loadCustomers])
 
     const filteredCustomers = customers.filter(c =>
         c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
@@ -89,6 +94,29 @@ export function MalinhasForm() {
             return;
         }
 
+        // 🎨 Determinar a cor do produto
+        // Se o produto tem variants, pega a primeira cor que tem o tamanho selecionado em estoque
+        let selectedColor = 'Padrão'; // Valor padrão se não encontrar
+
+        if (product.variants && product.variants.length > 0) {
+            // Procurar variante que tem o tamanho selecionado
+            const variantWithSize = product.variants.find(v =>
+                v.sizeStock && v.sizeStock.some(s => s.size === size)
+            );
+
+            if (variantWithSize && variantWithSize.colorName) {
+                selectedColor = variantWithSize.colorName;
+            } else if (product.variants[0]?.colorName) {
+                selectedColor = product.variants[0].colorName;
+            } else if (product.color) {
+                selectedColor = product.color;
+            }
+        } else if (product.color) {
+            selectedColor = product.color;
+        }
+
+        console.log(`🎨 Cor selecionada para ${product.name} (${size}): ${selectedColor}`);
+
         // Armazenar productId, name, image e outros metadados
         const newItem = {
             productId: product.id,
@@ -96,6 +124,7 @@ export function MalinhasForm() {
             price: product.price,
             image: product.images?.[0] || product.image || null,
             selectedSize: size,
+            selectedColor: selectedColor, // 🎨 CRUCIAL para reserva de estoque
             quantity: 1
         }
         setFormData(prev => ({
@@ -161,11 +190,12 @@ export function MalinhasForm() {
                     throw new Error(`Erro: Item sem produto válido`);
                 }
                 return {
-                    productId: item.productId,      // APENAS ID do produto
-                    quantity: item.quantity || 1,   // Quantidade
-                    selectedSize: item.selectedSize, // Tamanho
-                    price: 0,                       // Será preenchido do banco
-                    costPrice: 0                    // Será preenchido do banco
+                    productId: item.productId,
+                    quantity: item.quantity || 1,
+                    selectedSize: item.selectedSize,
+                    selectedColor: item.selectedColor || 'Padrão', // 🔒 CRÍTICO para reserva de estoque
+                    price: item.price || 0,
+                    costPrice: item.costPrice || 0
                 };
             })
         }

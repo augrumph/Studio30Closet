@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Eye, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Calendar, ChevronRight, Plus, Trash2, Package } from 'lucide-react'
+import { Search, Eye, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Calendar, ChevronRight, Plus, Trash2, Package, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { useAdminStore } from '@/store/admin-store'
@@ -397,6 +397,14 @@ export function MalinhasList() {
                                                             <Eye className="w-4 h-4" />
                                                             VER
                                                         </Link>
+                                                        <Link
+                                                            to={`/admin/malinhas/${order.id}/edit`}
+                                                            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-blue-100 rounded-2xl text-[10px] font-bold text-blue-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm group-hover:shadow-md active:scale-95"
+                                                            title="Editar Malinha"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                            EDITAR
+                                                        </Link>
                                                         <button
                                                             onClick={(e) => handleDelete(order.id, e)}
                                                             className="p-2 bg-white border border-gray-100 rounded-2xl text-red-400 hover:bg-red-50 hover:text-red-600 transition-all shadow-sm group-hover:shadow-md active:scale-95"
@@ -423,7 +431,7 @@ export function MalinhasList() {
                             </AnimatePresence>
                         </tbody>
                     </table>
-                </div>
+                </div >
 
                 <CardFooter className="bg-white border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 p-6">
                     <p className="text-xs text-gray-400 font-medium">
@@ -477,7 +485,7 @@ export function MalinhasList() {
                         </Pagination>
                     )}
                 </CardFooter>
-            </Card>
+            </Card >
 
             <AlertDialog
                 isOpen={deleteAlert.isOpen}
@@ -489,6 +497,6 @@ export function MalinhasList() {
                 cancelText="Manter Malinha"
                 variant="danger"
             />
-        </div>
+        </div >
     )
 }

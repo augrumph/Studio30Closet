@@ -954,47 +954,6 @@ export function Dashboard() {
                         </div>
                     </CardContent>
                 </Card >
-
-                {/* Top Products */}
-                < Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
-                    <CardHeader className="p-6 md:p-8">
-                        <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32]">Produtos Estrela</CardTitle>
-                        <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium">Os queridinhos do Studio 30</p>
-                    </CardHeader>
-                    <CardContent className="p-6 md:p-8 pt-0">
-                        <div className="space-y-4 md:space-y-6">
-                            {topProducts.length > 0 ? topProducts.map((p, idx) => (
-                                <div key={idx} className="flex items-center gap-3 md:gap-4 group">
-                                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl md:rounded-2xl overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-100 group-active:scale-105 md:group-hover:scale-105 transition-transform">
-                                        {p.image ? (
-                                            <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-200">
-                                                <Package className="w-6 h-6" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-[#4A3B32] truncate text-sm">{p.name}</p>
-                                        <p className="text-xs text-gray-400 font-medium">{p.quantity} unidades vendidas</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-black text-[#C75D3B] text-sm">R$ {(p.revenue || 0).toLocaleString('pt-BR')}</p>
-                                        <div className="flex items-center justify-end gap-1 mt-0.5">
-                                            <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
-                                            <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">Top {idx + 1}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )) : (
-                                <div className="py-10 text-center text-gray-300 italic text-sm">Nenhum dado de venda ainda.</div>
-                            )}
-                        </div>
-                        <Link to="/admin/products" className="mt-10 w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-gray-100 rounded-2xl text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:border-[#C75D3B]/20 hover:text-[#C75D3B] transition-all">
-                            Ver Catálogo Completo
-                        </Link>
-                    </CardContent>
-                </Card >
             </div >
 
             {/* 3.2 RANKINGS - TOP CUSTOMERS */}

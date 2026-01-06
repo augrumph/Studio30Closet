@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { ShoppingBag, Menu, X } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { cn } from '@/lib/utils'
@@ -130,67 +131,83 @@ export function Header() {
                 </nav>
             </div>
 
-            {/* Mobile Menu - Full Screen Overlay */}
-            <div
-                className={cn(
-                    "lg:hidden fixed inset-0 top-0 bg-white z-40 transition-all duration-300 ease-in-out",
-                    isMobileMenuOpen
-                        ? "opacity-100 pointer-events-auto"
-                        : "opacity-0 pointer-events-none"
-                )}
-            >
-                {/* Menu Header */}
-                <div className="flex items-center justify-between p-4 border-b border-brand-peach/30">
-                    <Link to="/" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
-                        <img
-                            src="/logomarca.PNG"
-                            alt="Studio 30 Closet"
-                            className="h-10 w-auto object-contain"
-                        />
-                    </Link>
-                    <button
+            {/* Mobile Menu - Renderizado via Portal para evitar problemas de stacking context */}
+            {typeof document !== 'undefined' && createPortal(
+                <div
+                    className={cn(
+                        "lg:hidden fixed inset-0 transition-all duration-300 ease-in-out",
+                        isMobileMenuOpen
+                            ? "opacity-100 pointer-events-auto"
+                            : "opacity-0 pointer-events-none"
+                    )}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 99999
+                    }}
+                >
+                    {/* Backdrop sólido para cobrir todo o conteúdo */}
+                    <div
+                        className="absolute inset-0 bg-white"
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className="p-2 text-brand-brown hover:text-brand-terracotta"
-                        aria-label="Fechar menu"
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
-
-                {/* Menu Links */}
-                <div className="flex flex-col items-center justify-center gap-6 py-12">
-                    {navLinks.map((link) => (
-                        <Link
-                            key={link.href}
-                            to={link.href}
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className={cn(
-                                'text-xl font-medium py-2 px-6 rounded-full transition-all duration-300',
-                                location.pathname === link.href
-                                    ? 'text-brand-terracotta bg-brand-rose'
-                                    : 'text-brand-brown/70 hover:text-brand-terracotta'
-                            )}
-                        >
-                            {link.name}
+                    />
+                    {/* Menu Header */}
+                    <div className="relative flex items-center justify-between p-4 border-b border-brand-peach/30 bg-white">
+                        <Link to="/" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+                            <img
+                                src="/logomarca.PNG"
+                                alt="Studio 30 Closet"
+                                className="h-10 w-auto object-contain"
+                            />
                         </Link>
-                    ))}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="p-2 text-brand-brown hover:text-brand-terracotta"
+                            aria-label="Fechar menu"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
 
-                    {/* Mobile CTA */}
-                    <Link
-                        to="/malinha"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="mt-4 btn-primary flex items-center gap-2"
-                    >
-                        <ShoppingBag className="w-5 h-5" />
-                        Ver Malinha
-                        {itemsCount > 0 && (
-                            <span className="ml-1 bg-white/20 px-2 py-0.5 rounded-full text-sm">
-                                {itemsCount}
-                            </span>
-                        )}
-                    </Link>
-                </div>
-            </div>
+                    {/* Menu Links */}
+                    <div className="relative flex flex-col items-center justify-center gap-6 py-12 bg-white">
+                        {navLinks.map((link) => (
+                            <Link
+                                key={link.href}
+                                to={link.href}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                    'text-xl font-medium py-2 px-6 rounded-full transition-all duration-300',
+                                    location.pathname === link.href
+                                        ? 'text-brand-terracotta bg-brand-rose'
+                                        : 'text-brand-brown/70 hover:text-brand-terracotta'
+                                )}
+                            >
+                                {link.name}
+                            </Link>
+                        ))}
+
+                        {/* Mobile CTA */}
+                        <Link
+                            to="/malinha"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="mt-4 btn-primary flex items-center gap-2"
+                        >
+                            <ShoppingBag className="w-5 h-5" />
+                            Ver Malinha
+                            {itemsCount > 0 && (
+                                <span className="ml-1 bg-white/20 px-2 py-0.5 rounded-full text-sm">
+                                    {itemsCount}
+                                </span>
+                            )}
+                        </Link>
+                    </div>
+                </div>,
+                document.body
+            )}
         </header>
     )
 }

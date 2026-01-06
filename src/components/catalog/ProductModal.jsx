@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, ChevronLeft, ChevronRight, Plus, Check } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
@@ -148,15 +149,30 @@ export function ProductModal({ product, isOpen, onClose }) {
         }, 300)
     }
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
-            {/* Backdrop */}
+    // Renderizar via Portal para evitar problemas de stacking context
+    if (typeof document === 'undefined') return null
+
+    return createPortal(
+        <div
+            className="fixed inset-0 flex items-center justify-center p-4"
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 99999,
+                paddingTop: 'max(1rem, env(safe-area-inset-top))'
+            }}
+        >
+            {/* Backdrop - cobre TODA a tela */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                 onClick={onClose}
             />
 
-            {/* Modal */}
+            {/* Modal - centralizado */}
             <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden animate-slide-up">
                 {/* Close Button */}
                 <button
@@ -367,6 +383,7 @@ export function ProductModal({ product, isOpen, onClose }) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }

@@ -76,15 +76,33 @@ export async function getProducts(page = 1, pageSize = 20) {
 
     console.log(`✅ Produtos carregados: ${data?.length} de ${count} total`);
 
+    const mappedProducts = data.map(product => {
+        const camelProduct = toCamelCase(product);
+        // Garantir que variants é um array
+        if (!camelProduct.variants) {
+            camelProduct.variants = [];
+        }
+
+        // Log detalhado para produto ID 24 (Calça Dora)
+        if (camelProduct.id === 24) {
+            console.log('🔍 PRODUTO ID 24 CARREGADO DO BANCO:');
+            console.log('   Nome:', camelProduct.name);
+            console.log('   Stock total:', camelProduct.stock);
+            // Remover images/urls das variants para logs mais limpos
+            const variantsClean = camelProduct.variants?.map(v => ({
+                colorName: v.colorName,
+                colorHex: v.colorHex,
+                sizeStock: v.sizeStock
+            }));
+            console.log('   Variants:', JSON.stringify(variantsClean, null, 2));
+            console.log('   Timestamp:', new Date().toISOString());
+        }
+
+        return camelProduct;
+    });
+
     return {
-        products: data.map(product => {
-            const camelProduct = toCamelCase(product);
-            // Garantir que variants é um array
-            if (!camelProduct.variants) {
-                camelProduct.variants = [];
-            }
-            return camelProduct;
-        }),
+        products: mappedProducts,
         total: count,
         page,
         pageSize
@@ -121,6 +139,22 @@ export async function getAllProducts() {
             if (!camel.variants) {
                 camel.variants = [];
             }
+
+            // Log detalhado para produto ID 24 (Calça Dora)
+            if (camel.id === 24) {
+                console.log('🔍 [getAllProducts] PRODUTO ID 24 CARREGADO:');
+                console.log('   Nome:', camel.name);
+                console.log('   Stock total:', camel.stock);
+                // Remover images/urls das variants para logs mais limpos
+                const variantsClean = camel.variants?.map(v => ({
+                    colorName: v.colorName,
+                    colorHex: v.colorHex,
+                    sizeStock: v.sizeStock
+                }));
+                console.log('   Variants:', JSON.stringify(variantsClean, null, 2));
+                console.log('   Timestamp:', new Date().toISOString());
+            }
+
             return camel;
         });
     // Já vem ordenado do banco (order_by), não precisa fazer sort em JS
@@ -582,31 +616,66 @@ async function decrementProductStock(items, productsMap) {
             }
 
             // Decrementar o estoque
+            const oldQty = variant.sizeStock[sizeStockIndex].quantity;
             variant.sizeStock[sizeStockIndex].quantity -= quantity;
+            const newQty = variant.sizeStock[sizeStockIndex].quantity;
 
-            console.log(`✅ Estoque decrementado: ${currentStockQuantity} → ${variant.sizeStock[sizeStockIndex].quantity}`);
+            console.log(`📉 DECREMENTO: ${selectedColor} - ${selectedSize}: ${oldQty} → ${newQty} unidades`);
 
             // Calcular novo estoque total
             const newTotalStock = updatedVariants.reduce((total, v) => {
                 return total + (v.sizeStock || []).reduce((sum, s) => sum + (s.quantity || 0), 0);
             }, 0);
 
+            console.log(`📊 Estoque total do produto será atualizado para: ${newTotalStock}`);
+
+            // Log detalhado para produto ID 24
+            if (productId === 24) {
+                console.log('🔍 ATUALIZANDO PRODUTO ID 24 NO BANCO:');
+                console.log('   Novo stock total:', newTotalStock);
+                // Remover images/urls das variants para logs mais limpos
+                const variantsClean = updatedVariants?.map(v => ({
+                    colorName: v.colorName,
+                    colorHex: v.colorHex,
+                    sizeStock: v.sizeStock
+                }));
+                console.log('   Variants atualizadas:', JSON.stringify(variantsClean, null, 2));
+            }
+
             // Atualizar produto no banco com novos variants e stock
-            const { error: updateError } = await supabase
+            const updatePayload = {
+                variants: updatedVariants,
+                stock: newTotalStock,
+                updated_at: new Date().toISOString()
+            };
+
+            console.log(`💾 Enviando UPDATE para produto ${productId}...`);
+
+            const { data: updateData, error: updateError } = await supabase
                 .from('products')
-                .update({
-                    variants: updatedVariants,
-                    stock: newTotalStock,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', productId);
+                .update(updatePayload)
+                .eq('id', productId)
+                .select(); // Retorna o produto atualizado
 
             if (updateError) {
                 console.error(`❌ Erro ao atualizar estoque do produto ${productId}:`, updateError);
                 throw new Error(`Falha ao atualizar estoque do produto ${productId}`);
             }
 
-            console.log(`✅ Produto ${productId} atualizado: stock total = ${newTotalStock}`);
+            console.log(`✅ BANCO ATUALIZADO: Produto ${productId} agora tem stock total = ${newTotalStock}`);
+
+            // Confirmar o que foi salvo no banco
+            if (productId === 24 && updateData && updateData.length > 0) {
+                console.log('✅ CONFIRMAÇÃO DO BANCO - Produto ID 24:');
+                console.log('   Stock salvo:', updateData[0].stock);
+                // Remover images/urls das variants para logs mais limpos
+                const variantsSaved = updateData[0].variants?.map(v => ({
+                    colorName: v.colorName,
+                    colorHex: v.colorHex,
+                    sizeStock: v.sizeStock
+                }));
+                console.log('   Variants salvas:', JSON.stringify(variantsSaved, null, 2));
+            }
         }
 
         return true;
@@ -624,6 +693,7 @@ async function decrementProductStock(items, productsMap) {
  */
 export async function reserveStockForMalinha(items) {
     console.log('🔒 Reservando estoque para malinha:', items.length, 'itens');
+    console.log('🔍 Items recebidos:', JSON.stringify(items, null, 2));
     const reserved = [];
 
     try {
@@ -632,6 +702,8 @@ export async function reserveStockForMalinha(items) {
             const quantity = item.quantity || 1;
             const selectedSize = item.selectedSize;
             const selectedColor = item.selectedColor;
+
+            console.log(`🔍 Processando item: productId=${productId}, size=${selectedSize}, color=${selectedColor}`);
 
             if (!productId) {
                 console.warn('⚠️ Item sem productId, pulando reserva');
@@ -664,8 +736,10 @@ export async function reserveStockForMalinha(items) {
             );
 
             if (variantIndex === -1) {
-                console.warn(`⚠️ Cor "${selectedColor}" não encontrada no produto ${productId}`);
-                continue;
+                console.error(`❌ Cor "${selectedColor}" não encontrada no produto ${product.name} (ID: ${productId})`);
+                console.log('   Cores disponíveis:', updatedVariants.map(v => v.colorName).join(', '));
+                console.log('   Variantes completas:', JSON.stringify(updatedVariants, null, 2));
+                throw new Error(`Cor "${selectedColor}" não encontrada no produto ${product.name}. Cores disponíveis: ${updatedVariants.map(v => v.colorName).join(', ')}`);
             }
 
             const variant = updatedVariants[variantIndex];
@@ -674,38 +748,82 @@ export async function reserveStockForMalinha(items) {
             const sizeStockIndex = variant.sizeStock?.findIndex(s => s.size === selectedSize);
 
             if (sizeStockIndex === undefined || sizeStockIndex === -1) {
-                console.warn(`⚠️ Tamanho "${selectedSize}" não encontrado na cor "${selectedColor}"`);
-                continue;
+                console.error(`❌ Tamanho "${selectedSize}" não encontrado na cor "${selectedColor}"`);
+                console.log('   Tamanhos disponíveis:', variant.sizeStock?.map(s => `${s.size} (${s.quantity} un.)`).join(', '));
+                throw new Error(`Tamanho "${selectedSize}" não encontrado no produto ${product.name} cor ${selectedColor}. Tamanhos disponíveis: ${variant.sizeStock?.map(s => s.size).join(', ')}`);
             }
 
             const currentQty = variant.sizeStock[sizeStockIndex].quantity || 0;
 
             if (currentQty < quantity) {
-                console.error(`❌ Estoque insuficiente: ${currentQty} disponível, ${quantity} solicitado`);
-                throw new Error(`Estoque insuficiente para ${product.name} (${selectedColor} - ${selectedSize})`);
+                console.error(`❌ Estoque insuficiente para ${product.name} (${selectedColor} - ${selectedSize})`);
+                console.error(`   Disponível: ${currentQty} unidade(s)`);
+                console.error(`   Solicitado: ${quantity} unidade(s)`);
+                console.error(`   Variante completa:`, JSON.stringify(variant, null, 2));
+                throw new Error(`Estoque insuficiente para ${product.name} (${selectedColor} - ${selectedSize}). Disponível: ${currentQty}, Solicitado: ${quantity}`);
             }
 
             // Decrementar estoque
+            const oldQty = variant.sizeStock[sizeStockIndex].quantity;
             variant.sizeStock[sizeStockIndex].quantity -= quantity;
+            const newQty = variant.sizeStock[sizeStockIndex].quantity;
+
+            console.log(`📉 Decrementando estoque: ${product.name} (${selectedColor} - ${selectedSize})`);
+            console.log(`   Antes: ${oldQty} → Depois: ${newQty} unidades`);
 
             // Calcular novo total
             const newTotalStock = updatedVariants.reduce((total, v) => {
                 return total + (v.sizeStock || []).reduce((sum, s) => sum + (s.quantity || 0), 0);
             }, 0);
 
+            console.log(`📊 Novo estoque total do produto: ${newTotalStock}`);
+
+            // Log detalhado para produto ID 24
+            if (productId === 24) {
+                console.log('🔍 [RESERVA] ATUALIZANDO PRODUTO ID 24 NO BANCO:');
+                console.log('   Novo stock total:', newTotalStock);
+                // Remover images/urls das variants para logs mais limpos
+                const variantsClean = updatedVariants?.map(v => ({
+                    colorName: v.colorName,
+                    colorHex: v.colorHex,
+                    sizeStock: v.sizeStock
+                }));
+                console.log('   Variants atualizadas:', JSON.stringify(variantsClean, null, 2));
+            }
+
             // Atualizar no banco
-            const { error: updateError } = await supabase
+            const updatePayload = {
+                variants: updatedVariants,
+                stock: newTotalStock,
+                updated_at: new Date().toISOString()
+            };
+
+            console.log(`💾 [RESERVA] Enviando UPDATE para produto ${productId}...`);
+
+            const { data: updateData, error: updateError } = await supabase
                 .from('products')
-                .update({
-                    variants: updatedVariants,
-                    stock: newTotalStock,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', productId);
+                .update(updatePayload)
+                .eq('id', productId)
+                .select(); // Retorna o produto atualizado
 
             if (updateError) {
                 console.error(`❌ Erro ao reservar estoque do produto ${productId}:`, updateError);
                 throw updateError;
+            }
+
+            console.log(`✅ [RESERVA] Estoque atualizado no banco para produto ${productId}`);
+
+            // Confirmar o que foi salvo no banco
+            if (productId === 24 && updateData && updateData.length > 0) {
+                console.log('✅ [RESERVA] CONFIRMAÇÃO DO BANCO - Produto ID 24:');
+                console.log('   Stock salvo:', updateData[0].stock);
+                // Remover images/urls das variants para logs mais limpos
+                const variantsSaved = updateData[0].variants?.map(v => ({
+                    colorName: v.colorName,
+                    colorHex: v.colorHex,
+                    sizeStock: v.sizeStock
+                }));
+                console.log('   Variants salvas:', JSON.stringify(variantsSaved, null, 2));
             }
 
             reserved.push({
@@ -937,21 +1055,9 @@ export async function createOrder(orderData) {
     }
 
     // 📦 IMPORTANTE: Decrementar estoque automaticamente para cada item vendido
-    console.log('📦 Iniciando decréscimo automático de estoque...');
-    try {
-        // Adicionar informação de cor aos items para o decréscimo de estoque
-        const itemsWithColor = items.map(item => ({
-            ...item,
-            selectedColor: item.selectedColor || productsData[item.productId]?.color || 'Padrão'
-        }));
-
-        await decrementProductStock(itemsWithColor, productsData);
-        console.log('✅ Estoque decrementado com sucesso');
-    } catch (stockError) {
-        console.error('❌ ERRO CRÍTICO ao decrementar estoque:', stockError);
-        // NÃO lançar erro aqui - o pedido foi criado, mas log o erro
-        // Em produção, poderia enviar um alert para administrador
-    }
+    // NOTA: Isso foi movido para a criação da malinha (reserva de estoque)
+    // Quando uma malinha é criada, o estoque já é reservado via reserveStockForMalinha
+    console.log('📦 Ordem criada - estoque será gerenciado via reserveStockForMalinha');
 
     // 🔄 IMPORTANTE: Buscar os dados completos da ordem criada para retornar com infos do produto
     console.log('🔄 Buscando dados completos do pedido com informações do cliente...');
@@ -1132,6 +1238,32 @@ export async function createVenda(vendaData) {
         throw error;
     }
     console.log('API: Created venda:', data);
+
+    // 📦 IMPORTANTE: Decrementar estoque
+    // Para vendas diretas: SEMPRE decrementa
+    // Para vendas de malinha: NÃO decrementa pois o estoque já foi reservado quando a malinha foi criada
+    const isFromMalinha = !!vendaRecord.order_id;
+
+    if (!isFromMalinha) {
+        // Venda direta - SEMPRE decrementa estoque
+        console.log('📦 Venda direta - decrementando estoque...');
+        try {
+            const itemsWithColor = vendaData.items.map(item => ({
+                ...item,
+                selectedColor: item.selectedColor || item.color || 'Padrão'
+            }));
+
+            await decrementProductStock(itemsWithColor);
+            console.log('✅ Estoque decrementado com sucesso');
+        } catch (stockError) {
+            console.error('❌ ERRO CRÍTICO ao decrementar estoque:', stockError);
+            // Não lança erro para não impedir a venda de ser registrada
+        }
+    } else {
+        // Venda de malinha - estoque já foi reservado quando a malinha foi criada
+        console.log('📦 Venda de malinha (order_id: ' + vendaRecord.order_id + ') - estoque já foi reservado, não precisa decrementar novamente');
+    }
+
     return toCamelCase(data);
 }
 
@@ -1228,13 +1360,11 @@ export async function getCoupons() {
 export async function createCoupon(couponData) {
     console.log('API: Creating coupon with data:', couponData);
     const snakeData = toSnakeCase(couponData);
-    console.log('API: Converted to snake_case:', snakeData);
 
-    // Criar objeto com campos explícitos para evitar problemas
-    const couponRecord = {
+    const fullRecord = {
         code: snakeData.code,
-        discount_type: snakeData.type, // Mapear 'type' para 'discount_type'
-        discount_value: snakeData.value, // Mapear 'value' para 'discount_value'
+        discount_type: snakeData.type,
+        discount_value: snakeData.value,
         min_purchase: snakeData.min_purchase || null,
         expires_at: snakeData.expiry_date || null,
         is_active: snakeData.is_active !== undefined ? snakeData.is_active : true,
@@ -1242,21 +1372,43 @@ export async function createCoupon(couponData) {
         description: snakeData.description || null
     };
 
-    console.log('API: Prepared record for insert:', couponRecord);
+    console.log('API: Attempting full insert:', fullRecord);
 
     const { data, error } = await supabase
         .from('coupons')
-        .insert([couponRecord])
+        .insert([fullRecord])
         .select()
         .single();
 
     if (error) {
+        // Se o erro for 42703 (coluna inexistente) ou similar (Bad Request 400 no console)
+        if (error.code === '42703' || error.message.includes('column') || error.message.includes('does not exist')) {
+            console.warn('⚠️ Colunas adicionais não encontradas. Tentando inserção simplificada...');
+            const baseRecord = {
+                code: fullRecord.code,
+                discount_type: fullRecord.discount_type,
+                discount_value: fullRecord.discount_value,
+                is_active: fullRecord.is_active,
+                expires_at: fullRecord.expires_at
+            };
+            const retry = await supabase
+                .from('coupons')
+                .insert([baseRecord])
+                .select()
+                .single();
+
+            if (retry.error) throw retry.error;
+            return finalizeCouponResponse(retry.data);
+        }
         console.error('API Error creating coupon:', error);
         throw error;
     }
-    console.log('API: Created coupon:', data);
 
-    // Mapear campos do retorno para o formato esperado pelo frontend
+    return finalizeCouponResponse(data);
+}
+
+// Helper para finalizar a resposta do cupom uniformemente
+function finalizeCouponResponse(data) {
     const camelCased = toCamelCase(data);
     return {
         ...camelCased,
@@ -1269,43 +1421,54 @@ export async function createCoupon(couponData) {
 export async function updateCoupon(id, couponData) {
     console.log('API: Updating coupon with id:', id, 'and data:', couponData);
     const snakeData = toSnakeCase(couponData);
-    console.log('API: Converted to snake_case:', snakeData);
 
-    // Criar objeto com campos explícitos para evitar problemas
-    const couponRecord = {
+    const fullRecord = {
         code: snakeData.code,
-        discount_type: snakeData.type, // Mapear 'type' para 'discount_type'
-        discount_value: snakeData.value, // Mapear 'value' para 'discount_value'
-        min_purchase: snakeData.min_purchase || null,
-        expires_at: snakeData.expiry_date || null,
-        is_active: snakeData.is_active !== undefined ? snakeData.is_active : true,
-        is_special: snakeData.is_special || false,
-        description: snakeData.description || null
+        discount_type: snakeData.type,
+        discount_value: snakeData.value,
+        min_purchase: snakeData.min_purchase !== undefined ? snakeData.min_purchase : undefined,
+        expires_at: snakeData.expiry_date || undefined,
+        is_active: snakeData.is_active !== undefined ? snakeData.is_active : undefined,
+        is_special: snakeData.is_special !== undefined ? snakeData.is_special : undefined,
+        description: snakeData.description || undefined
     };
 
-    console.log('API: Prepared record for update:', couponRecord);
+    // Limpar campos undefined para evitar sobrescrever com null se não enviado
+    Object.keys(fullRecord).forEach(key => fullRecord[key] === undefined && delete fullRecord[key]);
+
+    console.log('API: Attempting full update:', fullRecord);
 
     const { data, error } = await supabase
         .from('coupons')
-        .update(couponRecord)
+        .update(fullRecord)
         .eq('id', id)
         .select()
         .single();
 
     if (error) {
+        if (error.code === '42703' || error.message.includes('column') || error.message.includes('does not exist')) {
+            console.warn('⚠️ Colunas adicionais não encontradas no update. Fazendo fallback...');
+            const baseRecord = {};
+            const allowed = ['code', 'discount_type', 'discount_value', 'is_active', 'expires_at'];
+            allowed.forEach(key => {
+                if (fullRecord[key] !== undefined) baseRecord[key] = fullRecord[key];
+            });
+
+            const retry = await supabase
+                .from('coupons')
+                .update(baseRecord)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (retry.error) throw retry.error;
+            return finalizeCouponResponse(retry.data);
+        }
         console.error('API Error updating coupon:', error);
         throw error;
     }
-    console.log('API: Updated coupon:', data);
 
-    // Mapear campos do retorno para o formato esperado pelo frontend
-    const camelCased = toCamelCase(data);
-    return {
-        ...camelCased,
-        type: camelCased.discountType,
-        value: camelCased.discountValue,
-        expiryDate: camelCased.expiresAt
-    };
+    return finalizeCouponResponse(data);
 }
 
 export async function deleteCoupon(id) {
@@ -1629,7 +1792,11 @@ export async function getCustomerPreferences(customerId) {
         .eq('customer_id', customerId)
         .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+    if (error) {
+        // PGRST116 = not found (registro vazio), PGRST205 = table not found
+        if (error.code === 'PGRST116' || error.code === 'PGRST205') {
+            return null;
+        }
         throw error;
     }
 
@@ -1639,15 +1806,26 @@ export async function getCustomerPreferences(customerId) {
 export async function updateCustomerPreferences(customerId, preferencesData) {
     const snakeData = toSnakeCase(preferencesData);
 
-    // Primeiro, tentar atualizar o registro existente
-    const { data, error } = await supabase
-        .from('customer_preferences')
-        .upsert([{ customer_id: customerId, ...snakeData }], { onConflict: 'customer_id' })
-        .select()
-        .single();
+    try {
+        const { data, error } = await supabase
+            .from('customer_preferences')
+            .upsert([{ customer_id: customerId, ...snakeData }], { onConflict: 'customer_id' })
+            .select()
+            .single();
 
-    if (error) throw error;
-    return toCamelCase(data);
+        if (error) {
+            if (error.code === 'PGRST205') {
+                console.warn('⚠️ A tabela customer_preferences não existe no banco de dados.');
+                return toCamelCase(snakeData);
+            }
+            throw error;
+        }
+
+        return toCamelCase(data);
+    } catch (err) {
+        console.error('❌ Erro inesperado ao salvar preferências:', err);
+        return toCamelCase(snakeData);
+    }
 }
 
 // ==================== PAYMENT FEES ====================

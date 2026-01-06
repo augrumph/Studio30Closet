@@ -271,8 +271,8 @@ export function Catalog() {
                                                         key={pageNum}
                                                         onClick={() => setPage(pageNum)}
                                                         className={`touch-target px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${page === pageNum
-                                                            ? 'bg-[#C75D3B] text-white'
-                                                            : 'border-2 border-gray-200 hover:border-[#C75D3B]'
+                                                                ? 'bg-[#C75D3B] text-white'
+                                                                : 'border-2 border-gray-200 hover:border-[#C75D3B]'
                                                             }`}
                                                     >
                                                         {pageNum}
@@ -395,38 +395,6 @@ export function Catalog() {
                 isOpen={!!selectedProduct}
                 onClose={() => setSelectedProduct(null)}
             />
-
-            {/* 🛒 Floating Cart Button - Mobile Only */}
-            <AnimatePresence>
-                {items.length > 0 && !selectedProduct && (
-                    <motion.div
-                        initial={{ y: 100, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: 100, opacity: 0 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="md:hidden fixed bottom-6 left-4 right-4 z-40"
-                        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-                    >
-                        <a
-                            href="/malinha"
-                            className="flex items-center justify-between w-full px-5 py-4 bg-gradient-to-r from-[#C75D3B] to-[#A64D31] text-white rounded-2xl shadow-2xl shadow-[#C75D3B]/30 active:scale-[0.98] transition-transform"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                                    <span className="text-lg font-bold">{items.length}</span>
-                                </div>
-                                <div>
-                                    <p className="font-bold text-sm">Ver Malinha</p>
-                                    <p className="text-xs text-white/70">{items.length} {items.length === 1 ? 'peça' : 'peças'} selecionadas</p>
-                                </div>
-                            </div>
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </a>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     )
 }

@@ -64,7 +64,9 @@ export function ToastContainer({ toasts, onClose }) {
 
   return (
     <div
-      className="fixed top-4 right-4 z-[100] flex flex-col gap-3 pointer-events-none"
+      className="fixed z-[100] flex flex-col gap-3 pointer-events-none
+        top-20 right-4 left-4 sm:left-auto sm:top-4 sm:right-4"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
       aria-live="polite"
       aria-atomic="true"
     >

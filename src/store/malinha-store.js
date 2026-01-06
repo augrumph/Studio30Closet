@@ -52,6 +52,12 @@ export const useMalinhaStore = create(
                 }
 
                 set({ items: [...items, newItem] })
+
+                // ✨ Feedback háptico no mobile (vibração sutil)
+                if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                    navigator.vibrate([15, 50, 15]) // padrão sutil: vibra-pausa-vibra
+                }
+
                 return { success: true, message: 'Peça adicionada à malinha!' }
             },
 
@@ -67,7 +73,7 @@ export const useMalinhaStore = create(
             // Update customer data
             setCustomerData: (data) =>
                 set((state) => ({ customerData: { ...state.customerData, ...data } })),
-            
+
             // Update address data
             setAddressData: (data) =>
                 set((state) => {

@@ -152,23 +152,17 @@ export function ProductModal({ product, isOpen, onClose }) {
     // Renderizar via Portal para evitar problemas de stacking context
     if (typeof document === 'undefined') return null
 
-    // Detectar se é mobile
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-
     return createPortal(
         <div
-            className={cn(
-                "fixed inset-0",
-                // Desktop: centralizado, Mobile: alinhado ao bottom
-                isMobile ? "flex items-end" : "flex items-center justify-center p-4"
-            )}
+            className="fixed inset-0 flex items-center justify-center p-4"
             style={{
                 position: 'fixed',
                 top: 0,
                 left: 0,
                 right: 0,
                 bottom: 0,
-                zIndex: 99999
+                zIndex: 99999,
+                paddingTop: 'max(1rem, env(safe-area-inset-top))'
             }}
         >
             {/* Backdrop - cobre TODA a tela */}
@@ -178,24 +172,8 @@ export function ProductModal({ product, isOpen, onClose }) {
                 onClick={onClose}
             />
 
-            {/* Modal - Bottom Sheet no Mobile, Centralizado no Desktop */}
-            <div
-                className={cn(
-                    "relative bg-white shadow-2xl overflow-hidden",
-                    // Mobile: bottom sheet full width, arredondado em cima
-                    isMobile
-                        ? "w-full max-h-[92vh] rounded-t-3xl animate-slide-up"
-                        : "rounded-3xl max-w-4xl w-full max-h-[85vh]"
-                )}
-                style={isMobile ? { paddingBottom: 'env(safe-area-inset-bottom)' } : {}}
-            >
-                {/* Drag Handle - Mobile Only */}
-                {isMobile && (
-                    <div className="flex justify-center pt-3 pb-1 sticky top-0 bg-white z-20">
-                        <div className="w-12 h-1 bg-gray-300 rounded-full" />
-                    </div>
-                )}
-
+            {/* Modal - centralizado */}
+            <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden animate-slide-up">
                 {/* Close Button */}
                 <button
                     onClick={onClose}

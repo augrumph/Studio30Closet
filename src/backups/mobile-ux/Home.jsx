@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Truck, Star, Shield, Clock, Quote, Instagram, ArrowUpRight } from 'lucide-react'
-import { ProductCard, ProductModal, SkeletonCard } from '@/components/catalog'
+import { ProductCard, ProductModal } from '@/components/catalog'
 import { useAdminStore } from '@/store/admin-store'
 import { useEffect, useRef, useLayoutEffect, useState } from 'react'
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from '@/components/ui/Carousel'
@@ -11,7 +11,7 @@ import { motion } from 'framer-motion'
 import { usePrefetchProducts } from '@/hooks/usePrefetchProducts'
 
 export function Home() {
-    const { products, loadProducts, productsLoading } = useAdminStore()
+    const { products, loadProducts } = useAdminStore()
     const [selectedProduct, setSelectedProduct] = useState(null)
 
     // Prefetch produtos em background assim que a homepage monta
@@ -217,16 +217,9 @@ export function Home() {
                         <h2 className="font-display text-3xl sm:text-4xl md:text-5xl text-[#4A3B32]">Destaques da Semana</h2>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
-                        {productsLoading || products.length === 0 ? (
-                            // Skeleton loading enquanto carrega
-                            Array.from({ length: 4 }).map((_, idx) => (
-                                <SkeletonCard key={`skeleton-${idx}`} />
-                            ))
-                        ) : (
-                            featuredProducts.slice(0, 4).map((product) => (
-                                <ProductCard key={product.id} product={product} onQuickView={setSelectedProduct} />
-                            ))
-                        )}
+                        {featuredProducts.slice(0, 4).map((product) => (
+                            <ProductCard key={product.id} product={product} onQuickView={setSelectedProduct} />
+                        ))}
                     </div>
                     <div className="mt-12 md:mt-16 text-center">
                         <Link to="/catalogo" className="inline-block border-b-2 border-[#C75D3B] text-[#4A3B32] pb-1 hover:text-[#C75D3B] transition-colors font-medium text-sm md:text-base">

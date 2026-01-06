@@ -2,47 +2,41 @@ import { useEffect, useState, useMemo } from 'react'
 import {
     Users,
     ShoppingBag,
-    Package,
     TrendingUp,
-    Clock,
-    DollarSign,
     Calendar,
     ArrowUpRight,
     Plus,
     Target,
     Zap,
-    CreditCard,
-    ArrowDownRight,
-    MoreHorizontal,
     Search,
-    AlertTriangle,
-    TrendingDown,
-    Download
+    CreditCard
 } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
 import { getDashboardMetrics } from '@/lib/api'
-import { CatalogPDFButton } from '@/components/admin/CatalogPDFButton'
-import { Info } from 'lucide-react'
+
+// Hooks extraídos
+import { useDashboardMetrics } from '@/hooks/useDashboardMetrics'
+import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics'
+
+// Componentes extraídos
+import { FinancialScoreboard, CashFlowSection, ParcelinhasModal } from '@/components/admin/dashboard'
 
 export function Dashboard() {
     const vendas = useAdminStore(state => state.vendas)
     const customers = useAdminStore(state => state.customers)
-    const vendasLoading = useAdminStore(state => state.vendasLoading)
     const reloadAll = useAdminStore(state => state.reloadAll)
 
     const [currentTime, setCurrentTime] = useState(new Date())
     const [dashboardData, setDashboardData] = useState(null)
-    const [periodFilter, setPeriodFilter] = useState('last7days')
+    const [periodFilter, setPeriodFilter] = useState('all')
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
+    const [showParcelinhasModal, setShowParcelinhasModal] = useState(false)
 
     useEffect(() => {
-        // Carregar dados apenas uma vez quando componente monta
-        // Dashboard apenas precisa de vendas para suas métricas
         if (!vendas.length) {
             reloadAll()
         }
@@ -50,7 +44,6 @@ export function Dashboard() {
         return () => clearInterval(timer)
     }, [reloadAll, vendas])
 
-    // Carregar dados adicionais para analytics completo (despesas, cupons, installments)
     useEffect(() => {
         const loadDashboardData = async () => {
             try {
@@ -58,430 +51,85 @@ export function Dashboard() {
                 setDashboardData(data)
             } catch (error) {
                 console.error('Erro ao carregar métricas adicionais do dashboard:', error)
-                // Continua mesmo se falhar, pois as métricas principais vêm de vendas do Zustand
                 setDashboardData({})
             }
         }
-
         loadDashboardData()
     }, [])
 
-    // --- CÁLCULO DE PERÍODO DINÂMICO ---
+    // Cálculo de período dinâmico
     const periodDays = useMemo(() => {
         const now = new Date()
-
+        if (periodFilter === 'all') {
+            // Para 'Tudo', calcular dias desde a primeira venda
+            if (vendas.length > 0) {
+                const oldestDate = new Date(Math.min(...vendas.map(v => new Date(v.createdAt).getTime())))
+                return Math.ceil((now.getTime() - oldestDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+            }
+            return 365 // Fallback para 1 ano se não houver vendas
+        }
         if (periodFilter === 'last7days') return 7
         if (periodFilter === 'last30days') return 30
-
         if (periodFilter === 'currentMonth') {
-            // Último dia do mês atual = dia 0 do próximo mês
             return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
         }
-
         if (periodFilter === 'custom' && customDateRange.start && customDateRange.end) {
             const diff = new Date(customDateRange.end).getTime() - new Date(customDateRange.start).getTime()
             return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1
         }
+        return 30
+    }, [periodFilter, customDateRange, vendas])
 
-        return 30 // fallback
-    }, [periodFilter, customDateRange])
-
-    // --- FILTRAGEM DE VENDAS POR PERÍODO ---
+    // Filtragem de vendas por período
     const filteredVendas = useMemo(() => {
         const now = new Date()
+        // Filtro 'all' retorna todas as vendas
+        if (periodFilter === 'all') return vendas
 
         return vendas.filter(v => {
             const saleDate = new Date(v.createdAt)
-
             if (periodFilter === 'last7days') {
                 const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
                 return saleDate >= cutoff
             }
-
             if (periodFilter === 'last30days') {
                 const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
                 return saleDate >= cutoff
             }
-
             if (periodFilter === 'currentMonth') {
                 const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
                 const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
                 return saleDate >= monthStart && saleDate <= monthEnd
             }
-
             if (periodFilter === 'custom' && customDateRange.start && customDateRange.end) {
                 const start = new Date(customDateRange.start)
                 const end = new Date(customDateRange.end)
                 end.setHours(23, 59, 59)
                 return saleDate >= start && saleDate <= end
             }
-
             return true
         })
     }, [vendas, periodFilter, customDateRange])
 
-    // --- CÁLCULOS FINANCEIROS COMPLETOS (DRE GERENCIAL) ---
-    const financialMetrics = useMemo(() => {
-        const allSales = filteredVendas && filteredVendas.length > 0 ? filteredVendas : [];
+    // Usar hooks extraídos
+    const financialMetrics = useDashboardMetrics({
+        filteredVendas,
+        allVendas: vendas,
+        dashboardData,
+        periodDays,
+        periodFilter,
+        customDateRange
+    })
 
-        // (1) RECEITA BRUTA - TODAS as vendas realizadas (independente do status de pagamento)
-        const grossRevenue = allSales.reduce((sum, v) => sum + (v.totalValue || 0), 0);
-
-        // (2) RECEITA LÍQUIDA - Após taxas
-        const netRevenue = allSales.reduce((sum, v) => sum + (v.netAmount || v.totalValue - (v.feeAmount || 0)), 0);
-
-        // (3) NÚMERO DE VENDAS E TICKET MÉDIO
-        const totalSalesCount = allSales.length;
-        const averageTicket = totalSalesCount > 0 ? grossRevenue / totalSalesCount : 0;
-
-        // (4) CPV - Custo dos Produtos Vendidos (OBRIGATÓRIO para produtos físicos)
-        // Usa o custo histórico de cada item no momento da venda
-        let costWarnings = 0
-        const totalCPV = allSales.reduce((sum, v) => {
-            const itemsCost = (v.items || []).reduce((itemSum, item) => {
-                // Tenta costPriceAtTime (snake_case), depois costPriceAtTime (camelCase)
-                let cost = item.costPriceAtTime || item.cost_price_at_time || item.costPrice
-                const quantity = item.quantity || item.qty || 1
-
-                // VALIDAÇÃO: CPV obrigatório - se zero, avisar e usar estimativa
-                if (!cost || cost <= 0) {
-                    costWarnings++
-                    // Usar 60% do preço como fallback para produtos sem custo cadastrado
-                    cost = (item.price || 0) * 0.6
-                    console.warn(`⚠️ CPV não encontrado para: ${item.name} em venda #${v.id}. Usando estimativa (60% preço).`)
-                }
-
-                return itemSum + (cost * quantity)
-            }, 0)
-            return sum + itemsCost
-        }, 0)
-
-        // Log de warning se houver produtos sem custo
-        if (costWarnings > 0) {
-            console.warn(`⚠️ ${costWarnings} item(ns) com custo estimado no período`)
-        }
-
-        // (5) LUCRO BRUTO
-        const grossProfit = grossRevenue - totalCPV;
-
-        // (6) MARGEM BRUTA PERCENTUAL
-        const grossMarginPercent = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
-
-        // (7) TAXAS - Total e percentual
-        const totalFees = allSales.reduce((sum, v) => sum + (v.feeAmount || 0), 0);
-        const feePercent = grossRevenue > 0 ? (totalFees / grossRevenue) * 100 : 0;
-
-        // (8) DESCONTOS - Cupons + diferença de preço
-        const totalDiscounts = allSales.reduce((sum, v) => {
-            const discount = (v.totalValue || 0) - (v.netAmount || v.totalValue);
-            return sum + discount;
-        }, 0);
-
-        // (9) DESPESAS FIXAS - PROPORCIONALIZADAS AO PERÍODO
-        // Fórmula: (despesaMensal / 30) × diasDoPeriodo
-        let monthlyExpenses = 0;
-        let proportionalExpenses = 0;
-
-        if (dashboardData?.expenses && dashboardData.expenses.length > 0) {
-            monthlyExpenses = dashboardData.expenses.reduce((sum, expense) => {
-                let monthlyValue = expense.value || 0;
-                const recurrence = expense.recurrence?.toLowerCase() || 'mensal';
-
-                if (recurrence === 'diário' || recurrence === 'daily') {
-                    monthlyValue *= 30;
-                } else if (recurrence === 'semanal' || recurrence === 'weekly') {
-                    monthlyValue *= 4.33;
-                } else if (recurrence === 'trimestral' || recurrence === 'quarterly') {
-                    monthlyValue /= 3;
-                } else if (recurrence === 'anual' || recurrence === 'yearly') {
-                    monthlyValue /= 12;
-                }
-                return sum + monthlyValue;
-            }, 0);
-
-            // IMPORTANTE: Proporcionalizar ao período selecionado
-            // Se período é 7 dias, despesas = (mensal / 30) × 7
-            // Se período é 30 dias, despesas = mensal
-            proportionalExpenses = (monthlyExpenses / 30) * periodDays;
-        }
-
-        // (10) LUCRO OPERACIONAL - usando despesas PROPORCIONAIS ao período
-        const operatingProfit = grossProfit - proportionalExpenses;
-
-        // (11) MARGEM LÍQUIDA
-        const netMarginPercent = grossRevenue > 0 ? (operatingProfit / grossRevenue) * 100 : 0;
-
-        // (12) FLUXO DE CAIXA - Separar claramente Recebido vs A Receber
-        const now = new Date();
-        const isInPeriod = (dateStr) => {
-            const date = new Date(dateStr);
-            if (periodFilter === 'last7days') {
-                const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-                return date >= cutoff;
-            }
-            if (periodFilter === 'last30days') {
-                const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-                return date >= cutoff;
-            }
-            if (periodFilter === 'currentMonth') {
-                return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-            }
-            if (periodFilter === 'custom' && customDateRange.start && customDateRange.end) {
-                const start = new Date(customDateRange.start);
-                const end = new Date(customDateRange.end);
-                end.setHours(23, 59, 59, 999);
-                return date >= start && date <= end;
-            }
-            return true; // fallback ou all-time
-        };
-
-        // Valores Recebidos (no período): 
-        // 1. Vendas realizadas no período:
-        // - Se à vista e paga: valor líquido total
-        // - Se parcelada ou fiado: apenas o valor da ENTRADA (entryPayment)
-        const receivedFromSales = allSales.reduce((sum, v) => {
-            const status = v.paymentStatus || v.payment_status;
-            const isInstallment = v.isInstallment || v.is_installment === true;
-            const net = Number(v.netAmount || v.net_amount || 0);
-            const total = Number(v.totalValue || v.total_value || 0);
-            const fee = Number(v.feeAmount || v.fee_amount || 0);
-            const entry = Number(v.entryPayment || v.entry_payment || 0);
-
-            // 1. Vendas à vista pagas (contamos o valor líquido total)
-            if (status === 'paid' && !isInstallment) {
-                return sum + (net || total - fee);
-            }
-            // 2. Vendas pendentes ou parceladas (contamos apenas o valor da entrada/adiantamento que já entrou no bolso)
-            return sum + entry;
-        }, 0);
-
-        // 2. Pagamentos de parcelas realizados NO PERÍODO (parcelas pagas posteriormente)
-        let receivedFromInstallments = 0;
-        if (dashboardData?.installments) {
-            dashboardData.installments.forEach(inst => {
-                (inst.installmentPayments || []).forEach(payment => {
-                    const paymentDate = payment.createdAt || payment.paymentDate;
-                    if (isInPeriod(paymentDate)) {
-                        receivedFromInstallments += (payment.paymentAmount || 0);
-                    }
-                });
-            });
-        }
-
-        const receivedAmount = receivedFromSales + receivedFromInstallments;
-
-        // Valores a Receber (Total Atual - Global): 
-        // Soma o saldo devedor de todas as vendas pendentes e parcelas ativas no sistema
-
-        // 1. Dívida de vendas simples (Fiado/Crediário SEM parcelamento formal)
-        // Usamos 'vendas' (lista global do store) para que o saldo seja o total que o cliente deve hoje
-        // 1. Dívida de vendas simples (Qualquer venda Pendente que não tenha parcelamento formal)
-        // Usamos 'vendas' (lista global do store) para que o saldo seja o total que o cliente deve hoje
-        const toReceiveFromSimpleSales = (vendas || []).reduce((sum, v) => {
-            const status = v.paymentStatus || v.payment_status;
-            const isInstallment = v.isInstallment || v.is_installment === true;
-            const total = Number(v.totalValue || v.total_value || 0);
-            const entry = Number(v.entryPayment || v.entry_payment || 0);
-
-            // Consideramos qualquer venda pendente que não seja via parcelamento (tabela de installments)
-            // Se o usuário esqueceu de criar as parcelas ou é apenas fiado simples, cai aqui.
-            if (status === 'pending' && !isInstallment) {
-                const balance = total - entry;
-                return sum + Math.max(0, balance);
-            }
-            return sum;
-        }, 0);
-
-        // 2. Dívida de vendas parceladas (via Tabela Installments)
-        const toReceiveFromInstallments = dashboardData?.installments ?
-            dashboardData.installments.reduce((sum, inst) => {
-                const totalPaid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
-                const remaining = (inst.originalAmount || 0) - totalPaid;
-                return sum + Math.max(0, remaining);
-            }, 0) : 0;
-
-        const toReceiveAmount = toReceiveFromSimpleSales + toReceiveFromInstallments;
-
-        // (13) INDICADORES DE RISCO - INADIMPLÊNCIA
-        // Apenas parcelas VENCIDAS e NÃO PAGAS completamente
-        let overdueAmount = 0;
-        let overdueCount = 0;
-        let totalInstallments = 0;
-
-        if (dashboardData?.installments) {
-            dashboardData.installments.forEach(inst => {
-                totalInstallments++;
-                const dueDate = new Date(inst.dueDate);
-                const now = new Date();
-
-                // Verificar se está vencida
-                if (dueDate < now) {
-                    const paid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
-                    const remaining = (inst.originalAmount || 0) - paid;
-
-                    // Contar apenas se ainda há saldo não pago
-                    if (remaining > 0) {
-                        overdueAmount += remaining;
-                        overdueCount += 1;
-                    }
-                }
-            });
-        }
-
-        // Inadimplência = parcelas vencidas / total de parcelas (apenas se há parcelas)
-        const defaultPercent = totalInstallments > 0 ? (overdueCount / totalInstallments) * 100 : 0;
-
-        // Pending fiado (not paid)
-        const pendingFiado = vendas
-            .filter(v => v.paymentMethod === 'fiado' && v.paymentStatus === 'pending')
-            .reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-
-        return {
-            // DRE Metrics
-            grossRevenue,                // (1) Receita Bruta
-            netRevenue,                  // (1b) Receita Líquida
-            totalSalesCount,             // (2) Número de vendas
-            averageTicket,               // (2) Ticket Médio
-            totalCPV,                    // (3) CPV
-            grossProfit,                 // (4) Lucro Bruto
-            grossMarginPercent,          // (5) Margem Bruta %
-            totalFees,                   // (6) Total de Taxas
-            feePercent,                  // (6) % Taxas
-            totalDiscounts,              // (7) Total Descontos
-            monthlyExpenses,             // (8) Despesas Mensais (referência)
-            proportionalExpenses,        // (8b) Despesas Proporcionais ao Período
-            operatingProfit,             // (9) Lucro Operacional
-            netMarginPercent,            // (10) Margem Líquida %
-            // Cash Flow
-            receivedAmount,              // (11) Valores Recebidos
-            toReceiveAmount,             // (11) Valores a Receber
-            // Risk Indicators
-            overdueAmount,               // (12) Parcelas Atrasadas
-            overdueCount,                // (12) Número de Parcelas Vencidas
-            defaultPercent,              // (12) Inadimplência %
-            // Legacy metrics
-            totalSales: grossRevenue,
-            totalGrossMarginValue: grossProfit,
-            totalNetMarginValue: operatingProfit,
-            totalCostPrice: totalCPV,
-            overallGrossMarginPercent: grossMarginPercent,
-            overallNetMarginPercent: netMarginPercent,
-            pendingFiado,
-            // Period info
-            periodDays,
-            costWarnings
-        };
-    }, [filteredVendas, dashboardData, periodDays])
-
-    // --- TREND ANALYTICS (Últimos 7 dias) ---
-    const weeklyData = useMemo(() => {
-        const last7Days = [...Array(7)].map((_, i) => {
-            const d = new Date()
-            d.setDate(d.getDate() - i)
-            return d.toISOString().split('T')[0]
-        }).reverse()
-
-        return last7Days.map(date => {
-            const daySales = vendas.filter(v => v.createdAt.startsWith(date))
-                .reduce((acc, v) => acc + v.totalValue, 0)
-            return { date, value: daySales }
-        })
-    }, [vendas])
-
-    const maxValue = Math.max(...weeklyData.map(d => d.value), 100)
-
-    // --- MONTHLY TREND ANALYTICS (últimas 4 semanas) ---
-    const monthlyData = useMemo(() => {
-        const weeks = []
-        for (let i = 3; i >= 0; i--) {
-            const weekStart = new Date()
-            weekStart.setDate(weekStart.getDate() - (i * 7 + 6))
-            const weekEnd = new Date(weekStart)
-            weekEnd.setDate(weekEnd.getDate() + 6)
-
-            const weekSales = vendas.filter(v => {
-                const vDate = new Date(v.createdAt.split('T')[0])
-                return vDate >= weekStart && vDate <= weekEnd
-            }).reduce((acc, v) => acc + v.totalValue, 0)
-
-            weeks.push({
-                label: `Sem ${i + 1}`,
-                value: weekSales,
-                startDate: weekStart.toISOString().split('T')[0],
-                endDate: weekEnd.toISOString().split('T')[0]
-            })
-        }
-        return weeks
-    }, [vendas])
-
-    const maxMonthlyValue = Math.max(...monthlyData.map(d => d.value), 100)
-
-    // --- ACCUMULATED TREND (vendas acumuladas ao longo do tempo) ---
-    const accumulatedData = useMemo(() => {
-        const sortedVendas = [...vendas].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-        let accumulated = 0
-
-        return sortedVendas.map(v => {
-            accumulated += v.totalValue
-            return {
-                date: v.createdAt.split('T')[0],
-                value: accumulated,
-                saleDate: new Date(v.createdAt)
-            }
-        })
-    }, [vendas])
-
-    const maxAccumulatedValue = Math.max(...accumulatedData.map(d => d.value), 100)
-
-    // --- TOP PRODUCTS ---
-    const topProducts = useMemo(() => {
-        const productSales = {}
-        vendas.forEach(v => {
-            v.items?.forEach(item => {
-                const id = item.productId
-                if (!productSales[id]) {
-                    productSales[id] = {
-                        name: item.name,
-                        quantity: 0,
-                        revenue: 0,
-                        productId: id,
-                        image: item.images?.[0] || item.image || item.variant?.images?.[0] || null
-                    }
-                }
-                productSales[id].quantity += (item.quantity || 1)
-                productSales[id].revenue += (item.price * (item.quantity || 1))
-            })
-        })
-
-        return Object.values(productSales)
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 4)
-    }, [vendas])
-
-    // --- TOP CUSTOMERS (by revenue and frequency) ---
-    const topCustomers = useMemo(() => {
-        const customerStats = {}
-        vendas.forEach(v => {
-            const name = v.customerName
-            if (!customerStats[name]) {
-                customerStats[name] = {
-                    name: name,
-                    revenue: 0,
-                    frequency: 0,
-                    lastPurchase: v.createdAt
-                }
-            }
-            customerStats[name].revenue += (v.totalValue || 0)
-            customerStats[name].frequency += 1
-            customerStats[name].lastPurchase = new Date(v.createdAt) > new Date(customerStats[name].lastPurchase)
-                ? v.createdAt
-                : customerStats[name].lastPurchase
-        })
-
-        return Object.values(customerStats)
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 5)
-    }, [vendas])
+    const {
+        weeklyData,
+        maxWeeklyValue,
+        monthlyData,
+        maxMonthlyValue,
+        accumulatedData,
+        maxAccumulatedValue,
+        topCustomers
+    } = useDashboardAnalytics(vendas)
 
     const greetings = () => {
         const hour = currentTime.getHours()
@@ -536,18 +184,20 @@ export function Dashboard() {
                             </div>
                             <span className="font-bold text-xs md:text-sm tracking-tight uppercase">Montar Malinha</span>
                         </Link>
-                        <div className="p-4 md:p-6 bg-gradient-to-br from-emerald-500 to-teal-600 active:from-emerald-600 active:to-teal-700 rounded-2xl md:rounded-3xl transition-all shadow-xl group flex flex-col gap-2 md:gap-3">
+                        <button
+                            onClick={() => setShowParcelinhasModal(true)}
+                            className="p-4 md:p-6 bg-gradient-to-br from-amber-500 to-orange-600 active:from-amber-600 active:to-orange-700 rounded-2xl md:rounded-3xl transition-all shadow-xl group flex flex-col gap-2 md:gap-3 text-left w-full"
+                        >
                             <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl md:rounded-2xl flex items-center justify-center group-active:scale-95 md:group-hover:scale-110 transition-transform">
-                                <Download className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                                <CreditCard className="w-5 h-5 md:w-6 md:h-6 text-white" />
                             </div>
-                            <span className="font-bold text-xs md:text-sm tracking-tight uppercase text-white">Catálogo PDF</span>
-                            <CatalogPDFButton />
-                        </div>
+                            <span className="font-bold text-xs md:text-sm tracking-tight uppercase text-white">Parcelinhas</span>
+                        </button>
                     </div>
                 </div>
             </motion.div>
 
-            {/* 1.5 PERÍODO DE ANÁLISE - PERIOD SELECTOR */}
+            {/* 1.5 PERÍODO DE ANÁLISE */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -562,6 +212,7 @@ export function Dashboard() {
 
                     <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
                         {[
+                            { value: 'all', label: 'Tudo' },
                             { value: 'last7days', label: 'Últimos 7 dias' },
                             { value: 'last30days', label: 'Últimos 30 dias' },
                             { value: 'currentMonth', label: 'Mês atual' },
@@ -583,7 +234,6 @@ export function Dashboard() {
                     </div>
                 </div>
 
-                {/* Custom Date Range */}
                 {periodFilter === 'custom' && (
                     <motion.div
                         initial={{ opacity: 0, height: 0 }}
@@ -613,307 +263,18 @@ export function Dashboard() {
                 )}
             </motion.div>
 
-            {/* 2. FINANCIAL SCOREBOARD - DRE GERENCIAL */}
-            <TooltipProvider delayDuration={200}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                    {[
-                        // Receita
-                        {
-                            label: 'Receita Bruta',
-                            value: financialMetrics.grossRevenue,
-                            icon: DollarSign,
-                            color: 'blue',
-                            description: `${financialMetrics.totalSalesCount} vendas`,
-                            tooltip: 'Valor total de todas as vendas realizadas no período, antes de qualquer desconto ou dedução. É o faturamento bruto da loja.'
-                        },
-                        {
-                            label: 'Ticket Médio',
-                            value: financialMetrics.averageTicket,
-                            icon: ShoppingBag,
-                            color: 'sky',
-                            description: `${financialMetrics.totalSalesCount} vendas`,
-                            tooltip: 'Valor médio que cada cliente gasta por compra. Calculado dividindo a Receita Bruta pelo número total de vendas. Um ticket médio maior indica vendas de maior valor.'
-                        },
+            {/* 2. FINANCIAL SCOREBOARD - DRE GERENCIAL (Componente extraído) */}
+            <FinancialScoreboard metrics={financialMetrics} />
 
-                        // Custos e Margens
-                        {
-                            label: 'CPV (Custo da Venda)',
-                            value: financialMetrics.totalCPV,
-                            icon: Package,
-                            color: 'amber',
-                            description: 'Custo histórico',
-                            tooltip: 'Custo de Produto Vendido: quanto você pagou pelos produtos que foram vendidos. É o preço de custo das mercadorias registrado no cadastro de cada produto.'
-                        },
-                        {
-                            label: 'Lucro Bruto',
-                            value: financialMetrics.grossProfit,
-                            icon: ArrowUpRight,
-                            color: 'green',
-                            description: 'Receita - CPV',
-                            tooltip: 'Diferença entre a Receita Bruta e o CPV (Receita - CPV). Mostra quanto você ganhou com as vendas antes de pagar despesas operacionais, taxas e descontos.'
-                        },
-                        {
-                            label: 'Margem Bruta',
-                            value: financialMetrics.grossMarginPercent,
-                            icon: TrendingUp,
-                            color: 'emerald',
-                            description: (financialMetrics.grossMarginPercent).toFixed(1) + '%',
-                            isPercentage: true,
-                            tooltip: 'Percentual de lucro sobre cada venda, antes das despesas. Calculado como (Lucro Bruto ÷ Receita Bruta) × 100. Indica a rentabilidade dos seus produtos.'
-                        },
+            {/* CASH FLOW & RISK INDICATORS (Componente extraído) */}
+            <CashFlowSection metrics={financialMetrics} />
 
-                        // Taxas e Descontos
-                        {
-                            label: 'Taxas Pagto',
-                            value: financialMetrics.totalFees,
-                            icon: CreditCard,
-                            color: 'orange',
-                            description: (financialMetrics.feePercent).toFixed(1) + '% da receita',
-                            tooltip: 'Total de taxas cobradas pelas maquininhas de cartão e meios de pagamento eletrônicos (débito, crédito, PIX). Esse valor reduz o dinheiro que efetivamente entra no caixa.'
-                        },
-                        {
-                            label: 'Descontos',
-                            value: financialMetrics.totalDiscounts,
-                            icon: ArrowDownRight,
-                            color: 'red',
-                            description: 'Cupons e ajustes',
-                            tooltip: 'Total de descontos concedidos através de cupons, promoções especiais e ajustes de preço. Reduz a receita efetiva das vendas.'
-                        },
 
-                        // Despesas e Lucro
-                        {
-                            label: 'Despesas Fixas',
-                            value: financialMetrics.proportionalExpenses,
-                            icon: Calendar,
-                            color: 'slate',
-                            description: `Proporcionalizadas (${financialMetrics.periodDays} dias)`,
-                            tooltip: 'Custos operacionais fixos do período (aluguel, energia, internet, salários, etc.). O valor é proporcional aos dias do período selecionado para uma comparação justa.'
-                        },
-                        {
-                            label: 'Lucro Operacional',
-                            value: financialMetrics.operatingProfit,
-                            icon: Target,
-                            color: 'purple',
-                            description: 'Lucro Bruto - Despesas',
-                            tooltip: 'Lucro real do negócio após todas as deduções: Lucro Bruto menos Despesas Fixas, Taxas de Pagamento e Descontos. É o dinheiro que sobra no final do período.'
-                        },
-                        {
-                            label: 'Margem Líquida',
-                            value: financialMetrics.netMarginPercent,
-                            icon: TrendingUp,
-                            color: 'indigo',
-                            description: (financialMetrics.netMarginPercent).toFixed(1) + '%',
-                            isPercentage: true,
-                            tooltip: 'Percentual de lucro final sobre cada real vendido. Calculado como (Lucro Operacional ÷ Receita Bruta) × 100. Mostra a eficiência real do negócio. Quanto maior, melhor!'
-                        }
-                    ].map((stat, i) => (
-                        <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            whileHover={{ y: -4, scale: 1.02 }}
-                            transition={{ delay: i * 0.08, duration: 0.4 }}
-                            className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                        >
-                            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                            <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className={cn(
-                                        "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
-                                        stat.color === 'blue' ? "bg-blue-100 text-blue-600" :
-                                            stat.color === 'cyan' ? "bg-cyan-100 text-cyan-600" :
-                                                stat.color === 'sky' ? "bg-sky-100 text-sky-600" :
-                                                    stat.color === 'amber' ? "bg-amber-100 text-amber-600" :
-                                                        stat.color === 'emerald' ? "bg-emerald-100 text-emerald-600" :
-                                                            stat.color === 'purple' ? "bg-purple-100 text-purple-600" :
-                                                                stat.color === 'indigo' ? "bg-indigo-100 text-indigo-600" :
-                                                                    stat.color === 'orange' ? "bg-orange-100 text-orange-600" :
-                                                                        stat.color === 'slate' ? "bg-slate-100 text-slate-600" :
-                                                                            stat.color === 'green' ? "bg-green-100 text-green-600" :
-                                                                                "bg-red-100 text-red-600"
-                                    )}>
-                                        <stat.icon className="w-6 h-6 md:w-7 md:h-7" />
-                                    </div>
-                                    {/* Tooltip de explicação */}
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                                <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
-                                            <p className="font-semibold mb-1">{stat.label}</p>
-                                            <p className="text-gray-300">{stat.tooltip}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                                <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">{stat.label}</p>
-                                <h3 className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32] mb-3 leading-tight">
-                                    {stat.isPercentage ?
-                                        `${(stat.value || 0).toFixed(1)}%` :
-                                        `R$ ${(stat.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                    }
-                                </h3>
-                                <p className="text-xs text-gray-500 font-medium line-clamp-2">{stat.description}</p>
-                            </div>
-                        </motion.div>
-                    ))}
-                </div>
-            </TooltipProvider>
 
-            {/* CASH FLOW & RISK INDICATORS */}
-            <TooltipProvider delayDuration={200}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                    {/* Fluxo de Caixa - Recebido */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        whileHover={{ y: -4, scale: 1.02 }}
-                        transition={{ delay: 0.48, duration: 0.4 }}
-                        className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                        <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                                    <ArrowDownRight className="w-6 h-6 md:w-7 md:h-7" />
-                                </div>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                            <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
-                                        <p className="font-semibold mb-1">Valores Recebidos (Caixa Efetivo)</p>
-                                        <p className="text-gray-300">Total de dinheiro que entrou no caixa no período selecionado. Inclui vendas pagas e todos os adiantamentos ou parcelas pagos pelos clientes.</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Valores Recebidos</p>
-                            <h3 className="text-2xl md:text-3xl font-display font-bold text-emerald-600 mb-3 leading-tight">
-                                R$ {(financialMetrics.receivedAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </h3>
-                            <p className="text-xs text-emerald-600 font-medium font-display tracking-tight">Valor bruto que entrou no caixa</p>
-                        </div>
-                    </motion.div>
-
-                    {/* Fluxo de Caixa - A Receber */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        whileHover={{ y: -4, scale: 1.02 }}
-                        transition={{ delay: 0.56, duration: 0.4 }}
-                        className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                        <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className={cn(
-                                    "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center",
-                                    financialMetrics.toReceiveAmount > 0 ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"
-                                )}>
-                                    <Clock className="w-6 h-6 md:w-7 md:h-7" />
-                                </div>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                            <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
-                                        <p className="font-semibold mb-1">Valores a Receber (Fiado/Parcelas)</p>
-                                        <p className="text-gray-300">Saldo total que os clientes ainda devem (crediário/fiado). Representa o que falta pagar de todas as parcelas ativas no sistema.</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Valores a Receber</p>
-                            <h3 className={cn(
-                                "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
-                                financialMetrics.toReceiveAmount > 0 ? "text-amber-600" : "text-green-600"
-                            )}>
-                                R$ {(financialMetrics.toReceiveAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </h3>
-                            <p className="text-xs text-gray-400 font-medium font-display tracking-tight">Saldo a liquidar</p>
-                        </div>
-                    </motion.div>
-
-                    {/* Inadimplência */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        whileHover={{ y: -4, scale: 1.02 }}
-                        transition={{ delay: 0.64, duration: 0.4 }}
-                        className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                        <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className={cn(
-                                    "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center",
-                                    financialMetrics.overdueAmount > 0 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
-                                )}>
-                                    <AlertTriangle className="w-6 h-6 md:w-7 md:h-7" />
-                                </div>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                            <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm leading-relaxed">
-                                        <p className="font-semibold mb-1">Inadimplência (Atrasos)</p>
-                                        <p className="text-gray-300">Valor das parcelas que já venceram e não foram pagas. Indica o risco real de perda financeira no momento.</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Inadimplência</p>
-                            <h3 className={cn(
-                                "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
-                                financialMetrics.overdueAmount > 0 ? "text-red-600" : "text-green-600"
-                            )}>
-                                R$ {(financialMetrics.overdueAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </h3>
-                            <p className="text-xs text-gray-500 font-medium font-display tracking-tight">Total vencido e não pago</p>
-                        </div>
-                    </motion.div>
-
-                    {/* Fiado Pendente (LEGACY / SUMMARY) */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        whileHover={{ y: -4, scale: 1.02 }}
-                        transition={{ delay: 0.72, duration: 0.4 }}
-                        className="relative bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md hover:shadow-lg active:shadow-lg transition-all group overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                        <div className="relative z-10 p-6 md:p-8 flex flex-col h-full">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className={cn(
-                                    "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all",
-                                    financialMetrics.pendingFiado > 0 ? "bg-stone-100 text-stone-600" : "bg-emerald-100 text-emerald-600"
-                                )}>
-                                    <CreditCard className="w-6 h-6 md:w-7 md:h-7" />
-                                </div>
-                            </div>
-                            <p className="text-gray-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-2">Vendas Fiado</p>
-                            <h3 className={cn(
-                                "text-2xl md:text-3xl font-display font-bold mb-3 leading-tight",
-                                financialMetrics.pendingFiado > 0 ? "text-stone-600" : "text-emerald-600"
-                            )}>
-                                R$ {(financialMetrics.pendingFiado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </h3>
-                            <p className="text-xs text-gray-500 font-medium font-display tracking-tight">Período selecionado</p>
-                        </div>
-                    </motion.div>
-                </div>
-            </TooltipProvider >
-
-            {/* 3. TRENDS & TOP PRODUCTS */}
-            < div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8" >
-
+            {/* 3. TRENDS & TOP CUSTOMERS */}
+            <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
                 {/* Trend Chart Area */}
-                < Card className="lg:col-span-2 rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
+                <Card className="lg:col-span-2 rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
                     <CardHeader className="p-6 md:p-8 pb-0">
                         <div className="flex items-center justify-between gap-4">
                             <div>
@@ -932,7 +293,7 @@ export function Dashboard() {
                                     <div className="relative w-full flex flex-col justify-end h-[140px] md:h-[200px]">
                                         <motion.div
                                             initial={{ height: 0 }}
-                                            animate={{ height: `${(day.value / maxValue) * 100}%` }}
+                                            animate={{ height: `${(day.value / maxWeeklyValue) * 100}%` }}
                                             transition={{ delay: idx * 0.1, duration: 1, ease: "easeOut" }}
                                             className={cn(
                                                 "w-full rounded-t-xl md:rounded-t-2xl transition-all relative touch-manipulation",
@@ -953,11 +314,11 @@ export function Dashboard() {
                             ))}
                         </div>
                     </CardContent>
-                </Card >
-            </div >
+                </Card>
+            </div>
 
             {/* 3.2 RANKINGS - TOP CUSTOMERS */}
-            < Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
+            <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
                 <CardHeader className="p-6 md:p-8 border-b border-gray-50">
                     <div className="flex items-center justify-between gap-4">
                         <div>
@@ -1005,12 +366,12 @@ export function Dashboard() {
                         <div className="py-10 text-center text-gray-300 italic text-sm">Aguardando dados de clientes...</div>
                     )}
                 </CardContent>
-            </Card >
+            </Card>
 
             {/* 3.5 TEMPORAL ANALYSIS - MONTHLY & ACCUMULATED */}
-            < div className="grid lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8" >
-                {/* Monthly Trend - Last 4 Weeks */}
-                < Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
+            <div className="grid lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
+                {/* Monthly Trend */}
+                <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
                     <CardHeader className="p-6 md:p-8 pb-0">
                         <div className="flex items-center justify-between gap-4">
                             <div>
@@ -1050,10 +411,10 @@ export function Dashboard() {
                             ))}
                         </div>
                     </CardContent>
-                </Card >
+                </Card>
 
-                {/* Accumulated Sales Trend */}
-                < Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white" >
+                {/* Accumulated Sales */}
+                <Card className="rounded-2xl md:rounded-[32px] overflow-hidden border border-gray-100 shadow-md bg-white">
                     <CardHeader className="p-6 md:p-8 pb-0">
                         <div className="flex items-center justify-between gap-4">
                             <div>
@@ -1068,7 +429,6 @@ export function Dashboard() {
                     <CardContent className="p-5 md:p-8">
                         {accumulatedData.length > 0 ? (
                             <div className="h-[180px] md:h-[250px] w-full flex items-center justify-between mt-6 md:mt-8 px-2">
-                                {/* Simplified line chart representation using bars at intervals */}
                                 {accumulatedData.slice(-12).map((point, idx) => (
                                     <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
                                         <div className="relative w-full flex flex-col justify-end h-[140px] md:h-[200px]">
@@ -1097,21 +457,25 @@ export function Dashboard() {
                             </div>
                         )}
                     </CardContent>
-                </Card >
-            </div >
+                </Card>
+            </div>
 
             {/* 4. RECENT ACTIVITY & MONTHLY GOAL */}
-            < div className="grid lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8" >
+            <div className="grid lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8">
                 {/* Recent Items List */}
-                < Card className="lg:col-span-8 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md bg-white overflow-hidden" >
+                <Card className="lg:col-span-8 rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md bg-white overflow-hidden">
                     <CardHeader className="p-6 md:p-8 border-b border-gray-50 flex flex-row items-center justify-between gap-4">
                         <div className="min-w-0 flex-1">
                             <CardTitle className="text-lg md:text-2xl font-display text-[#4A3B32] truncate">Atividade Operacional</CardTitle>
                             <p className="text-xs md:text-sm text-gray-500 mt-2 font-medium hidden sm:block">Últimas interações processadas</p>
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
-                            <button className="p-2 md:p-3 bg-gray-100 hover:bg-gray-200 rounded-xl active:bg-gray-200 transition-colors"><Search className="w-4 h-4 md:w-5 md:h-5 text-gray-600" /></button>
-                            <button className="p-2 md:p-3 bg-gray-100 hover:bg-gray-200 rounded-xl active:bg-gray-200 transition-colors"><Plus className="w-4 h-4 md:w-5 md:h-5 text-gray-600" /></button>
+                            <button className="p-2 md:p-3 bg-gray-100 hover:bg-gray-200 rounded-xl active:bg-gray-200 transition-colors" aria-label="Buscar">
+                                <Search className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
+                            </button>
+                            <button className="p-2 md:p-3 bg-gray-100 hover:bg-gray-200 rounded-xl active:bg-gray-200 transition-colors" aria-label="Adicionar">
+                                <Plus className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
+                            </button>
                         </div>
                     </CardHeader>
                     <div className="p-0">
@@ -1119,20 +483,20 @@ export function Dashboard() {
                             <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-5 md:p-8 border-b border-gray-50 active:bg-[#FDFBF7] md:hover:bg-[#FDFBF7] transition-all group">
                                 <div className="flex items-center gap-3 md:gap-5">
                                     <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-[#FAF3F0] flex items-center justify-center text-[#C75D3B] font-bold text-lg md:text-xl ring-4 ring-transparent group-active:ring-[#C75D3B]/10 md:group-hover:ring-[#C75D3B]/10 transition-all flex-shrink-0">
-                                        {venda.customerName.charAt(0)}
+                                        {venda.customerName?.charAt(0)}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
                                             <p className="font-bold text-[#4A3B32] text-base md:text-lg truncate">{venda.customerName}</p>
                                             <span className="text-[9px] md:text-[10px] font-bold text-[#C75D3B] px-1.5 py-0.5 bg-[#FDF0ED] rounded flex-shrink-0">VENDA</span>
                                         </div>
-                                        <p className="text-xs md:text-sm text-gray-400 font-medium truncate">Processado via {venda.paymentMethod === 'fiado' ? 'Crediário' : venda.paymentMethod.toUpperCase()}</p>
+                                        <p className="text-xs md:text-sm text-gray-400 font-medium truncate">Processado via {venda.paymentMethod === 'fiado' ? 'Crediário' : venda.paymentMethod?.toUpperCase()}</p>
                                     </div>
                                 </div>
                                 <div className="mt-3 md:mt-0 flex items-center justify-between md:justify-end gap-3 md:gap-10">
                                     <div className="text-left md:text-right">
                                         <p className="font-black text-[#4A3B32] text-lg md:text-xl">R$ {(venda.totalValue || 0).toLocaleString('pt-BR')}</p>
-                                        <p className="text-[9px] md:text-[10px] text-gray-300 font-bold uppercase tracking-tight">{new Date(venda.createdAt).toLocaleDateString('pt-BR')}</p>
+                                        <p className="text-[9px] md:text-[10px] text-gray-300 font-bold uppercase tracking-tight">{venda.createdAt ? new Date(venda.createdAt).toLocaleDateString('pt-BR') : '-'}</p>
                                     </div>
                                     <div className={cn(
                                         "px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-bold uppercase tracking-widest flex-shrink-0",
@@ -1140,17 +504,17 @@ export function Dashboard() {
                                     )}>
                                         {venda.paymentStatus === 'paid' ? 'Liquidado' : 'Aguardando'}
                                     </div>
-                                    <Link to={`/admin/vendas/${venda.id}`} className="p-2 md:p-3 bg-gray-50 rounded-xl active:bg-[#4A3B32] active:text-white md:hover:bg-[#4A3B32] md:hover:text-white transition-all">
+                                    <Link to={`/admin/vendas/${venda.id}`} className="p-2 md:p-3 bg-gray-50 rounded-xl active:bg-[#4A3B32] active:text-white md:hover:bg-[#4A3B32] md:hover:text-white transition-all" aria-label={`Ver venda de ${venda.customerName}`}>
                                         <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5" />
                                     </Link>
                                 </div>
                             </div>
                         ))}
                     </div>
-                </Card >
+                </Card>
 
-                {/* Performance Goal Mastery */}
-                < div className="lg:col-span-4 space-y-4 md:space-y-6 lg:space-y-8" >
+                {/* Performance Goal & Customers */}
+                <div className="lg:col-span-4 space-y-4 md:space-y-6 lg:space-y-8">
                     <Card className="rounded-2xl md:rounded-[32px] border border-white/10 shadow-md bg-[#4A3B32] text-white p-6 md:p-8 overflow-hidden relative group">
                         <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none group-hover:bg-white/10 transition-colors" />
                         <CardHeader className="p-0 mb-6 md:mb-10">
@@ -1213,7 +577,7 @@ export function Dashboard() {
                             <div className="flex -space-x-3">
                                 {customers?.slice(0, 5).map((c, i) => (
                                     <div key={i} className="w-12 h-12 rounded-full border-4 border-white bg-[#FDF0ED] flex items-center justify-center text-[#C75D3B] font-bold text-sm shadow-sm">
-                                        {c.name.charAt(0)}
+                                        {c.name?.charAt(0)}
                                     </div>
                                 ))}
                                 {(customers?.length || 0) > 5 && (
@@ -1228,8 +592,13 @@ export function Dashboard() {
                             </Link>
                         </div>
                     </Card>
-                </div >
-            </div >
-        </div >
+                </div>
+            </div>
+            {/* Modal de Parcelinhas */}
+            <ParcelinhasModal
+                isOpen={showParcelinhasModal}
+                onClose={() => setShowParcelinhasModal(false)}
+            />
+        </div>
     )
 }

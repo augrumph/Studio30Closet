@@ -11,36 +11,48 @@ export const useAuthStore = create(
             loginError: null,
             isLoading: false,
 
-            // Login com username e senha via Supabase
+            // Login com username e senha via Supabase RPC (bcrypt no servidor)
             login: async (username, password) => {
                 set({ isLoading: true, loginError: null })
 
                 try {
-                    // Buscar admin na tabela admins
-                    const { data: admins, error } = await supabase
-                        .from('admins')
-                        .select('*')
-                        .eq('username', username)
-                        .eq('password', password)
+                    // Usar RPC para login seguro (verificação bcrypt no PostgreSQL)
+                    const { data, error } = await supabase
+                        .rpc('admin_login', {
+                            p_username: username,
+                            p_password: password
+                        })
                         .single()
 
-                    if (error || !admins) {
+                    if (error) {
+                        console.error('Erro na RPC admin_login:', error)
                         set({
                             isAuthenticated: false,
                             user: null,
-                            loginError: 'Usuário ou senha inválidos',
+                            loginError: 'Erro ao conectar. Tente novamente.',
                             isLoading: false
                         })
-                        return { success: false, error: 'Usuário ou senha inválidos' }
+                        return { success: false, error: 'Erro de conexão' }
+                    }
+
+                    // Verificar resultado da RPC
+                    if (!data?.success) {
+                        set({
+                            isAuthenticated: false,
+                            user: null,
+                            loginError: data?.error_message || 'Usuário ou senha inválidos',
+                            isLoading: false
+                        })
+                        return { success: false, error: 'Credenciais inválidas' }
                     }
 
                     // Login bem-sucedido
                     set({
                         isAuthenticated: true,
                         user: {
-                            id: admins.id,
-                            username: admins.username,
-                            name: admins.name || 'Administrador',
+                            id: data.id,
+                            username: data.username,
+                            name: data.name || 'Administrador',
                             role: 'admin'
                         },
                         loginError: null,

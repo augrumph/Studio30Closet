@@ -166,14 +166,23 @@ export function VendasForm() {
 
                     if (feeData) {
                         const feePercentage = feeData.feePercentage || 0
-                        const feeValue = (valorFinal * feePercentage / 100)
+
+                        // ✅ REGRA DE NEGÓCIO: Taxas só cobradas do cliente acima de 4x
+                        // Até 3x parcelas, a loja absorve como custo de aquisição
+                        const shouldChargeCustomer = numInstallments && numInstallments > 3
+                        const effectiveFeePercentage = shouldChargeCustomer ? feePercentage : 0
+
+                        const feeValue = (valorFinal * effectiveFeePercentage / 100)
                         const netValue = valorFinal - feeValue
 
                         setFeeInfo({
-                            feePercentage,
+                            feePercentage: effectiveFeePercentage,
                             feeFixed: 0,
                             feeValue,
-                            netValue
+                            netValue,
+                            // Info adicional para exibição
+                            originalFeePercentage: feePercentage,
+                            storeAbsorbsFee: !shouldChargeCustomer && feePercentage > 0
                         })
                         setPaymentFee(feeData)
                     } else {
@@ -546,6 +555,7 @@ export function VendasForm() {
                         whileTap={{ scale: 0.9 }}
                         onClick={() => navigate('/admin/vendas')}
                         className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm hover:bg-gray-50 transition-colors"
+                        aria-label="Voltar para lista de vendas"
                     >
                         <ArrowLeft className="w-5 h-5 text-[#4A3B32]" />
                     </motion.button>

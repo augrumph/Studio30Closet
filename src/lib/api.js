@@ -2306,8 +2306,10 @@ export async function getOpenInstallmentSales(page = 1, limit = 30) {
 
         const { data, error, count } = await supabase
             .from('vendas')
-            .select('id, customer_id, total_value, entry_payment, num_installments, is_installment, created_at, customers(id, name, phone)', { count: 'exact' })
-            .eq('is_installment', true)
+            .select('id, customer_id, total_value, entry_payment, num_installments, is_installment, payment_method, payment_status, created_at, customers(id, name, phone)', { count: 'exact' })
+            // ✅ CORREÇÃO: Crediário = fiado (simples) OU fiado_parcelado
+            // Inclui TODAS as vendas no fiado, parceladas ou não
+            .in('payment_method', ['fiado', 'fiado_parcelado'])
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
@@ -2401,5 +2403,90 @@ export async function getDashboardMetrics() {
     } catch (err) {
         console.error('❌ Erro ao buscar métricas do dashboard:', err);
         throw err;
+    }
+}
+
+/**
+ * Buscar vencimentos de crediário do dia e da semana
+ * @returns {Object} { today: [], thisWeek: [], overdueCount, totalDueToday, totalDueThisWeek }
+ */
+export async function getUpcomingInstallments() {
+    console.log('📅 API: Buscando vencimentos de crediário...');
+
+    try {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+
+        // Calcular fim da semana (próximo domingo)
+        const endOfWeek = new Date(today);
+        endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
+        const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+
+        // Buscar parcelas pendentes que vencem hoje ou até o fim da semana
+        const { data, error } = await supabase
+            .from('installments')
+            .select(`
+                id,
+                venda_id,
+                installment_number,
+                due_date,
+                original_amount,
+                paid_amount,
+                remaining_amount,
+                status,
+                vendas!inner(
+                    id,
+                    total_value,
+                    customer_id,
+                    customers(id, name, phone)
+                )
+            `)
+            .in('status', ['pending', 'overdue'])
+            .gte('due_date', todayStr)
+            .lte('due_date', endOfWeekStr)
+            .order('due_date', { ascending: true });
+
+        if (error) throw error;
+
+        // Converter para camelCase e separar por dia
+        const allInstallments = data.map(inst => ({
+            id: inst.id,
+            vendaId: inst.venda_id,
+            installmentNumber: inst.installment_number,
+            dueDate: inst.due_date,
+            originalAmount: inst.original_amount,
+            paidAmount: inst.paid_amount,
+            remainingAmount: inst.remaining_amount,
+            status: inst.status,
+            customerName: inst.vendas?.customers?.name || 'Cliente desconhecido',
+            customerPhone: inst.vendas?.customers?.phone || null,
+            totalValue: inst.vendas?.total_value || 0
+        }));
+
+        // Separar vencimentos de hoje e da semana
+        const todayInstallments = allInstallments.filter(i => i.dueDate === todayStr);
+        const weekInstallments = allInstallments.filter(i => i.dueDate !== todayStr);
+
+        // Buscar quantidade de atrasados
+        const { count: overdueCount } = await supabase
+            .from('installments')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'overdue');
+
+        const totalDueToday = todayInstallments.reduce((sum, i) => sum + (i.remainingAmount || 0), 0);
+        const totalDueThisWeek = weekInstallments.reduce((sum, i) => sum + (i.remainingAmount || 0), 0);
+
+        console.log(`✅ Vencimentos: ${todayInstallments.length} hoje, ${weekInstallments.length} na semana, ${overdueCount || 0} atrasados`);
+
+        return {
+            today: todayInstallments,
+            thisWeek: weekInstallments,
+            overdueCount: overdueCount || 0,
+            totalDueToday,
+            totalDueThisWeek
+        };
+    } catch (err) {
+        console.error('❌ Erro ao buscar vencimentos:', err);
+        return { today: [], thisWeek: [], overdueCount: 0, totalDueToday: 0, totalDueThisWeek: 0 };
     }
 }

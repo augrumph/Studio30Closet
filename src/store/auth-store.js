@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '@/lib/supabase'
 
+
+
+// Extending the store definition to include validateSession properly inside the object
 export const useAuthStore = create(
     persist(
         (set, get) => ({
@@ -81,7 +84,32 @@ export const useAuthStore = create(
                 })
             },
 
-            // Verificar autenticação
+            // Validar sessão no servidor (segurança extra)
+            validateSession: async () => {
+                const { user, isAuthenticated } = get()
+                if (!isAuthenticated || !user?.id) return false
+
+                try {
+                    // Verificar se usuário ainda existe na tabela admins
+                    const { data, error } = await supabase
+                        .from('admins')
+                        .select('id')
+                        .eq('id', user.id)
+                        .maybeSingle()
+
+                    if (error || !data) {
+                        console.warn('Sessão inválida: Usuário não encontrado no banco')
+                        set({ isAuthenticated: false, user: null })
+                        return false
+                    }
+                    return true
+                } catch (error) {
+                    console.error('Erro ao validar sessão:', error)
+                    return false // Em caso de erro de rede, mantemos logado ou deslogamos? Segurança = deslogar ou tentar dnv.
+                }
+            },
+
+            // Verificar autenticação (local)
             checkAuth: () => {
                 const { isAuthenticated } = get()
                 return isAuthenticated
@@ -94,7 +122,6 @@ export const useAuthStore = create(
         }),
         {
             name: 'studio30-admin-auth',
-            // Persistir sessão
             partialize: (state) => ({
                 isAuthenticated: state.isAuthenticated,
                 user: state.user

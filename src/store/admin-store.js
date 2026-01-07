@@ -86,13 +86,17 @@ export const useAdminStore = create((set, get) => ({
         try {
             console.log('📂 Carregando TODOS os produtos para catálogo...')
             const allProducts = await getAllProducts()
-            const sortedProducts = [...allProducts].sort((a, b) => b.id - a.id)
+
+            // FILTRO DE SEGURANÇA: Remover undefined/null para evitar crash
+            const validProducts = allProducts.filter(p => p && typeof p === 'object')
+
+            const sortedProducts = [...validProducts].sort((a, b) => b.id - a.id)
             set({
                 products: sortedProducts,
                 productsLoading: false,
-                productsTotal: allProducts.length
+                productsTotal: validProducts.length
             })
-            console.log(`✅ ${allProducts.length} produtos carregados para catálogo`)
+            console.log(`✅ ${validProducts.length} produtos carregados para catálogo`)
         } catch (error) {
             set({ productsError: error.message, productsLoading: false })
         }

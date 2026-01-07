@@ -8,6 +8,8 @@ import 'swiper/css'
 import 'swiper/css/pagination'
 
 function ProductCardComponent({ product, onQuickView }) {
+    if (!product) return null
+
     const swiperRef = useRef(null)
     const { items } = useMalinhaStore()
 

@@ -244,11 +244,13 @@ export function Catalog() {
                                     transition={{ duration: 0.2 }}
                                 >
                                     {paginatedProducts.map((product) => (
-                                        <ProductCard
-                                            key={product.id}
-                                            product={product}
-                                            onQuickView={setSelectedProduct}
-                                        />
+                                        product ? (
+                                            <ProductCard
+                                                key={product.id}
+                                                product={product}
+                                                onQuickView={setSelectedProduct}
+                                            />
+                                        ) : null
                                     ))}
                                 </motion.div>
 

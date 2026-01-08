@@ -60,7 +60,15 @@ export function ProductModal({ product, isOpen, onClose }) {
         { colorName: product?.color || 'Padrão', images: fullImages || product?.images || [] }
     ]
 
-    const currentVariant = variants[selectedVariantIndex]
+    // Ensure currentVariant always has an images array
+    const rawVariant = variants[selectedVariantIndex] || {}
+    const currentVariant = {
+        ...rawVariant,
+        images: rawVariant.images || fullImages || product?.images || []
+    }
+
+    // Safe images array for calculations
+    const currentImages = currentVariant.images || []
 
     useEffect(() => {
         if (product) {
@@ -109,15 +117,15 @@ export function ProductModal({ product, isOpen, onClose }) {
         const isLeftSwipe = distance > 50 // Swipe para esquerda (próxima imagem)
         const isRightSwipe = distance < -50 // Swipe para direita (imagem anterior)
 
-        if (isLeftSwipe) {
+        if (isLeftSwipe && currentImages.length > 0) {
             // Próxima imagem
             setSelectedImageIndex(prev =>
-                prev === currentVariant.images.length - 1 ? 0 : prev + 1
+                prev === currentImages.length - 1 ? 0 : prev + 1
             )
-        } else if (isRightSwipe) {
+        } else if (isRightSwipe && currentImages.length > 0) {
             // Imagem anterior
             setSelectedImageIndex(prev =>
-                prev === 0 ? currentVariant.images.length - 1 : prev - 1
+                prev === 0 ? currentImages.length - 1 : prev - 1
             )
         }
 
@@ -135,7 +143,7 @@ export function ProductModal({ product, isOpen, onClose }) {
             ...product,
             selectedColor: currentVariant.colorName,
             // Sobrescrevemos as imagens para que no checkout apareça a da cor escolhida
-            images: currentVariant.images
+            images: currentImages
         }
 
         setTimeout(() => {
@@ -221,7 +229,7 @@ export function ProductModal({ product, isOpen, onClose }) {
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    src={currentVariant.images[selectedImageIndex]}
+                                    src={currentImages[selectedImageIndex] || '/placeholder.png'}
                                     alt={`${product.name} - Imagem ${selectedImageIndex + 1}`}
                                     className="w-full h-auto max-h-[50vh] md:max-h-none md:h-full object-contain select-none pointer-events-none"
                                     draggable="false"
@@ -233,7 +241,7 @@ export function ProductModal({ product, isOpen, onClose }) {
                                 <>
                                     <button
                                         onClick={() => setSelectedImageIndex(prev =>
-                                            prev === 0 ? currentVariant.images.length - 1 : prev - 1
+                                            prev === 0 ? currentImages.length - 1 : prev - 1
                                         )}
                                         className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 backdrop-blur-sm text-brand-brown hover:bg-white transition-all opacity-0 group-hover:opacity-100 md:opacity-100 z-10"
                                         aria-label="Imagem anterior"
@@ -243,7 +251,7 @@ export function ProductModal({ product, isOpen, onClose }) {
 
                                     <button
                                         onClick={() => setSelectedImageIndex(prev =>
-                                            prev === currentVariant.images.length - 1 ? 0 : prev + 1
+                                            prev === currentImages.length - 1 ? 0 : prev + 1
                                         )}
                                         className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 backdrop-blur-sm text-brand-brown hover:bg-white transition-all opacity-0 group-hover:opacity-100 md:opacity-100 z-10"
                                         aria-label="Próxima imagem"
@@ -253,7 +261,7 @@ export function ProductModal({ product, isOpen, onClose }) {
 
                                     {/* Indicador de imagens */}
                                     <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-                                        {currentVariant.images.map((_, idx) => (
+                                        {currentImages.map((_, idx) => (
                                             <button
                                                 key={idx}
                                                 onClick={() => setSelectedImageIndex(idx)}

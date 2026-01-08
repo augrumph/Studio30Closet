@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, Tag, Package, ChevronRight, MoreHorizontal, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Search, Filter, Tag, Package, ChevronRight, MoreHorizontal, Trash2, Edit2, Eye, EyeOff } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card'
 import { EmptyState, ErrorState, LoadingState, TableWrapper } from '@/components/admin/shared'
+import { ProductsListSkeleton } from '@/components/admin/PageSkeleton'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { Info, TrendingUp, DollarSign, AlertTriangle } from 'lucide-react'
@@ -124,8 +125,13 @@ export function ProductsList() {
         setConfirmMultiDelete(false)
     }
 
+    // Show skeleton while loading
+    if (productsLoading && products.length === 0) {
+        return <ProductsListSkeleton />
+    }
+
     return (
-        <div className="space-y-10 pb-20">
+        <div className="space-y-6 pb-20">
             {/* Header Premium */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
@@ -418,7 +424,7 @@ export function ProductsList() {
                                                 <div className="flex items-center gap-3 md:gap-4">
                                                     <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
                                                         <img
-                                                            src={product.images[0]}
+                                                            src={product.images?.[0] || '/placeholder.png'}
                                                             alt={product.name}
                                                             loading="lazy"
                                                             className="w-full h-full object-cover"
@@ -430,6 +436,12 @@ export function ProductsList() {
                                                             <span className="px-2 py-0.5 bg-[#C75D3B]/10 text-[#C75D3B] text-xs font-bold rounded shrink-0">
                                                                 #{product.id}
                                                             </span>
+                                                            {product.active === false && (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded shrink-0">
+                                                                    <EyeOff className="w-3 h-3" />
+                                                                    Oculto
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <p className="text-xs text-gray-400 font-medium line-clamp-1 italic">{product.description}</p>
                                                     </div>

@@ -87,6 +87,7 @@ export async function getProducts(page = 1, pageSize = 20) {
         if (camelProduct.id === 24) {
             console.log('🔍 PRODUTO ID 24 CARREGADO DO BANCO:');
             console.log('   Nome:', camelProduct.name);
+            console.log('   Active:', camelProduct.active); // DEBUG ACTIVE
             console.log('   Stock total:', camelProduct.stock);
             // Remover images/urls das variants para logs mais limpos
             const variantsClean = camelProduct.variants?.map(v => ({
@@ -118,7 +119,7 @@ export async function getAllProducts() {
     // Selecionar apenas campos essenciais para catálogo (sem colunas pesadas)
     const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, original_price, images, category, is_new, is_featured, sizes, color, variants, stock, description')
+        .select('id, name, price, original_price, images, category, is_new, is_featured, sizes, color, variants, stock, description, active')
         .order('created_at', { ascending: false });
 
     const queryTime = (performance.now() - queryStart).toFixed(0);
@@ -1602,7 +1603,8 @@ export async function createPurchase(purchaseData) {
         date: snakeData.date,
         pieces: snakeData.pieces || null,
         parcelas: snakeData.parcelas || null,
-        notes: snakeData.notes || null
+        notes: snakeData.notes || null,
+        spent_by: snakeData.spentBy || snakeData.spent_by || 'loja'
     };
 
     console.log('API: Prepared record for insert:', purchaseRecord);
@@ -1634,7 +1636,8 @@ export async function updatePurchase(id, purchaseData) {
         date: snakeData.date,
         pieces: snakeData.pieces || null,
         parcelas: snakeData.parcelas || null,
-        notes: snakeData.notes || null
+        notes: snakeData.notes || null,
+        spent_by: snakeData.spentBy || snakeData.spent_by || 'loja'
     };
 
     console.log('API: Prepared record for update:', purchaseRecord);

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { getOpenInstallmentSales, getInstallmentsByVendaId, registerInstallmentPayment } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function InstallmentsList() {
     const navigate = useNavigate()
@@ -144,15 +145,11 @@ export function InstallmentsList() {
     }
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C75D3B]"></div>
-            </div>
-        )
+        return <TableSkeleton columns={5} rows={6} />
     }
 
     return (
-        <div className="space-y-10 pb-20">
+        <div className="space-y-6 pb-20">
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}

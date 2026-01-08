@@ -29,9 +29,11 @@ export function Dashboard() {
     const vendas = useAdminStore(state => state.vendas)
     const customers = useAdminStore(state => state.customers)
     const reloadAll = useAdminStore(state => state.reloadAll)
+    const isLoadingStore = useAdminStore(state => state.isLoading)
 
     const [currentTime, setCurrentTime] = useState(new Date())
     const [dashboardData, setDashboardData] = useState(null)
+    const [isLoadingData, setIsLoadingData] = useState(true)
     const [periodFilter, setPeriodFilter] = useState('all')
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
     const [showParcelinhasModal, setShowParcelinhasModal] = useState(false)
@@ -46,16 +48,22 @@ export function Dashboard() {
 
     useEffect(() => {
         const loadDashboardData = async () => {
+            setIsLoadingData(true)
             try {
                 const data = await getDashboardMetrics()
                 setDashboardData(data)
             } catch (error) {
                 console.error('Erro ao carregar métricas adicionais do dashboard:', error)
                 setDashboardData({})
+            } finally {
+                setIsLoadingData(false)
             }
         }
         loadDashboardData()
     }, [])
+
+    // Determina se a página ainda está carregando
+    const isLoading = isLoadingData || isLoadingStore || !dashboardData
 
     // Cálculo de período dinâmico
     const periodDays = useMemo(() => {
@@ -138,29 +146,110 @@ export function Dashboard() {
         return "Boa noite"
     }
 
+    // Gera insights dinâmicos baseados nos dados reais
+    const getPowerInsight = () => {
+        const insights = []
+
+        // 1. Insight de Margem
+        const margin = financialMetrics.netMarginPercent || 0
+        if (margin < 25) {
+            insights.push({
+                priority: 1,
+                text: `Sua margem está em ${margin.toFixed(1)}% — abaixo do ideal (25%). Revise seus custos ou aumente os preços para melhorar a rentabilidade.`,
+                type: 'warning'
+            })
+        } else if (margin >= 40) {
+            insights.push({
+                priority: 3,
+                text: `Excelente! Margem de ${margin.toFixed(1)}% está muito saudável. Seu controle de custos está funcionando.`,
+                type: 'success'
+            })
+        }
+
+        // 2. Insight de Inadimplência
+        const toReceive = financialMetrics.toReceiveAmount || 0
+        const received = financialMetrics.receivedAmount || 0
+        const receiveRatio = received > 0 ? (toReceive / received) * 100 : 0
+
+        if (toReceive > 1000) {
+            insights.push({
+                priority: 2,
+                text: `Você tem R$ ${toReceive.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber. Considere fazer cobrança ativa para melhorar o fluxo de caixa.`,
+                type: 'info'
+            })
+        }
+
+        // 3. Insight de Meta
+        const progress = ((financialMetrics.netRevenue || 0) / 15000) * 100
+        if (progress >= 80 && progress < 100) {
+            insights.push({
+                priority: 2,
+                text: `Faltam apenas R$ ${(15000 - (financialMetrics.netRevenue || 0)).toLocaleString('pt-BR')} para bater a meta! Você está quase lá.`,
+                type: 'success'
+            })
+        } else if (progress < 30 && periodDays > 15) {
+            insights.push({
+                priority: 1,
+                text: `Com ${progress.toFixed(0)}% da meta e metade do mês já passado, é hora de intensificar as vendas.`,
+                type: 'warning'
+            })
+        }
+
+        // 4. Insight de Ticket Médio
+        const ticket = financialMetrics.averageTicket || 0
+        if (ticket < 150 && financialMetrics.totalSalesCount > 5) {
+            insights.push({
+                priority: 3,
+                text: `Ticket médio de R$ ${ticket.toFixed(0)}. Que tal oferecer peças complementares para aumentar o valor por venda?`,
+                type: 'info'
+            })
+        } else if (ticket > 300) {
+            insights.push({
+                priority: 4,
+                text: `Ticket médio de R$ ${ticket.toFixed(0)} — suas clientes estão investindo em peças de maior valor.`,
+                type: 'success'
+            })
+        }
+
+        // 5. Insight de Volume de Vendas
+        if (financialMetrics.totalSalesCount === 0) {
+            insights.push({
+                priority: 1,
+                text: `Nenhuma venda registrada no período. Hora de ativar suas clientes no WhatsApp!`,
+                type: 'warning'
+            })
+        }
+
+        // Ordenar por prioridade e retornar o primeiro (mais importante)
+        insights.sort((a, b) => a.priority - b.priority)
+        return insights[0] || { text: 'Mantenha o foco e boas vendas!', type: 'info' }
+    }
+
+    const powerInsight = getPowerInsight()
+
     return (
-        <div className="space-y-6 md:space-y-10 max-w-[1600px] mx-auto">
+        <div className="space-y-4 md:space-y-6 max-w-[1600px] mx-auto">
 
             {/* 1. HERO SECTION & QUICK ACTIONS */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="relative overflow-hidden rounded-3xl md:rounded-[40px] bg-gradient-to-br from-[#4A3B32] via-[#5A4B42] to-[#4A3B32] p-6 md:p-8 lg:p-12 text-white shadow-2xl border border-white/5"
+                className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-gradient-to-br from-[#4A3B32] via-[#5A4B42] to-[#4A3B32] p-4 md:p-6 text-white shadow-lg border border-white/5"
             >
                 <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#C75D3B]/30 via-[#C75D3B]/10 to-transparent pointer-events-none" />
                 <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-[#C75D3B]/20 rounded-full blur-3xl" />
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-10">
-                    <div className="space-y-3 md:space-y-4">
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
+                    <div className="space-y-2">
                         <div className="inline-flex items-center gap-2 px-3 md:px-4 py-1 md:py-1.5 bg-white/10 rounded-full backdrop-blur-md border border-white/10">
                             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                             <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-white/80">Monitor Studio 30 • Ao Vivo</span>
                         </div>
-                        <h1 className="text-3xl md:text-4xl lg:text-6xl font-display font-bold leading-tight">
+                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold leading-tight">
                             {greetings()}, <br />
                             <span className="text-[#C75D3B]">Equipe Studio 30</span>
                         </h1>
-                        <p className="text-white/40 font-medium text-sm md:text-base lg:text-lg leading-relaxed max-w-md italic">
+                        <p className="text-white/40 font-medium text-xs md:text-sm leading-relaxed max-w-md italic">
                             Sua curadoria de moda com a agilidade que suas clientes merecem.
                         </p>
                     </div>
@@ -515,50 +604,51 @@ export function Dashboard() {
 
                 {/* Performance Goal & Customers */}
                 <div className="lg:col-span-4 space-y-4 md:space-y-6 lg:space-y-8">
-                    <Card className="rounded-2xl md:rounded-[32px] border border-white/10 shadow-md bg-[#4A3B32] text-white p-6 md:p-8 overflow-hidden relative group">
-                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none group-hover:bg-white/10 transition-colors" />
-                        <CardHeader className="p-0 mb-6 md:mb-10">
-                            <div className="flex items-center gap-3 mb-4 md:mb-5">
-                                <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md"><Target className="w-5 h-5 md:w-6 md:h-6 text-[#C75D3B]" /></div>
-                                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-white/50">Objetivo Mensal</span>
+                    <Card className="rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm bg-white p-6 md:p-8 overflow-hidden relative">
+                        <CardHeader className="p-0 mb-6">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-2.5 bg-[#FAF3F0] rounded-xl">
+                                    <Target className="w-5 h-5 text-[#C75D3B]" />
+                                </div>
+                                <span className="text-[10px] md:text-xs font-semibold uppercase tracking-wider text-[#4A3B32]/40">Meta Mensal</span>
                             </div>
-                            <CardTitle className="text-xl md:text-3xl font-display font-bold text-white">Meta de Crescimento</CardTitle>
+                            <CardTitle className="text-xl md:text-2xl font-display font-bold text-[#4A3B32]">Objetivo de Crescimento</CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="space-y-6 md:space-y-10">
-                                <div className="space-y-3 md:space-y-4">
+                            <div className="space-y-6">
+                                {/* Progress Section */}
+                                <div className="space-y-3">
                                     <div className="flex justify-between items-end">
                                         <div>
-                                            <p className="text-3xl md:text-4xl font-display font-bold">R$ {(financialMetrics.totalSales || 0).toLocaleString('pt-BR')}</p>
-                                            <p className="text-[10px] md:text-xs text-white/30 font-medium">Acumulado do período</p>
+                                            <p className="text-2xl md:text-3xl font-display font-bold text-[#4A3B32]">R$ {(financialMetrics.netRevenue || 0).toLocaleString('pt-BR')}</p>
+                                            <p className="text-[10px] md:text-xs text-gray-400 font-medium">Faturamento atual</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-lg md:text-xl font-display font-bold text-white/60">R$ 50.000</p>
-                                            <p className="text-[10px] md:text-xs text-white/30 font-medium">Objetivo</p>
+                                            <p className="text-lg md:text-xl font-display font-bold text-gray-300">R$ 15.000</p>
+                                            <p className="text-[10px] md:text-xs text-gray-400 font-medium">Objetivo</p>
                                         </div>
                                     </div>
-                                    <div className="h-3 md:h-4 w-full bg-white/10 rounded-full overflow-hidden p-0.5 md:p-1 border border-white/5">
+                                    <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
                                         <motion.div
                                             initial={{ width: 0 }}
-                                            animate={{ width: `${Math.min((financialMetrics.totalSales / 50000) * 100, 100)}%` }}
+                                            animate={{ width: `${Math.min(((financialMetrics.netRevenue || 0) / 15000) * 100, 100)}%` }}
                                             transition={{ duration: 2, ease: "circOut" }}
-                                            className="h-full bg-gradient-to-r from-[#C75D3B] to-[#FF8C6B] rounded-full shadow-[0_0_20px_rgba(199,93,59,0.5)]"
+                                            className="h-full bg-gradient-to-r from-[#C75D3B] to-[#FF8C6B] rounded-full"
                                         />
                                     </div>
-                                    <p className="text-center text-[9px] md:text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] md:tracking-[0.3em]">
-                                        Faltam R$ {(50000 - (financialMetrics.totalSales || 0)).toLocaleString('pt-BR')} para o próximo nível
+                                    <p className="text-center text-[10px] font-medium text-gray-400">
+                                        {((financialMetrics.netRevenue || 0) / 15000 * 100).toFixed(0)}% da meta • Faltam R$ {Math.max(0, 15000 - (financialMetrics.netRevenue || 0)).toLocaleString('pt-BR')}
                                     </p>
                                 </div>
 
-                                <div className="p-4 md:p-6 bg-white/5 rounded-2xl md:rounded-[32px] border border-white/5 backdrop-blur-sm space-y-3 md:space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-[#C75D3B]/20 flex items-center justify-center border border-[#C75D3B]/20">
-                                            <Zap className="w-5 h-5 text-[#C75D3B]" />
-                                        </div>
-                                        <p className="text-xs font-bold uppercase tracking-widest text-[#C75D3B]">Power Insight</p>
+                                {/* Power Insight */}
+                                <div className="p-4 bg-[#FAF3F0] rounded-xl border border-[#C75D3B]/10">
+                                    <div className="flex items-center gap-2.5 mb-2.5">
+                                        <Zap className="w-4 h-4 text-[#C75D3B]" />
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#C75D3B]">Insight</p>
                                     </div>
-                                    <p className="text-sm text-white/60 italic font-medium leading-relaxed">
-                                        "Suas clientes estão comprando 15% mais via WhatsApp esta semana. Considere focar suas novas peças lá."
+                                    <p className="text-sm text-[#4A3B32] font-medium leading-relaxed">
+                                        {powerInsight.text}
                                     </p>
                                 </div>
                             </div>

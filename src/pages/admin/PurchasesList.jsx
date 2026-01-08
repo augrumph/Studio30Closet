@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign } from 'lucide-react'
+import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign, User } from 'lucide-react'
 import { useSuppliersStore } from '@/store/suppliers-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
+import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function PurchasesList() {
     const { purchases, purchasesLoading, loadPurchases, removePurchase, suppliers, loadSuppliers, initialize } = useSuppliersStore()
@@ -90,11 +91,34 @@ export function PurchasesList() {
         return colors[type] || 'bg-gray-100 text-gray-700'
     }
 
+    const getSpentByLabel = (spentBy) => {
+        const labels = {
+            'loja': '🏪 Loja',
+            'augusto': '👤 Augusto',
+            'thais': '👤 Thais'
+        }
+        return labels[spentBy] || labels['loja']
+    }
+
+    const getSpentByColor = (spentBy) => {
+        const colors = {
+            'loja': 'bg-slate-100 text-slate-700',
+            'augusto': 'bg-indigo-100 text-indigo-700',
+            'thais': 'bg-pink-100 text-pink-700'
+        }
+        return colors[spentBy] || 'bg-slate-100 text-slate-700'
+    }
+
     const totalPurchases = filteredPurchases.reduce((sum, p) => sum + (p.value || 0), 0)
     const totalItems = filteredPurchases.reduce((sum, p) => sum + (p.pieces || 0), 0)
 
+    // Show skeleton while loading
+    if (purchasesLoading && purchases.length === 0) {
+        return <TableSkeleton columns={4} rows={6} />
+    }
+
     return (
-        <div className="space-y-10 pb-20">
+        <div className="space-y-6 pb-20">
             {/* Header Premium */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
@@ -239,6 +263,12 @@ export function PurchasesList() {
                                                                 getPaymentMethodColor(purchase.paymentMethod)
                                                             )}>
                                                                 {getPaymentMethodLabel(purchase.paymentMethod)}
+                                                            </span>
+                                                            <span className={cn(
+                                                                "text-xs font-bold px-3 py-1 rounded-full",
+                                                                getSpentByColor(purchase.spentBy)
+                                                            )}>
+                                                                {getSpentByLabel(purchase.spentBy)}
                                                             </span>
                                                         </div>
 

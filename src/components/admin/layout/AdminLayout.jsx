@@ -1,14 +1,37 @@
-import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { AdminSidebar } from './AdminSidebar'
 import { AdminTopbar } from './AdminTopbar'
 import { Toaster } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CommandPalette } from '../CommandPalette'
+import { PageSkeleton } from '../PageSkeleton'
+import { useAdminStore } from '@/store/admin-store'
 
 export function AdminLayout() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+    const location = useLocation()
+
+    const isInitialLoading = useAdminStore(state => state.isInitialLoading)
+    const reloadAll = useAdminStore(state => state.reloadAll)
+
+    // Trigger initial load
+    useEffect(() => {
+        reloadAll()
+    }, [reloadAll])
+
+    // Determine skeleton variant based on route
+    const getSkeletonVariant = () => {
+        const path = location.pathname
+        if (path === '/admin' || path === '/admin/') return 'dashboard'
+        if (path.includes('/products') && !path.includes('/new') && !path.includes('/edit')) return 'products'
+        if (path.includes('/customers') && !path.includes('/new') && !path.includes('/edit')) return 'customers'
+        if (path.includes('/vendas') && !path.includes('/new') && !path.includes('/edit')) return 'vendas'
+        if (path.includes('/malinhas') && !path.includes('/new') && !path.includes('/edit')) return 'malinhas'
+        if (path.includes('/new') || path.includes('/edit')) return 'form'
+        return 'list'
+    }
 
     return (
         <div className="flex h-screen bg-[#FAF8F5] overflow-hidden max-w-screen">
@@ -66,17 +89,23 @@ export function AdminLayout() {
                 {/* Page Content with Transition */}
                 <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8 pb-20 lg:pb-8">
                     <AnimatePresence mode="wait">
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            <Outlet />
-                        </motion.div>
+                        {isInitialLoading ? (
+                            <PageSkeleton variant={getSkeletonVariant()} />
+                        ) : (
+                            <motion.div
+                                key={location.pathname}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <Outlet />
+                            </motion.div>
+                        )}
                     </AnimatePresence>
                 </main>
             </div>
         </div>
     )
 }
+

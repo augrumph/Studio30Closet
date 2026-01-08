@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
+import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function SuppliersList() {
     const { suppliers, suppliersLoading, loadSuppliers, removeSupplier, initialize } = useSuppliersStore()
@@ -38,8 +39,13 @@ export function SuppliersList() {
         setConfirmDelete({ isOpen: false, supplierId: null, supplierName: '' })
     }
 
+    // Show skeleton while loading
+    if (suppliersLoading && suppliers.length === 0) {
+        return <TableSkeleton columns={4} rows={5} />
+    }
+
     return (
-        <div className="space-y-10 pb-20">
+        <div className="space-y-6 pb-20">
             {/* Header Premium */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}

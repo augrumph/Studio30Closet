@@ -19,6 +19,7 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from "@/components/ui/Pagination"
+import { MalinhasListSkeleton } from '@/components/admin/PageSkeleton'
 
 
 export function MalinhasList() {
@@ -101,8 +102,13 @@ export function MalinhasList() {
         totalItems: orders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + (o.itemsCount || 0), 0)
     }
 
+    // Show skeleton while loading
+    if (ordersLoading && orders.length === 0) {
+        return <MalinhasListSkeleton />
+    }
+
     return (
-        <div className="space-y-10 pb-20">
+        <div className="space-y-6 pb-20">
             {/* Header Premium */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}

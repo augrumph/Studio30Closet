@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck, AlertTriangle, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { useSuppliersStore } from '@/store/suppliers-store'
 import { cn } from '@/lib/utils'
@@ -32,7 +32,8 @@ export function ProductsForm() {
         isFeatured: false,
         stock: 0,
         costPrice: '',
-        supplierId: ''
+        supplierId: '',
+        active: true // Produto visível no catálogo por padrão
     })
 
     const [activeColorTab, setActiveColorTab] = useState('0')
@@ -100,7 +101,8 @@ export function ProductsForm() {
                     price: product.price.toString(),
                     originalPrice: product.originalPrice ? product.originalPrice.toString() : '',
                     stock: product.stock || 0,
-                    costPrice: product.costPrice ? product.costPrice.toString() : ''
+                    costPrice: product.costPrice ? product.costPrice.toString() : '',
+                    active: product.active !== false // Se undefined ou null, considera ativo
                 }
                 setFormData(data)
                 setInitialData(data)
@@ -265,7 +267,8 @@ export function ProductsForm() {
             sizes: calculatedSizes, // Tamanhos calculados automaticamente
             // Para compatibilidade, mantemos a primeira cor/imagem no nível superior também
             color: formData.variants[0]?.colorName || '',
-            images: formData.variants[0]?.images || []
+            images: formData.variants[0]?.images || [],
+            active: formData.active // Visibilidade no catálogo
         }
 
         toast.promise(id ? editProduct(id, payload) : addProduct(payload), {
@@ -536,7 +539,7 @@ export function ProductsForm() {
                                                         Fotos da Cor
                                                     </label>
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                        {variant.images.map((url, iIdx) => (
+                                                        {(variant.images || []).map((url, iIdx) => (
                                                             <motion.div
                                                                 key={iIdx}
                                                                 initial={{ opacity: 0, scale: 0.9 }}
@@ -567,7 +570,7 @@ export function ProductsForm() {
                                                                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Adicionar</span>
                                                                             </div>
                                                                         )}
-                                                                        {variant.images.length > 1 && (
+                                                                        {(variant.images?.length || 0) > 1 && (
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={(e) => {
@@ -741,6 +744,49 @@ export function ProductsForm() {
                                     />
                                     <div className={cn("w-12 h-6 rounded-full transition-colors relative", formData.isFeatured ? "bg-amber-500" : "bg-gray-200")}>
                                         <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all", formData.isFeatured ? "left-7" : "left-1")} />
+                                    </div>
+                                </label>
+
+                                {/* Toggle Ativo/Inativo no Catálogo */}
+                                <label className={cn(
+                                    "flex items-center justify-between p-4 rounded-2xl cursor-pointer group border-2 transition-all",
+                                    formData.active
+                                        ? "bg-emerald-50 border-emerald-200"
+                                        : "bg-red-50 border-red-200"
+                                )}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                                            formData.active ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
+                                        )}>
+                                            {formData.active ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                                        </div>
+                                        <div>
+                                            <span className="text-sm font-bold text-[#4A3B32] block">
+                                                {formData.active ? 'Visível no Catálogo' : 'Oculto do Catálogo'}
+                                            </span>
+                                            <span className="text-[10px] text-gray-500">
+                                                {formData.active
+                                                    ? 'Clientes podem ver este produto'
+                                                    : 'Produto não aparece para clientes'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        name="active"
+                                        className="hidden"
+                                        checked={formData.active}
+                                        onChange={handleChange}
+                                    />
+                                    <div className={cn(
+                                        "w-12 h-6 rounded-full transition-colors relative",
+                                        formData.active ? "bg-emerald-500" : "bg-red-400"
+                                    )}>
+                                        <div className={cn(
+                                            "absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm",
+                                            formData.active ? "left-7" : "left-1"
+                                        )} />
                                     </div>
                                 </label>
                             </div>

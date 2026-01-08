@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, ShoppingCart, DollarSign, Calendar, Package, FileText } from 'lucide-react'
+import { ArrowLeft, Save, ShoppingCart, DollarSign, Calendar, Package, FileText, User } from 'lucide-react'
 import { useSuppliersStore } from '@/store/suppliers-store'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -27,7 +27,8 @@ export function PurchasesForm() {
         pieces: '',
         parcelas: '',
         notes: '',
-        purchaseType: 'produto' // Novo campo para distinguir tipo de compra
+        purchaseType: 'produto', // Novo campo para distinguir tipo de compra
+        spentBy: 'loja' // Quem realizou o gasto: loja, augusto ou thais
     })
 
     useEffect(() => {
@@ -43,7 +44,8 @@ export function PurchasesForm() {
                     date: purchase.date ? new Date(purchase.date).toISOString().split('T')[0] : '',
                     value: purchase.value?.toString() || '',
                     pieces: purchase.pieces?.toString() || '',
-                    parcelas: purchase.parcelas?.toString() || ''
+                    parcelas: purchase.parcelas?.toString() || '',
+                    spentBy: purchase.spentBy || 'loja'
                 })
             }
         }
@@ -63,7 +65,8 @@ export function PurchasesForm() {
             value: parseFloat(formData.value.replace(',', '.')) || 0,
             pieces: parseInt(formData.pieces) || 0,
             parcelas: formData.paymentMethod === 'credito_parcelado' ? parseInt(formData.parcelas) : null,
-            purchaseType: formData.purchaseType // Incluir tipo de compra
+            purchaseType: formData.purchaseType, // Incluir tipo de compra
+            spentBy: formData.spentBy // Quem realizou a compra
         }
 
         toast.promise(
@@ -198,6 +201,26 @@ export function PurchasesForm() {
                                         <option value="produto">Compra de Produto</option>
                                         <option value="material">Compra de Material</option>
                                     </select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
+                                        Compra de Quem? *
+                                    </label>
+                                    <div className="relative">
+                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
+                                        <select
+                                            name="spentBy"
+                                            required
+                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-medium appearance-none"
+                                            value={formData.spentBy}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="loja">🏪 Loja</option>
+                                            <option value="augusto">👤 Augusto</option>
+                                            <option value="thais">👤 Thais</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2">

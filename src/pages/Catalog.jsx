@@ -16,7 +16,7 @@ export function Catalog() {
     const [showOnlyAvailable, setShowOnlyAvailable] = useState(false) // Por padrão, mostrar tudo
     const [page, setPage] = useState(1)
     const ITEMS_PER_PAGE = 20
-    const { products, loadAllProductsForCatalog, productsLoading, productsError } = useAdminStore()
+    const { products, productsTotal, loadAllProductsForCatalog, productsLoading, productsError } = useAdminStore()
 
     // ✅ OTIMIZAÇÃO: useRef para controlar se já iniciou o carregamento
     const hasInitialized = useRef(false)
@@ -28,14 +28,20 @@ export function Catalog() {
 
         const loadProductsOptimized = async () => {
             try {
-                // Se já tem produtos em memória, não carregar novamente
-                if (products.length > 0) {
-                    console.log('✅ Produtos já em memória (total:', products.length, ')')
+                console.log('🔄 Catalog: Iniciando verificação de carga...')
+                // Check if we have ALL products loaded (not just a paginated subset)
+                // If products.length matches productsTotal, we likely have the full catalog
+                // Also check if we have at least 10 products to avoid false positives with empty DBs
+                if (products.length > 0 && productsTotal > 0 && products.length >= productsTotal) {
+                    console.log('✅ Catálogo completo já em memória (total:', products.length, ')')
+                    // DEBUG: Listar produtos inativos na memória
+                    const inactive = products.filter(p => p.active === false || p.active === 'false')
+                    console.log('🧐 Produtos INATIVOS na memória:', inactive.map(p => `${p.name} (${p.active})`))
                     return
                 }
 
                 // Carregar produtos - o cache é gerenciado dentro do loadAllProductsForCatalog
-                console.log('📡 Carregando produtos para catálogo...')
+                console.log('📡 Carregando produtos para catálogo (API)...')
                 await loadAllProductsForCatalog()
             } catch (error) {
                 console.error('❌ Erro ao carregar produtos no catálogo:', error)
@@ -84,7 +90,19 @@ export function Catalog() {
 
     // Filter products with search
     const filteredProducts = useMemo(() => {
+        console.log('🕵️‍♂️ Filtrando produtos... Total entrada:', products.length)
         return products.filter(product => {
+            // DEBUG: Logar estado de qualquer macacão ou laura
+            if (product.name.toLowerCase().includes('laura') || product.name.toLowerCase().includes('macaquinho')) {
+                console.log(`🎯 ITEM: "${product.name}" | ID: ${product.id} | Active: ${product.active} (${typeof product.active}) | Stock: ${product.stock}`)
+            }
+
+            // ✅ HIDE INACTIVE PRODUCTS - Produtos inativos não aparecem no catálogo
+            if (product.active === false || product.active === 'false') {
+                // console.log(`⛔ Removendo inativo: ${product.name}`)
+                return false
+            }
+
             // Availability filter (stock)
             if (showOnlyAvailable && product.stock <= 0) return false
             // Category filter
@@ -129,6 +147,10 @@ export function Catalog() {
         <div className="min-h-screen bg-[#FDFBF7]">
             {/* Main Content */}
             <div className="container-custom py-6 md:py-20">
+                {/* DEBUG INDICATOR */}
+                <div className="bg-red-500 text-white text-center py-2 font-bold mb-4 rounded">
+                    AMBIENTE DE DESENVOLVIMENTO (v2.0) - CÓDIGO ATUALIZADO
+                </div>
                 <div className="grid md:grid-cols-4 gap-6 md:gap-16">
                     {/* Sidebar Filters - Desktop Only */}
                     <aside className="hidden md:block">

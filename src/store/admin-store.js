@@ -36,6 +36,9 @@ import { useOperationalCostsStore } from './operational-costs-store'
 export const useAdminStore = create((set, get) => ({
     // ==================== ESTADO ====================
 
+    // Global Loading
+    isInitialLoading: true, // True até carregar todos os dados iniciais
+
     // Produtos
     products: [],
     productsLoading: false,
@@ -756,6 +759,7 @@ export const useAdminStore = create((set, get) => ({
     },
 
     reloadAll: async () => {
+        set({ isInitialLoading: true })
         await Promise.all([
             get().loadProducts(),
             get().loadOrders(),
@@ -763,5 +767,6 @@ export const useAdminStore = create((set, get) => ({
             get().loadVendas(),
             get().loadCoupons()
         ])
+        set({ isInitialLoading: false })
     }
 }))

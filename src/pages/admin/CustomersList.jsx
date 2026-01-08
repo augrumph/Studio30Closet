@@ -19,6 +19,7 @@ import {
     PaginationPrevious,
 } from "@/components/ui/Pagination"
 import { CardFooter } from '@/components/ui/Card'
+import { CustomersListSkeleton } from '@/components/admin/PageSkeleton'
 
 export function CustomersList() {
     const { customers, customersLoading, loadCustomers, removeCustomer, vendas, loadVendas, orders, loadOrders } = useAdminStore()
@@ -136,9 +137,14 @@ export function CustomersList() {
         }
     }
 
+    // Show skeleton while loading
+    if (customersLoading && customers.length === 0) {
+        return <CustomersListSkeleton />
+    }
+
     return (
         <TooltipProvider delayDuration={200}>
-            <div className="space-y-10 pb-20">
+            <div className="space-y-6 pb-20">
                 {/* Header Premium */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}

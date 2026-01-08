@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { Info } from 'lucide-react'
+import { VendasListSkeleton } from '@/components/admin/PageSkeleton'
 import {
     Pagination,
     PaginationContent,
@@ -119,8 +120,13 @@ export function VendasList() {
         }
     }
 
+    // Show skeleton while loading
+    if (vendasLoading && vendas.length === 0) {
+        return <VendasListSkeleton />
+    }
+
     return (
-        <div className="space-y-10 pb-20">
+        <div className="space-y-6 pb-20">
             {/* Header Premium */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}

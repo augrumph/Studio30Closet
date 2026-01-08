@@ -161,6 +161,29 @@ export default {
                     '0%, 100%': { transform: 'translateY(0)' },
                     '50%': { transform: 'translateY(-8px)' },
                 },
+                // Feedback animations - Universal (works on iOS + Android + Desktop)
+                'feedback-pulse': {
+                    '0%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(199, 93, 59, 0.4)' },
+                    '50%': { transform: 'scale(0.95)', boxShadow: '0 0 0 8px rgba(199, 93, 59, 0)' },
+                    '100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(199, 93, 59, 0)' },
+                },
+                'shake': {
+                    '0%, 100%': { transform: 'translateX(0)' },
+                    '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-4px)' },
+                    '20%, 40%, 60%, 80%': { transform: 'translateX(4px)' },
+                },
+                'bounce-once': {
+                    '0%': { transform: 'scale(1)' },
+                    '30%': { transform: 'scale(1.15)' },
+                    '50%': { transform: 'scale(0.95)' },
+                    '70%': { transform: 'scale(1.05)' },
+                    '100%': { transform: 'scale(1)' },
+                },
+                'success-pop': {
+                    '0%': { transform: 'scale(1)', backgroundColor: 'var(--tw-bg-opacity, 1)' },
+                    '50%': { transform: 'scale(1.05)', filter: 'brightness(1.1)' },
+                    '100%': { transform: 'scale(1)' },
+                },
             },
             animation: {
                 'fade-in': 'fade-in 0.5s ease-out',
@@ -180,6 +203,11 @@ export default {
                 'zoom': 'zoom 0.4s ease-out forwards',
                 'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
                 'bounce-gentle': 'bounce-gentle 2s ease-in-out infinite',
+                // Feedback animations
+                'feedback-pulse': 'feedback-pulse 0.3s ease-out',
+                'shake': 'shake 0.5s ease-out',
+                'bounce-once': 'bounce-once 0.4s ease-out',
+                'success-pop': 'success-pop 0.3s ease-out',
             },
             aspectRatio: {
                 'product': '2/3',
@@ -189,7 +217,7 @@ export default {
     },
     plugins: [
         require("tailwindcss-animate"),
-        function({ addUtilities }) {
+        function ({ addUtilities }) {
             addUtilities({
                 '.scrollbar-hide': {
                     '-ms-overflow-style': 'none',

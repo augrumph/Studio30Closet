@@ -378,10 +378,10 @@ export function ProductModal({ product, isOpen, onClose }) {
                                 className={cn(
                                     'w-full py-4 rounded-full text-lg font-medium flex items-center justify-center gap-2 transition-all duration-300',
                                     isAdded
-                                        ? 'bg-green-500 text-white'
+                                        ? 'bg-green-500 text-white animate-bounce-once'
                                         : itemInMalinha
                                             ? 'bg-brand-peach text-brand-brown'
-                                            : 'btn-primary',
+                                            : 'btn-primary active:animate-feedback-pulse',
                                     (!selectedSize || isLimitReached()) && 'opacity-50 cursor-not-allowed'
                                 )}
                             >

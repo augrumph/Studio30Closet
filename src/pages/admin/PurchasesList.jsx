@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign, User } from 'lucide-react'
+import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign, User, Store } from 'lucide-react'
 import { useSuppliersStore } from '@/store/suppliers-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
@@ -14,17 +14,62 @@ export function PurchasesList() {
     const { purchases, purchasesLoading, loadPurchases, removePurchase, suppliers, loadSuppliers, initialize } = useSuppliersStore()
     const [search, setSearch] = useState('')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, purchaseId: null })
+    const [periodFilter, setPeriodFilter] = useState('all')
+    const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
 
     useEffect(() => {
         initialize()
     }, [initialize])
 
     const filteredPurchases = purchases.filter(purchase => {
+        // 1. Date Filter
+        const purchaseDate = new Date(purchase.date)
+        const now = new Date()
+        let dateMatches = true
+
+        if (periodFilter === 'last7days') {
+            const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            dateMatches = purchaseDate >= cutoff
+        } else if (periodFilter === 'last30days') {
+            const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            dateMatches = purchaseDate >= cutoff
+        } else if (periodFilter === 'currentMonth') {
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+            dateMatches = purchaseDate >= startOfMonth && purchaseDate <= endOfMonth
+        } else if (periodFilter === 'custom' && customDateRange.start && customDateRange.end) {
+            // Ajustar start para 00:00:00 e end para 23:59:59 para garantir inclusão correta
+            // Como o input date vem YYYY-MM-DD, criamos a data considerando timezap local ou UTC conforme a string
+            const start = new Date(customDateRange.start)
+            start.setHours(0, 0, 0, 0) // Começo do dia
+
+            const end = new Date(customDateRange.end)
+            end.setHours(23, 59, 59, 999) // Fim do dia
+
+            dateMatches = purchaseDate >= start && purchaseDate <= end
+        }
+
+        if (!dateMatches) return false
+
+        // 2. Search Filter
         const supplier = suppliers.find(s => s.id === purchase.supplierId)
         const supplierName = supplier?.name || ''
         return supplierName.toLowerCase().includes(search.toLowerCase()) ||
             purchase.paymentMethod?.toLowerCase().includes(search.toLowerCase())
     })
+
+    // KPI Calculations
+    const totalPurchases = filteredPurchases.reduce((sum, p) => sum + (p.value || 0), 0)
+    const totalItems = filteredPurchases.reduce((sum, p) => sum + (p.pieces || 0), 0)
+
+    // New KPIs
+    const totalLoja = filteredPurchases
+        .filter(p => !p.spentBy || p.spentBy === 'loja')
+        .reduce((sum, p) => sum + (p.value || 0), 0)
+
+    const totalAugusto = filteredPurchases
+        .filter(p => p.spentBy === 'augusto')
+        .reduce((sum, p) => sum + (p.value || 0), 0)
 
     const handleDelete = (id) => {
         setConfirmDelete({ isOpen: true, purchaseId: id })
@@ -109,8 +154,7 @@ export function PurchasesList() {
         return colors[spentBy] || 'bg-slate-100 text-slate-700'
     }
 
-    const totalPurchases = filteredPurchases.reduce((sum, p) => sum + (p.value || 0), 0)
-    const totalItems = filteredPurchases.reduce((sum, p) => sum + (p.pieces || 0), 0)
+
 
     // Show skeleton while loading
     if (purchasesLoading && purchases.length === 0) {
@@ -149,45 +193,140 @@ export function PurchasesList() {
                 </ShimmerButton>
             </motion.div>
 
+            {/* Date Filters */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="bg-white rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md p-6 md:p-8"
+            >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <h3 className="text-lg md:text-xl font-display font-bold text-[#4A3B32] mb-2">Filtrar Período</h3>
+                        <p className="text-sm text-gray-500">Selecione o período para analisar suas compras</p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+                        {[
+                            { value: 'all', label: 'Tudo' },
+                            { value: 'last7days', label: 'Últimos 7 dias' },
+                            { value: 'last30days', label: 'Últimos 30 dias' },
+                            { value: 'currentMonth', label: 'Mês atual' },
+                            { value: 'custom', label: 'Customizado' }
+                        ].map(period => (
+                            <button
+                                key={period.value}
+                                onClick={() => setPeriodFilter(period.value)}
+                                className={cn(
+                                    'px-4 py-2.5 rounded-xl font-semibold text-sm transition-all',
+                                    periodFilter === period.value
+                                        ? 'bg-[#C75D3B] text-white shadow-md'
+                                        : 'bg-gray-100 text-[#4A3B32] hover:bg-gray-200'
+                                )}
+                            >
+                                {period.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {periodFilter === 'custom' && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-6 pt-6 border-t border-gray-200 flex flex-col sm:flex-row gap-4"
+                    >
+                        <div className="flex-1">
+                            <label className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-widest block mb-2">Data Início</label>
+                            <input
+                                type="date"
+                                value={customDateRange.start}
+                                onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-[#4A3B32]"
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <label className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-widest block mb-2">Data Fim</label>
+                            <input
+                                type="date"
+                                value={customDateRange.end}
+                                onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-[#4A3B32]"
+                            />
+                        </div>
+                    </motion.div>
+                )}
+            </motion.div>
+
             {/* Stats Cards */}
-            <div className="grid md:grid-cols-3 gap-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <Card>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">Total Comprado</p>
-                                <p className="text-2xl font-bold text-[#4A3B32]">{formatCurrency(totalPurchases)}</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Total Comprado</p>
+                                <p className="text-xl font-bold text-[#4A3B32]">{formatCurrency(totalPurchases)}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-2xl bg-[#C75D3B]/10 flex items-center justify-center">
-                                <DollarSign className="w-6 h-6 text-[#C75D3B]" />
+                            <div className="w-10 h-10 rounded-xl bg-[#C75D3B]/10 flex items-center justify-center">
+                                <DollarSign className="w-5 h-5 text-[#C75D3B]" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">Total de Compras</p>
-                                <p className="text-2xl font-bold text-[#4A3B32]">{filteredPurchases.length}</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Gasto Loja</p>
+                                <p className="text-xl font-bold text-slate-700">{formatCurrency(totalLoja)}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
-                                <ShoppingCart className="w-6 h-6 text-blue-600" />
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                                <Store className="w-5 h-5 text-slate-600" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">Total de Peças</p>
-                                <p className="text-2xl font-bold text-[#4A3B32]">{totalItems}</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Gasto Augusto</p>
+                                <p className="text-xl font-bold text-indigo-700">{formatCurrency(totalAugusto)}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center">
-                                <Package className="w-6 h-6 text-purple-600" />
+                            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                <User className="w-5 h-5 text-indigo-600" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Total de Compras</p>
+                                <p className="text-xl font-bold text-[#4A3B32]">{filteredPurchases.length}</p>
+                            </div>
+                            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                <ShoppingCart className="w-5 h-5 text-blue-600" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Total de Peças</p>
+                                <p className="text-xl font-bold text-[#4A3B32]">{totalItems}</p>
+                            </div>
+                            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                                <Package className="w-5 h-5 text-purple-600" />
                             </div>
                         </div>
                     </CardContent>

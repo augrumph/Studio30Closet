@@ -306,7 +306,7 @@ export function ProductModal({ product, isOpen, onClose }) {
                         </h2>
 
                         {/* Price */}
-                        <div className="flex items-baseline gap-3 mb-6">
+                        <div className="flex items-baseline gap-3 mb-4">
                             <span className="text-3xl font-bold text-brand-terracotta">
                                 {formatPrice(product.price)}
                             </span>
@@ -317,24 +317,19 @@ export function ProductModal({ product, isOpen, onClose }) {
                             )}
                         </div>
 
-                        {/* Description */}
-                        <p className="text-brand-brown/70 leading-relaxed mb-8">
-                            {product.description}
-                        </p>
-
-                        {/* Color Selector */}
+                        {/* Color Selector - Agora logo abaixo do preço */}
                         {variants.length > 0 && variants[0].colorName && (
-                            <div className="mb-8">
-                                <h4 className="text-sm font-medium text-brand-brown mb-3">
+                            <div className="mb-5">
+                                <h4 className="text-sm font-medium text-brand-brown mb-2">
                                     Cor: <span className="font-bold">{currentVariant.colorName}</span>
                                 </h4>
-                                <div className="flex flex-wrap gap-3">
+                                <div className="flex flex-wrap gap-2">
                                     {variants.map((v, idx) => (
                                         <button
                                             key={idx}
                                             onClick={() => setSelectedVariantIndex(idx)}
                                             className={cn(
-                                                'px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 border-2',
+                                                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border-2 min-h-[36px]',
                                                 selectedVariantIndex === idx
                                                     ? 'border-brand-terracotta bg-brand-terracotta/5 text-brand-terracotta shadow-sm'
                                                     : 'border-brand-peach bg-white text-brand-brown/60 hover:border-brand-terracotta'
@@ -346,6 +341,11 @@ export function ProductModal({ product, isOpen, onClose }) {
                                 </div>
                             </div>
                         )}
+
+                        {/* Description */}
+                        <p className="text-brand-brown/70 leading-relaxed mb-5 text-sm sm:text-base">
+                            {product.description}
+                        </p>
 
                         {/* Size Selector */}
                         <div className="mb-8">

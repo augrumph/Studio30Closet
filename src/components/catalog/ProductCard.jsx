@@ -6,6 +6,8 @@ import { Swiper, SwiperSlide } from 'swiper/react'
 import { Pagination } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/pagination'
+import { getOptimizedImageUrl, generateSrcSet } from '@/lib/image-optimizer'
+
 
 function ProductCardComponent({ product, onQuickView }) {
     if (!product) return null
@@ -68,7 +70,9 @@ function ProductCardComponent({ product, onQuickView }) {
                             image && (
                                 <SwiperSlide key={idx} className="flex items-center justify-center">
                                     <img
-                                        src={image}
+                                        src={getOptimizedImageUrl(image, 300)}
+                                        srcSet={generateSrcSet(image, [300, 600, 800])}
+                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
                                         alt={`${product.name} - Imagem ${idx + 1}`}
                                         width="300"
                                         height="400"

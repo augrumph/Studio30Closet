@@ -263,71 +263,61 @@ export function PurchasesList() {
             {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Total Comprado</p>
-                                <p className="text-xl font-bold text-[#4A3B32]">{formatCurrency(totalPurchases)}</p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-[#C75D3B]/10 flex items-center justify-center">
-                                <DollarSign className="w-5 h-5 text-[#C75D3B]" />
-                            </div>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-[#C75D3B]/10 flex items-center justify-center flex-shrink-0">
+                            <DollarSign className="w-6 h-6 text-[#C75D3B]" />
+                        </div>
+                        <div>
+                            <p className="text-xl font-bold text-[#4A3B32]">{formatCurrency(totalPurchases)}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight">Total Comprado</p>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Gasto Loja</p>
-                                <p className="text-xl font-bold text-slate-700">{formatCurrency(totalLoja)}</p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                                <Store className="w-5 h-5 text-slate-600" />
-                            </div>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                            <Store className="w-6 h-6 text-slate-600" />
+                        </div>
+                        <div>
+                            <p className="text-xl font-bold text-slate-700">{formatCurrency(totalLoja)}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight">Gasto Loja</p>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Gasto Augusto</p>
-                                <p className="text-xl font-bold text-indigo-700">{formatCurrency(totalAugusto)}</p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-                                <User className="w-5 h-5 text-indigo-600" />
-                            </div>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                            <User className="w-6 h-6 text-indigo-600" />
+                        </div>
+                        <div>
+                            <p className="text-xl font-bold text-indigo-700">{formatCurrency(totalAugusto)}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight">Gasto Augusto</p>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Total de Compras</p>
-                                <p className="text-xl font-bold text-[#4A3B32]">{filteredPurchases.length}</p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                                <ShoppingCart className="w-5 h-5 text-blue-600" />
-                            </div>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <ShoppingCart className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div>
+                            <p className="text-xl font-bold text-[#4A3B32]">{filteredPurchases.length}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight">Total de Compras</p>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Total de Peças</p>
-                                <p className="text-xl font-bold text-[#4A3B32]">{totalItems}</p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                                <Package className="w-5 h-5 text-purple-600" />
-                            </div>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                            <Package className="w-6 h-6 text-purple-600" />
+                        </div>
+                        <div>
+                            <p className="text-xl font-bold text-[#4A3B32]">{totalItems}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight">Total de Peças</p>
                         </div>
                     </CardContent>
                 </Card>

@@ -168,6 +168,25 @@ export async function getAllProducts() {
     return result;
 }
 
+// 🔐 Admin: Carregar Inventário Completo (inclui Preço de Custo)
+export async function getAllProductsAdmin() {
+    console.log('🔐 [Admin] Carregando inventário completo...');
+
+    // Select ALL fields using wildcard
+    const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('id', { ascending: false }); // Ordem decrescente por ID para ver os mais novos
+
+    if (error) {
+        console.error('❌ [Admin] Erro ao carregar inventário:', error);
+        throw error;
+    }
+
+    console.log(`✅ [Admin] Inventário carregado: ${data?.length} produtos`);
+    return toCamelCase(data);
+}
+
 export async function getProductById(id) {
     // Carregar todos os dados quando é um acesso individual (modal de detalhe)
     const { data, error } = await supabase

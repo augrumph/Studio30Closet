@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import {
     getProducts,
     getAllProducts,
+    getAllProductsAdmin,
     getOrders,
     getCustomers,
     getVendas,
@@ -100,6 +101,25 @@ export const useAdminStore = create((set, get) => ({
                 productsTotal: validProducts.length
             })
             console.log(`✅ ${validProducts.length} produtos carregados para catálogo`)
+        } catch (error) {
+            set({ productsError: error.message, productsLoading: false })
+        }
+    },
+
+    // Carregar TODOS os produtos para a Tabela de Admin (com Preço de Custo)
+    loadInventoryForAdmin: async () => {
+        set({ productsLoading: true, productsError: null })
+        try {
+            console.log('🔐 Carregando inventário completo para Admin...')
+            const allProducts = await getAllProductsAdmin()
+
+            const sortedProducts = [...allProducts].sort((a, b) => b.id - a.id)
+            set({
+                products: sortedProducts,
+                productsLoading: false,
+                productsTotal: allProducts.length
+            })
+            console.log(`✅ ${allProducts.length} produtos carregados com custo.`)
         } catch (error) {
             set({ productsError: error.message, productsLoading: false })
         }

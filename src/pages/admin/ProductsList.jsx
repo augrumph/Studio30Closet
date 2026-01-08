@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/Pagination"
 
 export function ProductsList() {
-    const { products, productsLoading, loadProducts, removeProduct, removeMultipleProducts } = useAdminStore()
+    const { products, productsLoading, loadInventoryForAdmin, removeProduct, removeMultipleProducts } = useAdminStore()
     const [search, setSearch] = useState('')
     const [categoryFilter, setCategoryFilter] = useState('all')
     const [stockFilter, setStockFilter] = useState('all') // 'all', 'low'
@@ -39,14 +39,15 @@ export function ProductsList() {
         const fetchProducts = async () => {
             try {
                 setError(null)
-                await loadProducts()
+                // Use loadInventoryForAdmin to fetch ALL data including cost_price
+                await loadInventoryForAdmin()
             } catch (err) {
                 console.error('Erro ao carregar produtos:', err)
                 setError(err.message || 'Erro ao carregar produtos')
             }
         }
         fetchProducts()
-    }, [loadProducts])
+    }, [loadInventoryForAdmin])
 
     const filteredProducts = useMemo(() => {
         return products.filter(product => {

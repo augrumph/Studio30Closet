@@ -14,31 +14,35 @@ export function Catalog() {
     const [showMobileFilters, setShowMobileFilters] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [showOnlyAvailable, setShowOnlyAvailable] = useState(false) // Por padrão, mostrar tudo
-    const [page, setPage] = useState(1)
-    const ITEMS_PER_PAGE = 20
-    const { products, productsTotal, loadAllProductsForCatalog, productsLoading, productsError } = useAdminStore()
+    const [isLoadingMore, setIsLoadingMore] = useState(false) // Para o spinner do infinite scroll
+    const { products, productsTotal, loadFirstProductsPage, loadMoreProducts, productsLoading, productsError } = useAdminStore()
+
+    // Filters from URL
+    const selectedCategory = searchParams.get('categoria')
+    const selectedSizesParam = searchParams.get('tamanhos')
+    const selectedSizes = selectedSizesParam ? selectedSizesParam.split(',') : []
+
+    // ⚡ BUILD FILTERS OBJECT for server-side queries
+    const currentFilters = useMemo(() => ({
+        category: selectedCategory,
+        sizes: selectedSizes.length > 0 ? selectedSizes : undefined,
+        search: searchQuery.trim() || undefined
+    }), [selectedCategory, selectedSizes, searchQuery])
 
     // ✅ OTIMIZAÇÃO: useRef para controlar se já iniciou o carregamento
     const hasInitialized = useRef(false)
+    const lastFiltersRef = useRef(JSON.stringify({}))
 
+    // Carregar produtos iniciais
     useEffect(() => {
-        // ✅ EVITAR CHAMADAS DUPLICADAS: Se já inicializou, não fazer nada
         if (hasInitialized.current) return
         hasInitialized.current = true
 
         const loadProductsOptimized = async () => {
             try {
-                console.log('🔄 Catalog: Verificando dados...')
-                // Check if we have ALL products loaded (not just a paginated subset)
-                // If products.length matches productsTotal, we likely have the full catalog
-                if (products.length > 0 && productsTotal > 0 && products.length >= productsTotal) {
-                    console.log('✅ Catálogo completo já em memória')
-                    return
-                }
-
-                // Carregar produtos - o cache é gerenciado dentro do loadAllProductsForCatalog
-                console.log('📡 Carregando produtos para catálogo (API)...')
-                await loadAllProductsForCatalog()
+                console.log('🚀 Catalog: Carregando primeiros 6 produtos...')
+                await loadFirstProductsPage(currentFilters)
+                lastFiltersRef.current = JSON.stringify(currentFilters)
             } catch (error) {
                 console.error('❌ Erro ao carregar produtos no catálogo:', error)
             }
@@ -47,10 +51,16 @@ export function Catalog() {
         loadProductsOptimized()
     }, []) // ✅ SEM DEPENDÊNCIAS - executa apenas uma vez
 
-    // Filters from URL
-    const selectedCategory = searchParams.get('categoria')
-    const selectedSizesParam = searchParams.get('tamanhos')
-    const selectedSizes = selectedSizesParam ? selectedSizesParam.split(',') : []
+    // 🔄 RECARREGAR DO SERVIDOR quando filtros mudam
+    useEffect(() => {
+        const filtersStr = JSON.stringify(currentFilters)
+        if (filtersStr === lastFiltersRef.current) return
+        if (!hasInitialized.current) return
+
+        console.log('🔍 Filtros mudaram, recarregando do servidor...', currentFilters)
+        lastFiltersRef.current = filtersStr
+        loadFirstProductsPage(currentFilters)
+    }, [currentFilters, loadFirstProductsPage])
 
     const { items } = useMalinhaStore()
 
@@ -84,55 +94,35 @@ export function Catalog() {
     const categoriesList = ['all', ...new Set(products.map(p => p.category))]
     const allSizes = ['PP', 'P', 'M', 'G', 'GG', 'U']
 
-    // Filter products with search
-    const filteredProducts = useMemo(() => {
-        return products.filter(product => {
+    // Produtos já vem filtrados do servidor, apenas filtrar estoque local se necessário
+    const displayProducts = useMemo(() => {
+        if (!showOnlyAvailable) return products
+        return products.filter(p => p.stock > 0)
+    }, [products, showOnlyAvailable])
 
-            // ✅ HIDE INACTIVE PRODUCTS - Produtos inativos não aparecem no catálogo
-            if (product.active === false || product.active === 'false') {
-                // console.log(`⛔ Removendo inativo: ${product.name}`)
-                return false
-            }
+    const hasActiveFilters = selectedCategory || selectedSizes.length > 0 || searchQuery.trim()
 
-            // Availability filter (stock)
-            if (showOnlyAvailable && product.stock <= 0) return false
-            // Category filter
-            if (selectedCategory && selectedCategory !== 'all' && product.category !== selectedCategory) return false
-            // Size filter
-            if (selectedSizes.length > 0 && !product.sizes.some(s => selectedSizes.includes(s))) return false
-            // Search filter
-            if (searchQuery.trim()) {
-                const query = searchQuery.toLowerCase()
-                const matchesSearch =
-                    product.name.toLowerCase().includes(query) ||
-                    product.category?.toLowerCase().includes(query) ||
-                    product.color?.toLowerCase().includes(query)
-                return matchesSearch
-            }
-            return true
-        })
-    }, [products, selectedCategory, selectedSizes, searchQuery, showOnlyAvailable])
+    // INFINITE SCROLL: Verificar se há mais produtos no servidor
+    const hasMore = products.length < productsTotal
 
-    const hasActiveFilters = selectedCategory || selectedSizes.length > 0
-
-    // Pagination logic
-    const startIdx = (page - 1) * ITEMS_PER_PAGE
-    const endIdx = startIdx + ITEMS_PER_PAGE
-    const paginatedProducts = filteredProducts.slice(startIdx, endIdx)
-    const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
-    const hasNextPage = page < totalPages
-
-    // Reset page when filters change
+    // Intersection Observer para INFINITE SCROLL (busca do servidor COM FILTROS)
     useEffect(() => {
-        setPage(1)
-    }, [selectedCategory, selectedSizes, searchQuery])
+        if (!hasMore || isLoadingMore) return
 
-    // ✅ OTIMIZAÇÃO: Scroll suave apenas em Safari é lento - usar auto
-    // E scrollar apenas quando paginação muda, não quando filtros mudam
-    useEffect(() => {
-        // Usar 'auto' para evitar layout thrashing no Safari
-        window.scrollTo({ top: 0, behavior: 'auto' })
-    }, [page])
+        const observer = new IntersectionObserver(async (entries) => {
+            if (entries[0].isIntersecting && !isLoadingMore) {
+                console.log('📜 Infinite Scroll: Carregando mais do servidor...')
+                setIsLoadingMore(true)
+                await loadMoreProducts(products.length, currentFilters)
+                setIsLoadingMore(false)
+            }
+        }, { threshold: 0.1, rootMargin: '100px' })
+
+        const sentinel = document.getElementById('catalog-sentinel')
+        if (sentinel) observer.observe(sentinel)
+
+        return () => observer.disconnect()
+    }, [hasMore, products.length, isLoadingMore, loadMoreProducts, currentFilters])
 
     return (
         <div className="min-h-screen bg-[#FDFBF7]">
@@ -187,9 +177,6 @@ export function Catalog() {
                                         </span>
                                     )}
                                 </button>
-                                <div className="text-sm font-medium text-gray-600 whitespace-nowrap">
-                                    {filteredProducts.length} {filteredProducts.length === 1 ? 'peça' : 'peças'}
-                                </div>
                             </div>
 
                             {/* Active Filters Display */}
@@ -244,68 +231,42 @@ export function Catalog() {
                                     Tentar novamente
                                 </button>
                             </div>
-                        ) : paginatedProducts.length > 0 ? (
+                        ) : displayProducts.length > 0 ? (
                             <>
-                                <motion.div
-                                    className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    {paginatedProducts.map((product) => (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+                                    {displayProducts.map((product, index) => (
                                         product ? (
-                                            <ProductCard
+                                            <motion.div
                                                 key={product.id}
-                                                product={product}
-                                                onQuickView={setSelectedProduct}
-                                            />
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{
+                                                    duration: 0.3,
+                                                    delay: (index % 6) * 0.05,  // Stagger only within each batch of 6
+                                                    ease: "easeOut"
+                                                }}
+                                            >
+                                                <ProductCard
+                                                    product={product}
+                                                    onQuickView={setSelectedProduct}
+                                                />
+                                            </motion.div>
                                         ) : null
                                     ))}
-                                </motion.div>
+                                </div>
 
-                                {/* Pagination Controls */}
-                                {totalPages > 1 && (
-                                    <motion.div
-                                        className="flex items-center justify-center gap-2 sm:gap-3 mt-8 sm:mt-12"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.3 }}
-                                    >
-                                        <button
-                                            onClick={() => setPage(Math.max(1, page - 1))}
-                                            disabled={page === 1}
-                                            className="touch-target px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#C75D3B] transition-all active:scale-95"
-                                        >
-                                            ← Anterior
-                                        </button>
-
-                                        <div className="flex items-center gap-1 sm:gap-2">
-                                            {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
-                                                const pageNum = idx + Math.max(1, page - 2)
-                                                if (pageNum > totalPages) return null
-                                                return (
-                                                    <button
-                                                        key={pageNum}
-                                                        onClick={() => setPage(pageNum)}
-                                                        className={`touch-target px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${page === pageNum
-                                                            ? 'bg-[#C75D3B] text-white'
-                                                            : 'border-2 border-gray-200 hover:border-[#C75D3B]'
-                                                            }`}
-                                                    >
-                                                        {pageNum}
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-
-                                        <button
-                                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                            disabled={!hasNextPage}
-                                            className="touch-target px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#C75D3B] transition-all active:scale-95"
-                                        >
-                                            Próxima →
-                                        </button>
-                                    </motion.div>
+                                {/* Infinite Scroll Sentinel + Skeletons */}
+                                {hasMore && (
+                                    <>
+                                        <div id="catalog-sentinel" className="w-full" />
+                                        {isLoadingMore && (
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mt-3 sm:mt-4 md:mt-6">
+                                                {Array.from({ length: 6 }).map((_, index) => (
+                                                    <SkeletonCard key={`skeleton-more-${index}`} />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </>
                         ) : (
@@ -391,7 +352,7 @@ export function Catalog() {
                                     onClick={() => setShowMobileFilters(false)}
                                     className="w-full touch-target bg-[#C75D3B] text-white font-bold rounded-lg transition-all hover:bg-[#A64D31] active:scale-95"
                                 >
-                                    Ver {filteredProducts.length} peças
+                                    Ver Resultados
                                 </button>
                                 <button
                                     onClick={() => {

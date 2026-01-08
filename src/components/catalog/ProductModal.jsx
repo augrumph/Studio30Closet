@@ -114,8 +114,8 @@ export function ProductModal({ product, isOpen, onClose }) {
         if (!startX || !endX) return
 
         const distance = startX - endX
-        const isLeftSwipe = distance > 50 // Swipe para esquerda (próxima imagem)
-        const isRightSwipe = distance < -50 // Swipe para direita (imagem anterior)
+        const isLeftSwipe = distance > 30 // Threshold reduzido para facilitar swipe mobile
+        const isRightSwipe = distance < -30
 
         if (isLeftSwipe && currentImages.length > 0) {
             // Próxima imagem
@@ -243,33 +243,33 @@ export function ProductModal({ product, isOpen, onClose }) {
                                         onClick={() => setSelectedImageIndex(prev =>
                                             prev === 0 ? currentImages.length - 1 : prev - 1
                                         )}
-                                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 backdrop-blur-sm text-brand-brown hover:bg-white transition-all opacity-0 group-hover:opacity-100 md:opacity-100 z-10"
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/90 backdrop-blur-sm text-brand-brown hover:bg-white transition-all shadow-lg z-10"
                                         aria-label="Imagem anterior"
                                     >
-                                        <ChevronLeft className="w-5 h-5" />
+                                        <ChevronLeft className="w-6 h-6" />
                                     </button>
 
                                     <button
                                         onClick={() => setSelectedImageIndex(prev =>
                                             prev === currentImages.length - 1 ? 0 : prev + 1
                                         )}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 backdrop-blur-sm text-brand-brown hover:bg-white transition-all opacity-0 group-hover:opacity-100 md:opacity-100 z-10"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/90 backdrop-blur-sm text-brand-brown hover:bg-white transition-all shadow-lg z-10"
                                         aria-label="Próxima imagem"
                                     >
-                                        <ChevronRight className="w-5 h-5" />
+                                        <ChevronRight className="w-6 h-6" />
                                     </button>
 
-                                    {/* Indicador de imagens */}
-                                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                                    {/* Indicador de imagens - Maior e mais visível no mobile */}
+                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 bg-black/20 backdrop-blur-sm px-3 py-2 rounded-full">
                                         {currentImages.map((_, idx) => (
                                             <button
                                                 key={idx}
                                                 onClick={() => setSelectedImageIndex(idx)}
                                                 className={cn(
-                                                    'w-2 h-2 rounded-full transition-all duration-200',
+                                                    'rounded-full transition-all duration-200',
                                                     idx === selectedImageIndex
-                                                        ? 'bg-brand-terracotta w-3'
-                                                        : 'bg-white/50 hover:bg-white/80'
+                                                        ? 'bg-white w-6 h-2'
+                                                        : 'bg-white/50 w-2 h-2 hover:bg-white/80'
                                                 )}
                                                 aria-label={`Ver imagem ${idx + 1}`}
                                             />

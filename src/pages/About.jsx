@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Heart, Sparkles, Users2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 export function About() {
     return (
@@ -7,49 +8,61 @@ export function About() {
             {/* Hero Split Screen */}
             <section className="relative min-h-screen grid lg:grid-cols-2">
                 {/* Imagens lado esquerdo */}
-                <div className="relative bg-[#E8C4B0]/30 flex items-center justify-center p-8 lg:p-16">
-                    <div className="relative max-w-md w-full">
+                <div className="relative bg-[#E8C4B0]/30 flex items-center justify-center p-6 lg:p-16">
+                    <motion.div
+                        className="relative max-w-sm lg:max-w-md w-full"
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6 }}
+                    >
                         {/* Grid de fotos */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-4">
-                                <div className="aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+                        <div className="grid grid-cols-2 gap-3 lg:gap-4">
+                            <div className="space-y-3 lg:space-y-4">
+                                <div className="aspect-[3/4] rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl lg:shadow-2xl border-4 border-white">
                                     <img
                                         src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80"
                                         alt="Thais"
+                                        loading="lazy"
                                         className="w-full h-full object-cover"
                                     />
                                 </div>
                             </div>
-                            <div className="pt-8 space-y-4">
-                                <div className="aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+                            <div className="pt-6 lg:pt-8 space-y-3 lg:space-y-4">
+                                <div className="aspect-[3/4] rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl lg:shadow-2xl border-4 border-white">
                                     <img
                                         src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80"
                                         alt="Augusto"
+                                        loading="lazy"
                                         className="w-full h-full object-cover"
                                     />
                                 </div>
                             </div>
                         </div>
                         {/* Badge flutuante */}
-                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-[#C75D3B] px-8 py-4 rounded-full shadow-2xl">
-                            <p className="font-display text-2xl text-white">Sócios</p>
+                        <div className="absolute -bottom-4 lg:-bottom-6 left-1/2 -translate-x-1/2 bg-[#C75D3B] px-6 lg:px-8 py-3 lg:py-4 rounded-full shadow-2xl">
+                            <p className="font-display text-xl lg:text-2xl text-white">Sócios</p>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
 
                 {/* Texto lado direito */}
-                <div className="flex items-center p-8 lg:p-16 bg-white">
-                    <div className="max-w-xl space-y-8">
-                        <div className="inline-flex items-center gap-2 px-6 py-3 bg-[#C75D3B]/10 rounded-full">
+                <motion.div
+                    className="flex items-center p-6 lg:p-16 bg-white"
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                >
+                    <div className="max-w-xl space-y-6 lg:space-y-8">
+                        <div className="inline-flex items-center gap-2 px-4 lg:px-6 py-2 lg:py-3 bg-[#C75D3B]/10 rounded-full">
                             <Heart className="w-4 h-4 text-[#C75D3B]" />
-                            <span className="text-[#C75D3B] text-sm font-medium uppercase tracking-wider">Nossa História</span>
+                            <span className="text-[#C75D3B] text-xs lg:text-sm font-medium uppercase tracking-wider">Nossa História</span>
                         </div>
 
-                        <h1 className="font-display text-6xl md:text-7xl text-[#4A3B32]">
+                        <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-[#4A3B32]">
                             Somos <span className="text-[#C75D3B]">Thais</span> & <span className="text-[#C75D3B]">Augusto</span>
                         </h1>
 
-                        <div className="space-y-6 text-lg text-[#4A3B32]/80 leading-relaxed">
+                        <div className="space-y-4 lg:space-y-6 text-base lg:text-lg text-[#4A3B32]/85 leading-relaxed">
                             <p>
                                 Somos um casal apaixonado por moda e por criar experiencias que vão além da compra.
                             </p>
@@ -61,17 +74,17 @@ export function About() {
                             </p>
                         </div>
 
-                        <div className="pt-4">
+                        <div className="pt-2 lg:pt-4">
                             <Link
                                 to="/catalogo"
-                                className="inline-flex items-center gap-2 text-[#C75D3B] font-medium hover:gap-4 transition-all"
+                                className="inline-flex items-center gap-2 text-[#C75D3B] font-medium hover:gap-4 transition-all min-h-[44px]"
                             >
                                 Ver coleção
                                 <ArrowRight className="w-5 h-5" />
                             </Link>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </section>
 
             {/* Valores */}

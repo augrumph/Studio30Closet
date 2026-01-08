@@ -6,7 +6,7 @@ import { Swiper, SwiperSlide } from 'swiper/react'
 import { Pagination } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/pagination'
-import { getOptimizedImageUrl, generateSrcSet } from '@/lib/image-optimizer'
+import { getOptimizedImageUrl, generateSrcSet, getBlurPlaceholder } from '@/lib/image-optimizer'
 
 
 function ProductCardComponent({ product, onQuickView }) {
@@ -81,6 +81,11 @@ function ProductCardComponent({ product, onQuickView }) {
                                         fetchPriority={idx === 0 ? 'high' : 'low'}
                                         className="w-full h-full object-cover group-hover:scale-105 select-none pointer-events-none transition-transform duration-300"
                                         draggable="false"
+                                        style={{
+                                            backgroundImage: `url(${getBlurPlaceholder(image)})`,
+                                            backgroundSize: 'cover',
+                                            backgroundPosition: 'center'
+                                        }}
                                     />
                                 </SwiperSlide>
                             )
@@ -146,16 +151,16 @@ function ProductCardComponent({ product, onQuickView }) {
                     )}
                 </div>
 
-                {/* Quick View Button - Desktop only hover */}
+                {/* Quick View Button - Sempre visível no mobile, hover no desktop */}
                 <button
                     onClick={(e) => {
                         e.stopPropagation()
                         onQuickView?.(product)
                     }}
                     aria-label="Visualização rápida"
-                    className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-sm text-brand-brown transition-all duration-300 md:opacity-0 md:group-hover:opacity-100"
+                    className="absolute top-2 right-2 sm:top-3 sm:right-3 p-2.5 sm:p-2 rounded-full bg-white/95 backdrop-blur-sm text-brand-brown shadow-lg transition-all duration-300 md:opacity-0 md:group-hover:opacity-100 active:scale-90"
                 >
-                    <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <Eye className="w-4 h-4 sm:w-4 sm:h-4" />
                 </button>
 
                 {/* Already in malinha indicator */}

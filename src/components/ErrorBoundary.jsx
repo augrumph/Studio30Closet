@@ -1,9 +1,12 @@
 import React from 'react'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { RefreshCw, Home, Frown } from 'lucide-react'
 
 /**
  * Error Boundary - Captura erros de JavaScript e mostra UI amigável
- * Em vez de tela branca, mostra mensagem de erro com opções de recuperação
+ * 
+ * Comportamento:
+ * 1. Primeiro erro: Tenta refresh automático
+ * 2. Se o erro persistir: Mostra página amigável com opção de refresh manual
  */
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -12,111 +15,149 @@ class ErrorBoundary extends React.Component {
             hasError: false,
             error: null,
             errorInfo: null,
-            errorId: null
+            errorId: null,
+            hasTriedAutoRefresh: false
         }
     }
 
     static getDerivedStateFromError(error) {
-        // Gera ID único para o erro para facilitar debug
         const errorId = `ERR-${Date.now().toString(36).toUpperCase()}`
         return { hasError: true, errorId }
     }
 
     componentDidCatch(error, errorInfo) {
-        // Log detalhado do erro
+        // Verificar se já tentou auto-refresh
+        const refreshKey = 'studio30_auto_refresh_attempted'
+        const lastRefreshTime = sessionStorage.getItem(refreshKey)
+        const now = Date.now()
+
+        // Se nunca tentou ou faz mais de 30 segundos, tenta auto-refresh
+        if (!lastRefreshTime || (now - parseInt(lastRefreshTime)) > 30000) {
+            // Marcar que tentou refresh
+            sessionStorage.setItem(refreshKey, now.toString())
+
+            // Log do erro antes do refresh
+            console.error('🔄 Erro detectado. Tentando refresh automático...', error?.message)
+
+            // Aguardar um momento e fazer refresh
+            setTimeout(() => {
+                window.location.reload()
+            }, 500)
+
+            return
+        }
+
+        // Se já tentou refresh recentemente, mostrar página de erro
+        this.setState({
+            error,
+            errorInfo,
+            hasTriedAutoRefresh: true
+        })
+
+        // Limpar a flag após 30 segundos para permitir nova tentativa futura
+        setTimeout(() => {
+            sessionStorage.removeItem(refreshKey)
+        }, 30000)
+
+        // Log do erro
         const errorData = {
             id: this.state.errorId,
             timestamp: new Date().toISOString(),
             message: error?.message || 'Erro desconhecido',
-            stack: error?.stack,
-            componentStack: errorInfo?.componentStack,
-            url: window.location.href,
-            userAgent: navigator.userAgent
+            url: window.location.href
         }
 
-        // Salvar no localStorage para debug posterior
-        try {
-            const errors = JSON.parse(localStorage.getItem('studio30_errors') || '[]')
-            errors.unshift(errorData)
-            // Manter apenas os últimos 10 erros
-            localStorage.setItem('studio30_errors', JSON.stringify(errors.slice(0, 10)))
-        } catch (e) {
-            console.error('Erro ao salvar log:', e)
-        }
-
-        // Console log com estilo
         console.group(`🚨 Erro Capturado [${this.state.errorId}]`)
         console.error('Mensagem:', error?.message)
         console.error('Stack:', error?.stack)
-        console.error('Component Stack:', errorInfo?.componentStack)
         console.groupEnd()
 
-        this.setState({ error, errorInfo })
+        // Salvar no localStorage para debug
+        try {
+            const errors = JSON.parse(localStorage.getItem('studio30_errors') || '[]')
+            errors.unshift(errorData)
+            localStorage.setItem('studio30_errors', JSON.stringify(errors.slice(0, 10)))
+        } catch (e) {
+            // Silently fail
+        }
     }
 
     handleReload = () => {
+        // Limpar flag para permitir nova tentativa de auto-refresh
+        sessionStorage.removeItem('studio30_auto_refresh_attempted')
         window.location.reload()
     }
 
     handleGoHome = () => {
+        sessionStorage.removeItem('studio30_auto_refresh_attempted')
         window.location.href = '/'
     }
 
     render() {
-        if (this.state.hasError) {
+        if (this.state.hasError && this.state.hasTriedAutoRefresh) {
             return (
                 <div className="min-h-screen bg-gradient-to-b from-[#FDF8F5] to-white flex items-center justify-center p-6">
-                    <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-                        {/* Icon */}
-                        <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
-                            <AlertTriangle className="w-8 h-8 text-red-500" />
+                    <div className="max-w-md w-full text-center">
+                        {/* Ilustração amigável */}
+                        <div className="mb-8">
+                            <div className="relative inline-block">
+                                {/* Círculo de fundo */}
+                                <div className="w-32 h-32 mx-auto rounded-full bg-[#FDF0ED] flex items-center justify-center">
+                                    {/* Emoji/Icon triste mas fofo */}
+                                    <div className="text-6xl">😅</div>
+                                </div>
+                                {/* Decoração */}
+                                <div className="absolute -top-2 -right-2 w-8 h-8 bg-[#E8C4B0] rounded-full animate-pulse" />
+                                <div className="absolute -bottom-1 -left-3 w-5 h-5 bg-[#C75D3B]/30 rounded-full" />
+                            </div>
                         </div>
 
-                        {/* Title */}
-                        <h1 className="text-2xl font-display text-[#4A3B32] mb-3">
-                            Ops! Algo deu errado
+                        {/* Título amigável */}
+                        <h1 className="text-2xl sm:text-3xl font-display text-[#4A3B32] mb-4">
+                            Opa! Tivemos um probleminha
                         </h1>
 
-                        {/* Description */}
-                        <p className="text-[#4A3B32]/70 mb-6">
-                            Encontramos um problema inesperado. Não se preocupe, suas informações estão seguras.
+                        {/* Descrição simples e acolhedora */}
+                        <p className="text-base sm:text-lg text-[#4A3B32]/70 mb-8 leading-relaxed">
+                            Algo inesperado aconteceu, mas não se preocupe!
+                            <br className="hidden sm:block" />
+                            Basta atualizar a página para continuar.
                         </p>
 
-                        {/* Error ID for support */}
-                        <div className="bg-gray-100 rounded-lg px-4 py-2 mb-6 inline-block">
-                            <span className="text-xs text-gray-500">Código: </span>
-                            <span className="text-sm font-mono text-gray-700">{this.state.errorId}</span>
-                        </div>
+                        {/* Botão principal de refresh */}
+                        <button
+                            onClick={this.handleReload}
+                            className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-[#C75D3B] text-white font-semibold text-lg rounded-full hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 hover:shadow-xl hover:scale-105 active:scale-95 min-h-[56px]"
+                        >
+                            <RefreshCw className="w-5 h-5" />
+                            Atualizar Página
+                        </button>
 
-                        {/* Actions */}
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <button
-                                onClick={this.handleReload}
-                                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#C75D3B] text-white font-medium rounded-lg hover:bg-[#A64D31] transition-colors"
-                            >
-                                <RefreshCw className="w-4 h-4" />
-                                Tentar Novamente
-                            </button>
+                        {/* Link secundário para home */}
+                        <div className="mt-6">
                             <button
                                 onClick={this.handleGoHome}
-                                className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                                className="inline-flex items-center gap-2 text-[#4A3B32]/60 hover:text-[#C75D3B] transition-colors text-sm font-medium"
                             >
                                 <Home className="w-4 h-4" />
-                                Início
+                                Ou voltar para o início
                             </button>
                         </div>
+
+                        {/* Mensagem de suporte (sutil) */}
+                        <p className="mt-10 text-xs text-[#4A3B32]/40">
+                            Se o problema persistir, entre em contato pelo WhatsApp
+                        </p>
 
                         {/* Dev mode: show error details */}
                         {import.meta.env.DEV && this.state.error && (
-                            <details className="mt-8 text-left">
-                                <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-                                    Detalhes técnicos (dev)
+                            <details className="mt-6 text-left">
+                                <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
+                                    Detalhes técnicos (dev only)
                                 </summary>
-                                <div className="mt-3 p-4 bg-gray-900 rounded-lg overflow-x-auto">
+                                <div className="mt-2 p-3 bg-gray-900 rounded-lg overflow-x-auto">
                                     <pre className="text-xs text-red-400 whitespace-pre-wrap">
                                         {this.state.error.toString()}
-                                        {'\n\n'}
-                                        {this.state.errorInfo?.componentStack}
                                     </pre>
                                 </div>
                             </details>

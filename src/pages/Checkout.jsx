@@ -11,6 +11,7 @@ import { triggerFireworks } from '@/components/magicui/confetti'
 import { NumberTicker } from '@/components/magicui/number-ticker'
 import { SkeletonCard } from '@/components/catalog/SkeletonCard'
 import { supabase } from '@/lib/supabase'
+import { getBlurPlaceholder, getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 // Gerar número de pedido profissional
 function generateOrderNumber(orderId) {
@@ -154,6 +155,18 @@ export function Checkout() {
     }, [items, productsData]);
 
     const groupedItems = useMemo(() => Object.values(itemSummary), [itemSummary]);
+
+    // 📱 MOBILE UX: Scroll suave ao focar em campo de formulário
+    const handleFocus = useCallback((e) => {
+        // Aguardar teclado virtual abrir antes de scrollar
+        setTimeout(() => {
+            e.target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+            })
+        }, 300)
+    }, [])
 
     const handleInputChange = (e) => {
         const { name, value } = e.target
@@ -554,10 +567,15 @@ export function Checkout() {
                                                 >
                                                     <div className="aspect-[3/4] rounded-lg sm:rounded-xl overflow-hidden relative bg-gray-100">
                                                         <img
-                                                            src={item.images?.[0] || item.image || 'https://via.placeholder.com/300x400?text=Produto'}
+                                                            src={getOptimizedImageUrl(item.images?.[0] || item.image, 300)}
                                                             alt={item.name}
                                                             loading="lazy"
                                                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                            style={{
+                                                                backgroundImage: `url(${getBlurPlaceholder(item.images?.[0] || item.image)})`,
+                                                                backgroundSize: 'cover',
+                                                                backgroundPosition: 'center'
+                                                            }}
                                                             onError={(e) => {
                                                                 e.target.src = 'https://via.placeholder.com/300x400?text=Produto';
                                                             }}
@@ -722,13 +740,14 @@ export function Checkout() {
                                                     name="name"
                                                     value={customerData.name || ''}
                                                     onChange={handleInputChange}
+                                                    onFocus={handleFocus}
                                                     required
                                                     aria-required="true"
                                                     aria-invalid={!!formErrors.name}
                                                     aria-describedby={formErrors.name ? "name-error" : undefined}
                                                     placeholder="Seu nome"
                                                     className={cn(
-                                                        "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
+                                                        "w-full px-4 py-3.5 rounded-xl border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
                                                         formErrors.name ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
                                                     )}
                                                 />
@@ -744,6 +763,7 @@ export function Checkout() {
                                                     name="phone"
                                                     value={customerData.phone || ''}
                                                     onChange={handleInputChange}
+                                                    onFocus={handleFocus}
                                                     required
                                                     aria-required="true"
                                                     aria-invalid={!!formErrors.phone}

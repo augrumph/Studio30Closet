@@ -54,3 +54,30 @@ export function generateSrcSet(url, widths = [300, 600, 900]) {
         .map(w => `${getOptimizedImageUrl(url, w)} ${w}w`)
         .join(', ')
 }
+
+/**
+ * Gera URL de placeholder borrado para loading progressivo
+ * @param {string} url - URL original da imagem
+ * @returns {string} URL de imagem tiny borrada (10x10px, muito blur)
+ */
+export function getBlurPlaceholder(url) {
+    if (!url || url.startsWith('data:') || url.startsWith('blob:')) {
+        // Placeholder cinza neutro em base64 (1x1px)
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P/hfwYAB/sDvAYE3tEAAAAASUVORK5CYII='
+    }
+
+    try {
+        const params = new URLSearchParams({
+            url: url,
+            w: '10',       // Tiny 10x10px
+            h: '10',
+            q: '10',       // Low quality
+            output: 'webp',
+            blur: '5'      // Heavy blur
+        })
+
+        return `https://wsrv.nl/?${params.toString()}`
+    } catch (e) {
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P/hfwYAB/sDvAYE3tEAAAAASUVORK5CYII='
+    }
+}

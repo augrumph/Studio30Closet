@@ -3,6 +3,7 @@ import {
     getProducts,
     getAllProducts,
     getAllProductsAdmin,
+    getProductsPaginated,
     getOrders,
     getCustomers,
     getVendas,
@@ -122,6 +123,42 @@ export const useAdminStore = create((set, get) => ({
             console.log(`✅ ${allProducts.length} produtos carregados com custo.`)
         } catch (error) {
             set({ productsError: error.message, productsLoading: false })
+        }
+    },
+
+    // ⚡ INFINITE SCROLL: Carregar primeira página com FILTROS (Reset)
+    loadFirstProductsPage: async (filters = {}) => {
+        set({ productsLoading: true, productsError: null, products: [], productsTotal: 0 })
+        try {
+            console.log('🚀 Carregando primeiros 6 produtos...', filters)
+            const { products, total } = await getProductsPaginated(0, 6, filters)
+            set({
+                products,
+                productsLoading: false,
+                productsTotal: total
+            })
+            console.log(`✅ ${products.length} produtos carregados (de ${total} total)`)
+        } catch (error) {
+            set({ productsError: error.message, productsLoading: false })
+        }
+    },
+
+    // ⚡ INFINITE SCROLL: Carregar mais produtos com FILTROS (Append)
+    loadMoreProducts: async (offset, filters = {}) => {
+        // Evitar loading state global para não piscar a tela
+        try {
+            console.log(`📜 Carregando mais produtos a partir de ${offset}...`, filters)
+            const { products: newProducts, total } = await getProductsPaginated(offset, 6, filters)
+
+            set(state => ({
+                products: [...state.products, ...newProducts],
+                productsTotal: total
+            }))
+            console.log(`✅ ${newProducts.length} produtos adicionados`)
+            return newProducts.length
+        } catch (error) {
+            console.error('❌ Erro ao carregar mais produtos:', error)
+            return 0
         }
     },
 

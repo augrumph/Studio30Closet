@@ -70,12 +70,12 @@ export function Footer() {
                             Navegação
                             <span className="absolute -bottom-2 left-0 w-12 h-0.5 bg-[#C75D3B]" />
                         </h4>
-                        <ul className="space-y-3">
+                        <ul className="space-y-1">
                             {navLinks.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         to={link.href}
-                                        className="text-[#4A3B32]/70 hover:text-[#C75D3B] transition-all duration-300 text-base group inline-flex items-center gap-2"
+                                        className="text-[#4A3B32]/70 hover:text-[#C75D3B] transition-all duration-300 text-base group inline-flex items-center gap-2 py-2 min-h-[44px] active:opacity-70"
                                         style={{ letterSpacing: '0.02em' }}
                                     >
                                         <span className="w-1.5 h-1.5 rounded-full bg-[#C75D3B]/40 group-hover:bg-[#C75D3B] transition-colors duration-300" />
@@ -86,7 +86,7 @@ export function Footer() {
                             <li>
                                 <button
                                     onClick={() => setShowPreferencesModal(true)}
-                                    className="text-[#4A3B32]/70 hover:text-[#C75D3B] transition-all duration-300 text-base group inline-flex items-center gap-2"
+                                    className="text-[#4A3B32]/70 hover:text-[#C75D3B] transition-all duration-300 text-base group inline-flex items-center gap-2 py-2 min-h-[44px] active:opacity-70"
                                     style={{ letterSpacing: '0.02em' }}
                                 >
                                     <span className="w-1.5 h-1.5 rounded-full bg-[#C75D3B]/40 group-hover:bg-[#C75D3B] transition-colors duration-300" />
@@ -102,13 +102,13 @@ export function Footer() {
                             Categorias
                             <span className="absolute -bottom-2 left-0 w-12 h-0.5 bg-[#C75D3B]" />
                         </h4>
-                        <ul className="space-y-3">
+                        <ul className="space-y-1">
                             {['Vestidos', 'Blusas', 'Calças', 'Saias', 'Conjuntos', 'Blazers'].map(
                                 (category) => (
                                     <li key={category}>
                                         <Link
                                             to={`/catalogo?categoria=${category.toLowerCase()}`}
-                                            className="text-[#4A3B32]/70 hover:text-[#C75D3B] transition-all duration-300 text-base group inline-flex items-center gap-2"
+                                            className="text-[#4A3B32]/70 hover:text-[#C75D3B] transition-all duration-300 text-base group inline-flex items-center gap-2 py-2 min-h-[44px] active:opacity-70"
                                             style={{ letterSpacing: '0.02em' }}
                                         >
                                             <span className="w-1.5 h-1.5 rounded-full bg-[#C75D3B]/40 group-hover:bg-[#C75D3B] transition-colors duration-300" />

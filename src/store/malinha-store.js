@@ -65,6 +65,11 @@ export const useMalinhaStore = create(
             removeItem: (itemId) => {
                 const { items } = get()
                 set({ items: items.filter(item => item.itemId !== itemId) })
+
+                // ✨ Feedback háptico no mobile (vibração curta para remoção)
+                if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                    navigator.vibrate(10) // vibração curta para ação de remoção
+                }
             },
 
             // Clear all items

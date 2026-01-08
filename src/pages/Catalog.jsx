@@ -28,15 +28,11 @@ export function Catalog() {
 
         const loadProductsOptimized = async () => {
             try {
-                console.log('🔄 Catalog: Iniciando verificação de carga...')
+                console.log('🔄 Catalog: Verificando dados...')
                 // Check if we have ALL products loaded (not just a paginated subset)
                 // If products.length matches productsTotal, we likely have the full catalog
-                // Also check if we have at least 10 products to avoid false positives with empty DBs
                 if (products.length > 0 && productsTotal > 0 && products.length >= productsTotal) {
-                    console.log('✅ Catálogo completo já em memória (total:', products.length, ')')
-                    // DEBUG: Listar produtos inativos na memória
-                    const inactive = products.filter(p => p.active === false || p.active === 'false')
-                    console.log('🧐 Produtos INATIVOS na memória:', inactive.map(p => `${p.name} (${p.active})`))
+                    console.log('✅ Catálogo completo já em memória')
                     return
                 }
 
@@ -90,12 +86,7 @@ export function Catalog() {
 
     // Filter products with search
     const filteredProducts = useMemo(() => {
-        console.log('🕵️‍♂️ Filtrando produtos... Total entrada:', products.length)
         return products.filter(product => {
-            // DEBUG: Logar estado de qualquer macacão ou laura
-            if (product.name.toLowerCase().includes('laura') || product.name.toLowerCase().includes('macaquinho')) {
-                console.log(`🎯 ITEM: "${product.name}" | ID: ${product.id} | Active: ${product.active} (${typeof product.active}) | Stock: ${product.stock}`)
-            }
 
             // ✅ HIDE INACTIVE PRODUCTS - Produtos inativos não aparecem no catálogo
             if (product.active === false || product.active === 'false') {
@@ -147,10 +138,6 @@ export function Catalog() {
         <div className="min-h-screen bg-[#FDFBF7]">
             {/* Main Content */}
             <div className="container-custom py-6 md:py-20">
-                {/* DEBUG INDICATOR */}
-                <div className="bg-red-500 text-white text-center py-2 font-bold mb-4 rounded">
-                    AMBIENTE DE DESENVOLVIMENTO (v2.0) - CÓDIGO ATUALIZADO
-                </div>
                 <div className="grid md:grid-cols-4 gap-6 md:gap-16">
                     {/* Sidebar Filters - Desktop Only */}
                     <aside className="hidden md:block">

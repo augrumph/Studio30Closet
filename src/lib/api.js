@@ -87,7 +87,6 @@ export async function getProducts(page = 1, pageSize = 20) {
         if (camelProduct.id === 24) {
             console.log('🔍 PRODUTO ID 24 CARREGADO DO BANCO:');
             console.log('   Nome:', camelProduct.name);
-            console.log('   Active:', camelProduct.active); // DEBUG ACTIVE
             console.log('   Stock total:', camelProduct.stock);
             // Remover images/urls das variants para logs mais limpos
             const variantsClean = camelProduct.variants?.map(v => ({

@@ -58,8 +58,8 @@ export function Checkout() {
 
             try {
                 setLoadingProducts(true)
-                // Extrair IDs únicos dos produtos
-                const productIds = [...new Set(items.map(item => item.productId))]
+                // Extrair IDs únicos dos produtos (filtrando undefined/null)
+                const productIds = [...new Set(items.map(item => item.productId).filter(id => id))]
 
                 console.log('📦 Buscando dados dos produtos:', productIds)
 

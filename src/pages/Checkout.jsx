@@ -688,7 +688,7 @@ export function Checkout() {
                                         </h3>
                                         <p className="text-blue-800 text-xs sm:text-sm leading-relaxed">
                                             Clique no botão abaixo para entrar em contato via WhatsApp e agendar a entrega da sua malinha.
-                                            Você terá alguns dias para experimentar e decidir quais peças quer manter! 💝
+                                            Você terá algumas horas para experimentar no conforto de casa e decidir quais peças vai amar! 💝
                                         </p>
                                     </motion.div>
 
@@ -1025,7 +1025,7 @@ export function Checkout() {
                                                 Fique apenas com o que amar!
                                             </p>
                                             <p className="text-xs text-[#4A3B32]/50 mt-1">
-                                                Você terá alguns dias para decidir e só paga depois.
+                                                Você terá algumas horas para decidir e só paga pelo que amar.
                                             </p>
                                         </div>
                                     </>

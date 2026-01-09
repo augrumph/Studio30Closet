@@ -12,6 +12,7 @@ import { NumberTicker } from '@/components/magicui/number-ticker'
 import { SkeletonCard } from '@/components/catalog/SkeletonCard'
 import { supabase } from '@/lib/supabase'
 import { getBlurPlaceholder, getOptimizedImageUrl } from '@/lib/image-optimizer'
+import { sendNewMalinhaEmail } from '@/lib/email-service'
 
 // Gerar número de pedido profissional
 function generateOrderNumber(orderId) {
@@ -359,6 +360,13 @@ export function Checkout() {
 
             // ✅ Pedido criado com sucesso! Mostrar página de confirmação
             triggerFireworks()
+
+            // 📧 Enviar email de notificação (sem bloquear o fluxo visual)
+            sendNewMalinhaEmail({
+                customerName: customerData.name,
+                itemsCount: groupedItems.length,
+                orderId: result.order?.id
+            }).catch(err => console.error('Falha ao enviar email silenciosa:', err))
 
             // Gerar mensagem do WhatsApp (para usar depois)
             const message = formatMalinhaMessage(groupedItems, customerData)

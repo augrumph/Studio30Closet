@@ -34,7 +34,6 @@ export const sendNewMalinhaEmail = async ({ customerName, itemsCount, orderId })
             PUBLIC_KEY
         )
 
-        console.log('✅ Email enviado com sucesso!', response.status, response.text)
         return { success: true, response }
     } catch (error) {
         console.error('❌ Erro ao enviar email:', error)

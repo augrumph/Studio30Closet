@@ -1028,8 +1028,35 @@ export function Checkout() {
                                         <hr className="my-3 sm:my-4 border-gray-100" />
 
                                         <div>
-                                            <label className="block text-sm font-medium text-[#4A3B32] mb-2">Observações</label>
                                             <textarea name="notes" value={customerData.notes || ''} onChange={handleInputChange} rows={2} className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 py-3 px-1 resize-none text-base" placeholder="Preferência de horário, instruções..."></textarea>
+                                        </div>
+
+                                        {/* Mobile Submit Button for Step 2 */}
+                                        <div className="lg:hidden pt-4 pb-2">
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmitting || !isFormValid}
+                                                className={cn(
+                                                    'w-full px-6 py-4 bg-[#C75D3B] text-white rounded-full font-medium text-base tracking-wide hover:bg-[#A64D31] transition-all duration-300 shadow-lg shadow-[#C75D3B]/20 flex items-center justify-center gap-2',
+                                                    (isSubmitting || !isFormValid) && 'opacity-50 cursor-not-allowed'
+                                                )}
+                                            >
+                                                {isSubmitting ? (
+                                                    <span className="animate-pulse">Enviando...</span>
+                                                ) : (
+                                                    <>
+                                                        <Gift className="w-5 h-5" />
+                                                        <span>Quero minha malinha!</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setStep(1)}
+                                                className="w-full mt-3 py-2 text-[#C75D3B] hover:text-[#A64D31] transition-colors text-sm font-medium flex items-center justify-center"
+                                            >
+                                                Voltar para revisão
+                                            </button>
                                         </div>
                                     </form>
                                 </motion.div>
@@ -1046,9 +1073,9 @@ export function Checkout() {
                         )}
                     </div>
 
-                    {/* Summary - Hide on Success */}
+                    {/* Summary - Desktop Sidebar (Hidden on Mobile) */}
                     {step !== 3 && (
-                        <div className="lg:col-span-1">
+                        <div className="hidden lg:block lg:col-span-1">
                             <div className="bg-white rounded-2xl shadow-xl shadow-black/5 p-6 sticky top-24 border border-[#4A3B32]/5">
                                 {step === 1 ? (
                                     <>
@@ -1131,6 +1158,43 @@ export function Checkout() {
                         </div>
                     )}
                 </div>
+
+                {/* Floating Summary Bar (Mobile Only) */}
+                <AnimatePresence>
+                    {step === 1 && items.length > 0 && (
+                        <motion.div
+                            initial={{ y: 100, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 100, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="lg:hidden fixed bottom-6 left-4 right-4 z-40"
+                            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+                        >
+                            <div className="flex flex-col gap-2">
+                                <button
+                                    onClick={() => setStep(2)}
+                                    className="flex items-center justify-between w-full px-5 py-4 bg-gradient-to-r from-[#C75D3B] to-[#A64D31] text-white rounded-2xl shadow-2xl shadow-[#C75D3B]/30 active:scale-[0.98] transition-transform"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                            <span className="text-lg font-bold">{items.length}</span>
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-bold text-sm">Ir para a entrega</p>
+                                            <p className="text-xs text-white/70">
+                                                {items.length} {items.length === 1 ? 'peça' : 'peças'} na malinha
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ArrowLeft className="w-5 h-5 rotate-180" />
+                                </button>
+                                <p className="text-[10px] text-center text-[#4A3B32]/40 bg-white/80 backdrop-blur-sm py-1 px-3 rounded-full mx-auto shadow-sm border border-white/50">
+                                    🔒 Seus dados estão seguros e serão usados apenas para entrega
+                                </p>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </div >
     )

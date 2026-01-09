@@ -146,6 +146,7 @@ export function Checkout() {
                     color: product.color || '',
                     category: product.category || '',
                     selectedSize: item.selectedSize,
+                    selectedColor: item.selectedColor, // ✅ Garantindo que a cor seja passada
                     count: 1,
                     itemIds: [item.itemId],
                 };
@@ -332,6 +333,7 @@ export function Checkout() {
                         productId: item.id,           // APENAS ID do produto
                         quantity: item.count,         // Quantidade
                         selectedSize: item.selectedSize, // Tamanho selecionado
+                        selectedColor: item.selectedColor, // ✅ Cor selecionada (CRUCIAL)
                         price: item.price,            // Preço no momento da compra
                         costPrice: item.costPrice || 0, // Custo no momento da compra
                         // NÃO enviar: name, images, description, etc
@@ -414,6 +416,14 @@ export function Checkout() {
 
     return (
         <div className="min-h-screen bg-[#FDFBF7] pt-6 sm:pt-16 md:pt-24 pb-8 sm:pb-16">
+            {/* Loading Overlay */}
+            {isSubmitting && (
+                <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center animate-in fade-in duration-300">
+                    <div className="w-16 h-16 border-4 border-[#C75D3B] border-t-transparent rounded-full animate-spin mb-4" />
+                    <h3 className="font-display text-xl text-[#4A3B32] font-bold">Processando seu pedido...</h3>
+                    <p className="text-[#4A3B32]/60 mt-2">Por favor, aguarde um momento. 💝</p>
+                </div>
+            )}
             <div className="w-full px-4 sm:px-6 max-w-7xl mx-auto">
                 {/* Header - Mobile Optimized */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 md:mb-8">
@@ -556,62 +566,109 @@ export function Checkout() {
                                     transition={{ duration: 0.3 }}
                                     className="bg-white rounded-2xl shadow-xl shadow-black/5 border border-[#4A3B32]/5 p-4 sm:p-6"
                                 >
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+                                    <div className="space-y-3">
                                         {loadingProducts ? (
                                             // Mostrar skeletons enquanto carrega
                                             Array.from({ length: items.length || 3 }).map((_, index) => (
-                                                <SkeletonCard key={`skeleton-${index}`} />
+                                                <div key={`skeleton-${index}`} className="flex gap-4 p-4 bg-white rounded-xl border border-gray-100">
+                                                    <div className="w-20 h-24 bg-gray-200 rounded-lg animate-pulse" />
+                                                    <div className="flex-1 space-y-2">
+                                                        <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse" />
+                                                        <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse" />
+                                                    </div>
+                                                </div>
                                             ))
                                         ) : (
                                             groupedItems.map((item, idx) => (
                                                 <motion.div
                                                     key={item.itemIds[0]}
-                                                    className="group relative touch-target"
-                                                    initial={{ opacity: 0, scale: 0.9 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    className="group relative flex gap-4 p-3 sm:p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all touch-target"
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
                                                     transition={{ delay: idx * 0.05 }}
                                                 >
-                                                    <div className="aspect-[3/4] rounded-lg sm:rounded-xl overflow-hidden relative bg-gray-100">
+                                                    {/* Imagem (Esquerda, pequena) */}
+                                                    <div className="w-20 h-24 sm:w-24 sm:h-32 flex-shrink-0 rounded-lg overflow-hidden relative bg-gray-50 border border-gray-100">
                                                         <img
-                                                            src={getOptimizedImageUrl(item.images?.[0] || item.image, 300)}
+                                                            src={getOptimizedImageUrl(item.images?.[0] || item.image, 200)}
                                                             alt={item.name}
                                                             loading="lazy"
-                                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                            className="w-full h-full object-cover"
                                                             style={{
                                                                 backgroundImage: `url(${getBlurPlaceholder(item.images?.[0] || item.image)})`,
                                                                 backgroundSize: 'cover',
                                                                 backgroundPosition: 'center'
                                                             }}
                                                             onError={(e) => {
-                                                                e.target.src = 'https://via.placeholder.com/300x400?text=Produto';
+                                                                e.target.src = 'https://via.placeholder.com/200x300?text=Produto';
                                                             }}
                                                         />
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 md:group-hover:opacity-100 transition-opacity duration-300" />
                                                     </div>
-                                                    {item.count > 1 && (
-                                                        <Badge variant="primary" size="lg" className="absolute top-2 right-2 z-10 text-xs sm:text-sm">
-                                                            {item.count}x
-                                                        </Badge>
-                                                    )}
-                                                    <button
-                                                        onClick={() => removeItem(item.itemIds[0])}
-                                                        className="absolute top-2 left-2 z-10 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:bg-white hover:text-red-500 flex items-center justify-center transition-all touch-target active:scale-90"
-                                                        aria-label={`Remover ${item.name}`}
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                                    </button>
-                                                    <div className="pt-2 sm:pt-3">
-                                                        <h3 className="font-display text-xs sm:text-base text-[#4A3B32] line-clamp-1">
-                                                            {item.name}
-                                                        </h3>
-                                                        <p className="text-[10px] sm:text-sm text-[#4A3B32]/60">
-                                                            {item.selectedSize}
-                                                        </p>
+
+                                                    {/* Infos (Direita) */}
+                                                    <div className="flex flex-col flex-1 justify-between py-1">
+                                                        <div>
+                                                            <div className="flex justify-between items-start gap-2">
+                                                                <h3 className="font-display text-sm sm:text-base font-semibold text-[#4A3B32] line-clamp-2 leading-tight">
+                                                                    {item.name}
+                                                                </h3>
+                                                                {/* Botão Remover (Topo Direita) */}
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        removeItem(item.itemIds[0]);
+                                                                    }}
+                                                                    className="text-gray-400 hover:text-red-500 p-1.5 -mr-1.5 -mt-1.5 rounded-full hover:bg-red-50 transition-colors"
+                                                                    aria-label={`Remover ${item.name}`}
+                                                                >
+                                                                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                                                                </button>
+                                                            </div>
+
+                                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                                {/* Chips de Tamanho e Cor */}
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-xs font-medium text-gray-700 border border-gray-200">
+                                                                    Tam: {item.selectedSize}
+                                                                </span>
+                                                                {item.selectedColor && (
+                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-xs font-medium text-gray-700 border border-gray-200">
+                                                                        {item.selectedColor}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Contador */}
+                                                        <div className="flex items-end justify-between mt-2">
+                                                            <div className="flex items-center gap-1.5">
+                                                                {item.count > 1 && (
+                                                                    <Badge variant="primary" size="sm" className="text-xs">
+                                                                        {item.count}x
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </motion.div>
                                             ))
                                         )}
                                     </div>
+
+                                    {/* Resumo/CTA Fixo ou no final da lista */}
+                                    {items.length > 0 && !loadingProducts && (
+                                        <div className="mt-6 p-4 bg-[#FDFBF7] border border-[#C75D3B]/20 rounded-xl flex items-center justify-between">
+                                            <div className="text-sm text-[#4A3B32]/70">
+                                                Total de peças: <span className="font-bold text-[#4A3B32]">{items.length}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => setStep(2)}
+                                                className="touch-target px-6 py-2 bg-[#C75D3B] text-white rounded-full font-bold text-sm shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                                            >
+                                                Continuar
+                                                <ArrowLeft className="w-4 h-4 rotate-180" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </motion.div>
                             ) : step === 3 ? (
                                 // Step 3: Success Page
@@ -1079,6 +1136,6 @@ export function Checkout() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

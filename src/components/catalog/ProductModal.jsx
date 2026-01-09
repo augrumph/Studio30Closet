@@ -147,7 +147,8 @@ export function ProductModal({ product, isOpen, onClose }) {
         }
 
         setTimeout(() => {
-            addItem(productWithColor, selectedSize)
+            // ✅ Passando cor explicitamente como 3º argumento para o store salvar corretamente
+            addItem(productWithColor, selectedSize, currentVariant.colorName)
             setIsAdding(false)
             setIsAdded(true)
             // Trigger confetti when product is added to malinha

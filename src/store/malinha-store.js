@@ -28,7 +28,7 @@ export const useMalinhaStore = create(
             customerData: initialCustomerData,
 
             // Add item to malinha
-            addItem: (product, size) => {
+            addItem: (product, size, color) => {
                 const { items } = get()
                 if (items.length >= MAX_ITEMS) {
                     return { success: false, message: 'Limite de 20 peças atingido!' }
@@ -41,21 +41,19 @@ export const useMalinhaStore = create(
 
                 const itemId = `${product.id}-${size}-${Date.now()}`
                 // ULTRA OTIMIZADO: Salvar APENAS productId + metadados leves
-                // As imagens e dados completos serão buscados dinamicamente do banco
                 const newItem = {
                     itemId,           // ID único do item na malinha
-                    productId: product.id,  // ID do produto (para buscar dados depois)
+                    productId: product.id,  // ID do produto
                     selectedSize: size,     // Tamanho selecionado
+                    selectedColor: color,   // ✅ Cor selecionada (IMPORTANTÍSSIMO PARA ESTOQUE)
                     addedAt: new Date().toISOString(),
-                    // NÃO salvar nada mais: images, name, price, description, stock, sizes, variants, etc
-                    // Todos esses dados serão buscados do banco quando necessário
                 }
 
                 set({ items: [...items, newItem] })
 
                 // ✨ Feedback háptico no mobile (vibração sutil)
                 if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                    navigator.vibrate([15, 50, 15]) // padrão sutil: vibra-pausa-vibra
+                    navigator.vibrate([15, 50, 15])
                 }
 
                 return { success: true, message: 'Peça adicionada à malinha!' }

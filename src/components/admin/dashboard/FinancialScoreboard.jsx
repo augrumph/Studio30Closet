@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { CashFlowModal } from './CashFlowModal'
+import { ReceivedAmountModal } from './ReceivedAmountModal'
 import {
     ShoppingCart,
     TrendingUp,
@@ -12,7 +13,8 @@ import {
     CircleCheck,
     CircleAlert,
     CircleX,
-    Sparkles
+    Sparkles,
+    Package
 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
@@ -42,10 +44,38 @@ function getMarginStatus(marginPercent) {
 }
 
 /**
+ * Determina o status de peças por venda
+ * Verde: > 2.5 (cross-sell excelente)
+ * Amarelo: 1.5 - 2.5 (regular)
+ * Vermelho: < 1.5 (venda única)
+ */
+function getItemsPerSaleStatus(itemsPerSale) {
+    if (itemsPerSale > 2.5) return {
+        icon: CircleCheck,
+        label: 'Ótimo',
+        textColor: 'text-emerald-600',
+        bgColor: 'bg-emerald-50'
+    }
+    if (itemsPerSale >= 1.5) return {
+        icon: CircleAlert,
+        label: 'Regular',
+        textColor: 'text-amber-600',
+        bgColor: 'bg-amber-50'
+    }
+    return {
+        icon: CircleX,
+        label: 'Baixo',
+        textColor: 'text-red-600',
+        bgColor: 'bg-red-50'
+    }
+}
+
+/**
  * Configuração dos 6 cards essenciais
  */
 const getSimplifiedCards = (metrics) => {
     const marginStatus = getMarginStatus(metrics.netMarginPercent || 0)
+    const itemsStatus = getItemsPerSaleStatus(metrics.itemsPerSale || 0)
 
     return [
         // Linha 1: Faturamento | Vendas | Ticket Médio
@@ -72,15 +102,16 @@ const getSimplifiedCards = (metrics) => {
             isNumber: true
         },
         {
-            label: 'Ticket Médio',
-            value: metrics.averageTicket,
-            icon: Receipt,
-            iconBg: 'bg-[#F5F0ED]',
-            iconColor: 'text-[#4A3B32]',
-            descriptionIcon: null,
-            descriptionText: 'Valor médio por venda',
-            tooltip: 'Faturamento dividido pelo número de vendas.',
-            isCurrency: true
+            label: 'Peças/Venda',
+            value: metrics.itemsPerSale,
+            icon: Package,
+            iconBg: itemsStatus.bgColor,
+            iconColor: itemsStatus.textColor,
+            descriptionIcon: itemsStatus.icon,
+            descriptionIconColor: itemsStatus.textColor,
+            descriptionText: `${itemsStatus.label} - ${metrics.totalItemsSold || 0} peças`,
+            tooltip: 'Média de produtos por venda. Verde > 2.5 | Amarelo 1.5-2.5 | Vermelho < 1.5. Indica sucesso em cross-sell.',
+            isDecimal: true
         },
         // Linha 2: Lucro | Margem | Caixa
         {
@@ -131,6 +162,9 @@ function KPICard({ stat, index }) {
         }
         if (stat.isPercentage) {
             return `${(stat.value || 0).toFixed(1)}%`
+        }
+        if (stat.isDecimal) {
+            return (stat.value || 0).toFixed(1)
         }
         if (stat.isNumber) {
             return (stat.value || 0).toLocaleString('pt-BR')
@@ -197,6 +231,7 @@ function KPICard({ stat, index }) {
  */
 export function FinancialScoreboard({ metrics, isLoading }) {
     const [isCashFlowOpen, setIsCashFlowOpen] = useState(false)
+    const [isReceivedModalOpen, setIsReceivedModalOpen] = useState(false)
 
     if (isLoading) {
         return (
@@ -216,6 +251,13 @@ export function FinancialScoreboard({ metrics, isLoading }) {
                 tooltip: card.tooltip + ' (Clique para ver detalhes)'
             }
         }
+        if (card.label === 'Faturamento') {
+            return {
+                ...card,
+                onClick: () => setIsReceivedModalOpen(true),
+                tooltip: card.tooltip + ' (Clique para ver o que entrou)'
+            }
+        }
         return card
     })
 
@@ -230,6 +272,13 @@ export function FinancialScoreboard({ metrics, isLoading }) {
             <CashFlowModal
                 isOpen={isCashFlowOpen}
                 onClose={() => setIsCashFlowOpen(false)}
+                metrics={metrics}
+                details={metrics.cashFlowDetails}
+            />
+
+            <ReceivedAmountModal
+                isOpen={isReceivedModalOpen}
+                onClose={() => setIsReceivedModalOpen(false)}
                 metrics={metrics}
                 details={metrics.cashFlowDetails}
             />

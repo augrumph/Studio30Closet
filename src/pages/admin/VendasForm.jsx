@@ -24,8 +24,8 @@ export function VendasForm() {
         addVenda,
         editVenda,
         getVendaById,
-        reloadAll,
-        isInitialLoading
+        isInitialLoading,
+        vendas  // Adicionar para detectar quando os dados chegam
     } = useAdminStore()
 
     const [formData, setFormData] = useState({
@@ -63,18 +63,17 @@ export function VendasForm() {
         selectedSize: null
     })
 
-    // Efeito para carregar dados iniciais (apenas uma vez)
-    useEffect(() => {
-        reloadAll()
-    }, [])
+    // REMOVIDO: reloadAll() já é chamado pelo AdminLayout
+    // O componente depende dos dados já carregados pelo layout pai
 
     // Efeito para popular o formulário quando os dados estiverem prontos
+    // Usa vendas.length como trigger para garantir que os dados chegaram
     useEffect(() => {
-        // Só tenta popular se não estiver mais carregando
-        if (isInitialLoading) return
+        // Só tenta popular se não estiver mais carregando E houver dados
+        if (isInitialLoading || vendas.length === 0) return
 
-        if (isEdit) {
-            const venda = getVendaById(parseInt(id))
+        if (isEdit && id) {
+            const venda = vendas.find(v => v.id === parseInt(id))
 
             if (venda) {
                 // Garantir que items é um array (pode vir como string JSON do banco)
@@ -122,13 +121,12 @@ export function VendasForm() {
                 }
             } else {
                 // Só redireciona se já carregou TUDO e mesmo assim não achou
-                if (!isInitialLoading) {
-                    toast.error('Venda não localizada.')
-                    navigate('/admin/vendas')
-                }
+                toast.error('Venda não localizada.')
+                navigate('/admin/vendas')
             }
         }
-    }, [id, isEdit, isInitialLoading, getVendaById, navigate])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, isEdit, isInitialLoading, vendas.length])
 
 
 

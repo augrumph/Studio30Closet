@@ -142,10 +142,12 @@ export function useDashboardMetrics({
         // =================================================================================
 
         let costWarnings = 0
+        let totalItemsSold = 0  // Contador de peças vendidas
         const totalCPV = allSales.reduce((sum, v) => {
             const itemsCost = (v.items || []).reduce((itemSum, item) => {
                 let cost = item.costPriceAtTime || item.cost_price_at_time || item.costPrice
                 const quantity = item.quantity || item.qty || 1
+                totalItemsSold += quantity  // Somar quantidade de peças
                 if (!cost || cost <= 0) {
                     costWarnings++
                     cost = (item.price || 0) * 0.6
@@ -154,6 +156,9 @@ export function useDashboardMetrics({
             }, 0)
             return sum + itemsCost
         }, 0)
+
+        // Métrica: Peças por Venda
+        const itemsPerSale = allSales.length > 0 ? totalItemsSold / allSales.length : 0
 
         // =================================================================================
         // CÁLCULO DRE (Flow Correto)
@@ -213,8 +218,13 @@ export function useDashboardMetrics({
             const isFiado = (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado' || v.paymentMethod === 'crediario');
 
             if (status === 'paid' && (!isInstallment || !isFiado)) {
-                amountToAdd = (net || total - fee);
+                // ✅ CORREÇÃO: Sempre descontar taxa de maquininha!
+                // Se net existe, usamos. Senão calculamos total - fee
+                amountToAdd = net > 0 ? net : (total - fee);
                 description += ` (À vista/Cartão) - ${customerName}`;
+                if (fee > 0) {
+                    description += ` [Taxa: -R$${fee.toFixed(2)}]`;
+                }
             } else if (entry > 0) {
                 amountToAdd = entry;
                 description += ` (Entrada) - ${customerName}`;
@@ -414,6 +424,8 @@ export function useDashboardMetrics({
 
             // Metadata
             totalSalesCount: allSales.length,
+            totalItemsSold,
+            itemsPerSale,
             averageTicket: allSales.length > 0 ? netRevenue / allSales.length : 0,
             costWarnings,
             periodDays,

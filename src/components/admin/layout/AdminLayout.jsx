@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { AdminSidebar } from './AdminSidebar'
 import { AdminTopbar } from './AdminTopbar'
@@ -12,14 +12,25 @@ export function AdminLayout() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const location = useLocation()
+    const lastLoadRef = useRef(0)
 
     const isInitialLoading = useAdminStore(state => state.isInitialLoading)
     const reloadAll = useAdminStore(state => state.reloadAll)
+    const hasData = useAdminStore(state =>
+        state.products.length > 0 || state.vendas.length > 0 || state.customers.length > 0
+    )
 
-    // Trigger initial load
+    // ⚡ PERFORMANCE: Só recarrega se não houver dados OU se passaram 2 minutos
     useEffect(() => {
-        reloadAll()
-    }, [reloadAll])
+        const now = Date.now()
+        const timeSinceLastLoad = now - lastLoadRef.current
+        const shouldReload = !hasData || timeSinceLastLoad > 120000 // 2 minutos
+
+        if (shouldReload) {
+            lastLoadRef.current = now
+            reloadAll()
+        }
+    }, []) // Sem dependências - só na montagem
 
     // Determine skeleton variant based on route
     const getSkeletonVariant = () => {

@@ -262,6 +262,12 @@ export function Checkout() {
             errors.phone = 'Telefone inválido'
         }
 
+        if (!customerData.cpf?.trim()) {
+            errors.cpf = 'CPF é obrigatório';
+        } else if (customerData.cpf.replace(/\D/g, '').length !== 11) {
+            errors.cpf = 'CPF inválido (11 dígitos)';
+        }
+
         if (!address.zipCode?.trim()) {
             errors.zipCode = 'CEP é obrigatório'
         } else if (address.zipCode.replace(/\D/g, '').length !== 8) {
@@ -791,16 +797,27 @@ export function Checkout() {
                                                 />
                                             </div>
                                             <div>
-                                                <label htmlFor="cpf" className="block text-sm font-medium text-[#4A3B32] mb-1">CPF (Opcional)</label>
+                                                <label htmlFor="cpf" className="block text-sm font-medium text-[#4A3B32] mb-1">CPF *</label>
                                                 <input
                                                     type="text"
                                                     id="cpf"
                                                     name="cpf"
                                                     value={customerData.cpf || ''}
                                                     onChange={handleInputChange}
+                                                    onFocus={handleFocus}
+                                                    required
+                                                    aria-required="true"
+                                                    aria-invalid={!!formErrors.cpf}
+                                                    aria-describedby={formErrors.cpf ? "cpf-error" : undefined}
                                                     placeholder="000.000.000-00"
-                                                    className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[#C75D3B] focus:ring-0 outline-none transition-colors duration-300 text-base bg-white"
+                                                    className={cn(
+                                                        "w-full px-4 py-3 rounded-lg border-2 focus:ring-0 outline-none transition-colors duration-300 text-base",
+                                                        formErrors.cpf ? "border-red-400 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-[#C75D3B] bg-white"
+                                                    )}
                                                 />
+                                                {formErrors.cpf && (
+                                                    <p id="cpf-error" className="mt-1 text-sm text-red-600">{formErrors.cpf}</p>
+                                                )}
                                             </div>
                                         </div>
 

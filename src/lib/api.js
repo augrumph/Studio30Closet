@@ -1027,8 +1027,94 @@ export async function createOrder(orderData) {
 
     let customerId = customerIdFromData;
 
+    // ✅ Se não tiver customerId mas tiver dados do cliente, criar ou buscar cliente
+    if (!customerId && customer) {
+        console.log('👤 Buscando/criando cliente a partir dos dados recebidos...');
+
+        // 1. Validação Obrigatória de CPF
+        const cpf = customer.cpf?.replace(/\D/g, '');
+        if (!cpf || cpf.length < 11) {
+            throw new Error("CPF válido (11 dígitos) é obrigatório para finalizar o pedido.");
+        }
+
+        try {
+            // 2. Buscar cliente existente por CPF (Prioridade absoluta)
+            const { data: existingCustomer } = await supabase
+                .from('customers')
+                .select('id')
+                .eq('cpf', cpf)
+                .maybeSingle();
+
+            if (existingCustomer) {
+                customerId = existingCustomer.id;
+                console.log('✅ Cliente existente encontrado por CPF:', customerId);
+            }
+
+            // 3. Se não encontrou, buscar por TELEFONE como fallback
+            if (!customerId && customer.phone) {
+                const phone = customer.phone?.replace(/\D/g, '');
+                if (phone) {
+                    const { data: existingByPhone } = await supabase
+                        .from('customers')
+                        .select('id')
+                        .eq('phone', phone)
+                        .maybeSingle();
+
+                    if (existingByPhone) {
+                        customerId = existingByPhone.id;
+                        console.log('✅ Cliente existente encontrado por Telefone:', customerId);
+                        // Atualizar CPF
+                        await supabase.from('customers').update({ cpf: cpf }).eq('id', customerId);
+                        console.log('🔄 CPF atualizado para o cliente encontrado por telefone.');
+                    }
+                }
+            }
+
+            // 4. Se ainda não encontrou, criar novo cliente
+            if (!customerId) {
+                console.log('📝 Criando novo cliente com CPF...');
+
+                const customerRecord = {
+                    name: customer.name,
+                    phone: customer.phone?.replace(/\D/g, '') || null,
+                    email: customer.email || null,
+                    cpf: cpf,
+                    addresses: customer.addresses || []
+                };
+
+                const { data: newCustomer, error: customerError } = await supabase
+                    .from('customers')
+                    .insert([customerRecord])
+                    .select()
+                    .single();
+
+                if (customerError) {
+                    if (customerError.code === '23505') {
+                        console.warn('⚠️ Cliente duplicado detectado na criação, tentando recuperação...');
+                        const { data: retryCustomer } = await supabase
+                            .from('customers')
+                            .select('id')
+                            .or(`cpf.eq.${cpf},phone.eq.${customerRecord.phone}`)
+                            .single();
+                        if (retryCustomer) customerId = retryCustomer.id;
+                    } else {
+                        console.error('❌ Erro ao criar cliente:', customerError);
+                        throw new Error('Erro ao criar cliente: ' + customerError.message);
+                    }
+                } else {
+                    customerId = newCustomer.id;
+                    console.log('✅ Novo cliente criado com ID:', customerId);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Erro ao processar cliente:', error);
+            if (error.message && error.message.includes("CPF")) throw error;
+            throw new Error('Erro ao processar dados do cliente: ' + error.message);
+        }
+    }
+
     if (!customerId) {
-        throw new Error("customerId é obrigatório para criar um pedido. Selecione um cliente antes de salvar.");
+        throw new Error("Dados do cliente são obrigatórios. Preencha nome e telefone.");
     }
 
     console.log('📝 Creating order record with customer_id:', customerId);

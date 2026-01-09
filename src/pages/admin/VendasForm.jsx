@@ -14,7 +14,19 @@ export function VendasForm() {
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = Boolean(id)
-    const { products, customers, coupons, loadCoupons, loadCustomers, addVenda, editVenda, getVendaById, reloadAll } = useAdminStore()
+    const {
+        products,
+        loadProducts,
+        customers,
+        coupons,
+        loadCoupons,
+        loadCustomers,
+        addVenda,
+        editVenda,
+        getVendaById,
+        reloadAll,
+        isInitialLoading
+    } = useAdminStore()
 
     const [formData, setFormData] = useState({
         customerId: '',
@@ -51,13 +63,19 @@ export function VendasForm() {
         selectedSize: null
     })
 
+    // Efeito para carregar dados iniciais (apenas uma vez)
     useEffect(() => {
-        // Carregar produtos e todos os clientes para o formulário
         reloadAll()
-        loadCustomers()
-        loadCoupons()
+    }, [])
+
+    // Efeito para popular o formulário quando os dados estiverem prontos
+    useEffect(() => {
+        // Só tenta popular se não estiver mais carregando
+        if (isInitialLoading) return
+
         if (isEdit) {
             const venda = getVendaById(parseInt(id))
+
             if (venda) {
                 // Garantir que items é um array (pode vir como string JSON do banco)
                 let parsedItems = venda.items
@@ -103,11 +121,16 @@ export function VendasForm() {
                     setInstallmentStartDate(venda.installmentStartDate || '')
                 }
             } else {
-                toast.error('Venda não localizada.')
-                navigate('/admin/vendas')
+                // Só redireciona se já carregou TUDO e mesmo assim não achou
+                if (!isInitialLoading) {
+                    toast.error('Venda não localizada.')
+                    navigate('/admin/vendas')
+                }
             }
         }
-    }, [id, isEdit, getVendaById, reloadAll, loadCustomers, navigate])
+    }, [id, isEdit, isInitialLoading, getVendaById, navigate])
+
+
 
     // Calcular taxa automaticamente quando mudar método de pagamento, bandeira ou valor
     useEffect(() => {
@@ -544,6 +567,17 @@ export function VendasForm() {
     const filteredCustomers = customers.filter(c =>
         c.name.toLowerCase().includes(customerSearch.toLowerCase())
     ).slice(0, 5)
+
+    if (isInitialLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-[#C75D3B] border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-[#4A3B32] font-bold animate-pulse">Carregando dados...</p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 pb-20">

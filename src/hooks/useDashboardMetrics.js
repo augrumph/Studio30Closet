@@ -7,6 +7,7 @@ import { useMemo } from 'react'
  * @param {Object} params
  * @param {Array} params.filteredVendas - Vendas filtradas pelo período
  * @param {Array} params.allVendas - Todas as vendas do store (para cálculo de a receber)
+ * @param {Array} params.purchases - Compras de fornecedores (para fluxo de caixa)
  * @param {Object} params.dashboardData - Dados adicionais (despesas, parcelas)
  * @param {number} params.periodDays - Número de dias do período selecionado
  * @param {string} params.periodFilter - Filtro de período ativo
@@ -16,6 +17,7 @@ import { useMemo } from 'react'
 export function useDashboardMetrics({
     filteredVendas,
     allVendas,
+    purchases = [],
     dashboardData,
     periodDays,
     periodFilter,
@@ -183,30 +185,60 @@ export function useDashboardMetrics({
         // FLUXO DE CAIXA E OUTROS
         // =================================================================================
 
-        // Simples soma de recebidos (mantido, mas atenção aos 20 reais de diferença do user)
-        // Os R$ 20,18 de diferença podem ser "entryPayment" vs "totalValue".
-        // Vamos manter a lógica original de recebimento por ser baseada em status.
+        // =================================================================================
+        // FLUXO DE CAIXA E OUTROS
+        // =================================================================================
 
+        const inflowItems = [];
+        const outflowItems = [];
+
+        // 1. SALES INFLOW
         const receivedFromSales = allSales.reduce((sum, v) => {
-            // Lógica existente...
             const status = v.paymentStatus || v.payment_status;
             const isInstallment = v.isInstallment || v.is_installment === true;
-            const net = Number(v.netAmount || v.net_amount || 0); // Já desconta taxa se calculado no back
+            const net = Number(v.netAmount || v.net_amount || 0);
             const total = Number(v.totalValue || v.total_value || 0);
             const fee = Number(v.feeAmount || v.fee_amount || 0);
             const entry = Number(v.entryPayment || v.entry_payment || 0);
+            const date = v.createdAt || v.created_at;
 
-            if (status === 'paid' && !isInstallment) {
-                return sum + (net || total - fee);
+            let amountToAdd = 0;
+            let description = `Venda #${v.id}`;
+            const customerName = v.customers?.name || v.customerName || 'Cliente';
+
+            // ✅ CORREÇÃO: Credito Parcelado (status=paid) deve entrar no caixa!
+            // isInstallment=true remove da "Venda à vista", mas se for Cartão, o dinheiro "entrou" (ou vai entrar garantido).
+            // Apenas 'fiado' e 'fiado_parcelado' dependem 100% de pagamentos manuais de parcelas.
+            // Se for 'credito_parcelado' e status='paid', contamos o valor cheio (ou líquido).
+            const isFiado = (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado' || v.paymentMethod === 'crediario');
+
+            if (status === 'paid' && (!isInstallment || !isFiado)) {
+                amountToAdd = (net || total - fee);
+                description += ` (À vista/Cartão) - ${customerName}`;
+            } else if (entry > 0) {
+                amountToAdd = entry;
+                description += ` (Entrada) - ${customerName}`;
             }
-            return sum + entry;
+
+            if (amountToAdd > 0) {
+                inflowItems.push({
+                    id: `sale-${v.id}`,
+                    date: date,
+                    description: description,
+                    value: amountToAdd,
+                    type: 'Venda'
+                });
+                return sum + amountToAdd;
+            }
+            return sum;
         }, 0);
 
+        // 2. INSTALLMENTS INFLOW
         let receivedFromInstallments = 0;
         const now = new Date();
         const isInPeriod = (dateStr) => {
             const date = new Date(dateStr);
-            if (periodFilter === 'all') return true; // Fix para pegar tudo no 'all'
+            if (periodFilter === 'all') return true;
             if (periodFilter === 'last7days') return date >= new Date(now.getTime() - 7 * 86400000);
             if (periodFilter === 'last30days') return date >= new Date(now.getTime() - 30 * 86400000);
             if (periodFilter === 'currentMonth') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
@@ -223,13 +255,77 @@ export function useDashboardMetrics({
                 (inst.installmentPayments || []).forEach(payment => {
                     const paymentDate = payment.createdAt || payment.paymentDate;
                     if (isInPeriod(paymentDate)) {
-                        receivedFromInstallments += (payment.paymentAmount || 0);
+                        const amount = (payment.paymentAmount || 0);
+                        receivedFromInstallments += amount;
+                        inflowItems.push({
+                            id: `pay-${payment.id}`,
+                            date: paymentDate,
+                            description: `Parcela - Malinha #${inst.vendas?.orderId || inst.vendaId || '?'}`,
+                            value: amount,
+                            type: 'Parcela'
+                        });
                     }
                 });
             });
         }
 
         const receivedAmount = receivedFromSales + receivedFromInstallments;
+
+        // =================================================================================
+        // OUTFLOWS (Purchases + Expenses)
+        // =================================================================================
+
+        // 1. PURCHASES (Store Only)
+        const purchasesList = (purchases || [])
+            .filter(p => isInPeriod(p.date || p.createdAt))
+            .filter(p => !p.spentBy || p.spentBy === 'loja');
+
+        const purchasesInPeriod = purchasesList.reduce((sum, p) => {
+            const val = (p.value || 0);
+            outflowItems.push({
+                id: `purch-${p.id}`,
+                date: p.date || p.createdAt,
+                description: `Compra: ${p.suppliers?.name || 'Fornecedor'}`,
+                value: val,
+                type: 'Compra'
+            });
+            return sum + val;
+        }, 0);
+
+        // 2. FIXED EXPENSES & LOANS
+        // Add summarized items for expenses
+        if (appliedOperationalExpenses > 0) {
+            outflowItems.push({
+                id: 'exp-op',
+                date: now.toISOString(), // Representing period
+                description: 'Despesas Operacionais (Rateio)',
+                value: appliedOperationalExpenses,
+                type: 'Despesa'
+            });
+        }
+        if (appliedDasExpense > 0) {
+            outflowItems.push({
+                id: 'exp-das',
+                date: now.toISOString(),
+                description: 'Imposto DAS (Estimado)',
+                value: appliedDasExpense,
+                type: 'Imposto'
+            });
+        }
+        if (appliedLoanInterest + appliedAmortization > 0) {
+            outflowItems.push({
+                id: 'exp-loan',
+                date: now.toISOString(),
+                description: 'Parcela Empréstimo (Juros + Amortização)',
+                value: appliedLoanInterest + appliedAmortization,
+                type: 'Empréstimo'
+            });
+        }
+
+        // Sort items by date descending
+        inflowItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+        outflowItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+
 
         // A Receber... (mantido lógica anterior simplificada)
         const toReceiveFromSimpleSales = (allVendas || []).reduce((sum, v) => {
@@ -305,6 +401,17 @@ export function useDashboardMetrics({
             defaultPercent,
             pendingFiado,
 
+            // Cash Flow Components for Breakdown
+            purchasesInPeriod,
+            totalExpensesInPeriod: appliedOperationalExpenses + appliedDasExpense + appliedLoanInterest + appliedAmortization,
+            cashBalance: receivedAmount - purchasesInPeriod - (appliedOperationalExpenses + appliedDasExpense + appliedLoanInterest + appliedAmortization),
+
+            // Detailed Breakdown Lists
+            cashFlowDetails: {
+                inflows: inflowItems,
+                outflows: outflowItems
+            },
+
             // Metadata
             totalSalesCount: allSales.length,
             averageTicket: allSales.length > 0 ? netRevenue / allSales.length : 0,
@@ -312,5 +419,5 @@ export function useDashboardMetrics({
             periodDays,
             isFullMonthProjection: shouldShowFullMonth
         };
-    }, [filteredVendas, allVendas, dashboardData, periodDays, periodFilter, customDateRange])
+    }, [filteredVendas, allVendas, purchases, dashboardData, periodDays, periodFilter, customDateRange])
 }

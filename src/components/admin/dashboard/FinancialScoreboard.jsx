@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { CashFlowModal } from './CashFlowModal'
 import {
     ShoppingCart,
     TrendingUp,
@@ -107,13 +109,13 @@ const getSimplifiedCards = (metrics) => {
         },
         {
             label: 'Caixa',
-            value: metrics.receivedAmount,
+            value: metrics.cashBalance,
             icon: Wallet,
             iconBg: 'bg-[#FAF3F0]',
             iconColor: 'text-[#C75D3B]',
             descriptionIcon: null,
-            descriptionText: `+ R$ ${(metrics.toReceiveAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber`,
-            tooltip: 'Dinheiro já recebido no período. O valor abaixo mostra o que ainda está pendente.',
+            descriptionText: `Entr: ${(metrics.receivedAmount || 0).toLocaleString('pt-BR')} | Sai: ${((metrics.purchasesInPeriod || 0) + (metrics.totalExpensesInPeriod || 0)).toLocaleString('pt-BR')}`,
+            tooltip: `Saldo Final = Recebido (R$ ${metrics.receivedAmount?.toLocaleString('pt-BR')}) - [Compras Loja (R$ ${metrics.purchasesInPeriod?.toLocaleString('pt-BR')}) + Despesas (R$ ${metrics.totalExpensesInPeriod?.toLocaleString('pt-BR')})]`,
             isCurrency: true
         }
     ]
@@ -144,7 +146,9 @@ function KPICard({ stat, index }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             whileHover={{ y: -2 }}
             transition={{ delay: index * 0.05, duration: 0.3 }}
-            className="relative bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group overflow-hidden"
+            className={`relative bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm transition-all group overflow-hidden ${stat.onClick ? 'cursor-pointer hover:shadow-md hover:border-[#C75D3B]/30' : 'hover:shadow-md'
+                }`}
+            onClick={stat.onClick}
         >
             <div className="relative z-10 p-4 flex flex-col h-full">
                 {/* Header: Icon + Info */}
@@ -191,8 +195,29 @@ function KPICard({ stat, index }) {
 /**
  * Componente principal do scoreboard financeiro simplificado (6 KPIs)
  */
-export function FinancialScoreboard({ metrics }) {
-    const cards = getSimplifiedCards(metrics)
+export function FinancialScoreboard({ metrics, isLoading }) {
+    const [isCashFlowOpen, setIsCashFlowOpen] = useState(false)
+
+    if (isLoading) {
+        return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
+                ))}
+            </div>
+        )
+    }
+
+    const cards = getSimplifiedCards(metrics).map(card => {
+        if (card.label === 'Caixa') {
+            return {
+                ...card,
+                onClick: () => setIsCashFlowOpen(true),
+                tooltip: card.tooltip + ' (Clique para ver detalhes)'
+            }
+        }
+        return card
+    })
 
     return (
         <TooltipProvider delayDuration={200}>
@@ -201,6 +226,13 @@ export function FinancialScoreboard({ metrics }) {
                     <KPICard key={stat.label} stat={stat} index={i} />
                 ))}
             </div>
+
+            <CashFlowModal
+                isOpen={isCashFlowOpen}
+                onClose={() => setIsCashFlowOpen(false)}
+                metrics={metrics}
+                details={metrics.cashFlowDetails}
+            />
         </TooltipProvider>
     )
 }

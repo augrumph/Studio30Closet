@@ -12,6 +12,7 @@ import {
     CreditCard
 } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
+import { useSuppliersStore } from '@/store/suppliers-store'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -29,7 +30,10 @@ export function Dashboard() {
     const vendas = useAdminStore(state => state.vendas)
     const customers = useAdminStore(state => state.customers)
     const reloadAll = useAdminStore(state => state.reloadAll)
-    const isLoadingStore = useAdminStore(state => state.isLoading)
+    const isLoadingStore = useAdminStore(state => state.isInitialLoading)
+
+    // Purchases Store
+    const { purchases, loadPurchases } = useSuppliersStore()
 
     const [currentTime, setCurrentTime] = useState(new Date())
     const [dashboardData, setDashboardData] = useState(null)
@@ -42,9 +46,12 @@ export function Dashboard() {
         if (!vendas.length) {
             reloadAll()
         }
+        if (!purchases.length) {
+            loadPurchases()
+        }
         const timer = setInterval(() => setCurrentTime(new Date()), 60000)
         return () => clearInterval(timer)
-    }, [reloadAll, vendas])
+    }, [reloadAll, vendas, loadPurchases, purchases])
 
     useEffect(() => {
         const loadDashboardData = async () => {
@@ -123,6 +130,7 @@ export function Dashboard() {
     const financialMetrics = useDashboardMetrics({
         filteredVendas,
         allVendas: vendas,
+        purchases,
         dashboardData,
         periodDays,
         periodFilter,

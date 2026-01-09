@@ -65,7 +65,8 @@ export async function getProducts(page = 1, pageSize = 20) {
 
     const { data, error, count } = await supabase
         .from('products')
-        .select('*', { count: 'exact' })
+        // Select explicit columns to avoid timeout on heavy rows
+        .select('id, name, price, original_price, images, category, stock, variants, description, active, created_at, is_featured, is_new, sizes, color, supplier_id', { count: 'estimated' })
         .order('created_at', { ascending: false })
         .range(start, end);
 
@@ -177,7 +178,7 @@ export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) 
     // Construir query base
     let query = supabase
         .from('products')
-        .select('id, name, price, original_price, images, category, is_new, is_featured, sizes, color, variants, stock, description, active', { count: 'exact' })
+        .select('id, name, price, original_price, images, category, is_new, is_featured, sizes, color, variants, stock, description, active', { count: 'estimated' })
         .eq('active', true);
 
     // Filtro de categoria
@@ -329,7 +330,7 @@ export async function getCustomers(page = 1, limit = 50) {
     const offset = (page - 1) * limit;
     const { data, error, count } = await supabase
         .from('customers')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'estimated' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -410,9 +411,11 @@ export async function deleteCustomer(id) {
 export async function getOrders(page = 1, limit = 30) {
     console.log(`🔍 API: Getting orders (page ${page}, limit ${limit})...`);
     const offset = (page - 1) * limit;
+
+    // Fetch orders WITH customer data in a single query
     const { data, error, count } = await supabase
         .from('orders')
-        .select('id, customer_id, status, total_value, created_at', { count: 'exact' })
+        .select('*, customer:customers(id, name, phone)', { count: 'estimated' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -423,35 +426,23 @@ export async function getOrders(page = 1, limit = 30) {
 
     console.log(`✅ API: Got ${data?.length || 0} orders (total: ${count})`);
 
-    const camelCasedData = data.map(toCamelCase);
+    // Map to camelCase
+    const orders = data.map(order => {
+        const camelOrder = toCamelCase(order);
 
-    // Buscar dados dos clientes para cada pedido
-    const ordersWithCustomers = await Promise.all(
-        camelCasedData.map(async (order) => {
-            let customer = null;
+        // Handle the joined customer data correctly
+        // toCamelCase likely handles nested objects, but let's ensure structure
+        const customer = order.customer ? toCamelCase(order.customer) : null;
 
-            if (order.customerId) {
-                const { data: customerData } = await supabase
-                    .from('customers')
-                    .select('id, name, phone')
-                    .eq('id', order.customerId)
-                    .single();
-
-                if (customerData) {
-                    customer = toCamelCase(customerData);
-                }
-            }
-
-            return {
-                ...order,
-                orderNumber: `#${String(order.id).padStart(6, '0')}`,
-                customer: customer
-            };
-        })
-    );
+        return {
+            ...camelOrder,
+            orderNumber: `#${String(order.id).padStart(6, '0')}`,
+            customer: customer
+        };
+    });
 
     return {
-        orders: ordersWithCustomers,
+        orders,
         total: count,
         page,
         limit
@@ -1237,7 +1228,7 @@ export async function getVendas(page = 1, limit = 30) {
     const offset = (page - 1) * limit;
     const { data, error, count } = await supabase
         .from('vendas')
-        .select('id, customer_id, total_value, payment_method, payment_status, created_at, fee_amount, net_amount, items, entry_payment, is_installment, customers(id, name)', { count: 'exact' })
+        .select('id, customer_id, total_value, payment_method, payment_status, created_at, fee_amount, net_amount, items, entry_payment, is_installment, customers(id, name)', { count: 'estimated' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -2377,7 +2368,7 @@ export async function getOpenInstallmentSales(page = 1, limit = 30) {
 
         const { data, error, count } = await supabase
             .from('vendas')
-            .select('id, customer_id, total_value, entry_payment, num_installments, is_installment, payment_method, payment_status, created_at, customers(id, name, phone)', { count: 'exact' })
+            .select('id, customer_id, total_value, entry_payment, num_installments, is_installment, payment_method, payment_status, created_at, customers(id, name, phone)', { count: 'estimated' })
             // ✅ CORREÇÃO: Crediário = fiado (simples) OU fiado_parcelado
             // Inclui TODAS as vendas no fiado, parceladas ou não
             .in('payment_method', ['fiado', 'fiado_parcelado'])
@@ -2449,7 +2440,7 @@ export async function getDashboardMetrics() {
         // 3. INSTALLMENTS (para análise de fluxo de caixa)
         const { data: installmentsData, error: installmentsError } = await supabase
             .from('installments')
-            .select('*, installment_payments(*)');
+            .select('*, installment_payments(*), vendas(id, order_id)');
 
         if (installmentsError) throw installmentsError;
 

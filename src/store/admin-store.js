@@ -821,14 +821,27 @@ export const useAdminStore = create(
 
             reloadAll: async () => {
                 set({ isInitialLoading: true })
-                await Promise.all([
-                    get().loadProducts(),
-                    get().loadOrders(),
-                    get().loadCustomers(),
-                    get().loadVendas(),
-                    get().loadCoupons()
-                ])
-                set({ isInitialLoading: false })
+                try {
+                    // Timeout de segurança de 15s para conexões lentas (mobile)
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Timeout loading data')), 15000)
+                    )
+
+                    await Promise.race([
+                        Promise.all([
+                            get().loadProducts(),
+                            get().loadOrders(),
+                            get().loadCustomers(),
+                            get().loadVendas(),
+                            get().loadCoupons()
+                        ]),
+                        timeoutPromise
+                    ])
+                } catch (error) {
+                    console.warn('⚠️ ReloadAll finalizado com erro ou timeout (UI liberada):', error)
+                } finally {
+                    set({ isInitialLoading: false })
+                }
             }
         }),
         {

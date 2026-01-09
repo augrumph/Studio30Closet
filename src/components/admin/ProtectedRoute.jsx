@@ -9,8 +9,13 @@ export function ProtectedRoute({ children }) {
     useEffect(() => {
         const check = async () => {
             if (isAuthenticated) {
-                // Verificar se a sessão é válida no backend (impede acesso com usuario deletado)
-                await validateSession()
+                // Timeout de segurança para não travar login
+                try {
+                    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 5000))
+                    await Promise.race([validateSession(), timeoutPromise])
+                } catch (error) {
+                    console.warn('⚠️ Validação de sessão lenta ou falhou, prosseguindo...', error)
+                }
             }
             setIsValidating(false)
         }

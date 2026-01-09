@@ -568,88 +568,91 @@ export function Checkout() {
                                 >
                                     <div className="space-y-3">
                                         {loadingProducts ? (
-                                            // Mostrar skeletons enquanto carrega
-                                            Array.from({ length: items.length || 3 }).map((_, index) => (
-                                                <div key={`skeleton-${index}`} className="flex gap-4 p-4 bg-white rounded-xl border border-gray-100">
-                                                    <div className="w-20 h-24 bg-gray-200 rounded-lg animate-pulse" />
-                                                    <div className="flex-1 space-y-2">
-                                                        <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse" />
-                                                        <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse" />
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                                                {Array.from({ length: items.length || 3 }).map((_, index) => (
+                                                    <div key={`skeleton-${index}`} className="flex flex-col bg-white rounded-lg border border-gray-100 overflow-hidden">
+                                                        <div className="aspect-[3/4] bg-gray-200 animate-pulse" />
+                                                        <div className="p-2 space-y-2">
+                                                            <div className="h-3 bg-gray-200 rounded w-3/4 animate-pulse" />
+                                                            <div className="h-2 bg-gray-200 rounded w-1/2 animate-pulse" />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))
+                                                ))}
+                                            </div>
                                         ) : (
-                                            groupedItems.map((item, idx) => (
-                                                <motion.div
-                                                    key={item.itemIds[0]}
-                                                    className="group relative flex gap-3 p-2.5 bg-white border border-gray-100 rounded-lg shadow-sm transition-all"
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ delay: idx * 0.05 }}
-                                                >
-                                                    {/* Imagem (Esquerda, mais compacta) */}
-                                                    <div className="w-16 h-20 sm:w-20 sm:h-24 flex-shrink-0 rounded-md overflow-hidden relative bg-gray-50 border border-gray-100">
-                                                        <img
-                                                            src={getOptimizedImageUrl(item.images?.[0] || item.image, 150)}
-                                                            alt={item.name}
-                                                            loading="lazy"
-                                                            className="w-full h-full object-cover"
-                                                            style={{
-                                                                backgroundImage: `url(${getBlurPlaceholder(item.images?.[0] || item.image)})`,
-                                                                backgroundSize: 'cover',
-                                                                backgroundPosition: 'center'
-                                                            }}
-                                                            onError={(e) => {
-                                                                e.target.src = 'https://via.placeholder.com/200x300?text=Produto';
-                                                            }}
-                                                        />
-                                                    </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                                                {groupedItems.map((item, idx) => (
+                                                    <motion.div
+                                                        key={item.itemIds[0]}
+                                                        className="group relative flex flex-col bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all"
+                                                        initial={{ opacity: 0, scale: 0.95 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        transition={{ delay: idx * 0.05 }}
+                                                    >
+                                                        {/* Imagem (Height Reduzido, fixo) */}
+                                                        <div className="relative h-32 sm:h-40 bg-gray-50">
+                                                            <img
+                                                                src={getOptimizedImageUrl(item.images?.[0] || item.image, 300)}
+                                                                alt={item.name}
+                                                                loading="lazy"
+                                                                className="w-full h-full object-cover object-top"
+                                                                style={{
+                                                                    backgroundImage: `url(${getBlurPlaceholder(item.images?.[0] || item.image)})`,
+                                                                    backgroundSize: 'cover',
+                                                                    backgroundPosition: 'center'
+                                                                }}
+                                                                onError={(e) => {
+                                                                    e.target.src = 'https://via.placeholder.com/300x400?text=Produto';
+                                                                }}
+                                                            />
 
-                                                    {/* Infos (Direita) */}
-                                                    <div className="flex flex-col flex-1 justify-center py-0.5">
-                                                        <div className="flex justify-between items-start gap-2">
-                                                            <h3 className="font-display text-xs sm:text-sm font-semibold text-[#4A3B32] line-clamp-2 leading-tight">
-                                                                {item.name}
-                                                            </h3>
-                                                            {/* Botão Remover (Compacto) */}
+                                                            {/* Botão Remover (Overlay no Topo Direito, Centralizado) */}
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     removeItem(item.itemIds[0]);
                                                                 }}
-                                                                className="text-gray-400 hover:text-red-500 p-1 -mr-1 -mt-1 rounded-full hover:bg-red-50 transition-colors"
+                                                                className="absolute top-1.5 right-1.5 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:text-red-500 hover:bg-white transition-all shadow-sm active:scale-95 touch-target"
                                                                 aria-label={`Remover ${item.name}`}
                                                             >
-                                                                <Trash2 className="w-4 h-4" />
+                                                                <Trash2 className="w-3.5 h-3.5" />
                                                             </button>
-                                                        </div>
 
-                                                        <div className="flex items-center gap-2 mt-1.5">
-                                                            {/* Chips de Tamanho e Cor (Mais compactos) */}
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-50 text-[10px] sm:text-xs font-medium text-gray-600 border border-gray-100">
-                                                                {item.selectedSize}
-                                                            </span>
-                                                            {item.selectedColor && (
-                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-50 text-[10px] sm:text-xs font-medium text-gray-600 border border-gray-100">
-                                                                    {item.selectedColor}
-                                                                </span>
-                                                            )}
-
+                                                            {/* Badge Quantidade (Bottom Left se > 1) */}
                                                             {item.count > 1 && (
-                                                                <Badge variant="primary" size="sm" className="text-[10px] h-5 px-1.5">
+                                                                <Badge variant="primary" size="sm" className="absolute bottom-1.5 left-1.5 text-[10px] h-5 px-1.5 shadow-sm border-white/50 backdrop-blur-sm">
                                                                     {item.count}x
                                                                 </Badge>
                                                             )}
                                                         </div>
-                                                    </div>
-                                                </motion.div>
-                                            ))
+
+                                                        {/* Infos (Embaixo) */}
+                                                        <div className="p-2 flex flex-col flex-1 gap-1">
+                                                            <h3 className="font-display text-xs sm:text-sm font-semibold text-[#4A3B32] line-clamp-1 leading-tight mb-0.5">
+                                                                {item.name}
+                                                            </h3>
+
+                                                            <div className="flex flex-wrap gap-1.5 mt-auto">
+                                                                {/* Chips Compactos */}
+                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-50 text-[10px] sm:text-xs font-medium text-gray-600 border border-gray-100">
+                                                                    {item.selectedSize}
+                                                                </span>
+                                                                {item.selectedColor && (
+                                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-50 text-[10px] sm:text-xs font-medium text-gray-600 border border-gray-100 line-clamp-1 max-w-[80px]">
+                                                                        {item.selectedColor}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
 
                                     {/* Resumo/CTA Fixo ou no final da lista */}
                                     {items.length > 0 && !loadingProducts && (
-                                        <div className="mt-3 p-3 bg-[#FDFBF7] border border-[#C75D3B]/20 rounded-lg flex items-center justify-between shadow-sm">
+                                        <div className="hidden sm:flex mt-3 p-3 bg-[#FDFBF7] border border-[#C75D3B]/20 rounded-lg items-center justify-between shadow-sm">
                                             <div className="text-xs sm:text-sm text-[#4A3B32]/70">
                                                 Total de peças: <span className="font-bold text-[#4A3B32]">{items.length}</span>
                                             </div>

@@ -415,37 +415,37 @@ export function Checkout() {
     }
 
     return (
-        <div className="min-h-screen bg-[#FDFBF7] pt-6 sm:pt-16 md:pt-24 pb-8 sm:pb-16">
+        <div className="min-h-screen bg-[#FDFBF7] pt-3 sm:pt-8 md:pt-12 pb-6 sm:pb-12">
             {/* Loading Overlay */}
             {isSubmitting && (
                 <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center animate-in fade-in duration-300">
                     <div className="w-16 h-16 border-4 border-[#C75D3B] border-t-transparent rounded-full animate-spin mb-4" />
-                    <h3 className="font-display text-xl text-[#4A3B32] font-bold">Processando seu pedido...</h3>
-                    <p className="text-[#4A3B32]/60 mt-2">Por favor, aguarde um momento. 💝</p>
+                    <h3 className="font-display text-xl text-[#4A3B32] font-bold">Processando...</h3>
+                    <p className="text-[#4A3B32]/60 mt-2 text-sm">Aguarde um momento. 💝</p>
                 </div>
             )}
-            <div className="w-full px-4 sm:px-6 max-w-7xl mx-auto">
+            <div className="w-full px-3 sm:px-6 max-w-7xl mx-auto">
                 {/* Header - Mobile Optimized */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 md:mb-8">
-                    <div className="mb-3 sm:mb-0">
-                        <h1 className="font-display text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-[#4A3B32]">
+                <div className="flex flex-row items-center justify-between mb-3 sm:mb-6">
+                    <div>
+                        <h1 className="font-display text-lg sm:text-2xl md:text-3xl font-semibold text-[#4A3B32]">
                             Sua Malinha
                         </h1>
-                        <p className="text-xs sm:text-sm md:text-base text-[#4A3B32]/60 mt-1">
-                            {items.length}/20 peças selecionadas
+                        <p className="text-[10px] sm:text-sm text-[#4A3B32]/60 -mt-0.5">
+                            {items.length}/20 peças
                         </p>
                     </div>
                     <Link
                         to="/catalogo"
-                        className="touch-target inline-flex items-center justify-center gap-2 px-4 text-sm sm:text-base text-white bg-[#C75D3B] hover:bg-[#A64D31] rounded-full transition-all active:scale-95 font-semibold"
+                        className="touch-target inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm text-white bg-[#C75D3B] hover:bg-[#A64D31] rounded-full transition-all active:scale-95 font-semibold shadow-sm"
                     >
-                        <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
+                        <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>Adicionar</span>
                     </Link>
                 </div>
 
-                {/* Steps Indicator - Redesigned with better centering and animations */}
-                <div className="mb-6 sm:mb-8 md:mb-10">
+                {/* Steps Indicator - Compact */}
+                <div className="mb-4 sm:mb-8">
                     <div className="flex items-center justify-center">
                         {/* Steps Container */}
                         <div className="inline-flex items-center justify-center gap-0">
@@ -474,7 +474,7 @@ export function Checkout() {
                                                 damping: 25
                                             }}
                                             className={cn(
-                                                'relative w-11 h-11 sm:w-14 sm:h-14 rounded-full flex items-center justify-center',
+                                                'relative w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center',
                                                 step >= s.num ? 'text-white' : 'text-[#4A3B32]/50'
                                             )}
                                         >
@@ -582,15 +582,15 @@ export function Checkout() {
                                             groupedItems.map((item, idx) => (
                                                 <motion.div
                                                     key={item.itemIds[0]}
-                                                    className="group relative flex gap-4 p-3 sm:p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all touch-target"
+                                                    className="group relative flex gap-3 p-2.5 bg-white border border-gray-100 rounded-lg shadow-sm transition-all"
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     transition={{ delay: idx * 0.05 }}
                                                 >
-                                                    {/* Imagem (Esquerda, pequena) */}
-                                                    <div className="w-20 h-24 sm:w-24 sm:h-32 flex-shrink-0 rounded-lg overflow-hidden relative bg-gray-50 border border-gray-100">
+                                                    {/* Imagem (Esquerda, mais compacta) */}
+                                                    <div className="w-16 h-20 sm:w-20 sm:h-24 flex-shrink-0 rounded-md overflow-hidden relative bg-gray-50 border border-gray-100">
                                                         <img
-                                                            src={getOptimizedImageUrl(item.images?.[0] || item.image, 200)}
+                                                            src={getOptimizedImageUrl(item.images?.[0] || item.image, 150)}
                                                             alt={item.name}
                                                             loading="lazy"
                                                             className="w-full h-full object-cover"
@@ -606,47 +606,40 @@ export function Checkout() {
                                                     </div>
 
                                                     {/* Infos (Direita) */}
-                                                    <div className="flex flex-col flex-1 justify-between py-1">
-                                                        <div>
-                                                            <div className="flex justify-between items-start gap-2">
-                                                                <h3 className="font-display text-sm sm:text-base font-semibold text-[#4A3B32] line-clamp-2 leading-tight">
-                                                                    {item.name}
-                                                                </h3>
-                                                                {/* Botão Remover (Topo Direita) */}
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        removeItem(item.itemIds[0]);
-                                                                    }}
-                                                                    className="text-gray-400 hover:text-red-500 p-1.5 -mr-1.5 -mt-1.5 rounded-full hover:bg-red-50 transition-colors"
-                                                                    aria-label={`Remover ${item.name}`}
-                                                                >
-                                                                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                                                                </button>
-                                                            </div>
-
-                                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                                {/* Chips de Tamanho e Cor */}
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-xs font-medium text-gray-700 border border-gray-200">
-                                                                    Tam: {item.selectedSize}
-                                                                </span>
-                                                                {item.selectedColor && (
-                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-xs font-medium text-gray-700 border border-gray-200">
-                                                                        {item.selectedColor}
-                                                                    </span>
-                                                                )}
-                                                            </div>
+                                                    <div className="flex flex-col flex-1 justify-center py-0.5">
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <h3 className="font-display text-xs sm:text-sm font-semibold text-[#4A3B32] line-clamp-2 leading-tight">
+                                                                {item.name}
+                                                            </h3>
+                                                            {/* Botão Remover (Compacto) */}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    removeItem(item.itemIds[0]);
+                                                                }}
+                                                                className="text-gray-400 hover:text-red-500 p-1 -mr-1 -mt-1 rounded-full hover:bg-red-50 transition-colors"
+                                                                aria-label={`Remover ${item.name}`}
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
                                                         </div>
 
-                                                        {/* Contador */}
-                                                        <div className="flex items-end justify-between mt-2">
-                                                            <div className="flex items-center gap-1.5">
-                                                                {item.count > 1 && (
-                                                                    <Badge variant="primary" size="sm" className="text-xs">
-                                                                        {item.count}x
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
+                                                        <div className="flex items-center gap-2 mt-1.5">
+                                                            {/* Chips de Tamanho e Cor (Mais compactos) */}
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-50 text-[10px] sm:text-xs font-medium text-gray-600 border border-gray-100">
+                                                                {item.selectedSize}
+                                                            </span>
+                                                            {item.selectedColor && (
+                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-50 text-[10px] sm:text-xs font-medium text-gray-600 border border-gray-100">
+                                                                    {item.selectedColor}
+                                                                </span>
+                                                            )}
+
+                                                            {item.count > 1 && (
+                                                                <Badge variant="primary" size="sm" className="text-[10px] h-5 px-1.5">
+                                                                    {item.count}x
+                                                                </Badge>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </motion.div>
@@ -656,16 +649,16 @@ export function Checkout() {
 
                                     {/* Resumo/CTA Fixo ou no final da lista */}
                                     {items.length > 0 && !loadingProducts && (
-                                        <div className="mt-6 p-4 bg-[#FDFBF7] border border-[#C75D3B]/20 rounded-xl flex items-center justify-between">
-                                            <div className="text-sm text-[#4A3B32]/70">
+                                        <div className="mt-3 p-3 bg-[#FDFBF7] border border-[#C75D3B]/20 rounded-lg flex items-center justify-between shadow-sm">
+                                            <div className="text-xs sm:text-sm text-[#4A3B32]/70">
                                                 Total de peças: <span className="font-bold text-[#4A3B32]">{items.length}</span>
                                             </div>
                                             <button
                                                 onClick={() => setStep(2)}
-                                                className="touch-target px-6 py-2 bg-[#C75D3B] text-white rounded-full font-bold text-sm shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                                                className="touch-target px-4 py-2 bg-[#C75D3B] text-white rounded-full font-bold text-xs sm:text-sm shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center gap-2"
                                             >
                                                 Continuar
-                                                <ArrowLeft className="w-4 h-4 rotate-180" />
+                                                <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-180" />
                                             </button>
                                         </div>
                                     )}

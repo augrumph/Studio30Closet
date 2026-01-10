@@ -14,7 +14,7 @@ export function CouponsForm() {
 
     const [formData, setFormData] = useState({
         code: '',
-        type: 'percent', // 'percent', 'fixed' ou 'cost_price'
+        type: 'percentage', // 'percentage', 'fixed' ou 'cost_price'
         value: '',
         minPurchase: '',
         expiryDate: '',
@@ -125,10 +125,10 @@ export function CouponsForm() {
                                     <div className="grid grid-cols-3 gap-2 p-1 bg-gray-50 rounded-2xl">
                                         <button
                                             type="button"
-                                            onClick={() => setFormData(prev => ({ ...prev, type: 'percent', isSpecial: false }))}
+                                            onClick={() => setFormData(prev => ({ ...prev, type: 'percentage', isSpecial: false }))}
                                             className={cn(
                                                 "flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs font-bold transition-all",
-                                                formData.type === 'percent' ? "bg-white text-[#C75D3B] shadow-sm" : "text-gray-400 hover:text-gray-600"
+                                                formData.type === 'percentage' ? "bg-white text-[#C75D3B] shadow-sm" : "text-gray-400 hover:text-gray-600"
                                             )}
                                         >
                                             <Percent className="w-4 h-4" />
@@ -162,7 +162,7 @@ export function CouponsForm() {
                                 {formData.type !== 'cost_price' && (
                                     <div className="space-y-2">
                                         <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
-                                            {formData.type === 'percent' ? 'Desconto (%)' : 'Valor (R$)'}
+                                            {formData.type === 'percentage' ? 'Desconto (%)' : 'Valor (R$)'}
                                         </label>
                                         <input
                                             type="text"

@@ -1546,7 +1546,10 @@ export async function createCoupon(couponData) {
             if (retry.error) throw retry.error;
             return finalizeCouponResponse(retry.data);
         }
-        console.error('API Error creating coupon:', error);
+        console.error('API Error creating coupon:', JSON.stringify(error, null, 2));
+        if (error.details) console.error('Error Details:', error.details);
+        if (error.hint) console.error('Error Hint:', error.hint);
+        if (error.message) console.error('Error Message:', error.message);
         throw error;
     }
 

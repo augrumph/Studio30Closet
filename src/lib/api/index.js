@@ -5,13 +5,17 @@
  * Para novos desenvolvimentos, considere importar diretamente dos módulos específicos.
  *
  * Módulos disponíveis:
- * - lib/api/helpers.js     - Funções de conversão (toSnakeCase, toCamelCase)
- * - lib/api/products.js    - CRUD de produtos
- * - lib/api/customers.js   - CRUD de clientes
- * - lib/api/vendas.js      - Vendas
- * - lib/api/settings.js    - Configurações do sistema
- * - lib/api/coupons.js     - CRUD de cupons
- * - lib/api/suppliers.js   - CRUD de fornecedores
+ * - lib/api/helpers.js       - Funções de conversão (toSnakeCase, toCamelCase)
+ * - lib/api/products.js      - CRUD de produtos
+ * - lib/api/customers.js     - CRUD de clientes
+ * - lib/api/vendas.js        - Vendas
+ * - lib/api/settings.js      - Configurações do sistema
+ * - lib/api/coupons.js       - CRUD de cupons
+ * - lib/api/suppliers.js     - CRUD de fornecedores
+ * - lib/api/payment-fees.js  - CRUD de taxas de pagamento
+ * - lib/api/expenses.js      - CRUD de despesas fixas
+ * - lib/api/materials.js     - CRUD de estoque de materiais
+ * - lib/api/purchases.js     - CRUD de compras
  */
 
 // Re-exportar tudo do api.js original para manter retrocompatibilidade
@@ -25,4 +29,8 @@ export * from './vendas.js'
 export * from './settings.js'
 export * from './coupons.js'
 export * from './suppliers.js'
+export * from './payment-fees.js'
+export * from './expenses.js'
+export * from './materials.js'
+export * from './purchases.js'
 

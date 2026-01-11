@@ -65,8 +65,9 @@ export async function getProducts(page = 1, pageSize = 20) {
 
     const { data, error, count } = await supabase
         .from('products')
-        // Select explicit columns to avoid timeout on heavy rows
-        .select('id, name, price, original_price, images, category, stock, variants, description, active, created_at, is_featured, is_new, sizes, color, supplier_id', { count: 'estimated' })
+        // Select essential columns including analytics data (confirmed safe by debug)
+        // Removed: supplier_id (problematic), description (heavy)
+        .select('id, name, price, cost_price, images, category, stock, created_at, active, stock_status, trip_count', { count: 'estimated' })
         .order('created_at', { ascending: false })
         .range(start, end);
 
@@ -119,7 +120,8 @@ export async function getAllProducts() {
     // Selecionar apenas campos essenciais para catálogo (sem colunas pesadas)
     const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, original_price, images, category, is_new, is_featured, sizes, color, variants, stock, description, active')
+        // Using safe minimal select to avoid 500 errors
+        .select('id, name, price, images, category, stock, created_at, active')
         .order('created_at', { ascending: false });
 
     const queryTime = (performance.now() - queryStart).toFixed(0);
@@ -141,20 +143,7 @@ export async function getAllProducts() {
                 camel.variants = [];
             }
 
-            // Log detalhado para produto ID 24 (Calça Dora)
-            if (camel.id === 24) {
-                console.log('🔍 [getAllProducts] PRODUTO ID 24 CARREGADO:');
-                console.log('   Nome:', camel.name);
-                console.log('   Stock total:', camel.stock);
-                // Remover images/urls das variants para logs mais limpos
-                const variantsClean = camel.variants?.map(v => ({
-                    colorName: v.colorName,
-                    colorHex: v.colorHex,
-                    sizeStock: v.sizeStock
-                }));
-                console.log('   Variants:', JSON.stringify(variantsClean, null, 2));
-                console.log('   Timestamp:', new Date().toISOString());
-            }
+            // Log detalhado para produto ID 24 (Calça Dora) removed
 
             return camel;
         });
@@ -178,7 +167,8 @@ export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) 
     // Construir query base
     let query = supabase
         .from('products')
-        .select('id, name, price, original_price, images, category, is_new, is_featured, sizes, color, variants, stock, description, active', { count: 'estimated' })
+        // Using safe minimal select to avoid 500 errors
+        .select('id, name, price, images, category, stock, created_at, active, variants', { count: 'estimated' })
         .eq('active', true);
 
     // Filtro de categoria
@@ -223,10 +213,10 @@ export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) 
 export async function getAllProductsAdmin() {
     console.log('🔐 [Admin] Carregando inventário completo...');
 
-    // Select ALL fields using wildcard
+    // Select explicit fields to include cost_price but avoid crashing columns
     const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('id, name, price, cost_price, images, category, stock, created_at, active, stock_status, trip_count, variants, sizes, color')
         .order('id', { ascending: false }); // Ordem decrescente por ID para ver os mais novos
 
     if (error) {
@@ -578,7 +568,8 @@ export async function getOrderById(id) {
                 priceAtTime: item.priceAtTime || 0,
                 costPriceAtTime: item.costPriceAtTime || 0,
                 selectedSize: item.sizeSelected || '',
-                sizeSelected: item.sizeSelected || ''
+                sizeSelected: item.sizeSelected || '',
+                selectedColor: item.colorSelected || 'Padrão'
             };
         });
         console.log('✅ Processed items:', camelData.items);
@@ -642,8 +633,11 @@ async function decrementProductStock(items, productsMap) {
             }
 
             // Encontrar a variante correta (por cor)
+            // ✅ Prioridade: selectedColor. Somente usa color como fallback se selectedColor for omisso.
             const variantIndex = updatedVariants.findIndex(
-                v => v.colorName === selectedColor || v.colorName === currentProduct.color
+                v => selectedColor
+                    ? v.colorName === selectedColor
+                    : v.colorName === currentProduct.color
             );
 
             if (variantIndex === -1) {
@@ -724,6 +718,20 @@ async function decrementProductStock(items, productsMap) {
 
             console.log(`✅ BANCO ATUALIZADO: Produto ${productId} agora tem stock total = ${newTotalStock}`);
 
+            // Registrar movimentação no histórico
+            try {
+                await supabase.from('stock_movements').insert({
+                    product_id: productId,
+                    quantity: quantity,
+                    movement_type: 'venda',
+                    notes: `Venda automática (Item: ${selectedColor}/${selectedSize})`
+                });
+                console.log(`📝 Movimentação registrada: venda - ${quantity} un.`);
+            } catch (movError) {
+                console.error('⚠️ Falha ao registrar movimentação de estoque:', movError);
+                // Não falhar a operação principal, apenas logar erro
+            }
+
             // Confirmar o que foi salvo no banco
             if (productId === 24 && updateData && updateData.length > 0) {
                 console.log('✅ CONFIRMAÇÃO DO BANCO - Produto ID 24:');
@@ -792,7 +800,9 @@ export async function reserveStockForMalinha(items) {
 
             // Encontrar variante pela cor
             const variantIndex = updatedVariants.findIndex(
-                v => v.colorName === selectedColor || (!selectedColor && v.colorName)
+                v => selectedColor
+                    ? v.colorName === selectedColor
+                    : v.colorName === (product?.color || currentProduct?.color || (updatedVariants[0]?.colorName))
             );
 
             if (variantIndex === -1) {
@@ -873,6 +883,19 @@ export async function reserveStockForMalinha(items) {
 
             console.log(`✅ [RESERVA] Estoque atualizado no banco para produto ${productId}`);
 
+            // Registrar movimentação no histórico
+            try {
+                await supabase.from('stock_movements').insert({
+                    product_id: productId,
+                    quantity: quantity,
+                    movement_type: 'saida_malinha',
+                    notes: `Saída para Malinha (Item: ${selectedColor}/${selectedSize})`
+                });
+                console.log(`📝 Movimentação registrada: saida_malinha - ${quantity} un.`);
+            } catch (movError) {
+                console.error('⚠️ Falha ao registrar movimentação de malinha:', movError);
+            }
+
             // Confirmar o que foi salvo no banco
             if (productId === 24 && updateData && updateData.length > 0) {
                 console.log('✅ [RESERVA] CONFIRMAÇÃO DO BANCO - Produto ID 24:');
@@ -950,7 +973,9 @@ export async function releaseStockForMalinha(items) {
 
             // Encontrar variante pela cor
             const variantIndex = updatedVariants.findIndex(
-                v => v.colorName === selectedColor || (!selectedColor && v.colorName)
+                v => selectedColor
+                    ? v.colorName === selectedColor
+                    : v.colorName === (product?.color || currentProduct?.color || (updatedVariants[0]?.colorName))
             );
 
             if (variantIndex === -1) {
@@ -1182,6 +1207,7 @@ export async function createOrder(orderData) {
             quantity: item.quantity || 1,
             price_at_time: finalPrice,
             size_selected: item.selectedSize,
+            color_selected: item.selectedColor || 'Padrão',
             cost_price_at_time: finalCostPrice
         };
         console.log('🔄 Mapped item:', mapped);
@@ -1264,6 +1290,44 @@ export async function updateOrder(id, orderData) {
         throw error;
     }
     console.log('API: Updated order:', data);
+
+    // 🔄 Atualizar itens se fornecidos
+    if (orderData.items && orderData.items.length > 0) {
+        console.log('📋 Atualizando order_items para order_id:', id);
+
+        // 1. Deletar itens antigos
+        const { error: deleteError } = await supabase
+            .from('order_items')
+            .delete()
+            .eq('order_id', id);
+
+        if (deleteError) {
+            console.error('❌ Erro ao deletar itens antigos:', deleteError);
+            throw deleteError;
+        }
+
+        // 2. Inserir novos itens
+        const orderItems = orderData.items.map(item => ({
+            order_id: id,
+            product_id: item.productId,
+            quantity: item.quantity || 1,
+            price_at_time: item.price || 0,
+            size_selected: item.selectedSize || '',
+            color_selected: item.selectedColor || 'Padrão',
+            cost_price_at_time: item.costPrice || null
+        }));
+
+        const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(orderItems);
+
+        if (itemsError) {
+            console.error('❌ Erro ao inserir novos itens:', itemsError);
+            throw itemsError;
+        }
+        console.log('✅ Itens da malinha atualizados com sucesso');
+    }
+
     return toCamelCase(data);
 }
 
@@ -1362,8 +1426,9 @@ export async function createVenda(vendaData) {
         payment_status: snakeData.payment_status || (snakeData.payment_method === 'fiado' ? 'pending' : 'paid'),
         card_brand: snakeData.card_brand || null,
         fee_percentage: snakeData.fee_percentage || 0,
-        fee_amount: snakeData.fee_amount || 0,
-        net_amount: snakeData.net_amount,
+        // fee_amount e net_amount calculados via trigger
+        // fee_amount: snakeData.fee_amount || 0,
+        // net_amount: snakeData.net_amount,
         // ✅ CAMPOS DE PARCELAMENTO (CORRIGIDO)
         is_installment: snakeData.is_installment || false,
         num_installments: snakeData.num_installments || 1,

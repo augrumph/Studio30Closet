@@ -14,7 +14,8 @@ import {
     CircleAlert,
     CircleX,
     Sparkles,
-    Package
+    Package,
+    Truck
 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
@@ -77,8 +78,18 @@ const getSimplifiedCards = (metrics) => {
     const marginStatus = getMarginStatus(metrics.netMarginPercent || 0)
     const itemsStatus = getItemsPerSaleStatus(metrics.itemsPerSale || 0)
 
+    // Retention Status (Target > 40%?)
+    const retentionRate = metrics.retentionRate || 0
+    const retentionStatus = retentionRate >= 50 ? 'text-emerald-600' : retentionRate >= 30 ? 'text-amber-600' : 'text-red-600'
+    const retentionBg = retentionRate >= 50 ? 'bg-emerald-50' : retentionRate >= 30 ? 'bg-amber-50' : 'bg-red-50'
+
+    // Logistics Status (Target < 10%?)
+    const logisticsPercent = metrics.logisticsCostPercent || 0
+    const logisticsStatus = logisticsPercent <= 8 ? 'text-emerald-600' : logisticsPercent <= 12 ? 'text-amber-600' : 'text-red-600'
+    const logisticsBg = logisticsPercent <= 8 ? 'bg-emerald-50' : logisticsPercent <= 12 ? 'bg-amber-50' : 'bg-red-50'
+
     return [
-        // Linha 1: Faturamento | Vendas | Ticket Médio
+        // === LINHA 1: SAÚDE DO NEGÓCIO (Financeiro Macro) ===
         {
             label: 'Faturamento',
             value: metrics.netRevenue,
@@ -86,48 +97,23 @@ const getSimplifiedCards = (metrics) => {
             iconBg: 'bg-[#FAF3F0]',
             iconColor: 'text-[#C75D3B]',
             descriptionIcon: null,
-            descriptionText: 'Receita líquida do período',
+            descriptionText: 'Receita líquida',
             tooltip: 'Total vendido menos descontos. É o dinheiro que de fato entrou nas vendas.',
             isCurrency: true
         },
         {
-            label: 'Vendas',
-            value: metrics.totalSalesCount,
-            icon: ShoppingCart,
-            iconBg: 'bg-[#F5F0ED]',
-            iconColor: 'text-[#4A3B32]',
-            descriptionIcon: null,
-            descriptionText: 'Quantidade de vendas',
-            tooltip: 'Número total de vendas realizadas no período.',
-            isNumber: true
-        },
-        {
-            label: 'Peças/Venda',
-            value: metrics.itemsPerSale,
-            icon: Package,
-            iconBg: itemsStatus.bgColor,
-            iconColor: itemsStatus.textColor,
-            descriptionIcon: itemsStatus.icon,
-            descriptionIconColor: itemsStatus.textColor,
-            descriptionText: `${itemsStatus.label} - ${metrics.totalItemsSold || 0} peças`,
-            tooltip: 'Média de produtos por venda. Verde > 2.5 | Amarelo 1.5-2.5 | Vermelho < 1.5. Indica sucesso em cross-sell.',
-            isDecimal: true
-        },
-        // Linha 2: Lucro | Margem | Caixa
-        {
-            label: 'Lucro',
+            label: 'Lucro Líquido',
             value: metrics.netProfit,
-            icon: Coins,
+            icon: Sparkles,
             iconBg: 'bg-emerald-50',
             iconColor: 'text-emerald-600',
-            descriptionIcon: Sparkles,
-            descriptionIconColor: 'text-emerald-500',
-            descriptionText: 'Resultado líquido',
-            tooltip: 'Lucro final: Faturamento - CPV - Despesas - DAS - Taxas - Juros. Inclui custo de reposição dos produtos.',
+            descriptionIcon: null,
+            descriptionText: 'Competência (DRE)',
+            tooltip: 'Lucro contábil do período (Faturamento - CPV - Despesas - Juros).',
             isCurrency: true
         },
         {
-            label: 'Margem',
+            label: 'Margem Líquida',
             value: metrics.netMarginPercent,
             icon: TrendingUp,
             iconBg: marginStatus.bgColor,
@@ -135,20 +121,68 @@ const getSimplifiedCards = (metrics) => {
             descriptionIcon: marginStatus.icon,
             descriptionIconColor: marginStatus.textColor,
             descriptionText: marginStatus.label,
-            tooltip: 'Percentual de lucro sobre o faturamento. Vermelho < 25% | Amarelo 25-35% | Verde > 35%',
+            tooltip: 'Percentual de lucro sobre o faturamento. Ideal > 35%.',
             isPercentage: true
         },
         {
-            label: 'Caixa',
-            value: metrics.cashBalance,
-            icon: Wallet,
-            iconBg: 'bg-[#FAF3F0]',
-            iconColor: 'text-[#C75D3B]',
+            label: 'Ticket Médio',
+            value: metrics.averageTicket,
+            icon: Receipt,
+            iconBg: 'bg-blue-50',
+            iconColor: 'text-blue-600',
             descriptionIcon: null,
-            descriptionText: `Entr: ${(metrics.receivedAmount || 0).toLocaleString('pt-BR')} | Sai: ${((metrics.purchasesInPeriod || 0) + (metrics.totalExpensesInPeriod || 0)).toLocaleString('pt-BR')}`,
-            tooltip: `Saldo Final = Recebido (R$ ${metrics.receivedAmount?.toLocaleString('pt-BR')}) - [Compras Loja (R$ ${metrics.purchasesInPeriod?.toLocaleString('pt-BR')}) + Despesas (R$ ${metrics.totalExpensesInPeriod?.toLocaleString('pt-BR')})]`,
+            descriptionText: 'Por venda',
+            tooltip: 'Valor médio gasto por cliente em cada compra.',
             isCurrency: true
-        }
+        },
+
+        // === LINHA 2: EFICIÊNCIA OPERACIONAL (Malinha) ===
+        {
+            label: 'Vendas (Qtd)',
+            value: metrics.totalSalesCount,
+            icon: ShoppingCart,
+            iconBg: 'bg-gray-50',
+            iconColor: 'text-gray-600',
+            descriptionIcon: null,
+            descriptionText: 'Vendas fechadas',
+            tooltip: 'Número total de vendas realizadas no período.',
+            isNumber: true
+        },
+        {
+            label: 'Peças / Atendimento',
+            value: metrics.itemsPerSale,
+            icon: Package,
+            iconBg: itemsStatus.bgColor,
+            iconColor: itemsStatus.textColor,
+            descriptionIcon: itemsStatus.icon,
+            descriptionIconColor: itemsStatus.textColor,
+            descriptionText: `${metrics.totalItemsSold || 0} peças tot.`,
+            tooltip: 'Média de produtos por atendimento (P.A.). Indica eficiência do cross-sell.',
+            isDecimal: true
+        },
+        {
+            label: 'Taxa de Retenção', // Malinha Accuracy
+            value: metrics.retentionRate,
+            icon: CircleCheck,
+            iconBg: retentionBg,
+            iconColor: retentionStatus,
+            descriptionIcon: null,
+            descriptionText: `${metrics.malinhaStats?.sold || 0} vendidas / ${metrics.malinhaStats?.sent || 0} env.`,
+            tooltip: 'Percentual de peças que ficaram com a cliente em relação ao total enviado nas malinhas. (Vendido / Enviado)',
+            isPercentage: true
+        },
+        {
+            label: 'Custo Logístico', // Logistics impact
+            value: metrics.logisticsCost,
+            icon: Truck,
+            iconBg: logisticsBg,
+            iconColor: logisticsStatus,
+            descriptionIcon: null,
+            descriptionText: `${(metrics.logisticsCostPercent || 0).toFixed(1)}% da Rec.`,
+            tooltip: 'Gasto total com Motoboy, Frete e Entregas no período.',
+            isCurrency: true
+        },
+
     ]
 }
 
@@ -244,13 +278,6 @@ export function FinancialScoreboard({ metrics, isLoading }) {
     }
 
     const cards = getSimplifiedCards(metrics).map(card => {
-        if (card.label === 'Caixa') {
-            return {
-                ...card,
-                onClick: () => setIsCashFlowOpen(true),
-                tooltip: card.tooltip + ' (Clique para ver detalhes)'
-            }
-        }
         if (card.label === 'Faturamento') {
             return {
                 ...card,
@@ -263,7 +290,8 @@ export function FinancialScoreboard({ metrics, isLoading }) {
 
     return (
         <TooltipProvider delayDuration={200}>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* 30/12/2026: Changed lg:grid-cols-6 to lg:grid-cols-4 to accommodate 11 cards nicely (4 top, 4 middle, 3 bottom) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {cards.map((stat, i) => (
                     <KPICard key={stat.label} stat={stat} index={i} />
                 ))}

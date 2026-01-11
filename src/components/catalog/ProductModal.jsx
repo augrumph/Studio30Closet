@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, ChevronLeft, ChevronRight, Plus, Check } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
+import { sortSizes } from '@/lib/sizes'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { triggerConfetti } from '@/components/magicui/confetti'
@@ -354,7 +355,7 @@ export function ProductModal({ product, isOpen, onClose }) {
                                 Selecione o Tamanho
                             </h4>
                             <div className="flex flex-wrap gap-2">
-                                {product.sizes.map((size) => (
+                                {sortSizes(product.sizes).map((size) => (
                                     <button
                                         key={size}
                                         onClick={() => setSelectedSize(size)}

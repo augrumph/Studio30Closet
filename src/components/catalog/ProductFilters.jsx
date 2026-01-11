@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { sortSizes } from '@/lib/sizes'
 
 export function ProductFilters({
     categories,
@@ -50,7 +51,7 @@ export function ProductFilters({
                     Tamanhos
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                    {sizes.map((size) => {
+                    {sortSizes(sizes).map((size) => {
                         const isSelected = selectedSizes.includes(size)
                         return (
                             <button

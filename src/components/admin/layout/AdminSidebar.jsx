@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, Percent, Truck, ShoppingCart, Settings, X, TrendingDown, ChevronLeft } from 'lucide-react'
+import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, BarChart3, Truck, ShoppingCart, Settings, X, TrendingDown, ChevronLeft } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
@@ -32,9 +32,9 @@ const menuItems = [
         icon: Users
     },
     {
-        path: '/admin/coupons',
-        label: 'Cupons',
-        icon: Percent
+        path: '/admin/stock',
+        label: 'Estoque',
+        icon: BarChart3
     },
     {
         path: '/admin/suppliers',

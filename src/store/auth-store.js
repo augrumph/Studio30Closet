@@ -14,18 +14,17 @@ export const useAuthStore = create(
             loginError: null,
             isLoading: false,
 
-            // Login com username e senha via Supabase RPC (bcrypt no servidor)
+            // Login com username e senha via Supabase RPC
             login: async (username, password) => {
                 set({ isLoading: true, loginError: null })
 
                 try {
-                    // Usar RPC para login seguro (verificação bcrypt no PostgreSQL)
+                    // Usar RPC para login (retorna array)
                     const { data, error } = await supabase
                         .rpc('admin_login', {
                             p_username: username,
                             p_password: password
                         })
-                        .single()
 
                     if (error) {
                         console.error('Erro na RPC admin_login:', error)
@@ -38,24 +37,25 @@ export const useAuthStore = create(
                         return { success: false, error: 'Erro de conexão' }
                     }
 
-                    // Verificar resultado da RPC
-                    if (!data?.success) {
+                    // A RPC retorna um array: 1 linha = login OK, 0 linhas = credenciais inválidas
+                    if (!data || data.length === 0) {
                         set({
                             isAuthenticated: false,
                             user: null,
-                            loginError: data?.error_message || 'Usuário ou senha inválidos',
+                            loginError: 'Usuário ou senha inválidos',
                             isLoading: false
                         })
                         return { success: false, error: 'Credenciais inválidas' }
                     }
 
-                    // Login bem-sucedido
+                    // Login bem-sucedido - pegar primeiro registro do array
+                    const admin = data[0]
                     set({
                         isAuthenticated: true,
                         user: {
-                            id: data.id,
-                            username: data.username,
-                            name: data.name || 'Administrador',
+                            id: admin.id,
+                            username: admin.username,
+                            name: admin.name || 'Administrador',
                             role: 'admin'
                         },
                         loginError: null,

@@ -34,8 +34,8 @@ const CustomersList = lazy(() => import('@/pages/admin/CustomersList').then(modu
 const CustomersForm = lazy(() => import('@/pages/admin/CustomersForm').then(module => ({ default: module.CustomersForm })))
 const VendasList = lazy(() => import('@/pages/admin/VendasList').then(module => ({ default: module.VendasList })))
 const VendasForm = lazy(() => import('@/pages/admin/VendasForm').then(module => ({ default: module.VendasForm })))
-const CouponsList = lazy(() => import('@/pages/admin/CouponsList').then(module => ({ default: module.CouponsList })))
-const CouponsForm = lazy(() => import('@/pages/admin/CouponsForm').then(module => ({ default: module.CouponsForm })))
+// Estoque Inteligente
+const StockDashboard = lazy(() => import('@/pages/admin/StockDashboard').then(module => ({ default: module.StockDashboard })))
 const SuppliersList = lazy(() => import('@/pages/admin/SuppliersList').then(module => ({ default: module.SuppliersList })))
 const SuppliersForm = lazy(() => import('@/pages/admin/SuppliersForm').then(module => ({ default: module.SuppliersForm })))
 const PurchasesList = lazy(() => import('@/pages/admin/PurchasesList').then(module => ({ default: module.PurchasesList })))
@@ -111,10 +111,8 @@ function App() {
                                     <Route path="customers/new" element={<CustomersForm />} />
                                     <Route path="customers/:id" element={<CustomersForm />} />
 
-                                    {/* Cupons */}
-                                    <Route path="coupons" element={<CouponsList />} />
-                                    <Route path="coupons/new" element={<CouponsForm />} />
-                                    <Route path="coupons/:id" element={<CouponsForm />} />
+                                    {/* Estoque Inteligente */}
+                                    <Route path="stock" element={<StockDashboard />} />
 
                                     {/* Fornecedores */}
                                     <Route path="suppliers" element={<SuppliersList />} />

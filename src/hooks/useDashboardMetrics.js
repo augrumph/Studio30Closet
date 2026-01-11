@@ -17,6 +17,7 @@ import { useMemo } from 'react'
 export function useDashboardMetrics({
     filteredVendas,
     allVendas,
+    orders = [],
     purchases = [],
     dashboardData,
     periodDays,
@@ -159,6 +160,60 @@ export function useDashboardMetrics({
 
         // Métrica: Peças por Venda
         const itemsPerSale = allSales.length > 0 ? totalItemsSold / allSales.length : 0
+
+        // =================================================================================
+        // 5. OPERATIONAL EFFICIENCY (Malinha Metrics & Logistics)
+        // =================================================================================
+
+        // 5.1. Logistics Cost
+        let logisticsCost = 0
+        const logisticsKeywords = ['motoboy', 'entrega', 'logística', 'frete', 'uber', 'envio']
+
+        if (dashboardData?.expenses) {
+            dashboardData.expenses.forEach(expense => {
+                const name = (expense.name || '').toLowerCase()
+                if (logisticsKeywords.some(k => name.includes(k))) {
+                    let monthlyValue = Number(expense.value || 0)
+                    const recurrence = expense.recurrence?.toLowerCase() || 'mensal'
+
+                    // Normalize to monthly
+                    if (recurrence === 'diário' || recurrence === 'daily') monthlyValue *= 30
+                    else if (recurrence === 'semanal' || recurrence === 'weekly') monthlyValue *= 4.33
+                    else if (recurrence === 'trimestral' || recurrence === 'quarterly') monthlyValue /= 3
+                    else if (recurrence === 'anual' || recurrence === 'yearly') monthlyValue /= 12
+
+                    // Apply period proportion
+                    logisticsCost += expensesInPeriod(monthlyValue)
+                }
+            })
+        }
+
+        // 5.2. Bag Retention Rate (Malinha)
+        let totalItemsSentInMalinhas = 0
+        let totalItemsSoldInMalinhas = 0
+
+        // Find sales that came from Malinhas in this period
+        const malinhaSales = allSales.filter(v => v.orderId || v.order_id)
+
+        malinhaSales.forEach(sale => {
+            const orderId = sale.orderId || sale.order_id
+            // Find the original malinha (order)
+            // We need 'orders' passed to the hook to know how many items were sent
+            const originalOrder = orders?.find(o => o.id === orderId)
+
+            if (originalOrder) {
+                totalItemsSentInMalinhas += (originalOrder.itemsCount || originalOrder.items_count || 0)
+
+                // Count items sold in this specific sale
+                const itemsSold = (sale.items || []).reduce((acc, item) => acc + (item.quantity || 1), 0)
+                totalItemsSoldInMalinhas += itemsSold
+            }
+        })
+
+        const retentionRate = totalItemsSentInMalinhas > 0
+            ? (totalItemsSoldInMalinhas / totalItemsSentInMalinhas) * 100
+            : 0
+
 
         // =================================================================================
         // CÁLCULO DRE (Flow Correto)
@@ -429,7 +484,16 @@ export function useDashboardMetrics({
             averageTicket: allSales.length > 0 ? netRevenue / allSales.length : 0,
             costWarnings,
             periodDays,
-            isFullMonthProjection: shouldShowFullMonth
+            isFullMonthProjection: shouldShowFullMonth,
+
+            // Efficiency Metrics
+            logisticsCost,
+            logisticsCostPercent: grossRevenue > 0 ? (logisticsCost / grossRevenue) * 100 : 0,
+            retentionRate,
+            malinhaStats: {
+                sent: totalItemsSentInMalinhas,
+                sold: totalItemsSoldInMalinhas
+            }
         };
-    }, [filteredVendas, allVendas, purchases, dashboardData, periodDays, periodFilter, customDateRange])
+    }, [filteredVendas, allVendas, orders, purchases, dashboardData, periodDays, periodFilter, customDateRange])
 }

@@ -28,12 +28,14 @@ import { FinancialScoreboard, CashFlowSection, ParcelinhasModal } from '@/compon
 
 export function Dashboard() {
     const vendas = useAdminStore(state => state.vendas)
+    const products = useAdminStore(state => state.products)
+    const orders = useAdminStore(state => state.orders)
     const customers = useAdminStore(state => state.customers)
     const reloadAll = useAdminStore(state => state.reloadAll)
     const isLoadingStore = useAdminStore(state => state.isInitialLoading)
 
-    // Purchases Store
-    const { purchases, loadPurchases } = useSuppliersStore()
+    // Suppliers Store
+    const { suppliers, loadSuppliers, purchases, loadPurchases } = useSuppliersStore()
 
     const [currentTime, setCurrentTime] = useState(new Date())
     const [dashboardData, setDashboardData] = useState(null)
@@ -46,12 +48,15 @@ export function Dashboard() {
         if (!vendas.length) {
             reloadAll()
         }
+        if (!suppliers.length) {
+            loadSuppliers()
+        }
         if (!purchases.length) {
             loadPurchases()
         }
         const timer = setInterval(() => setCurrentTime(new Date()), 60000)
         return () => clearInterval(timer)
-    }, [reloadAll, vendas, loadPurchases, purchases])
+    }, [reloadAll, vendas, loadSuppliers, suppliers, loadPurchases, purchases])
 
     useEffect(() => {
         const loadDashboardData = async () => {
@@ -130,6 +135,7 @@ export function Dashboard() {
     const financialMetrics = useDashboardMetrics({
         filteredVendas,
         allVendas: vendas,
+        orders,
         purchases,
         dashboardData,
         periodDays,
@@ -144,8 +150,9 @@ export function Dashboard() {
         maxMonthlyValue,
         accumulatedData,
         maxAccumulatedValue,
-        topCustomers
-    } = useDashboardAnalytics(vendas)
+        topCustomers,
+        topTrends
+    } = useDashboardAnalytics(vendas, products, suppliers)
 
     const greetings = () => {
         const hour = currentTime.getHours()
@@ -364,7 +371,7 @@ export function Dashboard() {
             <FinancialScoreboard metrics={financialMetrics} />
 
             {/* CASH FLOW & RISK INDICATORS (Componente extraído) */}
-            <CashFlowSection metrics={financialMetrics} />
+            <CashFlowSection metrics={financialMetrics} trends={topTrends} />
 
 
 

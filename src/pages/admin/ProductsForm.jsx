@@ -794,7 +794,7 @@ export function ProductsForm() {
                     </Card>
 
                     {/* Submit Actions */}
-                    <div className="sticky bottom-8 space-y-4">
+                    <div className="space-y-4">
                         <motion.button
                             whileHover={{ scale: productsLoading ? 1 : 1.02 }}
                             whileTap={{ scale: productsLoading ? 1 : 0.98 }}

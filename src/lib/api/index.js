@@ -1,14 +1,17 @@
 /**
  * API Index - Barrel Export
- * 
+ *
  * Este arquivo re-exporta todas as funções do api.js original para manter retrocompatibilidade.
  * Para novos desenvolvimentos, considere importar diretamente dos módulos específicos.
- * 
+ *
  * Módulos disponíveis:
  * - lib/api/helpers.js     - Funções de conversão (toSnakeCase, toCamelCase)
  * - lib/api/products.js    - CRUD de produtos
- * - lib/api/customers.js   - CRUD de clientes  
+ * - lib/api/customers.js   - CRUD de clientes
  * - lib/api/vendas.js      - Vendas
+ * - lib/api/settings.js    - Configurações do sistema
+ * - lib/api/coupons.js     - CRUD de cupons
+ * - lib/api/suppliers.js   - CRUD de fornecedores
  */
 
 // Re-exportar tudo do api.js original para manter retrocompatibilidade
@@ -19,4 +22,7 @@ export * from './helpers.js'
 export * from './products.js'
 export * from './customers.js'
 export * from './vendas.js'
+export * from './settings.js'
+export * from './coupons.js'
+export * from './suppliers.js'
 

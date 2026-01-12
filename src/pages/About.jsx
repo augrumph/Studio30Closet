@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Heart, Sparkles, Users2 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import amorImg from '../images/amor.jpeg'
 
 export function About() {
     return (
@@ -10,33 +11,19 @@ export function About() {
                 {/* Imagens lado esquerdo */}
                 <div className="relative bg-[#E8C4B0]/30 flex items-center justify-center p-6 lg:p-16">
                     <motion.div
-                        className="relative max-w-sm lg:max-w-md w-full"
+                        className="relative max-w-[240px] lg:max-w-xs w-full"
                         initial={{ opacity: 0, x: -30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.6 }}
                     >
-                        {/* Grid de fotos */}
-                        <div className="grid grid-cols-2 gap-3 lg:gap-4">
-                            <div className="space-y-3 lg:space-y-4">
-                                <div className="aspect-[3/4] rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl lg:shadow-2xl border-4 border-white">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80"
-                                        alt="Thais"
-                                        loading="lazy"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                            </div>
-                            <div className="pt-6 lg:pt-8 space-y-3 lg:space-y-4">
-                                <div className="aspect-[3/4] rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl lg:shadow-2xl border-4 border-white">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80"
-                                        alt="Augusto"
-                                        loading="lazy"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                            </div>
+                        {/* Foto única */}
+                        <div className="relative aspect-[3/4] rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl lg:shadow-2xl border-4 border-white">
+                            <img
+                                src={amorImg}
+                                alt="Thais e Augusto"
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                            />
                         </div>
                         {/* Badge flutuante */}
                         <div className="absolute -bottom-4 lg:-bottom-6 left-1/2 -translate-x-1/2 bg-[#C75D3B] px-6 lg:px-8 py-3 lg:py-4 rounded-full shadow-2xl">

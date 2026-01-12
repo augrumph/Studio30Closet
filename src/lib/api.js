@@ -3,6 +3,10 @@ import { toSnakeCase, toCamelCase } from './api/helpers.js'
 
 // ==================== RE-EXPORTS (MIGRATED MODULES) ====================
 // Re-exportar funções que foram migradas para módulos separados
+export * from './api/helpers.js'
+export * from './api/products.js'
+export * from './api/customers.js'
+export * from './api/vendas.js'
 export * from './api/settings.js'
 export * from './api/coupons.js'
 export * from './api/suppliers.js'

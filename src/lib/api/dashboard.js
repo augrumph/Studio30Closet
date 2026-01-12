@@ -14,6 +14,60 @@ function toCamelCase(obj) {
     }, {})
 }
 
+/**
+ * Obter métricas financeiras completas para DRE gerencial
+ * @returns {Object} Métricas de receita, custos, despesas, lucro
+ */
+export async function getDashboardMetrics() {
+    console.log('📊 API: Buscando métricas do dashboard...');
+
+    try {
+        // 1. DESPESAS FIXAS
+        const { data: expensesData, error: expensesError } = await supabase
+            .from('fixed_expenses')
+            .select('*');
+
+        if (expensesError) throw expensesError;
+
+        // 2. CUPONS APLICADOS
+        const { data: couponsData, error: couponsError } = await supabase
+            .from('coupons')
+            .select('*')
+            .eq('is_active', true);
+
+        if (couponsError) throw couponsError;
+
+        // 3. INSTALLMENTS (para análise de fluxo de caixa)
+        const { data: installmentsData, error: installmentsError } = await supabase
+            .from('installments')
+            .select('*, installment_payments(*), vendas(id, order_id)');
+
+        if (installmentsError) throw installmentsError;
+
+        // 4. COMPRAS (para análise de custo de estoque)
+        const { data: purchasesData, error: purchasesError } = await supabase
+            .from('purchases')
+            .select('*, suppliers(id, name)');
+
+        if (purchasesError) throw purchasesError;
+
+        const camelExpenses = expensesData.map(toCamelCase);
+        const camelCoupons = couponsData.map(toCamelCase);
+        const camelInstallments = installmentsData.map(toCamelCase);
+        const camelPurchases = purchasesData.map(toCamelCase);
+
+        return {
+            expenses: camelExpenses,
+            coupons: camelCoupons,
+            installments: camelInstallments,
+            purchases: camelPurchases
+        };
+    } catch (err) {
+        console.error('❌ Erro ao buscar métricas do dashboard:', err);
+        throw err;
+    }
+}
+
 export const dashboardService = {
     /**
      * ============================

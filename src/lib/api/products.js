@@ -173,3 +173,78 @@ export async function deleteMultipleProducts(productIds) {
     if (error) throw error
     return true
 }
+
+/**
+ * Carregar produtos PAGINADOS com FILTROS (Infinite Scroll)
+ * Usado no Catálogo
+ */
+export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) {
+    const { category, sizes, search } = filters
+    const startTime = performance.now()
+    console.log(`📡 [Catálogo] Carregando produtos ${offset}-${offset + limit - 1}...`, filters)
+
+    // Construir query base
+    let query = supabase
+        .from('products')
+        // ✅ FIX: Adicionado 'sizes' e 'color' que faltavam e impediam adicionar ao carrinho
+        .select('id, name, price, images, category, stock, created_at, active, variants, sizes, color', { count: 'estimated' })
+        .eq('active', true)
+
+    // Filtro de categoria
+    if (category && category !== 'all') {
+        query = query.eq('category', category)
+    }
+
+    // Filtro de busca (nome, cor, categoria)
+    if (search && search.trim()) {
+        query = query.or(`name.ilike.%${search}%,color.ilike.%${search}%,category.ilike.%${search}%`)
+    }
+
+    // Filtro de tamanhos (contains any of the sizes)
+    if (sizes && sizes.length > 0) {
+        // Supabase array overlap: sizes column contains at least one of the filter sizes
+        query = query.overlaps('sizes', sizes)
+    }
+
+    // Ordenação e paginação
+    query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+
+    const { data, error, count } = await query
+
+    if (error) {
+        console.error('❌ [Catálogo] Erro na query paginada:', error)
+        throw error
+    }
+
+    const result = data.map(product => {
+        const camel = toCamelCase(product)
+        if (!camel.variants) camel.variants = []
+        return camel
+    })
+
+    const totalTime = (performance.now() - startTime).toFixed(0)
+    console.log(`✅ [Catálogo] ${result.length} produtos em ${totalTime}ms (Total filtrado: ${count})`)
+
+    return { products: result, total: count }
+}
+
+/**
+ * Admin: Carregar Inventário Completo (inclui Preço de Custo)
+ */
+export async function getAllProductsAdmin() {
+    console.log('🔐 [Admin] Carregando inventário completo...')
+
+    // Select explicit fields to include cost_price
+    const { data, error } = await supabase
+        .from('products')
+        .select('id, name, price, cost_price, images, category, stock, created_at, active, stock_status, trip_count, variants, sizes, color')
+        .order('id', { ascending: false })
+
+    if (error) {
+        console.error('❌ [Admin] Erro ao carregar inventário:', error)
+        throw error
+    }
+
+    console.log(`✅ [Admin] Inventário carregado: ${data?.length} produtos`)
+    return toCamelCase(data)
+}

@@ -5,6 +5,7 @@
 
 import { supabase } from '../supabase'
 import { toSnakeCase, toCamelCase } from './helpers'
+import { decrementProductStock } from './stock'
 
 /**
  * Listar vendas paginadas
@@ -44,7 +45,7 @@ export async function getVendas(page = 1, limit = 30) {
  * @param {Object} vendaData - Dados da venda
  * @param {Function} decrementStockFn - Função para decrementar estoque (opcional)
  */
-export async function createVenda(vendaData, decrementStockFn = null) {
+export async function createVenda(vendaData) {
     console.log('API: Creating venda with data:', vendaData)
     const snakeData = toSnakeCase(vendaData)
 
@@ -80,14 +81,14 @@ export async function createVenda(vendaData, decrementStockFn = null) {
 
     // Decrementar estoque para vendas diretas (não de malinha)
     const isFromMalinha = !!vendaRecord.order_id
-    if (!isFromMalinha && decrementStockFn) {
+    if (!isFromMalinha) {
         console.log('📦 Venda direta - decrementando estoque...')
         try {
             const itemsWithColor = vendaData.items.map(item => ({
                 ...item,
                 selectedColor: item.selectedColor || item.color || 'Padrão'
             }))
-            await decrementStockFn(itemsWithColor)
+            await decrementProductStock(itemsWithColor)
             console.log('✅ Estoque decrementado com sucesso')
         } catch (stockError) {
             console.error('❌ ERRO ao decrementar estoque:', stockError)

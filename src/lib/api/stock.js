@@ -7,6 +7,177 @@ import { supabase } from '../supabase'
 import { toCamelCase } from './helpers'
 
 /**
+ * Função para decrementar estoque de produtos quando uma venda é feita
+ * @param {Array} items - Items do pedido com productId, quantity, selectedSize, selectedColor
+ * @param {Object} productsMap - Mapa de produtos com dados atuais
+ */
+export async function decrementProductStock(items, productsMap) {
+    try {
+        console.log('📦 Iniciando decréscimo de estoque para', items.length, 'produtos');
+
+        // Para cada item do pedido
+        for (const item of items) {
+            const productId = item.productId;
+            const quantity = item.quantity || 1;
+            const selectedSize = item.selectedSize;
+            const selectedColor = item.selectedColor;
+
+            if (!productId) {
+                console.warn('⚠️ Item sem productId, pulando decréscimo de estoque');
+                continue;
+            }
+
+            // Buscar produto atual com variants
+            const { data: currentProduct, error: fetchError } = await supabase
+                .from('products')
+                .select('id, variants, stock')
+                .eq('id', productId)
+                .single();
+
+            if (fetchError) {
+                console.error(`❌ Erro ao buscar produto ${productId}:`, fetchError);
+                throw new Error(`Não foi possível atualizar estoque do produto ${productId}`);
+            }
+
+            if (!currentProduct) {
+                console.warn(`⚠️ Produto ${productId} não encontrado`);
+                continue;
+            }
+
+            console.log(`📍 Decrementando estoque para produto ${productId}:`);
+            console.log(`   - Cor: ${selectedColor}, Tamanho: ${selectedSize}, Quantidade: ${quantity}`);
+
+            // Copiar variants para modificar
+            let updatedVariants = JSON.parse(JSON.stringify(currentProduct.variants || []));
+
+            // Se não houver variants, criar estrutura padrão
+            if (updatedVariants.length === 0) {
+                console.warn(`⚠️ Produto ${productId} sem variantes definidas`);
+                continue;
+            }
+
+            // Encontrar a variante correta (por cor)
+            // ✅ Prioridade: selectedColor. Somente usa color como fallback se selectedColor for omisso.
+            const variantIndex = updatedVariants.findIndex(
+                v => selectedColor
+                    ? v.colorName === selectedColor
+                    : v.colorName === currentProduct.color
+            );
+
+            if (variantIndex === -1) {
+                console.warn(`⚠️ Cor "${selectedColor}" não encontrada no produto ${productId}`);
+                console.log('   Cores disponíveis:', updatedVariants.map(v => v.colorName).join(', '));
+                continue;
+            }
+
+            const variant = updatedVariants[variantIndex];
+
+            // Encontrar o tamanho correto no sizeStock
+            const sizeStockIndex = variant.sizeStock?.findIndex(s => s.size === selectedSize);
+
+            if (sizeStockIndex === undefined || sizeStockIndex === -1) {
+                console.warn(`⚠️ Tamanho "${selectedSize}" não encontrado na cor "${selectedColor}"`);
+                console.log('   Tamanhos disponíveis:', variant.sizeStock?.map(s => s.size).join(', '));
+                continue;
+            }
+
+            // Verificar se há estoque suficiente
+            const currentStockQuantity = variant.sizeStock[sizeStockIndex].quantity || 0;
+
+            if (currentStockQuantity < quantity) {
+                console.error(
+                    `❌ Estoque insuficiente: ${currentStockQuantity} disponível, ${quantity} solicitado`
+                );
+                throw new Error(
+                    `Estoque insuficiente para ${variant.colorName} - Tamanho ${selectedSize}`
+                );
+            }
+
+            // Decrementar o estoque
+            const oldQty = variant.sizeStock[sizeStockIndex].quantity;
+            variant.sizeStock[sizeStockIndex].quantity -= quantity;
+            const newQty = variant.sizeStock[sizeStockIndex].quantity;
+
+            console.log(`📉 DECREMENTO: ${selectedColor} - ${selectedSize}: ${oldQty} → ${newQty} unidades`);
+
+            // Calcular novo estoque total
+            const newTotalStock = updatedVariants.reduce((total, v) => {
+                return total + (v.sizeStock || []).reduce((sum, s) => sum + (s.quantity || 0), 0);
+            }, 0);
+
+            console.log(`📊 Estoque total do produto será atualizado para: ${newTotalStock}`);
+
+            // Log detalhado para produto ID 24
+            if (productId === 24) {
+                console.log('🔍 ATUALIZANDO PRODUTO ID 24 NO BANCO:');
+                console.log('   Novo stock total:', newTotalStock);
+                // Remover images/urls das variants para logs mais limpos
+                const variantsClean = updatedVariants?.map(v => ({
+                    colorName: v.colorName,
+                    colorHex: v.colorHex,
+                    sizeStock: v.sizeStock
+                }));
+                console.log('   Variants atualizadas:', JSON.stringify(variantsClean, null, 2));
+            }
+
+            // Atualizar produto no banco com novos variants e stock
+            const updatePayload = {
+                variants: updatedVariants,
+                stock: newTotalStock,
+                updated_at: new Date().toISOString()
+            };
+
+            console.log(`💾 Enviando UPDATE para produto ${productId}...`);
+
+            const { data: updateData, error: updateError } = await supabase
+                .from('products')
+                .update(updatePayload)
+                .eq('id', productId)
+                .select(); // Retorna o produto atualizado
+
+            if (updateError) {
+                console.error(`❌ Erro ao atualizar estoque do produto ${productId}:`, updateError);
+                throw new Error(`Falha ao atualizar estoque do produto ${productId}`);
+            }
+
+            console.log(`✅ BANCO ATUALIZADO: Produto ${productId} agora tem stock total = ${newTotalStock}`);
+
+            // Registrar movimentação no histórico
+            try {
+                await supabase.from('stock_movements').insert({
+                    product_id: productId,
+                    quantity: quantity,
+                    movement_type: 'venda',
+                    notes: `Venda automática (Item: ${selectedColor}/${selectedSize})`
+                });
+                console.log(`📝 Movimentação registrada: venda - ${quantity} un.`);
+            } catch (movError) {
+                console.error('⚠️ Falha ao registrar movimentação de estoque:', movError);
+                // Não falhar a operação principal, apenas logar erro
+            }
+
+            // Confirmar o que foi salvo no banco
+            if (productId === 24 && updateData && updateData.length > 0) {
+                console.log('✅ CONFIRMAÇÃO DO BANCO - Produto ID 24:');
+                console.log('   Stock salvo:', updateData[0].stock);
+                // Remover images/urls das variants para logs mais limpos
+                const variantsSaved = updateData[0].variants?.map(v => ({
+                    colorName: v.colorName,
+                    colorHex: v.colorHex,
+                    sizeStock: v.sizeStock
+                }));
+                console.log('   Variants salvas:', JSON.stringify(variantsSaved, null, 2));
+            }
+        }
+
+        return true;
+    } catch (error) {
+        console.error('❌ Erro crítico no decréscimo de estoque:', error);
+        throw error;
+    }
+}
+
+/**
  * Buscar relatório completo de estoque
  */
 export async function getStockReport() {
@@ -30,8 +201,7 @@ export async function getStockReport() {
 async function getStockReportFallback() {
     const { data, error } = await supabase
         .from('products')
-        // select * fails with 500, using explicit safe columns
-        .select('id, name, price, stock, created_at, category, images')
+        .select('id, name, price, cost_price, stock, stock_status, trip_count, created_at, last_status_change, category, brand, color, sizes, images, variants, active')
         .eq('active', true)
         .order('created_at', { ascending: false })
 
@@ -76,7 +246,7 @@ async function getStockReportFallback() {
             markup: parseFloat(markup),
             daysInStock,
             ageStatus,
-            needsReview: tripCount > 5 && stockStatus !== 'vendido'
+            needsReview: tripCount >= 5 || daysInStock >= 90
         }
     })
 }
@@ -85,14 +255,16 @@ async function getStockReportFallback() {
  * Buscar métricas resumidas do estoque
  */
 export async function getStockMetrics() {
-    // Removed specific columns that might not work (stock_status, trip_count, cost_price)
-    // to avoid 500 errors if columns are missing.
+    // Buscar produtos com todas as colunas necessárias
     const { data: products, error } = await supabase
         .from('products')
-        .select('id, price, stock, created_at, active')
+        .select('id, price, cost_price, stock, stock_status, trip_count, created_at, active')
         .eq('active', true)
 
-    if (error) throw error
+    if (error) {
+        console.error('Erro ao buscar métricas de estoque:', error)
+        throw error
+    }
 
     const now = new Date()
 
@@ -113,12 +285,10 @@ export async function getStockMetrics() {
 
     products.forEach(p => {
         const stock = p.stock || 0
-        // cost_price removed, assuming 50% of price for estimation if needed, or just 0
-        const costPrice = 0
+        const costPrice = p.cost_price || 0
         const price = p.price || 0
-        // stock_status derived from stock > 0
-        const status = stock > 0 ? 'disponivel' : 'vendido'
-        const tripCount = 0 // Removed column
+        const status = p.stock_status || 'disponivel'
+        const tripCount = p.trip_count || 0
         const createdAt = new Date(p.created_at)
         const daysInStock = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24))
 
@@ -128,13 +298,23 @@ export async function getStockMetrics() {
 
         // Status
         if (status === 'disponivel') metrics.inStock++
-        else if (status === 'em_malinha') metrics.inMalinha++ // won't happen logic wise yet
+        else if (status === 'em_malinha') metrics.inMalinha++
         else if (status === 'vendido') metrics.sold++
+        else if (status === 'quarentena') metrics.quarantine++
 
-        // Idade
-        if (daysInStock > 90 && stock > 0) metrics.criticalAge++
-        else if (daysInStock > 60 && stock > 0) metrics.alertAge++
-        else if (daysInStock < 30) metrics.newProducts++
+        // Idade (apenas produtos disponíveis)
+        if (daysInStock > 90 && stock > 0 && status === 'disponivel') {
+            metrics.criticalAge++
+        } else if (daysInStock > 60 && stock > 0 && status === 'disponivel') {
+            metrics.alertAge++
+        } else if (daysInStock < 30) {
+            metrics.newProducts++
+        }
+
+        // Produtos que precisam análise (5+ viagens ou 90+ dias)
+        if (tripCount >= 5 || daysInStock >= 90) {
+            metrics.needsReview++
+        }
     })
 
     return metrics

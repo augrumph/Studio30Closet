@@ -93,7 +93,9 @@ export function VendasList() {
             }
         })
 
-        return { totalRevenue, pendingFiado, totalDevedores, valorDevedores }
+        const averageTicket = vendas.length > 0 ? totalRevenue / vendas.length : 0
+
+        return { totalRevenue, pendingFiado, totalDevedores, valorDevedores, averageTicket }
     }, [vendas])
 
     const paymentMethods = {
@@ -190,12 +192,12 @@ export function VendasList() {
                     </motion.div>
 
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                        <Card className="border-amber-50 bg-white group overflow-hidden relative">
+                        <Card className="border-indigo-50 bg-white group overflow-hidden relative">
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-amber-50 rounded-xl"><CreditCard className="w-5 h-5 text-amber-600" /></div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Crediário (Pendente)</span>
+                                        <div className="p-2 bg-indigo-50 rounded-xl"><DollarSign className="w-5 h-5 text-indigo-600" /></div>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ticket Médio</span>
                                     </div>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -204,16 +206,16 @@ export function VendasList() {
                                             </button>
                                         </TooltipTrigger>
                                         <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Valor total de vendas marcadas como "Fiado" que ainda não foram liquidadas.</p>
+                                            <p>Valor médio gasto por venda (Faturamento Total / Quantidade de Vendas).</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <div className="flex items-baseline gap-1 text-3xl font-display font-bold text-[#4A3B32]">
-                                    R$ {(metrics.pendingFiado || 0).toLocaleString('pt-BR')}
+                                <div className="text-3xl font-display font-bold text-[#4A3B32]">
+                                    R$ {(metrics.averageTicket || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
-                                <p className="text-xs text-amber-600 font-medium mt-1">Aguardando liquidação</p>
+                                <p className="text-xs text-indigo-600 font-medium mt-1">Média por venda</p>
                             </CardContent>
                         </Card>
                     </motion.div>

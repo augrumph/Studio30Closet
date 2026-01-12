@@ -255,11 +255,10 @@ async function getStockReportFallback() {
  * Buscar métricas resumidas do estoque
  */
 export async function getStockMetrics() {
-    // Buscar produtos com todas as colunas necessárias
+    // Buscar TODOS os produtos (não filtrar por active) para bater com ProductsList
     const { data: products, error } = await supabase
         .from('products')
         .select('id, price, cost_price, stock, stock_status, trip_count, created_at, active')
-        .eq('active', true)
 
     if (error) {
         console.error('Erro ao buscar métricas de estoque:', error)
@@ -292,6 +291,7 @@ export async function getStockMetrics() {
         const createdAt = new Date(p.created_at)
         const daysInStock = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24))
 
+        // Cálculo de valores: custo * quantidade e preço * quantidade
         metrics.totalPieces += stock
         metrics.totalCostValue += costPrice * stock
         metrics.totalSaleValue += price * stock
@@ -302,17 +302,17 @@ export async function getStockMetrics() {
         else if (status === 'vendido') metrics.sold++
         else if (status === 'quarentena') metrics.quarantine++
 
-        // Idade (apenas produtos disponíveis)
-        if (daysInStock > 90 && stock > 0 && status === 'disponivel') {
+        // Idade (apenas produtos disponíveis e ativos)
+        if (p.active && daysInStock > 90 && stock > 0 && status === 'disponivel') {
             metrics.criticalAge++
-        } else if (daysInStock > 60 && stock > 0 && status === 'disponivel') {
+        } else if (p.active && daysInStock > 60 && stock > 0 && status === 'disponivel') {
             metrics.alertAge++
-        } else if (daysInStock < 30) {
+        } else if (p.active && daysInStock < 30) {
             metrics.newProducts++
         }
 
-        // Produtos que precisam análise (5+ viagens ou 90+ dias)
-        if (tripCount >= 5 || daysInStock >= 90) {
+        // Produtos que precisam análise (5+ viagens ou 90+ dias, apenas ativos)
+        if (p.active && (tripCount >= 5 || daysInStock >= 90)) {
             metrics.needsReview++
         }
     })

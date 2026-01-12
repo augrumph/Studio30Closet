@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, User, Phone, Mail, MapPin, Hash, Info } from 'lucide-react'
+import { ArrowLeft, Save, User, Phone, Mail, MapPin, Hash, Info, Calendar } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -17,6 +17,7 @@ export function CustomersForm() {
         phone: '',
         email: '',
         cpf: '',
+        birth_date: '',
         addresses: [{
             street: '',
             number: '',
@@ -159,6 +160,21 @@ export function CustomersForm() {
                                 </div>
                             </div>
 
+                            <div className="md:col-span-2">
+                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">E-mail</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        placeholder="cliente@email.com"
+                                        className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                    />
+                                </div>
+                            </div>
+
                             <div>
                                 <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">CPF (Opcional)</label>
                                 <div className="relative">
@@ -174,17 +190,16 @@ export function CustomersForm() {
                                 </div>
                             </div>
 
-                            <div className="md:col-span-2">
-                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">E-mail</label>
+                            <div>
+                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">Data de Nascimento</label>
                                 <div className="relative">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <input
-                                        type="email"
-                                        name="email"
-                                        value={formData.email}
+                                        type="date"
+                                        name="birth_date"
+                                        value={formData.birth_date || ''}
                                         onChange={handleChange}
-                                        placeholder="cliente@email.com"
-                                        className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                        className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-gray-600"
                                     />
                                 </div>
                             </div>

@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, Phone, Mail, ShoppingBag, ExternalLink, MoreHorizontal, User, Trash2, Info } from 'lucide-react'
+import { Plus, Search, Filter, Phone, Mail, ShoppingBag, ExternalLink, MoreHorizontal, User, Trash2, Info, Gift, Send } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/Dialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -28,6 +29,7 @@ export function CustomersList() {
     const [itemsPerPage] = useState(10)
     const [filterSegment, setFilterSegment] = useState('all') // 'all', 'active', 'inactive'
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, customerId: null, customerName: '' })
+    const [showBirthdays, setShowBirthdays] = useState(false)
 
     useEffect(() => {
         loadCustomers()
@@ -36,7 +38,7 @@ export function CustomersList() {
     }, [loadCustomers, loadVendas, loadOrders])
 
     // ✅ MÉTRICAS E CLIENTES PROCESSADOS
-    const { processedCustomers, metrics } = useMemo(() => {
+    const { processedCustomers, metrics, birthdaysThisMonth } = useMemo(() => {
         // Mapear vendas e pedidos por cliente para acesso rápido
         const salesByCustomer = {}
         const ordersByCustomer = {}
@@ -72,6 +74,18 @@ export function CustomersList() {
             }
         })
 
+        // Filtrar aniversariantes do mês atual
+        const currentMonth = new Date().getMonth() + 1 // 1-12
+        const birthdays = processed.filter(c => {
+            if (!c.birth_date) return false
+            const [_, month] = c.birth_date.split('-').map(Number)
+            return month === currentMonth
+        }).sort((a, b) => {
+            const dayA = parseInt(a.birth_date.split('-')[2])
+            const dayB = parseInt(b.birth_date.split('-')[2])
+            return dayA - dayB
+        })
+
         // Métricas Globais
         const totalSpentGlobal = vendas.reduce((acc, venda) => acc + (venda.totalValue || 0), 0)
         const customersWithSales = Object.keys(salesByCustomer).length
@@ -80,6 +94,7 @@ export function CustomersList() {
 
         return {
             processedCustomers: processed,
+            birthdaysThisMonth: birthdays,
             metrics: {
                 totalSpent: totalSpentGlobal,
                 averageLTV,
@@ -137,6 +152,21 @@ export function CustomersList() {
         }
     }
 
+    // Helper: Formatar data (DD/MM)
+    const formatBirthday = (dateString) => {
+        if (!dateString) return ''
+        const [year, month, day] = dateString.split('-')
+        return `${day}/${month}`
+    }
+
+    // Helper: Gerar link WhatsApp
+    const getWhatsAppLink = (customer) => {
+        const phone = customer.phone.replace(/\D/g, '')
+        const firstName = customer.name.split(' ')[0]
+        const message = `Oi ${firstName}, parabéns! 🥳🎂\n\nVi que é seu mês de aniversário e separei um presente especial pra você aqui na Studio 30!\n\nQuando puder, me dá um oi pra eu te contar! 😘`
+        return `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`
+    }
+
     // Show skeleton while loading
     if (customersLoading && customers.length === 0) {
         return <CustomersListSkeleton />
@@ -177,6 +207,33 @@ export function CustomersList() {
 
                 {/* Quick Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {/* Card: Aniversariantes */}
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setShowBirthdays(true)}
+                        className="cursor-pointer"
+                    >
+                        <Card className="bg-gradient-to-br from-[#C75D3B] to-[#A64D31] border-none shadow-xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/20 transition-all" />
+                            <CardContent className="pt-6 relative z-10">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="w-12 h-12 rounded-3xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+                                        <Gift className="w-6 h-6" />
+                                    </div>
+                                    <span className="px-2 py-1 bg-white/20 rounded-lg text-white text-[10px] font-bold uppercase backdrop-blur-sm">
+                                        Mês Atual
+                                    </span>
+                                </div>
+                                <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Aniversariantes</p>
+                                <div className="flex items-end gap-2">
+                                    <p className="text-3xl font-display font-bold text-white">{birthdaysThisMonth.length}</p>
+                                    <p className="text-white/80 text-xs font-bold mb-1.5">clientes</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
                     {/* Card: Contatos Ativos */}
                     <Card>
                         <CardContent className="pt-6">
@@ -216,36 +273,12 @@ export function CustomersList() {
                                     </TooltipTrigger>
                                     <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
                                         <p className="font-semibold mb-1">LTV Médio</p>
-                                        <p className="text-gray-300">Lifetime Value médio: quanto cada cliente gasta em média ao longo do tempo. Calculado pela receita total dividida pelo número de clientes que já compraram.</p>
+                                        <p className="text-gray-300">Lifetime Value médio: quanto cada cliente gasta em média ao longo do tempo.</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LTV Médio</p>
                             <p className="text-2xl font-display font-bold text-[#4A3B32]">R$ {metrics.averageLTV.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
-                        </CardContent>
-                    </Card>
-
-                    {/* Card: Total Malinhas */}
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="w-12 h-12 rounded-3xl bg-purple-50 flex items-center justify-center text-purple-600">
-                                    <ShoppingBag className="w-6 h-6" />
-                                </div>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                            <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                        <p className="font-semibold mb-1">Total Malinhas</p>
-                                        <p className="text-gray-300">Número total de malinhas criadas para todos os clientes (pendentes, ativas e concluídas).</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Malinhas</p>
-                            <p className="text-2xl font-display font-bold text-[#4A3B32]">{metrics.totalMalinhas}</p>
                         </CardContent>
                     </Card>
 
@@ -264,7 +297,7 @@ export function CustomersList() {
                                     </TooltipTrigger>
                                     <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
                                         <p className="font-semibold mb-1">Receita Total</p>
-                                        <p className="text-gray-300">Soma de todas as vendas realizadas para todos os clientes. Representa o faturamento bruto total.</p>
+                                        <p className="text-gray-300">Faturamento bruto total histórico.</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
@@ -339,7 +372,12 @@ export function CustomersList() {
                                                             {customer.name.charAt(0)}
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-bold text-[#4A3B32]">{customer.name}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-bold text-[#4A3B32]">{customer.name}</p>
+                                                                {customer.birth_date && (
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-pink-400" title="Aniversário Cadastrado" />
+                                                                )}
+                                                            </div>
                                                             <p className="text-[10px] text-gray-400 italic">{customer.email || 'Nenhum e-mail vinculado'}</p>
                                                         </div>
                                                     </div>
@@ -450,6 +488,72 @@ export function CustomersList() {
                     cancelText="Cancelar"
                     variant="danger"
                 />
+
+                {/* MODAL ANIVERSARIANTES */}
+                <Dialog open={showBirthdays} onOpenChange={setShowBirthdays}>
+                    <DialogContent className="max-w-2xl bg-gradient-to-br from-white to-gray-50 border-none shadow-3xl">
+                        <DialogHeader>
+                            <div className="flex items-center gap-4 mb-2">
+                                <div className="p-3 bg-pink-100 rounded-2xl">
+                                    <Gift className="w-6 h-6 text-pink-500" />
+                                </div>
+                                <div>
+                                    <DialogTitle>Aniversariantes do Mês</DialogTitle>
+                                    <DialogDescription className="text-gray-500 font-medium">
+                                        Clientes que celebram aniversário em <strong>{new Date().toLocaleString('pt-BR', { month: 'long' })}</strong>
+                                    </DialogDescription>
+                                </div>
+                            </div>
+                        </DialogHeader>
+
+                        <div className="max-h-[400px] overflow-y-auto pr-2 space-y-3 mt-4">
+                            {birthdaysThisMonth.length > 0 ? (
+                                birthdaysThisMonth.map(customer => (
+                                    <motion.div
+                                        key={customer.id}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-500 font-bold text-lg border-2 border-white shadow-sm">
+                                                {formatBirthday(customer.birth_date)}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-[#4A3B32]">{customer.name}</p>
+                                                <p className="text-xs text-gray-400 font-medium flex items-center gap-1">
+                                                    <Phone className="w-3 h-3" />
+                                                    {customer.phone}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <a
+                                            href={getWhatsAppLink(customer)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="px-4 py-2 bg-green-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-green-600 transition-colors shadow-sm hover:shadow-green-200"
+                                        >
+                                            <Send className="w-3 h-3" />
+                                            Enviar Parabéns
+                                        </a>
+                                    </motion.div>
+                                ))
+                            ) : (
+                                <div className="text-center py-12">
+                                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                                        <Gift className="w-8 h-8" />
+                                    </div>
+                                    <p className="text-gray-500 font-medium">Nenhum aniversariante neste mês.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400">
+                            <span>Total: {birthdaysThisMonth.length} clientes</span>
+                            <span>🎉 Celebre com seus clientes!</span>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </TooltipProvider>
     )

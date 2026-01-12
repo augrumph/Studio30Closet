@@ -1,8 +1,8 @@
 import { useAuthStore } from '@/store/auth-store'
-import { User, LogOut, Menu } from 'lucide-react'
+import { User, LogOut, Menu, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-export function AdminTopbar({ onMenuClick }) {
+export function AdminTopbar({ onMenuClick, onChatClick }) {
     const { user, logout } = useAuthStore()
 
     return (
@@ -34,6 +34,25 @@ export function AdminTopbar({ onMenuClick }) {
 
                 {/* User Actions */}
                 <div className="flex items-center gap-2 md:gap-4">
+                    {/* AI Assistant Button - Premium Style */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onChatClick}
+                        className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-terracotta to-brand-rust text-white rounded-full transition-all shadow-lg shadow-brand-terracotta/20 hover:shadow-brand-terracotta/40 group border border-white/10"
+                    >
+                        <Sparkles className="w-3.5 h-3.5 group-hover:animate-pulse" />
+                        <span className="text-xs font-bold tracking-wide uppercase">Midi</span>
+                    </motion.button>
+
+                    {/* Mobile Chat Trigger */}
+                    <button
+                        onClick={onChatClick}
+                        className="md:hidden w-10 h-10 bg-gradient-to-br from-brand-terracotta to-brand-rust rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform"
+                    >
+                        <Sparkles className="w-5 h-5" />
+                    </button>
+
                     {/* Desktop User Info */}
                     <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-[#FDF0ED] rounded-xl">
                         <div className="w-8 h-8 bg-[#C75D3B] rounded-full flex items-center justify-center">

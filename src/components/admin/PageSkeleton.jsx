@@ -22,6 +22,24 @@ function SkeletonPulse({ className }) {
 }
 
 /**
+ * Single KPI Card Skeleton
+ */
+export function KPISkeletonCard() {
+    return (
+        <div className="bg-white border rounded-2xl p-4 h-full space-y-3">
+            <div className="flex justify-between items-center">
+                <SkeletonPulse className="h-8 w-8 rounded-lg" />
+                <SkeletonPulse className="h-4 w-16 opacity-50" />
+            </div>
+            <div className="space-y-2 pt-2">
+                <SkeletonPulse className="h-8 w-24 rounded-lg" />
+                <SkeletonPulse className="h-3 w-12 opacity-50" />
+            </div>
+        </div>
+    )
+}
+
+/**
  * Dashboard Skeleton
  */
 export function DashboardSkeleton() {
@@ -236,11 +254,41 @@ export function MalinhasListSkeleton() {
 }
 
 /**
+ * Stock Dashboard Skeleton
+ */
+export function StockDashboardSkeleton() {
+    return (
+        <div className="space-y-8 pb-20">
+            {/* Header KPIs */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[...Array(3)].map((_, i) => (
+                    <SkeletonPulse key={i} className="rounded-2xl h-32" />
+                ))}
+            </div>
+
+            {/* Action Cards (Restock & Dead Stock) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <SkeletonPulse className="rounded-2xl h-64" />
+                <SkeletonPulse className="rounded-2xl h-64" />
+            </div>
+
+            {/* Rankings */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                {[...Array(3)].map((_, i) => (
+                    <SkeletonPulse key={i} className="rounded-2xl h-48" />
+                ))}
+            </div>
+        </div>
+    )
+}
+
+/**
  * Generic Page Skeleton (fallback)
  */
 export function PageSkeleton({ variant = 'default' }) {
     const skeletons = {
         dashboard: <DashboardSkeleton />,
+        stock: <StockDashboardSkeleton />,
         products: <ProductsListSkeleton />,
         customers: <CustomersListSkeleton />,
         vendas: <VendasListSkeleton />,

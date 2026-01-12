@@ -73,9 +73,7 @@ export function SheetContent({ children, side = "bottom", className, onClose }) 
                 </button>
             )}
 
-            <div className="p-6">
-                {children}
-            </div>
+            {children}
         </motion.div>
     )
 }

@@ -7,10 +7,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CommandPalette } from '../CommandPalette'
 import { PageSkeleton } from '../PageSkeleton'
 import { useAdminStore } from '@/store/admin-store'
+import { AIChatSidebar } from '../ai/AIChatSidebar'
 
 export function AdminLayout() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+    const [chatOpen, setChatOpen] = useState(false)
     const location = useLocation()
     const lastLoadRef = useRef(0)
 
@@ -95,7 +97,10 @@ export function AdminLayout() {
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden relative">
                 {/* Topbar */}
-                <AdminTopbar onMenuClick={() => setMobileMenuOpen(true)} />
+                <AdminTopbar
+                    onMenuClick={() => setMobileMenuOpen(true)}
+                    onChatClick={() => setChatOpen(true)}
+                />
 
                 {/* Page Content with Transition */}
                 <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8 pb-20 lg:pb-8">
@@ -116,6 +121,9 @@ export function AdminLayout() {
                     </AnimatePresence>
                 </main>
             </div>
+
+            {/* AI Chat Sidebar */}
+            <AIChatSidebar isOpen={chatOpen} onClose={() => setChatOpen(false)} />
         </div>
     )
 }

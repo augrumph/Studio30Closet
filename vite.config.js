@@ -17,8 +17,8 @@ export default defineConfig({
           vendor: ['react', 'react-dom', 'react-router-dom'],
           ui: ['framer-motion', 'lucide-react', 'clsx', 'tailwind-merge'],
           charts: ['recharts'],
-          state: ['zustand'],
-          utils: ['sonner']
+          state: ['zustand', '@tanstack/react-query'],
+          utils: ['sonner', 'date-fns']
         }
       }
     }

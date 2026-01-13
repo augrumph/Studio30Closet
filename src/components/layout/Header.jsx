@@ -62,8 +62,10 @@ export function Header() {
                     {/* Logo - Usando logomarca */}
                     <Link to="/" className="flex items-center group flex-shrink-0">
                         <img
-                            src="/logomarca.PNG"
+                            src="/logomarca.webp"
                             alt="Studio 30 Closet"
+                            width="48"
+                            height="48"
                             className={cn(
                                 "object-contain transition-all duration-300 group-hover:scale-105",
                                 isScrolled ? "h-10 w-auto" : "h-12 w-auto"
@@ -158,8 +160,10 @@ export function Header() {
                     <div className="relative flex items-center justify-between p-4 border-b border-brand-peach/30 bg-white">
                         <Link to="/" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
                             <img
-                                src="/logomarca.PNG"
+                                src="/logomarca.webp"
                                 alt="Studio 30 Closet"
+                                width="40"
+                                height="40"
                                 className="h-10 w-auto object-contain"
                             />
                         </Link>

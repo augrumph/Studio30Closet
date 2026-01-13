@@ -41,8 +41,10 @@ export function HowItWorks() {
                             <div className="relative group">
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80"
+                                        src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80"
                                         alt="Monte sua malinha"
+                                        width="600"
+                                        height="600"
                                         loading="lazy"
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                     />
@@ -67,8 +69,10 @@ export function HowItWorks() {
                             <div className="relative group lg:order-1">
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80"
+                                        src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80"
                                         alt="Receba em casa"
+                                        width="600"
+                                        height="600"
                                         loading="lazy"
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                     />
@@ -128,8 +132,10 @@ export function HowItWorks() {
                             <div className="relative group">
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1558171813-4c088753af8f?w=800&q=80"
+                                        src="https://images.unsplash.com/photo-1558171813-4c088753af8f?w=600&q=80"
                                         alt="Experimente em casa"
+                                        width="600"
+                                        height="600"
                                         loading="lazy"
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                     />
@@ -153,8 +159,10 @@ export function HowItWorks() {
                             <div className="relative group lg:order-1">
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80"
+                                        src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&q=80"
                                         alt="Fique com o que amar"
+                                        width="600"
+                                        height="600"
                                         loading="lazy"
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                     />

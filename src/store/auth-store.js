@@ -97,15 +97,22 @@ export const useAuthStore = create(
                         .eq('id', user.id)
                         .maybeSingle()
 
-                    if (error || !data) {
-                        console.warn('Sessão inválida: Usuário não encontrado no banco')
+                    // Se houver erro de rede ou query, NÃO deslogar - só deslogar se usuário realmente não existir
+                    if (error) {
+                        console.warn('⚠️ Erro ao validar sessão (mantendo login):', error)
+                        return true // Manter logado em caso de erro de rede
+                    }
+
+                    if (!data) {
+                        console.warn('❌ Sessão inválida: Usuário não encontrado no banco')
                         set({ isAuthenticated: false, user: null })
                         return false
                     }
+
                     return true
                 } catch (error) {
-                    console.error('Erro ao validar sessão:', error)
-                    return false // Em caso de erro de rede, mantemos logado ou deslogamos? Segurança = deslogar ou tentar dnv.
+                    console.error('⚠️ Erro ao validar sessão (mantendo login):', error)
+                    return true // Manter logado em caso de exceção/erro de rede
                 }
             },
 

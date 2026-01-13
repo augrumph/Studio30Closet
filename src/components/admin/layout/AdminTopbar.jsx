@@ -1,9 +1,12 @@
 import { useAuthStore } from '@/store/auth-store'
-import { User, LogOut, Menu, Sparkles } from 'lucide-react'
+import { User, LogOut, Menu, Sparkles, Image } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { SiteImagesManager } from '@/components/admin/SiteImagesManager'
 
 export function AdminTopbar({ onMenuClick, onChatClick }) {
     const { user, logout } = useAuthStore()
+    const [showImagesModal, setShowImagesModal] = useState(false)
 
     return (
         <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-30">
@@ -34,24 +37,26 @@ export function AdminTopbar({ onMenuClick, onChatClick }) {
 
                 {/* User Actions */}
                 <div className="flex items-center gap-2 md:gap-4">
-                    {/* AI Assistant Button - Premium Style - OCULTO */}
-                    {/* <motion.button
+                    {/* Botão Gerenciar Imagens do Site */}
+                    <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={onChatClick}
-                        className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-terracotta to-brand-rust text-white rounded-full transition-all shadow-lg shadow-brand-terracotta/20 hover:shadow-brand-terracotta/40 group border border-white/10"
+                        onClick={() => setShowImagesModal(true)}
+                        className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#C75D3B] to-[#A64D31] text-white rounded-full transition-all shadow-lg shadow-[#C75D3B]/20 hover:shadow-[#C75D3B]/40 group border border-white/10"
+                        title="Gerenciar Imagens do Site"
                     >
-                        <Sparkles className="w-3.5 h-3.5 group-hover:animate-pulse" />
-                        <span className="text-xs font-bold tracking-wide uppercase">Midi</span>
-                    </motion.button> */}
+                        <Image className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold tracking-wide uppercase">Imagens</span>
+                    </motion.button>
 
-                    {/* Mobile Chat Trigger - OCULTO */}
-                    {/* <button
-                        onClick={onChatClick}
-                        className="md:hidden w-10 h-10 bg-gradient-to-br from-brand-terracotta to-brand-rust rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform"
+                    {/* Mobile - Botão de Imagens */}
+                    <button
+                        onClick={() => setShowImagesModal(true)}
+                        className="md:hidden w-10 h-10 bg-gradient-to-br from-[#C75D3B] to-[#A64D31] rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform"
+                        title="Gerenciar Imagens"
                     >
-                        <Sparkles className="w-5 h-5" />
-                    </button> */}
+                        <Image className="w-5 h-5" />
+                    </button>
 
                     {/* Desktop User Info */}
                     <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-[#FDF0ED] rounded-xl">
@@ -80,6 +85,12 @@ export function AdminTopbar({ onMenuClick, onChatClick }) {
                     </motion.button>
                 </div>
             </div>
+
+            {/* Modal de Gerenciamento de Imagens */}
+            <SiteImagesManager
+                isOpen={showImagesModal}
+                onClose={() => setShowImagesModal(false)}
+            />
         </header>
     )
 }

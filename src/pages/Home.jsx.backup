@@ -9,12 +9,10 @@ import { FadeText } from '@/components/magicui/animated-text'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { motion } from 'framer-motion'
 import { usePrefetchProducts } from '@/hooks/usePrefetchProducts'
-import { useSiteImagesContext } from '@/contexts/SiteImagesContext'
 
 export function Home() {
     const { products, loadProducts, productsLoading } = useAdminStore()
     const [selectedProduct, setSelectedProduct] = useState(null)
-    const { images, loading: imagesLoading } = useSiteImagesContext()
 
     // Prefetch produtos em background assim que a homepage monta
     usePrefetchProducts()
@@ -68,10 +66,6 @@ export function Home() {
     // Textura de papel
     const paperTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E")`
 
-    // URLs das imagens do banco ou fallback
-    const heroLogo = images?.hero_logo || '/marcacompleta.webp'
-    const howItWorksSectionImage = images?.how_it_works_section_image || 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=600&auto=format&fit=crop'
-
     return (
         // BASE: Fundo Creme Claro Global
         <div className="w-full overflow-x-hidden bg-[#FDFBF7] text-[#4A3B32] font-sans selection:bg-[#C75D3B] selection:text-white">
@@ -100,7 +94,7 @@ export function Home() {
                             {/* LOGO (Esquerda) */}
                             <div className="flex justify-center lg:justify-end animate-fade-in order-1 mb-4 md:mb-0">
                                 <img
-                                    src={heroLogo}
+                                    src="/marcacompleta.webp"
                                     alt="Studio 30 Closet - Logo Completa"
                                     width="640"
                                     height="360"
@@ -192,7 +186,7 @@ export function Home() {
                         <div className="relative order-2 lg:order-1">
                             <div className="aspect-[4/5] rounded-xl md:rounded-[2rem] overflow-hidden shadow-lg md:shadow-xl">
                                 <img
-                                    src={howItWorksSectionImage}
+                                    src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=600&auto=format&fit=crop"
                                     alt="Conceito Malinha"
                                     width="600"
                                     height="750"

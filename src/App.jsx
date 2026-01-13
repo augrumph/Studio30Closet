@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from '@/components/layout'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { SiteImagesProvider } from '@/contexts/SiteImagesContext'
 import { LoadingBar } from '@/components/LoadingBar'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AnimatePresence } from 'framer-motion'
@@ -80,11 +81,12 @@ function App() {
         <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
                 <ToastProvider>
-                    <BrowserRouter>
-                    <LoadingBar />
-                    <ScrollToTop />
-                    <AnimatePresence mode="wait">
-                        <Suspense fallback={<PageLoader />}>
+                    <SiteImagesProvider>
+                        <BrowserRouter>
+                        <LoadingBar />
+                        <ScrollToTop />
+                        <AnimatePresence mode="wait">
+                            <Suspense fallback={<PageLoader />}>
                             <Routes>
                                 {/* Rotas Públicas */}
                                 <Route path="/" element={<Layout />}>
@@ -152,6 +154,7 @@ function App() {
                         </Suspense>
                     </AnimatePresence>
                 </BrowserRouter>
+                    </SiteImagesProvider>
             </ToastProvider>
         </QueryClientProvider>
         </ErrorBoundary>

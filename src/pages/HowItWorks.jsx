@@ -1,8 +1,17 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Check, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useSiteImagesContext } from '@/contexts/SiteImagesContext'
 
 export function HowItWorks() {
+    const { images } = useSiteImagesContext()
+
+    // URLs das imagens do banco ou fallback
+    const step1Image = images?.step_1_image || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80'
+    const step2Image = images?.step_2_image || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'
+    const step3Image = images?.step_3_image || 'https://images.unsplash.com/photo-1558171813-4c088753af8f?w=600&q=80'
+    const step4Image = images?.step_4_image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&q=80'
+
     return (
         <div className="w-full bg-[#FDFBF7]">
             {/* Timeline */}
@@ -41,7 +50,7 @@ export function HowItWorks() {
                             <div className="relative group">
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80"
+                                        src={step1Image}
                                         alt="Monte sua malinha"
                                         width="600"
                                         height="600"
@@ -69,7 +78,7 @@ export function HowItWorks() {
                             <div className="relative group lg:order-1">
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80"
+                                        src={step2Image}
                                         alt="Receba em casa"
                                         width="600"
                                         height="600"
@@ -132,7 +141,7 @@ export function HowItWorks() {
                             <div className="relative group">
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1558171813-4c088753af8f?w=600&q=80"
+                                        src={step3Image}
                                         alt="Experimente em casa"
                                         width="600"
                                         height="600"
@@ -159,7 +168,7 @@ export function HowItWorks() {
                             <div className="relative group lg:order-1">
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
-                                        src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&q=80"
+                                        src={step4Image}
                                         alt="Fique com o que amar"
                                         width="600"
                                         height="600"

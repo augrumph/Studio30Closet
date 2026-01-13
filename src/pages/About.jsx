@@ -2,8 +2,14 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Heart, Sparkles, Users2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import amorImg from '../images/amor.jpeg'
+import { useSiteImagesContext } from '@/contexts/SiteImagesContext'
 
 export function About() {
+    const { images } = useSiteImagesContext()
+
+    // Usar imagem do banco ou fallback para a imagem local
+    const aboutHeroImage = images?.about_hero_image || amorImg
+
     return (
         <div className="w-full bg-[#FDFBF7]">
             {/* Hero Split Screen */}
@@ -19,7 +25,7 @@ export function About() {
                         {/* Foto única */}
                         <div className="relative aspect-[3/4] rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl lg:shadow-2xl border-4 border-white">
                             <img
-                                src={amorImg}
+                                src={aboutHeroImage}
                                 alt="Thais e Augusto"
                                 loading="lazy"
                                 className="w-full h-full object-cover"

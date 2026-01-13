@@ -8,6 +8,7 @@ const initialCustomerData = {
     phone: '',
     email: '',
     cpf: '',
+    birth_date: '',
     addresses: [{
         street: '',
         number: '',

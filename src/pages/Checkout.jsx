@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Truck, AlertTriangle } from 'lucide-react'
+import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Truck, AlertTriangle, User, Phone, Mail, Hash, Calendar, MapPin } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatMalinhaMessage, generateWhatsAppLink, cn } from '@/lib/utils'
 import { useAdminStore } from '@/store/admin-store'
@@ -85,9 +85,15 @@ export function Checkout() {
     }, [step])
 
     // Form handlers
-    const handleInputChange = (e) => setCustomerData({ [e.target.name]: e.target.value })
+    const handleInputChange = useCallback((e) => {
+        const { name, value } = e.target
+        setCustomerData({ [name]: value })
+    }, [setCustomerData])
 
-    const handleAddressChange = (e) => setAddressData({ [e.target.name]: e.target.value })
+    const handleAddressChange = useCallback((e) => {
+        const { name, value } = e.target
+        setAddressData({ [name]: value })
+    }, [setAddressData])
 
     const handleCepChange = async (e) => {
         let value = e.target.value.replace(/\D/g, '').slice(0, 8)
@@ -118,10 +124,23 @@ export function Checkout() {
     const validateForm = () => {
         const errors = {}
         const addr = customerData.addresses?.[0] || {}
+
+        // Dados Pessoais
         if (!customerData.name?.trim()) errors.name = 'Obrigatório'
         if (!customerData.phone?.trim() || customerData.phone.length < 10) errors.phone = 'Inválido'
+        if (!customerData.email?.trim()) errors.email = 'Obrigatório'
+        if (!customerData.cpf?.trim()) errors.cpf = 'Obrigatório'
+        if (!customerData.birth_date?.trim()) errors.birth_date = 'Obrigatório'
+
+        // Endereço
+        if (!addr.zipCode?.trim()) errors.zipCode = 'Obrigatório'
         if (!addr.street?.trim()) errors.street = 'Obrigatório'
         if (!addr.number?.trim()) errors.number = 'Obrigatório'
+        if (!addr.neighborhood?.trim()) errors.neighborhood = 'Obrigatório'
+        if (!addr.complement?.trim()) errors.complement = 'Obrigatório'
+        if (!addr.city?.trim()) errors.city = 'Obrigatório'
+        if (!addr.state?.trim()) errors.state = 'Obrigatório'
+
         setFormErrors(errors)
         return Object.keys(errors).length === 0
     }
@@ -224,18 +243,195 @@ export function Checkout() {
                     </div>
                 )}
 
-                {/* PROGRESS STEPS */}
-                <div className="flex justify-center mb-8">
-                    <div className="flex items-center gap-4">
-                        {[1, 2, 3].map(s => (
-                            <div key={s} className={`w-3 h-3 rounded-full transition-all ${step >= s ? 'bg-[#C75D3B] scale-125' : 'bg-gray-300'}`} />
-                        ))}
+                {/* PREMIUM ANIMATED PROGRESS INDICATOR */}
+                <div className="mb-8 px-4">
+                    <div className="max-w-md mx-auto">
+                        <div className="relative flex items-center justify-between px-6">
+                            {/* Linha de Conexão Animada */}
+                            <div className="absolute top-5 left-10 right-10 h-0.5 bg-gradient-to-r from-transparent via-gray-200 to-transparent">
+                                <motion.div
+                                    className="h-full bg-gradient-to-r from-[#C75D3B] via-[#E07B5D] to-[#C75D3B]"
+                                    style={{ filter: 'drop-shadow(0 0 8px rgba(199, 93, 59, 0.3))' }}
+                                    initial={{ width: '0%' }}
+                                    animate={{
+                                        width: step === 1 ? '0%' : step === 2 ? '50%' : '100%'
+                                    }}
+                                    transition={{
+                                        duration: 0.6,
+                                        ease: [0.4, 0, 0.2, 1],
+                                        delay: 0.1
+                                    }}
+                                />
+                            </div>
+
+                            {/* Step 1: Revisar Itens */}
+                            <motion.button
+                                type="button"
+                                onClick={() => step > 1 && setStep(1)}
+                                disabled={step === 1}
+                                className="flex flex-col items-center gap-2 relative z-10 focus:outline-none disabled:cursor-default cursor-pointer group"
+                                whileHover={step > 1 ? { scale: 1.05 } : {}}
+                                whileTap={step > 1 ? { scale: 0.95 } : {}}
+                            >
+                                <motion.div
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-sm transition-all duration-500 ${step >= 1
+                                        ? 'bg-gradient-to-br from-[#C75D3B] via-[#D66A4E] to-[#E07B5D] shadow-lg'
+                                        : 'bg-white/90 border border-gray-200 shadow-sm'
+                                        }`}
+                                    style={step >= 1 ? { boxShadow: '0 4px 20px rgba(199, 93, 59, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1) inset' } : {}}
+                                    animate={step === 1 ? {
+                                        scale: [1, 1.08, 1],
+                                        rotate: [0, 3, -3, 0]
+                                    } : {}}
+                                    transition={{
+                                        duration: 0.6,
+                                        repeat: step === 1 ? 1 : 0,
+                                        delay: 0.2,
+                                        ease: [0.4, 0, 0.2, 1]
+                                    }}
+                                >
+                                    <motion.div
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                                    >
+                                        {step > 1 ? (
+                                            <motion.div
+                                                initial={{ scale: 0, rotate: -180 }}
+                                                animate={{ scale: 1, rotate: 0 }}
+                                                transition={{ type: "spring", stiffness: 200 }}
+                                            >
+                                                <Check className="w-5 h-5 text-white" strokeWidth={3} />
+                                            </motion.div>
+                                        ) : (
+                                            <ShoppingBag className={`w-[18px] h-[18px] ${step === 1 ? 'text-white' : 'text-gray-400'}`} strokeWidth={2} />
+                                        )}
+                                    </motion.div>
+                                </motion.div>
+                                <motion.span
+                                    className={`text-[10px] sm:text-xs font-bold transition-colors whitespace-nowrap ${step === 1 ? 'text-[#C75D3B]' : step > 1 ? 'text-gray-500' : 'text-gray-400'
+                                        }`}
+                                    animate={step === 1 ? { scale: [1, 1.03, 1] } : {}}
+                                    transition={{ duration: 0.4 }}
+                                >
+                                    Revisar
+                                </motion.span>
+                            </motion.button>
+
+                            {/* Step 2: Dados */}
+                            <motion.button
+                                type="button"
+                                onClick={() => {
+                                    if (step === 1) setStep(2)
+                                    if (step === 3) setStep(2)
+                                }}
+                                disabled={step === 2}
+                                className="flex flex-col items-center gap-2 relative z-10 focus:outline-none disabled:cursor-default cursor-pointer group"
+                                whileHover={step !== 2 ? { scale: 1.05 } : {}}
+                                whileTap={step !== 2 ? { scale: 0.95 } : {}}
+                            >
+                                <motion.div
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-sm transition-all duration-500 ${step >= 2
+                                        ? 'bg-gradient-to-br from-[#C75D3B] via-[#D66A4E] to-[#E07B5D] shadow-lg'
+                                        : 'bg-white/90 border border-gray-200 shadow-sm'
+                                        }`}
+                                    style={step >= 2 ? { boxShadow: '0 4px 20px rgba(199, 93, 59, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1) inset' } : {}}
+                                    animate={step === 2 ? {
+                                        scale: [1, 1.08, 1],
+                                        rotate: [0, 3, -3, 0]
+                                    } : {}}
+                                    transition={{
+                                        duration: 0.6,
+                                        repeat: step === 2 ? 1 : 0,
+                                        delay: 0.2,
+                                        ease: [0.4, 0, 0.2, 1]
+                                    }}
+                                >
+                                    <motion.div
+                                        initial={{ scale: 0, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                                    >
+                                        {step > 2 ? (
+                                            <motion.div
+                                                initial={{ scale: 0, rotate: -180 }}
+                                                animate={{ scale: 1, rotate: 0 }}
+                                                transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                                            >
+                                                <Check className="w-5 h-5 text-white" strokeWidth={2.5} />
+                                            </motion.div>
+                                        ) : (
+                                            <User className={`w-[18px] h-[18px] ${step === 2 ? 'text-white' : 'text-gray-400'}`} strokeWidth={2} />
+                                        )}
+                                    </motion.div>
+                                </motion.div>
+                                <motion.span
+                                    className={`text-[11px] font-semibold transition-all duration-300 tracking-wide ${step === 2 ? 'text-[#C75D3B]' : step > 2 ? 'text-gray-500' : 'text-gray-400'
+                                        }`}
+                                    animate={step === 2 ? { scale: [1, 1.03, 1] } : {}}
+                                    transition={{ duration: 0.4 }}
+                                >
+                                    Seus Dados
+                                </motion.span>
+                            </motion.button>
+
+                            {/* Step 3: Confirmação */}
+                            <motion.div
+                                className="flex flex-col items-center gap-2 relative z-10"
+                            >
+                                <motion.div
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-sm transition-all duration-500 ${step >= 3
+                                        ? 'bg-gradient-to-br from-emerald-500 via-emerald-550 to-emerald-600 shadow-lg'
+                                        : 'bg-white/90 border border-gray-200 shadow-sm'
+                                        }`}
+                                    style={step >= 3 ? { boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset' } : {}}
+                                    animate={step === 3 ? {
+                                        scale: [1, 1.12, 1.04, 1.12, 1],
+                                        rotate: [0, 8, -8, 8, 0]
+                                    } : {}}
+                                    transition={{
+                                        duration: 0.9,
+                                        repeat: step === 3 ? 2 : 0,
+                                        delay: 0.2,
+                                        ease: [0.4, 0, 0.2, 1]
+                                    }}
+                                >
+                                    <motion.div
+                                        initial={{ scale: 0, opacity: 0 }}
+                                        animate={{ scale: step === 3 ? 1 : 0.8, opacity: step === 3 ? 1 : 0.5 }}
+                                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                                    >
+                                        {step === 3 ? (
+                                            <motion.div
+                                                initial={{ scale: 0, rotate: -180 }}
+                                                animate={{ scale: 1, rotate: 0 }}
+                                                transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                                            >
+                                                <Check className="w-5 h-5 text-white" strokeWidth={2.5} />
+                                            </motion.div>
+                                        ) : (
+                                            <Check className="w-[18px] h-[18px] text-gray-400" strokeWidth={2} />
+                                        )}
+                                    </motion.div>
+                                </motion.div>
+                                <motion.span
+                                    className={`text-[11px] font-semibold transition-all duration-300 tracking-wide ${step === 3 ? 'text-emerald-600' : 'text-gray-400'
+                                        }`}
+                                    animate={step === 3 ? {
+                                        scale: [1, 1.08, 1.03, 1.08, 1],
+                                    } : {}}
+                                    transition={{ duration: 0.7, repeat: step === 3 ? 2 : 0 }}
+                                >
+                                    Confirmado!
+                                </motion.span>
+                            </motion.div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-8">
+                <div className="max-w-4xl mx-auto">
                     {/* COLUNA PRINCIPAL */}
-                    <div className="lg:col-span-2">
+                    <div>
                         <AnimatePresence mode="wait">
                             {step === 1 ? (
                                 <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -279,84 +475,248 @@ export function Checkout() {
                                 </motion.div>
                             ) : step === 2 ? (
                                 <motion.div key="step2" initial={{ x: 20 }} animate={{ x: 0 }}>
-                                    {/* FORMULÁRIO */}
-                                    <form id="checkout-form" onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-[#4A3B32]/5 p-6 space-y-4">
-                                        <h2 className="font-display text-lg font-bold text-[#4A3B32]">Seus Dados</h2>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-gray-500 uppercase">Nome</label>
-                                                <input
-                                                    name="name"
-                                                    value={customerData.name}
-                                                    onChange={handleInputChange}
-                                                    className={`w-full input-field ${formErrors.name ? 'border-red-300' : ''}`}
-                                                    placeholder="Seu nome completo"
-                                                />
+                                    {/* FORMULÁRIO PREMIUM */}
+                                    <form id="checkout-form" onSubmit={handleSubmit} className="space-y-6">
+                                        {/* DADOS PESSOAIS */}
+                                        <div className="bg-white rounded-2xl shadow-sm border border-[#4A3B32]/5 overflow-hidden">
+                                            <div className="px-6 py-4 border-b border-gray-100">
+                                                <h3 className="flex items-center gap-2 font-display text-lg font-bold text-[#4A3B32]">
+                                                    <User className="w-5 h-5 text-[#C75D3B]" />
+                                                    Dados Pessoais
+                                                </h3>
                                             </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label>
-                                                <input
-                                                    name="phone"
-                                                    value={customerData.phone}
-                                                    onChange={handleInputChange}
-                                                    className={`w-full input-field ${formErrors.phone ? 'border-red-300' : ''}`}
-                                                    placeholder="(11) 99999-9999"
-                                                />
+                                            <div className="p-6 grid md:grid-cols-2 gap-6">
+                                                {/* Nome Completo */}
+                                                <div className="md:col-span-2">
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        Nome Completo
+                                                    </label>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        name="name"
+                                                        value={customerData.name}
+                                                        onChange={handleInputChange}
+                                                        placeholder="Ex: Maria Oliveira"
+                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.name ? 'ring-2 ring-red-300' : ''}`}
+                                                    />
+                                                </div>
+
+                                                {/* WhatsApp */}
+                                                <div>
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        WhatsApp / Telefone
+                                                    </label>
+                                                    <div className="relative">
+                                                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                        <input
+                                                            required
+                                                            type="tel"
+                                                            name="phone"
+                                                            value={customerData.phone}
+                                                            onChange={handleInputChange}
+                                                            placeholder="(13) 99999-9999"
+                                                            className={`w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.phone ? 'ring-2 ring-red-300' : ''}`}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* E-mail */}
+                                                <div>
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        E-mail
+                                                    </label>
+                                                    <div className="relative">
+                                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                        <input
+                                                            required
+                                                            type="email"
+                                                            name="email"
+                                                            value={customerData.email || ''}
+                                                            onChange={handleInputChange}
+                                                            placeholder="cliente@email.com"
+                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* CPF */}
+                                                <div>
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        CPF
+                                                    </label>
+                                                    <div className="relative">
+                                                        <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                        <input
+                                                            required
+                                                            type="text"
+                                                            name="cpf"
+                                                            value={customerData.cpf || ''}
+                                                            onChange={handleInputChange}
+                                                            placeholder="000.000.000-00"
+                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Data de Nascimento */}
+                                                <div>
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        Data de Nascimento
+                                                    </label>
+                                                    <div className="relative">
+                                                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                        <input
+                                                            required
+                                                            type="date"
+                                                            name="birth_date"
+                                                            value={customerData.birth_date || ''}
+                                                            onChange={handleInputChange}
+                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-gray-600"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="pt-4 border-t">
-                                            <h2 className="font-display text-lg font-bold text-[#4A3B32] mb-4">Endereço de Entrega</h2>
-                                            <div className="grid grid-cols-3 gap-4 mb-4">
-                                                <div className="col-span-1 space-y-1">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase">CEP</label>
+                                        {/* ENDEREÇO DE ENTREGA */}
+                                        <div className="bg-white rounded-2xl shadow-sm border border-[#4A3B32]/5 overflow-hidden">
+                                            <div className="px-6 py-4 border-b border-gray-100">
+                                                <h3 className="flex items-center gap-2 font-display text-lg font-bold text-[#4A3B32]">
+                                                    <MapPin className="w-5 h-5 text-[#C75D3B]" />
+                                                    Endereço de Entrega
+                                                </h3>
+                                            </div>
+                                            <div className="p-6 grid md:grid-cols-6 gap-6">
+                                                {/* CEP */}
+                                                <div className="md:col-span-2">
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        CEP
+                                                    </label>
                                                     <input
+                                                        required
+                                                        type="text"
                                                         name="zipCode"
                                                         value={customerData.addresses[0]?.zipCode || ''}
                                                         onChange={handleCepChange}
-                                                        className="w-full input-field"
                                                         placeholder="00000-000"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
                                                     />
                                                 </div>
-                                                <div className="col-span-2 space-y-1">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase">Rua</label>
+
+                                                {/* Rua */}
+                                                <div className="md:col-span-4">
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        Logradouro / Rua
+                                                    </label>
                                                     <input
+                                                        required
+                                                        type="text"
                                                         name="street"
                                                         value={customerData.addresses[0]?.street || ''}
                                                         onChange={handleAddressChange}
-                                                        className="w-full input-field"
+                                                        placeholder="Av. Ana Costa"
+                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.street ? 'ring-2 ring-red-300' : ''}`}
                                                     />
                                                 </div>
-                                            </div>
 
-                                            <div className="grid grid-cols-3 gap-4">
-                                                <div className="space-y-1">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase">Número</label>
+                                                {/* Número */}
+                                                <div className="md:col-span-2">
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        Número
+                                                    </label>
                                                     <input
+                                                        required
+                                                        type="text"
                                                         name="number"
                                                         value={customerData.addresses[0]?.number || ''}
                                                         onChange={handleAddressChange}
-                                                        className="w-full input-field"
+                                                        placeholder="123"
+                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.number ? 'ring-2 ring-red-300' : ''}`}
                                                     />
                                                 </div>
-                                                <div className="col-span-2 space-y-1">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase">Bairro</label>
+
+                                                {/* Bairro */}
+                                                <div className="md:col-span-2">
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        Bairro
+                                                    </label>
                                                     <input
+                                                        required
+                                                        type="text"
                                                         name="neighborhood"
                                                         value={customerData.addresses[0]?.neighborhood || ''}
                                                         onChange={handleAddressChange}
-                                                        className="w-full input-field"
+                                                        placeholder="Gonzaga"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                    />
+                                                </div>
+
+                                                {/* Complemento */}
+                                                <div className="md:col-span-2">
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        Complemento
+                                                    </label>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        name="complement"
+                                                        value={customerData.addresses[0]?.complement || ''}
+                                                        onChange={handleAddressChange}
+                                                        placeholder="Apto 42"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                    />
+                                                </div>
+
+                                                {/* Cidade */}
+                                                <div className="md:col-span-3">
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        Cidade
+                                                    </label>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        name="city"
+                                                        value={customerData.addresses[0]?.city || ''}
+                                                        onChange={handleAddressChange}
+                                                        placeholder="Santos"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                    />
+                                                </div>
+
+                                                {/* Estado */}
+                                                <div className="md:col-span-3">
+                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
+                                                        Estado
+                                                    </label>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        name="state"
+                                                        value={customerData.addresses[0]?.state || ''}
+                                                        onChange={handleAddressChange}
+                                                        placeholder="SP"
+                                                        maxLength="2"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all uppercase"
                                                     />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-3 pt-6">
-                                            <button type="button" onClick={() => setStep(1)} className="flex-1 py-3 text-[#C75D3B] font-bold border border-[#C75D3B] rounded-lg">
+                                        {/* BOTÕES DE AÇÃO */}
+                                        <div className="flex gap-3 pt-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setStep(1)}
+                                                className="flex-1 py-4 text-[#C75D3B] font-bold border-2 border-[#C75D3B] rounded-2xl hover:bg-[#C75D3B] hover:text-white transition-all"
+                                            >
                                                 Voltar
                                             </button>
-                                            <button type="submit" disabled={isSubmitting} className="flex-[2] btn-primary py-3 flex items-center justify-center gap-2">
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmitting}
+                                                className="flex-[2] btn-primary py-4 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
                                                 {isSubmitting ? <span className="animate-spin">⏳</span> : 'Finalizar Pedido'}
                                             </button>
                                         </div>
@@ -386,28 +746,6 @@ export function Checkout() {
                             )}
                         </AnimatePresence>
                     </div>
-
-                    {/* RESUMO LATERAL (DESKTOP) */}
-                    {step < 3 && (
-                        <div className="hidden lg:block space-y-6">
-                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#4A3B32]/5 sticky top-24">
-                                <h3 className="font-bold text-[#4A3B32] mb-4">Resumo</h3>
-                                <div className="space-y-2 text-sm text-gray-600 mb-4">
-                                    <div className="flex justify-between">
-                                        <span>Total de Peças</span>
-                                        <span className="font-bold">{items.length}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Frete</span>
-                                        <span className="text-emerald-600 font-bold">Grátis (Malinha)</span>
-                                    </div>
-                                </div>
-                                <div className="p-3 bg-yellow-50 rounded-lg text-xs text-yellow-800 leading-relaxed">
-                                    Você não paga nada agora! Experimente em casa e pague apenas o que amar. 💖
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

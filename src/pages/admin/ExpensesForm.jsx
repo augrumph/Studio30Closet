@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Receipt, DollarSign, Calendar, FileText, Tag } from 'lucide-react'
-import { useSuppliersStore } from '@/store/suppliers-store'
+import { useAdminExpense, useAdminExpensesMutations } from '@/hooks/useAdminExpenses'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -9,11 +9,13 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 export function ExpensesForm() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { getExpenseById, addExpense, editExpense, expensesLoading, loadExpenses } = useSuppliersStore()
+    const isEdit = Boolean(id)
 
-    useEffect(() => {
-        loadExpenses()
-    }, [loadExpenses])
+    // Hooks
+    const { createExpense, updateExpense, isCreating, isUpdating } = useAdminExpensesMutations()
+    const { data: expenseData, isLoading: isLoadingExpense } = useAdminExpense(id ? parseInt(id) : null)
+
+    const expensesLoading = isCreating || isUpdating || isLoadingExpense
 
     const [formData, setFormData] = useState({
         name: '',
@@ -25,17 +27,17 @@ export function ExpensesForm() {
     })
 
     useEffect(() => {
-        if (id) {
-            const expense = getExpenseById(id)
-            if (expense) {
-                setFormData({
-                    ...expense,
-                    value: expense.value?.toString() || '',
-                    dueDay: expense.dueDay?.toString() || ''
-                })
-            }
+        if (isEdit && expenseData) {
+            setFormData({
+                name: expenseData.name || '',
+                category: expenseData.category || '',
+                value: expenseData.value?.toString() || '',
+                recurrence: expenseData.recurrence || 'monthly',
+                dueDay: expenseData.dueDay?.toString() || '',
+                notes: expenseData.notes || ''
+            })
         }
-    }, [id, getExpenseById])
+    }, [isEdit, expenseData])
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -51,20 +53,16 @@ export function ExpensesForm() {
             dueDay: formData.dueDay ? parseInt(formData.dueDay) : null
         }
 
-        toast.promise(
-            id ? editExpense(parseInt(id), payload) : addExpense(payload),
-            {
-                loading: id ? 'Salvando alterações...' : 'Cadastrando gasto...',
-                success: (result) => {
-                    if (result.success) {
-                        navigate('/admin/expenses')
-                        return id ? 'Gasto atualizado com sucesso!' : 'Gasto cadastrado com sucesso!'
-                    }
-                    throw new Error(result.error)
-                },
-                error: (err) => `Erro: ${err.message}`
-            }
-        )
+        const action = isEdit ? updateExpense({ id: parseInt(id), data: payload }) : createExpense(payload)
+
+        toast.promise(action, {
+            loading: isEdit ? 'Salvando alterações...' : 'Cadastrando gasto...',
+            success: () => {
+                navigate('/admin/expenses')
+                return isEdit ? 'Gasto atualizado com sucesso!' : 'Gasto cadastrado com sucesso!'
+            },
+            error: (err) => `Erro: ${err.message}`
+        })
     }
 
     const recurrenceOptions = [

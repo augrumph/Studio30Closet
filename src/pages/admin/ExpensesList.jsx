@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Receipt, Calendar, DollarSign, Trash2, Edit2, TrendingDown, Sparkles } from 'lucide-react'
-import { useSuppliersStore } from '@/store/suppliers-store'
+import { useAdminExpenses, useAdminExpensesMutations } from '@/hooks/useAdminExpenses'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -11,13 +11,12 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function ExpensesList() {
-    const { expenses, expensesLoading, loadExpenses, removeExpense, initialize } = useSuppliersStore()
+    const { expenses, isLoading: expensesLoading } = useAdminExpenses()
+    const { deleteExpense } = useAdminExpensesMutations()
     const [search, setSearch] = useState('')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, expenseId: null })
 
-    useEffect(() => {
-        initialize()
-    }, [initialize])
+
 
     const filteredExpenses = expenses.filter(expense =>
         expense.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -29,13 +28,12 @@ export function ExpensesList() {
     }
 
     const onConfirmDelete = async () => {
-        const result = await removeExpense(confirmDelete.expenseId)
-        if (result.success) {
-            toast.success('Gasto excluído com sucesso.')
-        } else {
-            toast.error(`Erro ao excluir: ${result.error}`)
+        try {
+            await deleteExpense(confirmDelete.expenseId)
+            setConfirmDelete({ isOpen: false, expenseId: null })
+        } catch (error) {
+            // Toast managed by hook
         }
-        setConfirmDelete({ isOpen: false, expenseId: null })
     }
 
     const formatCurrency = (value) => {
@@ -72,7 +70,7 @@ export function ExpensesList() {
     }
 
     // Show skeleton while loading
-    if (expensesLoading && expenses.length === 0) {
+    if (expensesLoading && (!expenses || expenses.length === 0)) {
         return <TableSkeleton columns={4} rows={5} />
     }
 

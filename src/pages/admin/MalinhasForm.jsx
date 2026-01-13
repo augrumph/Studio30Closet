@@ -12,7 +12,9 @@ import {
     Clock,
     Check
 } from 'lucide-react'
-import { useAdminStore } from '@/store/admin-store'
+import { useAdminMalinha, useAdminMalinhasMutations } from '@/hooks/useAdminMalinhas'
+import { useCustomerSearch } from '@/hooks/useAdminCustomers'
+import { useAdminProducts } from '@/hooks/useAdminProducts'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -24,15 +26,21 @@ export function MalinhasForm() {
     const navigate = useNavigate()
     const isEdit = !!id
 
-    const {
-        products,
-        customers,
-        loadProducts,
-        loadCustomers,
-        addOrder,
-        updateOrder,
-        fetchOrder
-    } = useAdminStore()
+    // Hooks
+    const { createMalinha, updateMalinha, isCreating, isUpdating } = useAdminMalinhasMutations()
+    const { data: orderData, isLoading: isLoadingOrder } = useAdminMalinha(id)
+
+    // Search Hooks
+    const [customerSearch, setCustomerSearch] = useState('')
+    const { customers: filteredCustomers } = useCustomerSearch(customerSearch)
+
+    const [productSearch, setProductSearch] = useState('')
+    const { products: allProducts } = useAdminProducts() // Fetches all products (cached)
+
+    // Local filtering for products
+    const filteredProducts = allProducts.filter(p =>
+        p.name.toLowerCase().includes(productSearch.toLowerCase())
+    )
 
     const [formData, setFormData] = useState({
         customerId: '',
@@ -43,49 +51,29 @@ export function MalinhasForm() {
         items: []
     })
 
-    const [customerSearch, setCustomerSearch] = useState('')
-    const [productSearch, setProductSearch] = useState('')
+
     const [showCustomerSearch, setShowCustomerSearch] = useState(false)
 
     useEffect(() => {
-        const loadInitialData = async () => {
-            loadProducts()
-            loadCustomers()
-
-            if (isEdit) {
-                const order = await fetchOrder(parseInt(id))
-                if (order) {
-                    setFormData({
-                        customerId: order.customerId || order.customer?.id,
-                        customerName: order.customerName || order.customer?.name,
-                        deliveryDate: order.deliveryDate ? order.deliveryDate.split('T')[0] : '',
-                        pickupDate: order.pickupDate ? order.pickupDate.split('T')[0] : '',
-                        status: order.status,
-                        items: (order.items || []).map(item => ({
-                            productId: item.productId,
-                            productName: item.productName,
-                            price: item.price,
-                            costPrice: item.costPrice || 0,
-                            selectedSize: item.selectedSize,
-                            selectedColor: item.selectedColor || item.color || 'Padrão', // 🎨 Garantir cor
-                            image: item.image
-                        }))
-                    })
-                }
-            }
+        if (isEdit && orderData) {
+            setFormData({
+                customerId: orderData.customerId || orderData.customer?.id,
+                customerName: orderData.customerName || orderData.customer?.name,
+                deliveryDate: orderData.deliveryDate ? orderData.deliveryDate.split('T')[0] : '',
+                pickupDate: orderData.pickupDate ? orderData.pickupDate.split('T')[0] : '',
+                status: orderData.status,
+                items: (orderData.items || []).map(item => ({
+                    productId: item.productId,
+                    productName: item.productName || item.name || '',
+                    price: item.price,
+                    costPrice: item.costPrice || 0,
+                    selectedSize: item.selectedSize,
+                    selectedColor: item.selectedColor || item.color || 'Padrão',
+                    image: item.image
+                }))
+            })
         }
-
-        loadInitialData()
-    }, [id, isEdit, fetchOrder, loadProducts, loadCustomers])
-
-    const filteredCustomers = customers.filter(c =>
-        c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-        c.phone.includes(customerSearch)
-    )
-
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(productSearch.toLowerCase())
-    )
+    }, [isEdit, orderData])
 
     const addItem = (product, size) => {
         // Validação: garantir que product tem ID

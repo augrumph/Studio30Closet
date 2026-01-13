@@ -21,24 +21,56 @@ import {
     PaginationPrevious,
 } from "@/components/ui/Pagination"
 
+import { useAdminSales, useAdminSalesMutations } from '@/hooks/useAdminSales'
+import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
+
 export function VendasList() {
-    const { vendas, loadVendas, vendasLoading, removeVenda } = useAdminStore()
+    // Estado de filtros
     const [searchTerm, setSearchTerm] = useState('')
     const [filterType, setFilterType] = useState('all')
-    const [filterPaymentStatus, setFilterPaymentStatus] = useState('all') // Novo filtro
-    const [currentPage, setCurrentPage] = useState(1)
-    const [itemsPerPage] = useState(10)
-    const [dateFilter, setDateFilter] = useState('all') // 'all', 'today', 'month'
+    const [filterPaymentStatus, setFilterPaymentStatus] = useState('all')
+    const [page, setPage] = useState(1)
+    const [itemsPerPage] = useState(10) // Nota: API usa limit, aqui fazemos paginação client-side OU server-side. 
+    // O hook useAdminSales implementei com suporte a page.
+    const [dateFilter, setDateFilter] = useState('all')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, vendaId: null, customerName: '' })
 
+    // ⚡ REACT QUERY: Hooks
+    // 1. Dados para a Tabela (Paginados)
+    // OBS: O hook useAdminSales aceita filtros. Vamos passar os filtros para ele.
+    // Mas a API getVendas original (que o hook chama) só aceita page/limit por enquanto.
+    // Para manter a funcionalidade de busca/filtro ATUAL (que é client-side em cima de tudo), 
+    // ou migramos getVendas para filtrar no banco, ou carregamos tudo e filtramos.
+    // O useAdminStore carregava TODOS. Para não quebrar filtros, vamos carregar uma pagina grande ou refatorar API.
+    // DECISÃO: Carregar paginado (server-side) remove capacidade de filtrar client-side se não tiver API.
+    // VOU USAR useAdminDashboardData para pegar TODAS as vendas (cacheado) e manter o comportamento atual de filtros client-side,
+    // mas REMOVENDO o useAdminStore.
+    // Futuramente: Migrar filtros para API.
 
+    // Dados para métricas e lista completa (reutiliza cache do dashboard)
+    const {
+        vendas: allVendas,
+        isLoading: isLoadingAll,
+        isError,
+        error
+    } = useAdminDashboardData()
+    const { deleteSale } = useAdminSalesMutations()
+
+    // Não precisamos de useEffect loadVendas manual pois o hook cuida disso.
+
+    // Error handling debug
     useEffect(() => {
-        loadVendas()
-    }, [loadVendas])
+        if (isError) {
+            console.error("VendasList Error:", error)
+            toast.error("Erro ao carregar vendas. Tente fazer login novamente.")
+        }
+    }, [isError, error])
 
+    // Filtragem Client-Side (Mantendo lógica original)
     const filteredVendas = useMemo(() => {
+        if (!allVendas) return []
         const now = new Date()
-        return vendas.filter(venda => {
+        return allVendas.filter(venda => {
             const saleDate = new Date(venda.createdAt)
             const matchesSearch = (venda.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
             const matchesType = filterType === 'all' || venda.paymentMethod === filterType
@@ -56,31 +88,33 @@ export function VendasList() {
 
             return matchesSearch && matchesType && matchesPaymentStatus && matchesDate
         })
-    }, [vendas, searchTerm, filterType, filterPaymentStatus, dateFilter])
+    }, [allVendas, searchTerm, filterType, filterPaymentStatus, dateFilter])
 
-    // Paginação: Calcular vendas da página atual
+    // Paginação
     const totalPages = Math.ceil(filteredVendas.length / itemsPerPage)
     const paginatedVendas = useMemo(() => {
-        const startIdx = (currentPage - 1) * itemsPerPage
+        const startIdx = (page - 1) * itemsPerPage
         const endIdx = startIdx + itemsPerPage
         return filteredVendas.slice(startIdx, endIdx)
-    }, [filteredVendas, currentPage, itemsPerPage])
+    }, [filteredVendas, page, itemsPerPage])
 
     // Reset page quando filtros mudam
     useEffect(() => {
-        setCurrentPage(1)
+        setPage(1)
     }, [searchTerm, filterType, filterPaymentStatus, dateFilter])
 
 
     // Usar TODAS as vendas para os cards de métricas (não filtradas)
     // Otimizado: única passagem para calcular todas as métricas
     const metrics = useMemo(() => {
+        if (!allVendas) return { totalRevenue: 0, pendingFiado: 0, totalDevedores: 0, valorDevedores: 0, averageTicket: 0 }
+
         let totalRevenue = 0
         let pendingFiado = 0
         let totalDevedores = 0
         let valorDevedores = 0
 
-        vendas.forEach(v => {
+        allVendas.forEach(v => {
             totalRevenue += v.totalValue || 0
 
             if (v.paymentStatus === 'pending') {
@@ -93,10 +127,10 @@ export function VendasList() {
             }
         })
 
-        const averageTicket = vendas.length > 0 ? totalRevenue / vendas.length : 0
+        const averageTicket = allVendas.length > 0 ? totalRevenue / allVendas.length : 0
 
         return { totalRevenue, pendingFiado, totalDevedores, valorDevedores, averageTicket }
-    }, [vendas])
+    }, [allVendas])
 
     const paymentMethods = {
         pix: { label: 'PIX', color: 'bg-emerald-100 text-emerald-700' },
@@ -114,16 +148,17 @@ export function VendasList() {
     }
 
     const onConfirmDelete = async () => {
-        const result = await removeVenda(confirmDelete.vendaId)
-        if (result.success) {
+        try {
+            await deleteSale(confirmDelete.vendaId)
             toast.success('Venda removida com sucesso.')
-        } else {
-            toast.error(`Erro ao remover: ${result.error}`)
+        } catch (error) {
+            toast.error(`Erro ao remover: ${error.message}`)
         }
+        setConfirmDelete({ ...confirmDelete, isOpen: false })
     }
 
     // Show skeleton while loading
-    if (vendasLoading && vendas.length === 0) {
+    if (isLoadingAll && !allVendas) {
         return <VendasListSkeleton />
     }
 
@@ -242,7 +277,7 @@ export function VendasList() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-3xl font-display font-bold text-[#4A3B32]">
-                                    {vendas.filter(v => new Date(v.createdAt).toDateString() === new Date().toDateString()).length}
+                                    {allVendas.filter(v => new Date(v.createdAt).toDateString() === new Date().toDateString()).length}
                                     <span className="text-sm font-medium text-gray-400 ml-2">vendas hoje</span>
                                 </div>
                             </CardContent>
@@ -404,7 +439,7 @@ export function VendasList() {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             <AnimatePresence>
-                                {vendasLoading ? (
+                                {isLoadingAll ? (
                                     <tr><td colSpan="6" className="py-24 text-center text-gray-300 italic font-medium">Sincronizando registros da Studio 30...</td></tr>
                                 ) : paginatedVendas.length > 0 ? (
                                     paginatedVendas.map((venda, idx) => (
@@ -504,8 +539,8 @@ export function VendasList() {
                             <PaginationContent>
                                 <PaginationItem>
                                     <PaginationPrevious
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
                                         className="cursor-pointer"
                                     />
                                 </PaginationItem>
@@ -515,21 +550,21 @@ export function VendasList() {
                                     if (
                                         page === 1 ||
                                         page === totalPages ||
-                                        (page >= currentPage - 1 && page <= currentPage + 1)
+                                        (page >= page - 1 && page <= page + 1)
                                     ) {
                                         return (
                                             <PaginationItem key={page}>
                                                 <PaginationLink
-                                                    onClick={() => setCurrentPage(page)}
-                                                    isActive={currentPage === page}
+                                                    onClick={() => setPage(page)}
+                                                    isActive={page === page}
                                                 >
                                                     {page}
                                                 </PaginationLink>
                                             </PaginationItem>
                                         )
                                     } else if (
-                                        page === currentPage - 2 ||
-                                        page === currentPage + 2
+                                        page === page - 2 ||
+                                        page === page + 2
                                     ) {
                                         return <PaginationEllipsis key={page} />
                                     }
@@ -538,8 +573,8 @@ export function VendasList() {
 
                                 <PaginationItem>
                                     <PaginationNext
-                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                        disabled={currentPage === totalPages}
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={page === totalPages}
                                         className="cursor-pointer"
                                     />
                                 </PaginationItem>

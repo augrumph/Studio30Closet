@@ -34,8 +34,8 @@ export function AdminTopbar({ onMenuClick, onChatClick }) {
 
                 {/* User Actions */}
                 <div className="flex items-center gap-2 md:gap-4">
-                    {/* AI Assistant Button - Premium Style */}
-                    <motion.button
+                    {/* AI Assistant Button - Premium Style - OCULTO */}
+                    {/* <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={onChatClick}
@@ -43,15 +43,15 @@ export function AdminTopbar({ onMenuClick, onChatClick }) {
                     >
                         <Sparkles className="w-3.5 h-3.5 group-hover:animate-pulse" />
                         <span className="text-xs font-bold tracking-wide uppercase">Midi</span>
-                    </motion.button>
+                    </motion.button> */}
 
-                    {/* Mobile Chat Trigger */}
-                    <button
+                    {/* Mobile Chat Trigger - OCULTO */}
+                    {/* <button
                         onClick={onChatClick}
                         className="md:hidden w-10 h-10 bg-gradient-to-br from-brand-terracotta to-brand-rust rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform"
                     >
                         <Sparkles className="w-5 h-5" />
-                    </button>
+                    </button> */}
 
                     {/* Desktop User Info */}
                     <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-[#FDF0ED] rounded-xl">

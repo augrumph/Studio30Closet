@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign, User, Store } from 'lucide-react'
-import { useSuppliersStore } from '@/store/suppliers-store'
+import { useAdminPurchases, useAdminPurchasesMutations } from '@/hooks/useAdminPurchases'
+import { useAdminSuppliers } from '@/hooks/useAdminSuppliers'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -11,15 +12,15 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function PurchasesList() {
-    const { purchases, purchasesLoading, loadPurchases, removePurchase, suppliers, loadSuppliers, initialize } = useSuppliersStore()
+    // Hooks
+    const { purchases, isLoading: purchasesLoading } = useAdminPurchases()
+    const { suppliers } = useAdminSuppliers() // Needed for mapping supplier IDs
+    const { deletePurchase } = useAdminPurchasesMutations()
+
     const [search, setSearch] = useState('')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, purchaseId: null })
     const [periodFilter, setPeriodFilter] = useState('all')
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
-
-    useEffect(() => {
-        initialize()
-    }, [initialize])
 
     const filteredPurchases = purchases.filter(purchase => {
         // 1. Date Filter
@@ -76,13 +77,12 @@ export function PurchasesList() {
     }
 
     const onConfirmDelete = async () => {
-        const result = await removePurchase(confirmDelete.purchaseId)
-        if (result.success) {
-            toast.success('Compra excluída com sucesso.')
-        } else {
-            toast.error(`Erro ao excluir: ${result.error}`)
+        try {
+            await deletePurchase(confirmDelete.purchaseId)
+            setConfirmDelete({ isOpen: false, purchaseId: null })
+        } catch (error) {
+            // Toast is handled by hook
         }
-        setConfirmDelete({ isOpen: false, purchaseId: null })
     }
 
     const formatCurrency = (value) => {

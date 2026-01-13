@@ -37,4 +37,5 @@ export * from './materials.js'
 export * from './purchases.js'
 export * from './orders.js'
 export * from './installments.js'
+export * from './insights.js'
 

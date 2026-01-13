@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react'
-import { useAdminStore } from '@/store/admin-store'
+import { useAdminProducts, useAdminProduct } from '@/hooks/useAdminProducts'
 import { useSuppliersStore } from '@/store/suppliers-store'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -14,8 +14,11 @@ import { AlertDialog } from '@/components/ui/AlertDialog'
 export function ProductsForm() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { getProductById, addProduct, editProduct, productsLoading } = useAdminStore()
-    const { suppliers, loadSuppliers } = useSuppliersStore()
+
+    // ⚡ REACT QUERY: Hooks otimizados
+    const { createProduct, updateProduct, isCreating, isUpdating } = useAdminProducts()
+    const { data: product, isLoading: isLoadingProduct } = useAdminProduct(id)
+    const { suppliers, loadSuppliers } = useSuppliersStore() // Mantendo suppliers store por enquanto
 
     const [initialData, setInitialData] = useState(null)
     const [formData, setFormData] = useState({
@@ -25,15 +28,15 @@ export function ProductsForm() {
         originalPrice: '',
         description: '',
         variants: [
-            { colorName: '', images: [''], sizeStock: [] } // Mudança: sizeStock ao invés de sizes
+            { colorName: '', images: [''], sizeStock: [] }
         ],
-        sizes: [], // Mantido para compatibilidade
+        sizes: [],
         isNew: true,
         isFeatured: false,
         stock: 0,
         costPrice: '',
         supplierId: '',
-        active: true // Produto visível no catálogo por padrão
+        active: true
     })
 
     const [activeColorTab, setActiveColorTab] = useState('0')
@@ -56,62 +59,59 @@ export function ProductsForm() {
         loadSuppliers()
     }, [loadSuppliers])
 
+    // POPULAR FORMULÁRIO QUANDO DADOS CHEGAM DO REACT QUERY
     useEffect(() => {
-        if (id) {
-            const product = getProductById(id)
-            if (product) {
-                // Migração de dados antigos se necessário
-                const variants = product.variants || [
-                    {
-                        colorName: product.color || '',
-                        images: product.images || [''],
-                        sizes: product.sizes || []
-                    }
-                ]
+        if (id && product) {
+            // Migração de dados antigos se necessário
+            const variants = product.variants || [
+                {
+                    colorName: product.color || '',
+                    images: product.images || [''],
+                    sizes: product.sizes || []
+                }
+            ]
 
-                // Converter formato antigo (sizes) para novo (sizeStock) se necessário
-                const variantsWithStock = variants.map(v => {
-                    // Se já tem sizeStock, usa ele
-                    if (v.sizeStock && v.sizeStock.length > 0) {
-                        return {
-                            ...v,
-                            sizeStock: v.sizeStock
-                        }
-                    }
-
-                    // Se tem sizes (formato antigo), converte para sizeStock
-                    // Inicializa com quantidade 0 para o usuário preencher
-                    if (v.sizes && v.sizes.length > 0) {
-                        return {
-                            ...v,
-                            sizeStock: v.sizes.map(size => ({ size, quantity: 0 }))
-                        }
-                    }
-
-                    // Se não tem nada, inicializa vazio
+            // Converter formato antigo (sizes) para novo (sizeStock) se necessário
+            const variantsWithStock = variants.map(v => {
+                // Se já tem sizeStock, usa ele
+                if (v.sizeStock && v.sizeStock.length > 0) {
                     return {
                         ...v,
-                        sizeStock: []
+                        sizeStock: v.sizeStock
                     }
-                })
-
-                const data = {
-                    ...product,
-                    variants: variantsWithStock,
-                    price: product.price.toString(),
-                    originalPrice: product.originalPrice ? product.originalPrice.toString() : '',
-                    stock: product.stock || 0,
-                    costPrice: product.costPrice ? product.costPrice.toString() : '',
-                    active: product.active !== false // Se undefined ou null, considera ativo
                 }
-                setFormData(data)
-                setInitialData(data)
+
+                // Se tem sizes (formato antigo), converte para sizeStock
+                if (v.sizes && v.sizes.length > 0) {
+                    return {
+                        ...v,
+                        sizeStock: v.sizes.map(size => ({ size, quantity: 0 }))
+                    }
+                }
+
+                // Se não tem nada, inicializa vazio
+                return {
+                    ...v,
+                    sizeStock: []
+                }
+            })
+
+            const data = {
+                ...product,
+                variants: variantsWithStock,
+                price: product.price ? product.price.toString() : '',
+                originalPrice: product.originalPrice ? product.originalPrice.toString() : '',
+                stock: product.stock || 0,
+                costPrice: product.costPrice ? product.costPrice.toString() : '',
+                active: product.active !== false // Se undefined ou null, considera ativo
             }
-        } else {
+            setFormData(data)
+            setInitialData(data)
+        } else if (!id) {
             // Novo produto - definir initial data
             setInitialData(formData)
         }
-    }, [id, getProductById])
+    }, [id, product]) // Dependência 'product' garante que roda quando dados chegam
 
     // Detectar mudanças não salvas
     const hasUnsavedChanges = useMemo(() => {
@@ -271,19 +271,23 @@ export function ProductsForm() {
             active: formData.active // Visibilidade no catálogo
         }
 
-        toast.promise(id ? editProduct(id, payload) : addProduct(payload), {
+        const mutationPromise = id
+            ? updateProduct({ id, data: payload })
+            : createProduct(payload)
+
+        toast.promise(mutationPromise, {
             loading: id ? 'Salvando alterações...' : 'Criando novo produto...',
-            success: (result) => {
-                if (result.success) {
-                    // Direct navigation after successful save (no confirmation needed)
-                    navigate('/admin/products')
-                    return id ? 'Produto atualizado com sucesso!' : 'Produto criado com sucesso!'
-                }
-                throw new Error(result.error)
+            success: () => { // Resultado já é tratado no onSuccess do hook
+                // Direct navigation after successful save
+                navigate('/admin/products')
+                return id ? 'Produto atualizado com sucesso!' : 'Produto criado com sucesso!'
             },
             error: (err) => `Erro: ${err.message}`
         })
     }
+
+    // Combine loading states
+    const isSaving = isCreating || isUpdating
 
     const allSizes = [
         { id: 'PP', label: 'PP' },
@@ -796,24 +800,37 @@ export function ProductsForm() {
                     {/* Submit Actions */}
                     <div className="space-y-4">
                         <motion.button
-                            whileHover={{ scale: productsLoading ? 1 : 1.02 }}
-                            whileTap={{ scale: productsLoading ? 1 : 0.98 }}
+                            whileHover={{ scale: isSaving ? 1 : 1.02 }}
+                            whileTap={{ scale: isSaving ? 1 : 0.98 }}
                             type="submit"
-                            disabled={productsLoading}
-                            className="w-full flex items-center justify-center gap-3 py-6 bg-[#4A3B32] text-white rounded-3xl font-bold shadow-2xl shadow-[#4A3B32]/30 hover:bg-[#342922] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isSaving}
+                            className="w-full bg-[#C75D3B] hover:bg-[#A64D31] text-white p-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-70 flex items-center justify-center gap-2"
                         >
-                            {productsLoading ? (
+                            {isSaving ? (
                                 <>
-                                    <Loader2 className="w-6 h-6 animate-spin" />
-                                    Salvando...
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    {id ? 'Salvando...' : 'Criando...'}
                                 </>
                             ) : (
                                 <>
-                                    <Save className="w-6 h-6" />
-                                    {id ? 'Salvar Lançamento' : 'Publicar no Catálogo'}
+                                    <Save className="w-5 h-5" />
+                                    {id ? 'Salvar Alterações' : 'Criar Produto'}
                                 </>
                             )}
                         </motion.button>
+
+                        {/* Loading Overlay */}
+                        {(isLoadingProduct || isSaving) && (
+                            <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center pointer-events-none">
+                                <div className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+                                    <Loader2 className="w-10 h-10 text-[#C75D3B] animate-spin" />
+                                    <p className="text-[#4A3B32] font-bold animate-pulse">
+                                        {isLoadingProduct ? 'Carregando produto...' : 'Processando...'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         <button
                             type="button"
                             onClick={() => navigate('/admin/products')}
@@ -823,8 +840,8 @@ export function ProductsForm() {
                         </button>
                     </div>
                 </div>
-            </form>
+            </form >
 
-        </div>
+        </div >
     )
 }

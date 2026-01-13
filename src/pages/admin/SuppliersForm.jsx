@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Building2, Phone, Mail, MapPin, FileText } from 'lucide-react'
-import { useSuppliersStore } from '@/store/suppliers-store'
+import { useAdminSupplier, useAdminSuppliersMutations } from '@/hooks/useAdminSuppliers'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -9,11 +9,12 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 export function SuppliersForm() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { getSupplierById, addSupplier, editSupplier, suppliersLoading, initialize } = useSuppliersStore()
+    const isEdit = Boolean(id)
 
-    useEffect(() => {
-        initialize()
-    }, [initialize])
+    // Hooks
+    const { createSupplier, updateSupplier, isCreating, isUpdating } = useAdminSuppliersMutations()
+    const { data: supplierData, isLoading } = useAdminSupplier(id ? parseInt(id) : null)
+    const isLoadingAction = isCreating || isUpdating
 
     const [formData, setFormData] = useState({
         name: '',
@@ -29,17 +30,10 @@ export function SuppliersForm() {
     })
 
     useEffect(() => {
-        if (id) {
-            console.log('Form: Loading supplier with id:', id);
-            const supplier = getSupplierById(parseInt(id))
-            console.log('Form: Found supplier:', supplier);
-            if (supplier) {
-                setFormData(supplier)
-            } else {
-                console.warn('Form: Supplier not found with id:', id);
-            }
+        if (isEdit && supplierData) {
+            setFormData(supplierData)
         }
-    }, [id, getSupplierById])
+    }, [isEdit, supplierData])
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -48,24 +42,15 @@ export function SuppliersForm() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        console.log('Form: Submitting supplier form with id:', id, 'and data:', formData);
-
-        const action = id ? editSupplier(parseInt(id), formData) : addSupplier(formData)
+        const action = isEdit ? updateSupplier({ id: parseInt(id), data: formData }) : createSupplier(formData)
 
         toast.promise(action, {
-            loading: id ? 'Salvando alterações...' : 'Cadastrando fornecedor...',
-            success: (result) => {
-                console.log('Form: Supplier operation successful:', result);
-                if (result.success) {
-                    navigate('/admin/suppliers')
-                    return id ? 'Fornecedor atualizado com sucesso!' : 'Fornecedor cadastrado com sucesso!'
-                }
-                throw new Error(result.error)
+            loading: isEdit ? 'Salvando alterações...' : 'Cadastrando fornecedor...',
+            success: () => {
+                navigate('/admin/suppliers')
+                return isEdit ? 'Fornecedor atualizado com sucesso!' : 'Fornecedor cadastrado com sucesso!'
             },
-            error: (err) => {
-                console.error('Form: Supplier operation failed:', err);
-                return `Erro: ${err.message}`
-            }
+            error: (err) => `Erro: ${err.message}`
         })
     }
 
@@ -291,7 +276,7 @@ export function SuppliersForm() {
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             type="submit"
-                            disabled={suppliersLoading}
+                            disabled={isLoadingAction}
                             className="w-full flex items-center justify-center gap-3 py-6 bg-[#4A3B32] text-white rounded-3xl font-bold shadow-2xl shadow-[#4A3B32]/30 hover:bg-[#342922] transition-all disabled:opacity-50"
                         >
                             <Save className="w-6 h-6" />

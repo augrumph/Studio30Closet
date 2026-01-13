@@ -1,15 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Eye, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Calendar, ChevronRight, Plus, Trash2, Package, Pencil } from 'lucide-react'
+import { Search, Eye, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Calendar, ChevronRight, Plus, Trash2, Package, Pencil, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertDialog } from '@/components/ui/AlertDialog'
-import { useAdminStore } from '@/store/admin-store'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card'
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/Card'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
-import { Info, TrendingUp, DollarSign } from 'lucide-react'
 import {
     Pagination,
     PaginationContent,
@@ -20,10 +18,23 @@ import {
     PaginationPrevious,
 } from "@/components/ui/Pagination"
 import { MalinhasListSkeleton } from '@/components/admin/PageSkeleton'
-
+import { useAdminMalinhas, useAdminMalinhasMutations } from '@/hooks/useAdminMalinhas'
 
 export function MalinhasList() {
-    const { orders, loadOrders, removeOrder, ordersLoading } = useAdminStore()
+    // ⚡ REACT QUERY HOOK
+    // ⚡ REACT QUERY HOOK
+    // Fetching last 100 orders to allow client-side filtering without heavy pagination refactor for now
+    // Future: move filters to server-side
+    const {
+        malinhas: orders,
+        isLoading: ordersLoading,
+        isError,
+        error,
+        refetch
+    } = useAdminMalinhas(1, 100, 'all', '')
+
+    const { deleteMalinha: deleteOrder } = useAdminMalinhasMutations()
+
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
     const [dateFilter, setDateFilter] = useState('all') // 'all', 'today', 'month'
@@ -31,40 +42,59 @@ export function MalinhasList() {
     const [itemsPerPage] = useState(10)
     const [deleteAlert, setDeleteAlert] = useState({ isOpen: false, orderId: null })
 
-    useEffect(() => {
-        loadOrders()
-    }, [loadOrders])
+    // Filter Logic
+    const filteredOrders = useMemo(() => {
+        if (!orders) return []
 
-    const filteredOrders = orders.filter(order => {
-        const orderNum = order.orderNumber || '';
-        const customerName = order.customer ? order.customer.name || '' : '';
-        const orderDate = new Date(order.createdAt)
-        const now = new Date()
+        return orders.filter(order => {
+            const orderNum = order.orderNumber || '';
+            const customerName = order.customer ? order.customer.name || '' : '';
+            const orderDate = new Date(order.createdAt)
+            const now = new Date()
 
-        const matchesSearch =
-            orderNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            customerName.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch =
+                orderNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                customerName.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesStatus = statusFilter === 'all' || order.status === statusFilter
+            const matchesStatus = statusFilter === 'all' || order.status === statusFilter
 
-        let matchesDate = true
-        if (dateFilter === 'today') {
-            matchesDate = orderDate.toDateString() === now.toDateString()
-        } else if (dateFilter === 'month') {
-            matchesDate = orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear()
-        }
+            let matchesDate = true
+            if (dateFilter === 'today') {
+                matchesDate = orderDate.toDateString() === now.toDateString()
+            } else if (dateFilter === 'month') {
+                matchesDate = orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear()
+            }
 
-        return matchesSearch && matchesStatus && matchesDate
-    })
+            return matchesSearch && matchesStatus && matchesDate
+        })
+    }, [orders, searchTerm, statusFilter, dateFilter])
 
-    // Paginação
+    // Pagination
     const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
     const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
-    // Reset page quando filtros mudam
+    // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1)
     }, [searchTerm, statusFilter, dateFilter])
+
+    // Metrics Calculation - Client Side (Fast enough for < 1000 orders)
+    const metrics = useMemo(() => {
+        if (!orders) return { totalActive: 0, pending: 0, completedMonth: 0, totalItems: 0 }
+
+        return {
+            totalActive: orders.filter(o => ['pending', 'shipped', 'delivered', 'pickup_scheduled'].includes(o.status)).length,
+            pending: orders.filter(o => o.status === 'pending').length,
+            completedMonth: orders.filter(o => {
+                const date = new Date(o.createdAt)
+                const now = new Date()
+                return o.status === 'completed' && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+            }).length,
+            totalItems: orders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + (o.itemsCount || 0), 0)
+        }
+    }, [orders])
+
+    // Handlers
     const handleDelete = (id, e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -73,11 +103,12 @@ export function MalinhasList() {
 
     const confirmDelete = async () => {
         const id = deleteAlert.orderId
-        const result = await removeOrder(id)
-        if (result.success) {
+        try {
+            await deleteOrder(id)
             toast.success('Malinha removida com sucesso.')
-        } else {
-            toast.error('Erro ao remover malinha.')
+            setDeleteAlert({ isOpen: false, orderId: null })
+        } catch (err) {
+            toast.error(`Erro ao remover malinha: ${err.message}`)
         }
     }
 
@@ -91,19 +122,8 @@ export function MalinhasList() {
         cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700', icon: XCircle },
     }
 
-    const metrics = {
-        totalActive: orders.filter(o => ['pending', 'shipped', 'delivered', 'pickup_scheduled'].includes(o.status)).length,
-        pending: orders.filter(o => o.status === 'pending').length,
-        completedMonth: orders.filter(o => {
-            const date = new Date(o.createdAt)
-            const now = new Date()
-            return o.status === 'completed' && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
-        }).length,
-        totalItems: orders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + (o.itemsCount || 0), 0)
-    }
-
-    // Show skeleton while loading
-    if (ordersLoading && orders.length === 0) {
+    // Skeleton View
+    if (ordersLoading && !orders.length) {
         return <MalinhasListSkeleton />
     }
 
@@ -142,113 +162,30 @@ export function MalinhasList() {
             {/* Quick Insights - Bento Style Cards */}
             <TooltipProvider delayDuration={200}>
                 <div className="grid md:grid-cols-4 gap-6">
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                        <Card className="border-purple-50 bg-white group overflow-hidden relative">
-                            <CardHeader className="pb-2 text-left">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-purple-50 rounded-xl"><Package className="w-5 h-5 text-purple-600" /></div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ativas</span>
-                                    </div>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                                <Info className="w-4 h-4 text-gray-300" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Malinhas em trânsito, com cliente ou aguardando envio/coleta.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="text-left">
-                                <div className="text-3xl font-display font-bold text-[#4A3B32]">{metrics.totalActive}</div>
-                                <p className="text-xs text-purple-600 font-medium mt-1">Total em circulação</p>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                        <Card className="border-amber-50 bg-white group overflow-hidden relative">
-                            <CardHeader className="pb-2 text-left">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-amber-50 rounded-xl"><Clock className="w-5 h-5 text-amber-600" /></div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Pendentes</span>
-                                    </div>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                                <Info className="w-4 h-4 text-gray-300" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Malinhas criadas que ainda aguardam o primeiro passo logístico.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="text-left">
-                                <div className="text-3xl font-display font-bold text-[#4A3B32]">{metrics.pending}</div>
-                                <p className="text-xs text-amber-600 font-medium mt-1">Aguardando início</p>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                        <Card className="border-emerald-50 bg-white group overflow-hidden relative">
-                            <CardHeader className="pb-2 text-left">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-emerald-50 rounded-xl"><CheckCircle className="w-5 h-5 text-emerald-600" /></div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Concluídas</span>
-                                    </div>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                                <Info className="w-4 h-4 text-gray-300" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Malinhas concluídas com sucesso no mês atual.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="text-left">
-                                <div className="text-3xl font-display font-bold text-[#4A3B32]">{metrics.completedMonth}</div>
-                                <p className="text-xs text-emerald-600 font-medium mt-1">Este mês</p>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                        <Card className="border-blue-50 bg-white group overflow-hidden relative">
-                            <CardHeader className="pb-2 text-left">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-blue-50 rounded-xl"><ShoppingBag className="w-5 h-5 text-blue-600" /></div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Peças</span>
-                                    </div>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                                <Info className="w-4 h-4 text-gray-300" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Soma total de peças enviadas em todas as malinhas (exceto canceladas).</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="text-left">
-                                <div className="text-3xl font-display font-bold text-[#4A3B32]">{metrics.totalItems}</div>
-                                <p className="text-xs text-blue-600 font-medium mt-1">Volume em circulação</p>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
+                    <KPI_Card
+                        title="Ativas" value={metrics.totalActive} subtitle="Total em circulação"
+                        icon={Package} color="text-purple-600" bg="bg-purple-50" border="border-purple-50"
+                        tooltip="Malinhas em trânsito, com cliente ou aguardando envio/coleta."
+                        delay={0.1}
+                    />
+                    <KPI_Card
+                        title="Pendentes" value={metrics.pending} subtitle="Aguardando início"
+                        icon={Clock} color="text-amber-600" bg="bg-amber-50" border="border-amber-50"
+                        tooltip="Malinhas criadas que ainda aguardam o primeiro passo logístico."
+                        delay={0.2}
+                    />
+                    <KPI_Card
+                        title="Concluídas" value={metrics.completedMonth} subtitle="Este mês"
+                        icon={CheckCircle} color="text-emerald-600" bg="bg-emerald-50" border="border-emerald-50"
+                        tooltip="Malinhas concluídas com sucesso no mês atual."
+                        delay={0.3}
+                    />
+                    <KPI_Card
+                        title="Total Peças" value={metrics.totalItems} subtitle="Volume em circulação"
+                        icon={ShoppingBag} color="text-blue-600" bg="bg-blue-50" border="border-blue-50"
+                        tooltip="Soma total de peças enviadas em todas as malinhas (exceto canceladas)."
+                        delay={0.4}
+                    />
                 </div>
             </TooltipProvider>
 
@@ -324,8 +261,8 @@ export function MalinhasList() {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             <AnimatePresence>
-                                {ordersLoading ? (
-                                    <tr><td colSpan="5" className="py-24 text-center text-gray-300 italic">Carregando agendamentos...</td></tr>
+                                {isError ? (
+                                    <tr><td colSpan="5" className="py-24 text-center text-red-500 italic">Erro ao carregar malinhas. Tente recarregar.</td></tr>
                                 ) : paginatedOrders.length > 0 ? (
                                     paginatedOrders.map((order, idx) => {
                                         const status = statusMap[order.status] || statusMap.pending
@@ -428,7 +365,9 @@ export function MalinhasList() {
                                         <td colSpan="5" className="py-24 text-center">
                                             <div className="flex flex-col items-center gap-3">
                                                 <Calendar className="w-12 h-12 text-gray-100" />
-                                                <p className="text-gray-400 font-medium font-display text-lg">Nenhuma malinha ativa.</p>
+                                                <div className="text-gray-400 font-medium font-display text-lg">
+                                                    {searchTerm ? "Nenhuma malinha encontrada." : "Nenhuma malinha ativa."}
+                                                </div>
                                                 <p className="text-xs text-gray-300">Todas as malinhas estão em dia!</p>
                                             </div>
                                         </td>
@@ -454,32 +393,8 @@ export function MalinhasList() {
                                         className="cursor-pointer"
                                     />
                                 </PaginationItem>
-
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                                    if (
-                                        page === 1 ||
-                                        page === totalPages ||
-                                        (page >= currentPage - 1 && page <= currentPage + 1)
-                                    ) {
-                                        return (
-                                            <PaginationItem key={page}>
-                                                <PaginationLink
-                                                    onClick={() => setCurrentPage(page)}
-                                                    isActive={currentPage === page}
-                                                >
-                                                    {page}
-                                                </PaginationLink>
-                                            </PaginationItem>
-                                        )
-                                    } else if (
-                                        page === currentPage - 2 ||
-                                        page === currentPage + 2
-                                    ) {
-                                        return <PaginationEllipsis key={page} />
-                                    }
-                                    return null
-                                })}
-
+                                {/* Pagination simplified */}
+                                <span className="mx-2 text-sm text-gray-500">Página {currentPage} de {totalPages}</span>
                                 <PaginationItem>
                                     <PaginationNext
                                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -504,5 +419,36 @@ export function MalinhasList() {
                 variant="danger"
             />
         </div >
+    )
+}
+
+function KPI_Card({ title, value, subtitle, icon: Icon, color, bg, border, tooltip, delay }) {
+    return (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}>
+            <Card className={`${border} ${bg} bg-opacity-10(for white) bg-white group overflow-hidden relative h-full`}>
+                <CardHeader className="pb-2 text-left">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 ${bg} rounded-xl`}><Icon className={`w-5 h-5 ${color}`} /></div>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{title}</span>
+                        </div>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                    <Info className="w-4 h-4 text-gray-300" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
+                                <p>{tooltip}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+                </CardHeader>
+                <CardContent className="text-left">
+                    <div className="text-3xl font-display font-bold text-[#4A3B32]">{value}</div>
+                    <p className={`text-xs ${color} font-medium mt-1`}>{subtitle}</p>
+                </CardContent>
+            </Card>
+        </motion.div>
     )
 }

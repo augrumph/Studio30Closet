@@ -129,7 +129,11 @@ export const dashboardService = {
             averageTicket:
                 summary.totalSales > 0
                     ? summary.netRevenue / summary.totalSales
-                    : 0
+                    : 0,
+            netProfit: summary.cashIn - summary.cashOut,
+            netMarginPercent: summary.cashIn > 0
+                ? ((summary.cashIn - summary.cashOut) / summary.cashIn) * 100
+                : 0
         }
     },
 

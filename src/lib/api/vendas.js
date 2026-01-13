@@ -41,6 +41,54 @@ export async function getVendas(page = 1, limit = 30) {
 }
 
 /**
+ * Buscar venda por ID
+ */
+export async function getVendaById(id) {
+    const { data, error } = await supabase
+        .from('vendas')
+        .select(`
+            *,
+            customers (id, name),
+            items: venda_items (*)
+        `)
+        .eq('id', id)
+        .single()
+
+    if (error) {
+        // Fallback: Tentar buscar itens da coluna items se venda_items falhar (compatibilidade)
+        const { data: fallbackData, error: fallbackError } = await supabase
+            .from('vendas')
+            .select(`
+                *,
+                customers (id, name)
+            `)
+            .eq('id', id)
+            .single()
+
+        if (fallbackError) throw fallbackError
+
+        return {
+            ...toCamelCase(fallbackData),
+            customerName: fallbackData.customers?.name,
+            items: (fallbackData.items || []).map(i => ({
+                ...i,
+                productId: i.product_id || i.productId,
+                costPrice: i.cost_price,
+                costPriceAtTime: i.cost_price_at_time
+            }))
+        }
+    }
+
+    // Normalizar dados (similar ao getVendas)
+    const camel = toCamelCase(data)
+    return {
+        ...camel,
+        customerName: data.customers ? data.customers.name : 'Cliente desconhecido',
+        items: camel.items || [] // Se vier de venda_items, já estaria mapeado, mas nosso padrão atual é JSON items na tabela
+    }
+}
+
+/**
  * Criar nova venda
  * @param {Object} vendaData - Dados da venda
  * @param {Function} decrementStockFn - Função para decrementar estoque (opcional)

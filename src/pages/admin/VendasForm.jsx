@@ -21,9 +21,12 @@ import {
     Calendar,
     Banknote,
     Clock,
-    BadgePercent
+    BadgePercent,
+    Loader2
 } from 'lucide-react'
-import { useAdminStore } from '@/store/admin-store'
+import { useAdminSalesMutations, useAdminSale } from '@/hooks/useAdminSales'
+import { useCustomerSearch } from '@/hooks/useAdminCustomers'
+import { useAdminProducts } from '@/hooks/useAdminProducts' // Usar hook de produtos já existente
 import { getPaymentFee, createInstallments } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -51,14 +54,24 @@ export function VendasForm() {
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = Boolean(id)
-    const {
-        products,
-        customers,
-        addVenda,
-        editVenda,
-        isInitialLoading,
-        vendas
-    } = useAdminStore()
+
+    // ⚡ REACT QUERY: Hooks
+    const { createSale, updateSale, isCreating, isUpdating } = useAdminSalesMutations()
+    const { data: vendaData, isLoading: isLoadingVenda } = useAdminSale(id)
+
+    // UI States
+    const [productSearch, setProductSearch] = useState('')
+    const [customerSearch, setCustomerSearch] = useState('')
+    const [showCustomerSearch, setShowCustomerSearch] = useState(false)
+    const [activeSection, setActiveSection] = useState('payment') // payment, products, customer
+
+    // Search Hooks
+    const { customers: filteredCustomers, isFetching: isSearchingCustomers } = useCustomerSearch(customerSearch)
+
+    // TODO: Adicionar suporte a busca no useAdminProducts ou filtrar local (como já faz, mas otimizado)
+    // Por enquanto, vamos carregar tudo e filtrar localmente, mas o ideal seria busca no servidor.
+    // O useAdminProducts carrega tudo (getAllProductsAdmin).
+    const { products: allProducts } = useAdminProducts()
 
     // Estados do formulário
     const [formData, setFormData] = useState({
@@ -81,55 +94,45 @@ export function VendasForm() {
     // Desconto manual
     const [manualDiscount, setManualDiscount] = useState({ type: 'percent', value: '' })
 
-    // UI States
-    const [productSearch, setProductSearch] = useState('')
-    const [customerSearch, setCustomerSearch] = useState('')
-    const [showCustomerSearch, setShowCustomerSearch] = useState(false)
-    const [activeSection, setActiveSection] = useState('payment') // payment, products, customer
-
     // Modal de variante
     const [variantModal, setVariantModal] = useState({ open: false, product: null, selectedColor: null, selectedSize: null })
 
     // Carregar dados da venda em edição
     useEffect(() => {
-        if (isInitialLoading || vendas.length === 0) return
-        if (isEdit && id) {
-            const venda = vendas.find(v => v.id === parseInt(id))
-            if (venda) {
-                let parsedItems = venda.items
-                if (typeof parsedItems === 'string') {
-                    try { parsedItems = JSON.parse(parsedItems) } catch { parsedItems = [] }
-                }
-                if (!Array.isArray(parsedItems)) parsedItems = []
+        if (isEdit && vendaData) {
+            const venda = vendaData
+            let parsedItems = venda.items
 
-                let adjustedPaymentMethod = venda.paymentMethod
-                if (venda.isInstallment && venda.numInstallments > 1) {
-                    if (venda.paymentMethod === 'fiado') adjustedPaymentMethod = 'fiado_parcelado'
-                    else if (venda.paymentMethod === 'credito') adjustedPaymentMethod = 'credito_parcelado'
-                }
+            // Garantir que items seja array (no novo API vem como array se venda_items, ou string se JSON column)
+            if (typeof parsedItems === 'string') {
+                try { parsedItems = JSON.parse(parsedItems) } catch { parsedItems = [] }
+            }
+            if (!Array.isArray(parsedItems)) parsedItems = []
 
-                setFormData({
-                    customerId: venda.customerId,
-                    customerName: venda.customerName,
-                    paymentMethod: adjustedPaymentMethod,
-                    cardBrand: venda.cardBrand || 'visa',
-                    paymentStatus: venda.paymentStatus,
-                    items: parsedItems,
-                    totalValue: venda.originalTotal || venda.totalValue,
-                    couponCode: venda.couponCode || '',
-                    discountAmount: venda.discountAmount || 0
-                })
-                if (venda.isInstallment) {
-                    setParcelas(venda.numInstallments || 2)
-                    setEntryPayment(venda.entryPayment || 0)
-                    setInstallmentStartDate(venda.installmentStartDate || '')
-                }
-            } else {
-                toast.error('Venda não encontrada')
-                navigate('/admin/vendas')
+            let adjustedPaymentMethod = venda.paymentMethod
+            if (venda.isInstallment && venda.numInstallments > 1) {
+                if (venda.paymentMethod === 'fiado') adjustedPaymentMethod = 'fiado_parcelado'
+                else if (venda.paymentMethod === 'credito') adjustedPaymentMethod = 'credito_parcelado'
+            }
+
+            setFormData({
+                customerId: venda.customerId,
+                customerName: venda.customerName,
+                paymentMethod: adjustedPaymentMethod,
+                cardBrand: venda.cardBrand || 'visa',
+                paymentStatus: venda.paymentStatus,
+                items: parsedItems,
+                totalValue: venda.originalTotal || venda.totalValue,
+                couponCode: venda.couponCode || '',
+                discountAmount: venda.discountAmount || 0
+            })
+            if (venda.isInstallment) {
+                setParcelas(venda.numInstallments || 2)
+                setEntryPayment(venda.entryPayment || 0)
+                setInstallmentStartDate(venda.installmentStartDate || '')
             }
         }
-    }, [id, isEdit, isInitialLoading, vendas.length, navigate, vendas])
+    }, [isEdit, vendaData])
 
     // Calcular desconto manual
     useEffect(() => {
@@ -185,21 +188,16 @@ export function VendasForm() {
         calculateFee()
     }, [formData.paymentMethod, formData.cardBrand, formData.totalValue, formData.discountAmount, parcelas])
 
-    // Produtos filtrados
+    // Produtos filtrados (Client-side filtering for simplicity, as we have all products)
     const filteredProducts = useMemo(() => {
         if (!productSearch.trim()) return []
-        return products
+        return (allProducts || [])
             .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) && p.stock > 0)
             .slice(0, 6)
-    }, [products, productSearch])
+    }, [allProducts, productSearch])
 
-    // Clientes filtrados
-    const filteredCustomers = useMemo(() => {
-        if (!customerSearch.trim()) return []
-        return customers
-            .filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()))
-            .slice(0, 5)
-    }, [customers, customerSearch])
+    // Clientes filtrados (Já vem do hook filteredCustomers, não precisamos de useMemo local)
+    // const filteredCustomers = ... (REMOVED)
 
     // Valores calculados
     const subtotal = formData.totalValue
@@ -327,25 +325,39 @@ export function VendasForm() {
             installmentStartDate: isParcelado ? installmentStartDate : null
         }
 
-        const action = isEdit ? editVenda(parseInt(id), payload) : addVenda(payload)
+        const action = isEdit ? updateSale({ id: parseInt(id), data: payload }) : createSale(payload)
 
+        // Loading já é tratado pelos hooks isCreating/isUpdating
+        // Mas para manter feedback visual consistente com toast:
         toast.promise(action, {
             loading: isEdit ? 'Atualizando...' : 'Registrando venda...',
             success: async (result) => {
-                if (result.success) {
-                    if (isParcelado && !isEdit) {
-                        await createInstallments(result.venda.id, parcelas, entryPayment, installmentStartDate)
+                if (result.success || result.id) { // create/update usually return object with id
+                    const vendaId = result.id || result.data?.id
+                    if (isParcelado && !isEdit && vendaId) {
+                        // TODO: Mover criação de parcelas para o servidor ou hook, mas ok por agora
+                        try {
+                            await createInstallments(vendaId, parcelas, entryPayment, installmentStartDate)
+                        } catch (e) {
+                            console.error("Erro ao criar parcelas", e)
+                            toast.error("Venda salva, mas erro ao gerar parcelas.")
+                        }
                     }
                     navigate('/admin/vendas')
                     return isEdit ? 'Venda atualizada!' : 'Venda registrada!'
                 }
-                throw new Error(result.error)
+                // Se result for void/undefined (comum em mutations que retornam true/null), assumimos sucesso se não caiu no catch
+                navigate('/admin/vendas')
+                return isEdit ? 'Venda atualizada!' : 'Venda registrada!'
             },
-            error: (err) => err.message
+            error: (err) => err.message || 'Erro ao salvar'
         })
     }
 
-    if (isInitialLoading) {
+    // Combine loading states
+    const isSaving = isCreating || isUpdating
+
+    if (isLoadingVenda && isEdit) { // Só mostra loading se for edição e estiver buscando dados iniciais
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#FDFBF7]">
                 <div className="flex flex-col items-center gap-3">

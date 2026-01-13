@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, User, Phone, Mail, MapPin, Hash, Info, Calendar } from 'lucide-react'
-import { useAdminStore } from '@/store/admin-store'
+import { useAdminCustomer, useAdminCustomersMutations } from '@/hooks/useAdminCustomers'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -10,7 +10,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 export function CustomersForm() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { getCustomerById, addCustomer, editCustomer, customersLoading } = useAdminStore()
+
+    // Hooks
+    const { createCustomer, updateCustomer, isCreating, isUpdating } = useAdminCustomersMutations()
+    const { data: customerData, isLoading: isLoadingCustomer } = useAdminCustomer(id)
+    const isEdit = Boolean(id)
 
     const [formData, setFormData] = useState({
         name: '',
@@ -31,31 +35,23 @@ export function CustomersForm() {
     })
 
     useEffect(() => {
-        if (id) {
-            console.log('Form: Loading customer with id:', id);
-            const customer = getCustomerById(parseInt(id))
-            console.log('Form: Found customer:', customer);
-            if (customer) {
-                setFormData({
-                    ...customer,
-                    addresses: customer.addresses || [{
-                        street: '',
-                        number: '',
-                        complement: '',
-                        neighborhood: '',
-                        city: 'Santos',
-                        state: 'SP',
-                        zipCode: '',
-                        isDefault: true
-                    }]
-                })
-            } else {
-                console.warn('Form: Customer not found with id:', id);
-                toast.error('Cliente não encontrado')
-                navigate('/admin/customers')
-            }
+        if (id && customerData) {
+            console.log('Form: Found customer:', customerData);
+            setFormData({
+                ...customerData,
+                addresses: customerData.addresses || [{
+                    street: '',
+                    number: '',
+                    complement: '',
+                    neighborhood: '',
+                    city: 'Santos',
+                    state: 'SP',
+                    zipCode: '',
+                    isDefault: true
+                }]
+            })
         }
-    }, [id, getCustomerById, navigate])
+    }, [id, customerData])
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -75,17 +71,13 @@ export function CustomersForm() {
         e.preventDefault()
         console.log('Form: Submitting customer form with id:', id, 'and data:', formData);
 
-        const action = id ? editCustomer(parseInt(id), formData) : addCustomer(formData)
+        const action = isEdit ? updateCustomer({ id: parseInt(id), data: formData }) : createCustomer(formData)
 
         toast.promise(action, {
-            loading: id ? 'Atualizando cliente...' : 'Cadastrando cliente...',
+            loading: isEdit ? 'Atualizando cliente...' : 'Cadastrando cliente...',
             success: (result) => {
-                console.log('Form: Customer operation successful:', result);
-                if (result.success) {
-                    navigate('/admin/customers')
-                    return id ? 'Dados do cliente atualizados!' : 'Cliente cadastrado com sucesso!'
-                }
-                throw new Error(result.error)
+                navigate('/admin/customers')
+                return isEdit ? 'Dados do cliente atualizados!' : 'Cliente cadastrado com sucesso!'
             },
             error: (err) => {
                 console.error('Form: Customer operation failed:', err);
@@ -302,8 +294,8 @@ export function CustomersForm() {
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                                 type="submit"
-                                disabled={customersLoading}
-                                className="w-full flex items-center justify-center gap-3 py-5 bg-[#C75D3B] text-white rounded-2xl font-bold shadow-xl shadow-[#C75D3B]/20 hover:bg-[#A64D31] transition-all"
+                                disabled={isCreating || isUpdating}
+                                className="w-full flex items-center justify-center gap-3 py-5 bg-[#C75D3B] text-white rounded-2xl font-bold shadow-xl shadow-[#C75D3B]/20 hover:bg-[#A64D31] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <Save className="w-6 h-6" />
                                 {id ? 'Salvar Alterações' : 'Confirmar Cadastro'}

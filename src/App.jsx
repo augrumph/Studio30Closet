@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from '@/components/layout'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { ToastProvider } from '@/contexts/ToastContext'
@@ -7,6 +8,20 @@ import { LoadingBar } from '@/components/LoadingBar'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AnimatePresence } from 'framer-motion'
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
+
+// ============================================================================
+// React Query Configuration
+// ============================================================================
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 1000 * 60 * 5, // 5 minutes
+            cacheTime: 1000 * 60 * 30, // 30 minutes
+            refetchOnWindowFocus: false,
+            retry: 1,
+        },
+    },
+})
 
 // Eager load critical public pages
 import { Home } from '@/pages'
@@ -63,8 +78,9 @@ function PageLoader() {
 function App() {
     return (
         <ErrorBoundary>
-            <ToastProvider>
-                <BrowserRouter>
+            <QueryClientProvider client={queryClient}>
+                <ToastProvider>
+                    <BrowserRouter>
                     <LoadingBar />
                     <ScrollToTop />
                     <AnimatePresence mode="wait">
@@ -137,6 +153,7 @@ function App() {
                     </AnimatePresence>
                 </BrowserRouter>
             </ToastProvider>
+        </QueryClientProvider>
         </ErrorBoundary>
     )
 }

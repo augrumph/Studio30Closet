@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, ShoppingCart, DollarSign, Calendar, Package, FileText, User } from 'lucide-react'
-import { useSuppliersStore } from '@/store/suppliers-store'
+import { useAdminPurchase, useAdminPurchasesMutations } from '@/hooks/useAdminPurchases'
+import { useAdminSuppliers } from '@/hooks/useAdminSuppliers'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -10,14 +11,14 @@ import { cn } from '@/lib/utils'
 export function PurchasesForm() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const {
-        getPurchaseById,
-        addPurchase,
-        editPurchase,
-        purchasesLoading,
-        suppliers,
-        initialize
-    } = useSuppliersStore()
+    const isEdit = Boolean(id)
+
+    // Hooks
+    const { createPurchase, updatePurchase, isCreating, isUpdating } = useAdminPurchasesMutations()
+    const { data: purchaseData, isLoading: isLoadingPurchase } = useAdminPurchase(id ? parseInt(id) : null)
+    const { suppliers } = useAdminSuppliers()
+
+    const purchasesLoading = isCreating || isUpdating || isLoadingPurchase
 
     const [formData, setFormData] = useState({
         supplierId: '',
@@ -27,29 +28,25 @@ export function PurchasesForm() {
         pieces: '',
         parcelas: '',
         notes: '',
-        purchaseType: 'produto', // Novo campo para distinguir tipo de compra
-        spentBy: 'loja' // Quem realizou o gasto: loja, augusto ou thais
+        purchaseType: 'produto',
+        spentBy: 'loja'
     })
 
     useEffect(() => {
-        initialize()
-    }, [initialize])
-
-    useEffect(() => {
-        if (id) {
-            const purchase = getPurchaseById(id)
-            if (purchase) {
-                setFormData({
-                    ...purchase,
-                    date: purchase.date ? new Date(purchase.date).toISOString().split('T')[0] : '',
-                    value: purchase.value?.toString() || '',
-                    pieces: purchase.pieces?.toString() || '',
-                    parcelas: purchase.parcelas?.toString() || '',
-                    spentBy: purchase.spentBy || 'loja'
-                })
-            }
+        if (isEdit && purchaseData) {
+            setFormData({
+                supplierId: purchaseData.supplierId || '',
+                paymentMethod: purchaseData.paymentMethod || 'pix',
+                value: purchaseData.value?.toString() || '',
+                date: purchaseData.date ? new Date(purchaseData.date).toISOString().split('T')[0] : '',
+                pieces: purchaseData.pieces?.toString() || '',
+                parcelas: purchaseData.parcelas?.toString() || '',
+                notes: purchaseData.notes || '',
+                purchaseType: purchaseData.purchaseType || 'produto',
+                spentBy: purchaseData.spentBy || 'loja'
+            })
         }
-    }, [id, getPurchaseById])
+    }, [isEdit, purchaseData])
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -65,24 +62,20 @@ export function PurchasesForm() {
             value: parseFloat(formData.value.replace(',', '.')) || 0,
             pieces: parseInt(formData.pieces) || 0,
             parcelas: formData.paymentMethod === 'credito_parcelado' ? parseInt(formData.parcelas) : null,
-            purchaseType: formData.purchaseType, // Incluir tipo de compra
-            spentBy: formData.spentBy // Quem realizou a compra
+            purchaseType: formData.purchaseType,
+            spentBy: formData.spentBy
         }
 
-        toast.promise(
-            id ? editPurchase(parseInt(id), payload) : addPurchase(payload),
-            {
-                loading: id ? 'Salvando alterações...' : 'Registrando compra...',
-                success: (result) => {
-                    if (result.success) {
-                        navigate('/admin/purchases')
-                        return id ? 'Compra atualizada com sucesso!' : 'Compra registrada com sucesso!'
-                    }
-                    throw new Error(result.error)
-                },
-                error: (err) => `Erro: ${err.message}`
-            }
-        )
+        const action = isEdit ? updatePurchase({ id: parseInt(id), data: payload }) : createPurchase(payload)
+
+        toast.promise(action, {
+            loading: isEdit ? 'Salvando alterações...' : 'Registrando compra...',
+            success: () => {
+                navigate('/admin/purchases')
+                return isEdit ? 'Compra atualizada com sucesso!' : 'Compra registrada com sucesso!'
+            },
+            error: (err) => `Erro: ${err.message}`
+        })
     }
 
     const paymentMethods = [

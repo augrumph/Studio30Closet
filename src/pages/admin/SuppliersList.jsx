@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Truck, Phone, Mail, MapPin, Edit2, Trash2, Building2 } from 'lucide-react'
-import { useSuppliersStore } from '@/store/suppliers-store'
+import { useAdminSuppliers, useAdminSuppliersMutations } from '@/hooks/useAdminSuppliers'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -11,15 +11,12 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function SuppliersList() {
-    const { suppliers, suppliersLoading, loadSuppliers, removeSupplier, initialize } = useSuppliersStore()
+    const { suppliers, isLoading: suppliersLoading } = useAdminSuppliers()
+    const { deleteSupplier } = useAdminSuppliersMutations()
     const [search, setSearch] = useState('')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, supplierId: null, supplierName: '' })
 
-    useEffect(() => {
-        initialize()
-    }, [initialize])
-
-    const filteredSuppliers = suppliers.filter(supplier =>
+    const filteredSuppliers = (suppliers || []).filter(supplier =>
         supplier.name?.toLowerCase().includes(search.toLowerCase()) ||
         supplier.cnpj?.toLowerCase().includes(search.toLowerCase()) ||
         supplier.city?.toLowerCase().includes(search.toLowerCase())
@@ -30,17 +27,16 @@ export function SuppliersList() {
     }
 
     const onConfirmDelete = async () => {
-        const result = await removeSupplier(confirmDelete.supplierId)
-        if (result.success) {
-            toast.success('Fornecedor excluído com sucesso.')
-        } else {
-            toast.error(`Erro ao excluir: ${result.error}`)
+        try {
+            await deleteSupplier(confirmDelete.supplierId)
+            setConfirmDelete({ isOpen: false, supplierId: null, supplierName: '' })
+        } catch (error) {
+            // Toast handled by mutation hook
         }
-        setConfirmDelete({ isOpen: false, supplierId: null, supplierName: '' })
     }
 
     // Show skeleton while loading
-    if (suppliersLoading && suppliers.length === 0) {
+    if (suppliersLoading && (!suppliers || suppliers.length === 0)) {
         return <TableSkeleton columns={4} rows={5} />
     }
 

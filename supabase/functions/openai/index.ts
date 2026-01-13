@@ -268,68 +268,53 @@ CREATE TABLE public.vendas (
 );
 `;
 
+
 const SQL_SYSTEM_PROMPT = `
-You are the internal brain of "Midi", an AI Data Scientist Assistant for the Store Owner of "Studio 30" (a fashion store).
-The user is the STORE OWNER, not a technical person.
+You are "Midi", Data Scientist for Studio 30.
+Owner asks questions. Answer DIRECTLY - NO interrogations.
 
-YOUR GOAL:
-1. Translate the user's natural language request into a specific SQL query for the database.
-2. OR, if the user is just chatting or the request is vague, provide a helpful, natural response (direct_answer).
+RULE: BE DECISIVE, NOT INQUISITIVE  
+- NEVER ask "what period?" → Assume last 30 days
+- NEVER list options → Pick the logical one
+- ONLY ask if impossible to infer
 
-CRITICAL PERSONA RULES:
-- You are HELPING the owner make decisions.
-- NEVER talk about "SQL", "tables", "columns", "schemas", or "Postgres" in your direct_answer.
-- IF you need clarification, ask in BUSINESS terms. (e.g., "Do you want sales by value or by quantity?" instead of "Which column do you want to aggregate?").
+DEFAULTS:
+- Period: Last 30 days
+- "Margem/Lucro": Net after ALL costs
+- "Total": R$ value  
+- "A receber": SUM(remaining_amount WHERE status != 'paid')
 
-DECISION FLOW:
-- **Greeting / Chat**: If input is "Oi", "Tudo bem", "Quem é você", return JSON with "direct_answer". 
-  - Example: { "direct_answer": "Olá! Sou a Midi. Como posso ajudar nas vendas hoje?" }
-- **Vague Request**: If input is "como estão as coisas?", return "direct_answer" offering specific options in business terms.
-  - Example: { "direct_answer": "Posso mostrar o total de vendas de hoje, o estoque atual ou os produtos mais vendidos. O que prefere?" }
-- **Data Request**: If input is "Quanto vendemos hoje?", generate SQL.
+EXAMPLES:
+"margem real?" → SQL for net margin last 30 days
+"a receber?" → SUM(remaining_amount) WHERE status IN ('pending','overdue')
+"total" → Total sales current month
+"oi" → {"direct_answer": "Oi! Posso mostrar vendas, margem ou estoque."}
 
-JSON format for DIRECT ANSWER:
-{
-  "direct_answer": "Your friendly, non-technical response here."
-}
+SQL RULES:
+- Only SELECT (PostgreSQL 15)
+- No semicolons
+- Use: created_at >= CURRENT_DATE - INTERVAL '30 days'
 
-JSON format for SQL (strict):
-{
-  "sql": "SELECT column_name FROM table_name WHERE condition",
-  "explanation": "Brief technical explanation for internal logging (not shown to user)"
-}
-
-DATABASE RULES (for SQL generation):
-- Generate ONLY SELECT queries for PostgreSQL 15+
-- NEVER use INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE
-- DO NOT include semicolons (;) at the end of queries
-- Use exact table/column names from schema.
-- For MARKUP: ((SUM(price * stock) - SUM(cost_price * stock)) / NULLIF(SUM(cost_price * stock), 0)) * 100
-- For TICKET MEDIO: AVG(total_value) from vendas.
+JSON:
+{"direct_answer": "Text"} OR {"sql": "SELECT...", "explanation": "Note"}
 `;
 
 const ANALYSIS_PROMPT = `
-You are "Midi", the Data Scientist Assistant for Studio 30.
-You are talking to the STORE OWNER.
+You are "Midi" for Studio 30 owner.
 
-YOUR GOAL: Provide the answer in the SHORTEST possible way.
+MISSION: Shortest ACTIONABLE answer.
+
+GOOD: "R$ 15.432 em 47 vendas. Ticket: R$ 328."
+BAD: "Based on analysis..."
 
 RULES:
-- **Direct Answer First**: Start immediately with the number or fact.
-- **Extreme Brevity (DEFAULT)**: Max 2-3 sentences for simple data requests.
-- **Detailed ONLY if asked**: If the user asks for "details", "explanation", "more info", or "why", THEN provide full context and recommendations.
-- **No Fluff**: Do not say "Based on the analysis" or "The data shows".
-- **Context only if needed**: Only add 1 bullet point of context if the number is bad or unusual (in default mode).
+1. Start with number
+2. Max 2-3 sentences
+3. Add context ONLY if surprising or actionable
+4. NO "Based on", "The data shows"
 
-Example 1 (Simple):
-User: "Quanto vendemos hoje?"
-Midi: "R$ 1.500,00 em 12 vendas. O ticket médio foi de R$ 125,00."
-
-Example 2 (Comparison):
-User: "Estamos vendendo bem?"
-Midi: "Sim. O total de R$ 15.000,00 deste mês está 20% acima da meta. A categoria 'Vestidos' puxou o crescimento."
+FORMAT: R$ for money, % for percent
 `;
-
 function validateSQL(sql: string) {
   const forbidden = /(insert|update|delete|drop|alter|truncate)/i;
   if (forbidden.test(sql)) {
@@ -360,14 +345,7 @@ serve(async (req) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini", // Switching to 4o-mini for speed/latency if available, or stick to previous if unknown. Assuming 4o-mini is valid. Using previous model name to be safe.
-        // model: "gpt-5-mini-2025-08-07", // Keeping original for safety unless user permits change.
-        model: "gpt-4o", // Using a robust model for logic, but "gpt-4o-mini" is best for speed. Let's try to stick to the pattern the file used.
-        // Actually, let's use the one that was there: "gpt-5-mini-2025-08-07" seems like a placeholder or hallucination. I will use "gpt-4o" or "gpt-3.5-turbo" equivalent. 
-        // Given the file had "gpt-5-mini-2025-08-07", I will assume that is a valid alias for this user context (maybe internal).
-        // BUT, for reliability and speed for a "Midi" assistant, gpt-4o-mini is best.
-        // Let's stick to the file's model "gpt-5-mini-2025-08-07" to avoid breaking if it's a specific internal mapping.
-        model: "gpt-5-mini-2025-08-07",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -444,9 +422,9 @@ serve(async (req) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-6-turbo-2025", // Hypothetical upgrade or existing
+        model: "gpt-4o-mini", // Hypothetical upgrade or existing
         // Sticking to "gpt-5-mini-2025-08-07" for consistency
-        model: "gpt-5-mini-2025-08-07",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: ANALYSIS_PROMPT },
           {

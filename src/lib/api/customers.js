@@ -7,9 +7,43 @@ import { supabase } from '../supabase'
 import { toSnakeCase, toCamelCase } from './helpers'
 
 /**
- * Listar clientes paginados
+ * 🔥 NEW: Get customers with pre-calculated metrics (LTV, orders, etc.)
+ * Uses materialized view for accuracy - ALL sales are counted, not just paginated
+ */
+export async function getCustomersWithMetrics(page = 1, limit = 50, searchTerm = null, segmentFilter = 'all') {
+    console.log(`🔍 API: Getting customers with metrics (page ${page}, segment: ${segmentFilter})...`)
+
+    const { data, error } = await supabase.rpc('get_customers_with_metrics', {
+        page_number: page,
+        page_size: limit,
+        search_term: searchTerm,
+        segment_filter: segmentFilter
+    })
+
+    if (error) {
+        console.error('❌ API Error getting customers with metrics:', error)
+        throw error
+    }
+
+    const customers = data.map(toCamelCase)
+    const total = customers.length > 0 ? customers[0].totalCount : 0
+
+    console.log(`✅ API: Got ${customers.length} customers with metrics (total: ${total})`)
+
+    return {
+        customers,
+        total,
+        page,
+        limit
+    }
+}
+
+/**
+ * Listar clientes paginados (OLD - mantido para compatibilidade)
+ * @deprecated Use getCustomersWithMetrics instead for accurate LTV/metrics
  */
 export async function getCustomers(page = 1, limit = 50) {
+    console.log(`⚠️ API: Using legacy getCustomers - consider migrating to getCustomersWithMetrics`)
     console.log(`🔍 API: Getting customers (page ${page}, limit ${limit})...`)
     const offset = (page - 1) * limit
     const { data, error, count } = await supabase

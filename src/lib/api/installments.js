@@ -147,15 +147,23 @@ export async function registerInstallmentPayment(
 ) {
     console.log(`💳 API: Registrando pagamento de R$ ${paymentAmount} na parcela ${installmentId}`);
 
+    console.log(`💳 API: Registrando pagamento de R$ ${paymentAmount} na parcela ${installmentId}`);
+
     try {
-        const { data, error } = await supabase.rpc('register_installment_payment', {
-            p_installment_id: installmentId,
-            p_payment_amount: paymentAmount,
-            p_payment_date: paymentDate,
-            p_payment_method: paymentMethod,
-            p_notes: notes,
-            p_created_by: createdBy
-        });
+        // ✅ CORREÇÃO: Usar INSERT direto pois existe Trigger no banco que atualiza a parcela.
+        // O RPC estava duplicando o valor (somando 2x).
+        const { data, error } = await supabase
+            .from('installment_payments')
+            .insert([{
+                installment_id: installmentId,
+                payment_amount: paymentAmount,
+                payment_date: paymentDate,
+                payment_method: paymentMethod,
+                notes: notes,
+                created_by: createdBy
+            }])
+            .select()
+            .single();
 
         if (error) {
             console.error('❌ Erro ao registrar pagamento:', error);
@@ -164,7 +172,7 @@ export async function registerInstallmentPayment(
 
         console.log('✅ Pagamento registrado com sucesso');
 
-        // Buscar dados atualizados da parcela
+        // Buscar dados atualizados da parcela (para retornar ao frontend)
         const { data: updatedInstallment, error: fetchError } = await supabase
             .from('installments')
             .select('*')
@@ -383,7 +391,7 @@ export async function getOpenInstallmentSales(page = 1, limit = 30) {
                     customers: venda.customers ? toCamelCase(venda.customers) : null,
                     // ✅ Mapear campos do summary para a raiz (para compatibilidade com UI)
                     dueAmount: summary.remainingValue,
-                    paidAmount: summary.totalValue - summary.remainingAmount,
+                    paidAmount: summary.totalValue - summary.remainingValue, // ✅ CORRIGIDO: era remainingAmount
                     overdueCount: 0, // TODO: Calcular do banco
                     summary
                 };

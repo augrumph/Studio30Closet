@@ -11,71 +11,48 @@ import {
     Search,
     CreditCard
 } from 'lucide-react'
-import { useAdminStore } from '@/store/admin-store'
-import { useSuppliersStore } from '@/store/suppliers-store'
+// import { useAdminStore } from '@/store/admin-store' // REMOVIDO: Substituído por React Query
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
-import { getDashboardMetrics } from '@/lib/api'
 
-// Hooks extraídos
+// Hooks
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics'
 import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics'
+import { useAdminDashboardData } from '@/hooks/useAdminDashboardData' // ⚡ NOVO HOOK OTIMIZADO
 
-// Componentes extraídos
+// Componentes
 import { FinancialScoreboard, CashFlowSection, ParcelinhasModal } from '@/components/admin/dashboard'
+// import { MidiInsights } from '@/components/admin/MidiInsights' // Temporariamente oculto
 
 export function Dashboard() {
-    const vendas = useAdminStore(state => state.vendas)
-    const products = useAdminStore(state => state.products)
-    const orders = useAdminStore(state => state.orders)
-    const customers = useAdminStore(state => state.customers)
-    const reloadAll = useAdminStore(state => state.reloadAll)
-    const isLoadingStore = useAdminStore(state => state.isInitialLoading)
-
-    // Suppliers Store
-    const { suppliers, loadSuppliers, purchases, loadPurchases } = useSuppliersStore()
+    // ⚡ REACT QUERY: Carregamento otimizado de todos os dados necessários
+    const {
+        vendas,
+        products,
+        orders,
+        customers, // Se necessário para contagem
+        purchases,
+        suppliers,
+        dashboardMetricsRaw,
+        isLoading: isLoadingData,
+        refetchAll
+    } = useAdminDashboardData()
 
     const [currentTime, setCurrentTime] = useState(new Date())
-    const [dashboardData, setDashboardData] = useState(null)
-    const [isLoadingData, setIsLoadingData] = useState(true)
+    // const [dashboardData, setDashboardData] = useState(null) // REMOVIDO: Vem do hook
     const [periodFilter, setPeriodFilter] = useState('all')
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
     const [showParcelinhasModal, setShowParcelinhasModal] = useState(false)
 
     useEffect(() => {
-        if (!vendas.length) {
-            reloadAll()
-        }
-        if (!suppliers.length) {
-            loadSuppliers()
-        }
-        if (!purchases.length) {
-            loadPurchases()
-        }
         const timer = setInterval(() => setCurrentTime(new Date()), 60000)
         return () => clearInterval(timer)
-    }, [reloadAll, vendas, loadSuppliers, suppliers, loadPurchases, purchases])
-
-    useEffect(() => {
-        const loadDashboardData = async () => {
-            setIsLoadingData(true)
-            try {
-                const data = await getDashboardMetrics()
-                setDashboardData(data)
-            } catch (error) {
-                console.error('Erro ao carregar métricas adicionais do dashboard:', error)
-                setDashboardData({})
-            } finally {
-                setIsLoadingData(false)
-            }
-        }
-        loadDashboardData()
     }, [])
 
     // Determina se a página ainda está carregando
-    const isLoading = isLoadingData || isLoadingStore || !dashboardData
+    const isLoading = isLoadingData
 
     // Cálculo de período dinâmico
     const periodDays = useMemo(() => {
@@ -131,13 +108,13 @@ export function Dashboard() {
         })
     }, [vendas, periodFilter, customDateRange])
 
-    // Usar hooks extraídos
+    // Usar hooks de cálculo (MANTIDOS INTACTOS para garantir precisão)
     const financialMetrics = useDashboardMetrics({
         filteredVendas,
         allVendas: vendas,
         orders,
         purchases,
-        dashboardData,
+        dashboardData: dashboardMetricsRaw,
         periodDays,
         periodFilter,
         customDateRange
@@ -151,7 +128,7 @@ export function Dashboard() {
         accumulatedData,
         maxAccumulatedValue,
         topCustomers,
-        topTrends
+        topTrends // Não usado no JSX atual mas calculado
     } = useDashboardAnalytics(vendas, products, suppliers)
 
     const greetings = () => {
@@ -184,7 +161,6 @@ export function Dashboard() {
         // 2. Insight de Inadimplência
         const toReceive = financialMetrics.toReceiveAmount || 0
         const received = financialMetrics.receivedAmount || 0
-        const receiveRatio = received > 0 ? (toReceive / received) * 100 : 0
 
         if (toReceive > 1000) {
             insights.push({
@@ -301,6 +277,15 @@ export function Dashboard() {
                 </div>
             </motion.div>
 
+            {/* 1.2 MIDI INSIGHTS - Análise Proativa - TEMPORARIAMENTE OCULTO */}
+            {/* <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.05 }}
+            >
+                <MidiInsights limit={5} />
+            </motion.div> */}
+
             {/* 1.5 PERÍODO DE ANÁLISE */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -368,12 +353,10 @@ export function Dashboard() {
             </motion.div>
 
             {/* 2. FINANCIAL SCOREBOARD - DRE GERENCIAL (Componente extraído) */}
-            <FinancialScoreboard metrics={financialMetrics} />
+            <FinancialScoreboard metrics={financialMetrics} isLoading={isLoading} />
 
             {/* CASH FLOW & RISK INDICATORS (Componente extraído) */}
             <CashFlowSection metrics={financialMetrics} trends={topTrends} />
-
-
 
             {/* 3. TRENDS & TOP CUSTOMERS */}
             <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">

@@ -6,6 +6,7 @@ export const useChatStore = create(
         (set, get) => ({
             chats: [],
             activeChatId: null,
+            isStreaming: false, // ✅ Estado para streaming
 
             // Create a new chat and set it as active
             createChat: () => {
@@ -16,7 +17,7 @@ export const useChatStore = create(
                     messages: [{
                         id: 'welcome',
                         role: 'assistant',
-                        content: 'Olá! Sou a **Midi**, a cientista de dados da Studio 30. 👩‍🔬\n\nEstou conectada aos seus dados. Como posso ajudar você a tomar melhores decisões hoje?'
+                        content: 'Olá! Sou a **Midi**, a cientista de dados da Studio 30. 👩‍🔬\n\nComo posso ajudar você a tomar melhores decisões hoje?'
                     }]
                 }
 
@@ -42,6 +43,29 @@ export const useChatStore = create(
                             : chat
                     )
                 }))
+            },
+
+            // ✅ Atualizar mensagem existente (para streaming e dados finais)
+            updateMessage: (chatId, messageId, updates) => {
+                set((state) => ({
+                    chats: state.chats.map((chat) =>
+                        chat.id === chatId
+                            ? {
+                                ...chat,
+                                messages: chat.messages.map((msg) =>
+                                    msg.id === messageId
+                                        ? { ...msg, ...(typeof updates === 'string' ? { content: updates } : updates) }
+                                        : msg
+                                )
+                            }
+                            : chat
+                    )
+                }))
+            },
+
+            // ✅ Controlar estado de streaming
+            setStreaming: (isStreaming) => {
+                set({ isStreaming })
             },
 
             // Update the title of a chat (e.g., based on first user message)
@@ -82,3 +106,9 @@ export const useChatStore = create(
         }
     )
 )
+
+// ✅ Selectors otimizados para evitar re-renders desnecessários
+export const selectActiveChat = (state) => state.chats.find(c => c.id === state.activeChatId)
+export const selectActiveChatMessages = (state) => selectActiveChat(state)?.messages || []
+export const selectIsStreaming = (state) => state.isStreaming
+export const selectChatsCount = (state) => state.chats.length

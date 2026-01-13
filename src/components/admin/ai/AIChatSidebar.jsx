@@ -1,30 +1,32 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Bot, User, Sparkles, Loader2, Database, Trash2, X, Plus, History, MessageSquare, ChevronRight } from 'lucide-react'
-import { perguntarIA } from '@/lib/api/ai'
 import { cn } from '@/lib/utils'
 import Markdown from 'react-markdown'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/Sheet'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useChatStore } from '@/store/chat-store'
+import { useChatStore, selectActiveChatMessages } from '@/store/chat-store'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useAIStream } from '@/hooks/useAIChat'
 
 export function AIChatSidebar({ isOpen, onClose }) {
-    const {
-        chats,
-        activeChatId,
-        createChat,
-        addMessage,
-        setActiveChat,
-        deleteChat,
-        updateChatTitle
-    } = useChatStore()
+    // ✅ Use selectors para evitar re-renders desnecessários
+    const chats = useChatStore(state => state.chats)
+    const activeChatId = useChatStore(state => state.activeChatId)
+    const createChat = useChatStore(state => state.createChat)
+    const addMessage = useChatStore(state => state.addMessage)
+    const updateMessage = useChatStore(state => state.updateMessage)
+    const setActiveChat = useChatStore(state => state.setActiveChat)
+    const deleteChat = useChatStore(state => state.deleteChat)
+    const updateChatTitle = useChatStore(state => state.updateChatTitle)
 
     const [input, setInput] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
     const messagesEndRef = useRef(null)
+
+    // ✅ Hook otimizado com streaming
+    const { streamedContent, isStreaming, startStream } = useAIStream()
 
     // Ensure there is an active chat when opening
     useEffect(() => {
@@ -49,8 +51,9 @@ export function AIChatSidebar({ isOpen, onClose }) {
         }
     }, [messages, isOpen, showHistory])
 
-    const handleSend = async () => {
-        if (!input.trim() || isLoading || !activeChatId) return
+    // ✅ handleSend otimizado com streaming
+    const handleSend = useCallback(async () => {
+        if (!input.trim() || isStreaming || !activeChatId) return
 
         const currentInput = input
         const userMessage = { id: Date.now().toString(), role: 'user', content: currentInput }
@@ -58,7 +61,6 @@ export function AIChatSidebar({ isOpen, onClose }) {
         // Add user message to store
         addMessage(activeChatId, userMessage)
         setInput('')
-        setIsLoading(true)
 
         // Update title if it's the first real interaction and title is generic
         if (messages.length <= 1 && activeChat?.title === 'Nova Conversa') {
@@ -68,29 +70,34 @@ export function AIChatSidebar({ isOpen, onClose }) {
 
         setTimeout(scrollToBottom, 100)
 
-        try {
-            const response = await perguntarIA(currentInput)
+        // Create placeholder message for streaming
+        const aiMessageId = (Date.now() + 1).toString()
+        addMessage(activeChatId, {
+            id: aiMessageId,
+            role: 'assistant',
+            content: '',
+            isStreaming: true
+        })
 
-            const aiMessage = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
+        try {
+            // ✅ Streaming de resposta - feedback visual instantâneo
+            const response = await startStream(currentInput, (chunk) => {
+                updateMessage(activeChatId, aiMessageId, chunk)
+                setTimeout(scrollToBottom, 50)
+            })
+
+            // ✅ Atualizar mensagem existente com todos os dados finais
+            updateMessage(activeChatId, aiMessageId, {
                 content: response.answer,
                 sql: response.sql,
-                data: response.data
-            }
-            addMessage(activeChatId, aiMessage)
+                data: response.data,
+                isStreaming: false
+            })
         } catch (error) {
             console.error(error)
-            addMessage(activeChatId, {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: 'Desculpe, tive um problema ao processar sua pergunta. Tente novamente.',
-                isError: true
-            })
-        } finally {
-            setIsLoading(false)
+            updateMessage(activeChatId, aiMessageId, 'Desculpe, tive um problema ao processar sua pergunta. Tente novamente.')
         }
-    }
+    }, [input, isStreaming, activeChatId, messages.length, activeChat?.title, addMessage, updateMessage, updateChatTitle, startStream])
 
     const handleNewChat = () => {
         createChat()
@@ -298,35 +305,44 @@ export function AIChatSidebar({ isOpen, onClose }) {
                                             ))}
                                         </AnimatePresence>
 
-                                        {/* Loading State - Thinking Animation */}
-                                        {isLoading && (
+                                        {/* ✅ Loading State - Skeleton otimizado */}
+                                        {isStreaming && (
                                             <motion.div
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                className="flex gap-3 items-center"
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -10 }}
+                                                className="flex gap-3 items-start"
                                             >
-                                                <div className="w-8 h-8 rounded-full bg-brand-terracotta flex items-center justify-center shrink-0 animate-pulse">
-                                                    <Sparkles className="w-4 h-4 text-white" />
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-terracotta to-brand-rust flex items-center justify-center shrink-0 shadow-sm">
+                                                    <Sparkles className="w-4 h-4 text-white animate-pulse" />
                                                 </div>
-                                                <div className="flex items-center gap-1 bg-white px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm border border-gray-100">
-                                                    <div className="flex gap-1">
-                                                        <motion.div
-                                                            animate={{ scale: [1, 1.2, 1] }}
-                                                            transition={{ repeat: Infinity, duration: 1, ease: "easeInOut", delay: 0 }}
-                                                            className="w-1.5 h-1.5 bg-brand-terracotta rounded-full"
-                                                        />
-                                                        <motion.div
-                                                            animate={{ scale: [1, 1.2, 1] }}
-                                                            transition={{ repeat: Infinity, duration: 1, ease: "easeInOut", delay: 0.2 }}
-                                                            className="w-1.5 h-1.5 bg-brand-terracotta/70 rounded-full"
-                                                        />
-                                                        <motion.div
-                                                            animate={{ scale: [1, 1.2, 1] }}
-                                                            transition={{ repeat: Infinity, duration: 1, ease: "easeInOut", delay: 0.4 }}
-                                                            className="w-1.5 h-1.5 bg-brand-terracotta/40 rounded-full"
-                                                        />
+                                                <div className="bg-white px-5 py-4 rounded-2xl rounded-tl-sm shadow-sm border border-gray-100 max-w-[90%]">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="flex gap-1">
+                                                            <motion.div
+                                                                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 1, 0.4] }}
+                                                                transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut", delay: 0 }}
+                                                                className="w-1.5 h-1.5 bg-brand-terracotta rounded-full"
+                                                            />
+                                                            <motion.div
+                                                                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 1, 0.4] }}
+                                                                transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut", delay: 0.15 }}
+                                                                className="w-1.5 h-1.5 bg-brand-terracotta rounded-full"
+                                                            />
+                                                            <motion.div
+                                                                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 1, 0.4] }}
+                                                                transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut", delay: 0.3 }}
+                                                                className="w-1.5 h-1.5 bg-brand-terracotta rounded-full"
+                                                            />
+                                                        </div>
+                                                        <span className="text-xs text-brand-rust/60 font-medium">Pensando...</span>
                                                     </div>
-                                                    <span className="text-xs text-brand-rust/70 font-medium ml-2 animate-pulse">Pensando...</span>
+                                                    {/* Skeleton lines */}
+                                                    <div className="space-y-2">
+                                                        <div className="h-2 bg-gray-100 rounded animate-pulse w-full"></div>
+                                                        <div className="h-2 bg-gray-100 rounded animate-pulse w-5/6"></div>
+                                                        <div className="h-2 bg-gray-100 rounded animate-pulse w-4/6"></div>
+                                                    </div>
                                                 </div>
                                             </motion.div>
                                         )}
@@ -357,15 +373,15 @@ export function AIChatSidebar({ isOpen, onClose }) {
                             />
                             <button
                                 onClick={handleSend}
-                                disabled={!input.trim() || isLoading}
+                                disabled={!input.trim() || isStreaming}
                                 className={cn(
-                                    "p-2 rounded-full transition-all shrink-0 mb-0.5 focus:outline-none",
-                                    input.trim() && !isLoading
-                                        ? "bg-brand-terracotta text-white hover:bg-brand-rust"
+                                    "p-2 rounded-full transition-all shrink-0 mb-0.5 focus:outline-none shadow-sm",
+                                    input.trim() && !isStreaming
+                                        ? "bg-brand-terracotta text-white hover:bg-brand-rust hover:shadow-md active:scale-95"
                                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                 )}
                             >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                             </button>
                         </div>
                         <div className="mt-2 text-center">

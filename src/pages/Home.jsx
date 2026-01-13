@@ -94,7 +94,7 @@ export function Home() {
                             {/* LOGO (Esquerda) */}
                             <div className="flex justify-center lg:justify-end animate-fade-in order-1 mb-4 md:mb-0">
                                 <img
-                                    src="/marcacompleta.PNG"
+                                    src="/marcacompleta.webp"
                                     alt="Studio 30 Closet - Logo Completa"
                                     width="640"
                                     height="360"
@@ -106,9 +106,23 @@ export function Home() {
                             {/* TEXTO (Direita) */}
                             <div className="text-center lg:text-left space-y-2.5 md:space-y-4 order-2 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                                 <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-[#4A3B32] leading-tight md:leading-[1.1] break-words">
-                                    <FadeText text="O provador mais exclusivo é a " direction="up" className="inline-block" />
+                                    <FadeText
+                                        text="O provador mais exclusivo é a "
+                                        direction="up"
+                                        className="inline-block"
+                                        framerProps={{
+                                            transition: { type: "spring", stiffness: 100, damping: 20 }
+                                        }}
+                                    />
                                     <span className="text-[#C75D3B] italic font-light inline-block">
-                                        <FadeText text="sua casa." direction="up" className="inline-block" framerProps={{ transition: { delay: 0.1 } }} />
+                                        <FadeText
+                                            text="sua casa."
+                                            direction="up"
+                                            className="inline-block"
+                                            framerProps={{
+                                                transition: { type: "spring", stiffness: 100, damping: 20, delay: 0.1 }
+                                            }}
+                                        />
                                     </span>
                                 </h1>
 
@@ -313,7 +327,12 @@ export function Home() {
                                                 initial={{ scale: 0, rotate: -180 }}
                                                 whileInView={{ scale: 1, rotate: 0 }}
                                                 viewport={{ once: true }}
-                                                transition={{ delay: 0.3 + (s * 0.05), type: "spring" }}
+                                                transition={{
+                                                    delay: 0.3 + (s * 0.05),
+                                                    type: "spring",
+                                                    stiffness: 260,
+                                                    damping: 20
+                                                }}
                                             >
                                                 <Star className="w-4 sm:w-5 h-4 sm:h-5 fill-[#C75D3B] text-[#C75D3B]" />
                                             </motion.div>

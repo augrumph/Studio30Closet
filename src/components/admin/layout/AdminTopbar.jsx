@@ -28,7 +28,7 @@ export function AdminTopbar({ onMenuClick, onChatClick }) {
 
                     {/* Mobile Logo */}
                     <div className="sm:hidden">
-                        <img src="/logomarca.PNG" alt="Studio 30" className="h-8 object-contain" />
+                        <img src="/logomarca.webp" alt="Studio 30" className="h-8 object-contain" />
                     </div>
                 </div>
 

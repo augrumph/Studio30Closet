@@ -115,14 +115,16 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
             .slice(0, 5)
     }, [vendas])
 
-    // Top trends (Category, Size, Supplier, Product)
+    // Top trends (Category, Size, Product) + Advanced Supplier Analytics
     const topTrends = useMemo(() => {
         const counts = {
             category: {},
             size: {},
-            supplier: {},
             product: {}
         }
+
+        // Supplier analytics with profit tracking
+        const supplierStats = {}
 
         vendas.forEach(v => {
             const items = Array.isArray(v.items) ? v.items : (typeof v.items === 'string' ? JSON.parse(v.items || '[]') : [])
@@ -130,18 +132,11 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
                 const qty = item.quantity || 1
 
                 // Real Join: Lookup product in master list to get accurate Category and Supplier
-                // Using Number() to ensure type safety between string IDs and number IDs
                 const masterProduct = products.find(p => Number(p.id) === Number(item.productId))
 
                 // Category (Priority: Master List -> Sale Item -> Default)
                 const cat = masterProduct?.category || item.category || 'Geral'
                 counts.category[cat] = (counts.category[cat] || 0) + qty
-
-                // Supplier (Priority: Master List -> Sale Item -> N/A)
-                const supplierId = masterProduct?.supplierId || masterProduct?.supplier_id
-                const masterSupplier = suppliers.find(s => Number(s.id) === Number(supplierId))
-                const supplierName = masterSupplier?.name || 'N/A'
-                counts.supplier[supplierName] = (counts.supplier[supplierName] || 0) + qty
 
                 // Size
                 const size = item.selectedSize || 'U'
@@ -150,13 +145,36 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
                 // Product
                 const prod = item.name || 'Produto'
                 counts.product[prod] = (counts.product[prod] || 0) + qty
+
+                // Advanced Supplier Analytics
+                const supplierId = masterProduct?.supplierId || masterProduct?.supplier_id
+                const masterSupplier = suppliers.find(s => Number(s.id) === Number(supplierId))
+                const supplierName = masterSupplier?.name || 'N/A'
+
+                if (supplierName !== 'N/A') {
+                    if (!supplierStats[supplierName]) {
+                        supplierStats[supplierName] = {
+                            revenue: 0,
+                            profit: 0,
+                            volume: 0
+                        }
+                    }
+
+                    const salePrice = item.price || 0
+                    const cost = masterProduct?.cost || 0
+                    const revenue = salePrice * qty
+                    const profit = (salePrice - cost) * qty
+
+                    supplierStats[supplierName].revenue += revenue
+                    supplierStats[supplierName].profit += profit
+                    supplierStats[supplierName].volume += qty
+                }
             })
         })
 
         const getTop = (obj) => {
             const entries = Object.entries(obj).filter(([name]) => name !== 'N/A' && name !== 'Geral')
             if (entries.length === 0) {
-                // Se tudo for Geral/NA, tenta pegar mesmo assim se existir
                 const allEntries = Object.entries(obj)
                 if (allEntries.length === 0) return 'N/A'
                 return allEntries.sort((a, b) => b[1] - a[1])[0][0]
@@ -164,11 +182,53 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
             return entries.sort((a, b) => b[1] - a[1])[0][0]
         }
 
+        // Calculate supplier rankings
+        const supplierEntries = Object.entries(supplierStats)
+
+        // Most profitable supplier (by absolute profit)
+        const mostProfitableSupplier = supplierEntries.length > 0
+            ? supplierEntries.sort((a, b) => b[1].profit - a[1].profit)[0][0]
+            : 'N/A'
+
+        // Supplier with most volume (by quantity sold)
+        const mostVolumeSupplier = supplierEntries.length > 0
+            ? [...supplierEntries].sort((a, b) => b[1].volume - a[1].volume)[0][0]
+            : 'N/A'
+
+        // Best supplier by composite score
+        let bestSupplierByScore = 'N/A'
+        let bestScore = 0
+
+        if (supplierEntries.length > 0) {
+            // Find max values for normalization
+            const maxRevenue = Math.max(...supplierEntries.map(([_, stats]) => stats.revenue), 1)
+            const maxProfit = Math.max(...supplierEntries.map(([_, stats]) => stats.profit), 1)
+            const maxVolume = Math.max(...supplierEntries.map(([_, stats]) => stats.volume), 1)
+
+            // Calculate composite score for each supplier
+            supplierEntries.forEach(([name, stats]) => {
+                const revenueNorm = stats.revenue / maxRevenue
+                const profitNorm = stats.profit / maxProfit
+                const volumeNorm = stats.volume / maxVolume
+
+                // Composite Score Formula: 40% Revenue + 40% Profit + 20% Volume
+                const score = (0.40 * revenueNorm) + (0.40 * profitNorm) + (0.20 * volumeNorm)
+
+                if (score > bestScore) {
+                    bestScore = score
+                    bestSupplierByScore = name
+                }
+            })
+        }
+
         return {
             category: getTop(counts.category),
             size: getTop(counts.size),
-            supplier: getTop(counts.supplier),
-            product: getTop(counts.product)
+            product: getTop(counts.product),
+            supplierMostProfitable: mostProfitableSupplier,
+            supplierMostVolume: mostVolumeSupplier,
+            supplierBestScore: bestSupplierByScore,
+            bestSupplierScoreValue: bestScore // For potential display
         }
     }, [vendas, products, suppliers])
 

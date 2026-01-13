@@ -221,99 +221,62 @@ export function Dashboard() {
     return (
         <div className="space-y-4 md:space-y-6 max-w-[1600px] mx-auto">
 
-            {/* 1. HERO SECTION & QUICK ACTIONS */}
+            {/* 1. UNIFIED COMPACT HEADER */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-gradient-to-br from-[#4A3B32] via-[#5A4B42] to-[#4A3B32] p-4 md:p-6 text-white shadow-lg border border-white/5"
+                className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 md:p-4"
             >
-                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#C75D3B]/30 via-[#C75D3B]/10 to-transparent pointer-events-none" />
-                <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-[#C75D3B]/20 rounded-full blur-3xl" />
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                    <div className="space-y-2">
-                        <div className="inline-flex items-center gap-2 px-3 md:px-4 py-1 md:py-1.5 bg-white/10 rounded-full backdrop-blur-md border border-white/10">
-                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-white/80">Monitor Studio 30 • Ao Vivo</span>
-                        </div>
-                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold leading-tight">
-                            {greetings()}, <br />
-                            <span className="text-[#C75D3B]">Equipe Studio 30</span>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    {/* Left: Greeting + Quick Actions */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <h1 className="text-base md:text-lg font-display font-bold text-[#4A3B32]">
+                            {greetings()}, <span className="text-[#C75D3B]">Studio 30</span>
                         </h1>
-                        <p className="text-white/40 font-medium text-xs md:text-sm leading-relaxed max-w-md italic">
-                            Sua curadoria de moda com a agilidade que suas clientes merecem.
-                        </p>
+
+                        <div className="flex gap-2">
+                            <Link
+                                to="/admin/vendas/new"
+                                className="px-3 py-1.5 bg-[#C75D3B] hover:bg-[#A64D31] rounded-lg transition-all text-white text-xs font-bold uppercase tracking-wide flex items-center gap-1.5"
+                            >
+                                <Zap className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Venda</span>
+                            </Link>
+                            <Link
+                                to="/admin/malinhas/new"
+                                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all text-[#4A3B32] text-xs font-bold uppercase tracking-wide flex items-center gap-1.5"
+                            >
+                                <ShoppingBag className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Malinha</span>
+                            </Link>
+                            <button
+                                onClick={() => setShowParcelinhasModal(true)}
+                                className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-lg transition-all text-white text-xs font-bold uppercase tracking-wide flex items-center gap-1.5"
+                            >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Crediário</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                        <Link
-                            to="/admin/vendas/new"
-                            className="p-4 md:p-6 bg-[#C75D3B] active:bg-[#A64D31] md:hover:bg-[#A64D31] rounded-2xl md:rounded-3xl transition-all shadow-xl group flex flex-col gap-2 md:gap-3"
-                        >
-                            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl md:rounded-2xl flex items-center justify-center group-active:scale-95 md:group-hover:scale-110 transition-transform">
-                                <Zap className="w-5 h-5 md:w-6 md:h-6" />
-                            </div>
-                            <span className="font-bold text-xs md:text-sm tracking-tight uppercase">Venda Rápida</span>
-                        </Link>
-                        <Link
-                            to="/admin/malinhas/new"
-                            className="p-4 md:p-6 bg-white/10 active:bg-white/20 md:hover:bg-white/20 rounded-2xl md:rounded-3xl transition-all shadow-xl border border-white/5 group flex flex-col gap-2 md:gap-3"
-                        >
-                            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl md:rounded-2xl flex items-center justify-center group-active:scale-95 md:group-hover:scale-110 transition-transform">
-                                <ShoppingBag className="w-5 h-5 md:w-6 md:h-6" />
-                            </div>
-                            <span className="font-bold text-xs md:text-sm tracking-tight uppercase">Montar Malinha</span>
-                        </Link>
-                        <button
-                            onClick={() => setShowParcelinhasModal(true)}
-                            className="p-4 md:p-6 bg-gradient-to-br from-amber-500 to-orange-600 active:from-amber-600 active:to-orange-700 rounded-2xl md:rounded-3xl transition-all shadow-xl group flex flex-col gap-2 md:gap-3 text-left w-full"
-                        >
-                            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl md:rounded-2xl flex items-center justify-center group-active:scale-95 md:group-hover:scale-110 transition-transform">
-                                <CreditCard className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                            </div>
-                            <span className="font-bold text-xs md:text-sm tracking-tight uppercase text-white">Parcelinhas</span>
-                        </button>
-                    </div>
-                </div>
-            </motion.div>
-
-            {/* 1.2 MIDI INSIGHTS - Análise Proativa - TEMPORARIAMENTE OCULTO */}
-            {/* <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.05 }}
-            >
-                <MidiInsights limit={5} />
-            </motion.div> */}
-
-            {/* 1.5 PERÍODO DE ANÁLISE */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="bg-white rounded-2xl md:rounded-[32px] border border-gray-100 shadow-md p-6 md:p-8"
-            >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div>
-                        <h3 className="text-lg md:text-xl font-display font-bold text-[#4A3B32] mb-2">Período de Análise</h3>
-                        <p className="text-sm text-gray-500">Selecione o período para analisar o DRE e fluxo de caixa</p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+                    {/* Right: Period Selector */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-[#4A3B32] hidden sm:inline">Período:</span>
                         {[
                             { value: 'all', label: 'Tudo' },
-                            { value: 'last7days', label: 'Últimos 7 dias' },
-                            { value: 'last30days', label: 'Últimos 30 dias' },
-                            { value: 'currentMonth', label: 'Mês atual' },
-                            { value: 'custom', label: 'Customizado' }
+                            { value: 'last7days', label: '7d' },
+                            { value: 'last30days', label: '30d' },
+                            { value: 'currentMonth', label: 'Mês' },
+                            { value: 'custom', label: 'Custom' }
                         ].map(period => (
                             <button
                                 key={period.value}
                                 onClick={() => setPeriodFilter(period.value)}
                                 className={cn(
-                                    'px-4 py-2.5 rounded-xl font-semibold text-sm transition-all',
+                                    'px-3 py-1.5 rounded-lg font-semibold text-xs transition-all',
                                     periodFilter === period.value
-                                        ? 'bg-[#C75D3B] text-white shadow-md'
+                                        ? 'bg-[#C75D3B] text-white shadow-sm'
                                         : 'bg-gray-100 text-[#4A3B32] hover:bg-gray-200'
                                 )}
                             >
@@ -328,35 +291,42 @@ export function Dashboard() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mt-6 pt-6 border-t border-gray-200 flex flex-col sm:flex-row gap-4"
+                        className="mt-3 pt-3 border-t border-gray-100 flex gap-3"
                     >
                         <div className="flex-1">
-                            <label className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-widest block mb-2">Data Início</label>
                             <input
                                 type="date"
                                 value={customDateRange.start}
                                 onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-[#4A3B32]"
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm text-[#4A3B32]"
                             />
                         </div>
                         <div className="flex-1">
-                            <label className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-widest block mb-2">Data Fim</label>
                             <input
                                 type="date"
                                 value={customDateRange.end}
                                 onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium text-[#4A3B32]"
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm text-[#4A3B32]"
                             />
                         </div>
                     </motion.div>
                 )}
             </motion.div>
 
-            {/* 2. FINANCIAL SCOREBOARD - DRE GERENCIAL (Componente extraído) */}
-            <FinancialScoreboard metrics={financialMetrics} isLoading={isLoading} />
+            {/* 1.2 MIDI INSIGHTS - Análise Proativa - TEMPORARIAMENTE OCULTO */}
+            {/* <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.05 }}
+            >
+                <MidiInsights limit={5} />
+            </motion.div> */}
 
-            {/* CASH FLOW & RISK INDICATORS (Componente extraído) */}
+            {/* 2. TOP SELLING INSIGHTS (Componente extraído) */}
             <CashFlowSection metrics={financialMetrics} trends={topTrends} />
+
+            {/* 3. FINANCIAL SCOREBOARD - DRE GERENCIAL (Componente extraído) */}
+            <FinancialScoreboard metrics={financialMetrics} isLoading={isLoading} />
 
             {/* 3. TRENDS & TOP CUSTOMERS */}
             <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">

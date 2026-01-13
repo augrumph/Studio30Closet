@@ -186,8 +186,10 @@ export function Home() {
                         <div className="relative order-2 lg:order-1">
                             <div className="aspect-[4/5] rounded-xl md:rounded-[2rem] overflow-hidden shadow-lg md:shadow-xl">
                                 <img
-                                    src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=1000&auto=format&fit=crop"
+                                    src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=600&auto=format&fit=crop"
                                     alt="Conceito Malinha"
+                                    width="600"
+                                    height="750"
                                     loading="lazy"
                                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000"
                                 />
@@ -487,6 +489,8 @@ export function Home() {
                                         <img
                                             src={post.image}
                                             alt={post.caption}
+                                            width="80"
+                                            height="80"
                                             className="w-full h-full object-cover"
                                             loading="lazy"
                                         />

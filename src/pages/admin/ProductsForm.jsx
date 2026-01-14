@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react'
 import { useAdminProducts, useAdminProduct } from '@/hooks/useAdminProducts'
-import { useSuppliersStore } from '@/store/suppliers-store'
+import { useAdminSuppliers } from '@/hooks/useAdminSuppliers'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -18,7 +18,7 @@ export function ProductsForm() {
     // ⚡ REACT QUERY: Hooks otimizados
     const { createProduct, updateProduct, isCreating, isUpdating } = useAdminProducts()
     const { data: product, isLoading: isLoadingProduct } = useAdminProduct(id)
-    const { suppliers, loadSuppliers } = useSuppliersStore() // Mantendo suppliers store por enquanto
+    const { suppliers, isLoading: isLoadingSuppliers } = useAdminSuppliers() // ✅ Migrado para React Query
 
     const [initialData, setInitialData] = useState(null)
     const [formData, setFormData] = useState({
@@ -55,9 +55,7 @@ export function ProductsForm() {
         }, 0)
     }, [formData.variants])
 
-    useEffect(() => {
-        loadSuppliers()
-    }, [loadSuppliers])
+    // React Query carrega suppliers automaticamente - não precisa de useEffect!
 
     // POPULAR FORMULÁRIO QUANDO DADOS CHEGAM DO REACT QUERY
     useEffect(() => {

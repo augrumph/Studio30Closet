@@ -337,11 +337,11 @@ export async function getSalesRankingByCategory(startDate, endDate) {
 
     if (error) throw error
 
-    // 2. Buscar TODOS os produtos para "consertar" dados históricos sem categoria
+    // 2. Buscar TODOS os produtos para "consertar" dados históricos sem categoria/cor
     // Isso resolve o problema de vendas antigas que não salvaram a categoria no JSON
     const { data: products } = await supabase
         .from('products')
-        .select('id, name, category, color, sizes')
+        .select('id, name, category, color, sizes, variants') // Adicionado variants para recuperar cor
 
     // Mapa de Recuperação: ID/Nome -> Categoria
     // Normalizamos para lowerCase para maximizar matches
@@ -390,15 +390,19 @@ export async function getSalesRankingByCategory(startDate, endDate) {
             aggregations.byCategory[cat].revenue += price * qty
             aggregations.byCategory[cat].margin += margin * qty
 
-            // Por cor
+            // Por cor - Recuperar cor do produto se não tiver no item
             let color = item.selectedColor || item.color
-            if ((!color || color === 'Sem cor') && officialProduct) {
-                // Tenta pegar a primeira cor se não tiver
-                // Isso é menos preciso que a categoria, mas ajuda
-                // Idealmente o histórico deveria ter salvo, mas...
-                // Deixamos como está se não acharmos fácil
+            if (!color || color === 'Sem cor') {
+                // Tentar pegar a cor do produto oficial
+                if (officialProduct) {
+                    // Prioridade: primeira variante com colorName, depois campo color do produto
+                    const firstVariant = officialProduct.variants?.[0]
+                    color = firstVariant?.colorName || officialProduct.color || null
+                }
             }
-            color = color || 'Sem cor'
+
+            // Só adiciona ao gráfico se tiver uma cor válida
+            if (!color) return // Pula itens sem cor definida
 
             if (!aggregations.byColor[color]) {
                 aggregations.byColor[color] = { name: color, qty: 0, revenue: 0, margin: 0 }

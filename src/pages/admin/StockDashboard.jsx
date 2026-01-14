@@ -150,14 +150,135 @@ export function StockDashboard() {
                 </Card>
             </motion.div>
 
+            {/* ✨ SEÇÃO: O Que Está Vendendo Bem - Logo abaixo dos KPIs */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="space-y-4"
+            >
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-xl font-display font-bold text-[#4A3B32]">O Que Está Vendendo Bem?</h3>
+                        <p className="text-sm text-gray-400 mt-0.5">Top produtos para não deixar faltar.</p>
+                    </div>
+                    <Link to="/admin/vendas" className="text-xs font-bold text-[#C75D3B] hover:underline flex items-center gap-1">
+                        Ver vendas <ArrowRight className="w-3 h-3" />
+                    </Link>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 🏆 TOP CATEGORIAS */}
+                    <Card className="bg-gradient-to-br from-white via-white to-amber-50/50 border-amber-100/50 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-2 bg-gradient-to-br from-amber-400 to-amber-500 rounded-xl shadow-md">
+                                        <ShoppingBag className="w-4 h-4 text-white" />
+                                    </div>
+                                    <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Por Categoria</span>
+                                </div>
+                                <div className="text-[10px] font-bold text-amber-500 bg-amber-100 px-2 py-0.5 rounded-full">TOP 3</div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {topSellers?.byCategory?.slice(0, 3).map((item, i) => (
+                                <div key={i} className="flex justify-between items-center p-2 rounded-xl bg-white/60 border border-amber-100/50 hover:bg-amber-50/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black shadow-sm",
+                                            i === 0 ? "bg-gradient-to-br from-amber-400 to-amber-500 text-white" :
+                                                i === 1 ? "bg-gradient-to-br from-gray-300 to-gray-400 text-white" :
+                                                    "bg-gradient-to-br from-orange-300 to-orange-400 text-white"
+                                        )}>{i + 1}</div>
+                                        <span className="text-sm font-bold text-[#4A3B32] capitalize">{item.name}</span>
+                                    </div>
+                                    <span className="text-sm font-black text-amber-600 bg-amber-100 px-3 py-1 rounded-lg">
+                                        {item.qty} un
+                                    </span>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    {/* 🎨 TOP CORES */}
+                    <Card className="bg-gradient-to-br from-white via-white to-violet-50/50 border-violet-100/50 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-2 bg-gradient-to-br from-violet-400 to-violet-500 rounded-xl shadow-md">
+                                        <div className="w-4 h-4 rounded-full bg-white/80 border-2 border-white" />
+                                    </div>
+                                    <span className="text-xs font-bold text-violet-700 uppercase tracking-widest">Por Cor</span>
+                                </div>
+                                <div className="text-[10px] font-bold text-violet-500 bg-violet-100 px-2 py-0.5 rounded-full">TREND</div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {topSellers?.byColor?.slice(0, 3).map((item, i) => (
+                                <div key={i} className="flex justify-between items-center p-2 rounded-xl bg-white/60 border border-violet-100/50 hover:bg-violet-50/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-sm border border-gray-200">
+                                            <div className="w-4 h-4 rounded-full" style={{
+                                                backgroundColor: item.name?.toLowerCase().includes('preto') ? '#1f2937' :
+                                                    item.name?.toLowerCase().includes('marrom') ? '#78350f' :
+                                                        item.name?.toLowerCase().includes('mostarda') ? '#ca8a04' :
+                                                            item.name?.toLowerCase().includes('verde') ? '#16a34a' :
+                                                                item.name?.toLowerCase().includes('azul') ? '#2563eb' :
+                                                                    item.name?.toLowerCase().includes('rosa') ? '#ec4899' :
+                                                                        item.name?.toLowerCase().includes('vermelho') ? '#dc2626' :
+                                                                            item.name?.toLowerCase().includes('branco') ? '#f5f5f5' :
+                                                                                item.name?.toLowerCase().includes('bege') ? '#d4a574' :
+                                                                                    '#9ca3af'
+                                            }} />
+                                        </div>
+                                        <span className="text-sm font-bold text-[#4A3B32] capitalize">{item.name}</span>
+                                    </div>
+                                    <span className="text-sm font-black text-violet-600 bg-violet-100 px-3 py-1 rounded-lg">
+                                        {item.qty} un
+                                    </span>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    {/* 💰 MAIS LUCRATIVOS */}
+                    <Card className="bg-gradient-to-br from-white via-white to-emerald-50/50 border-emerald-100/50 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-2 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-xl shadow-md">
+                                        <TrendingUp className="w-4 h-4 text-white" />
+                                    </div>
+                                    <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Mais Lucrativos</span>
+                                </div>
+                                <div className="text-[10px] font-bold text-emerald-500 bg-emerald-100 px-2 py-0.5 rounded-full">LUCRO</div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {topSellers?.byProfit?.slice(0, 3).map((item, i) => (
+                                <div key={i} className="flex justify-between items-center p-2 rounded-xl bg-white/60 border border-emerald-100/50 hover:bg-emerald-50/50 transition-colors">
+                                    <div className="flex-1 min-w-0 pr-2">
+                                        <p className="text-sm font-bold text-[#4A3B32] truncate">{item.name}</p>
+                                    </div>
+                                    <span className="text-sm font-black text-emerald-600 bg-emerald-100 px-3 py-1 rounded-lg whitespace-nowrap">
+                                        R$ {item.margin?.toFixed(0)}
+                                    </span>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </div>
+            </motion.div>
+
             {/* Painel de Ações: O que fazer agora? */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
 
                 {/* Bloco 1: REPOSIÇÃO (O que comprar) */}
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 }}
+                    transition={{ delay: 0.2 }}
                     className="space-y-4"
                 >
                     <div className="flex items-center justify-between">
@@ -213,7 +334,7 @@ export function StockDashboard() {
                 <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
+                    transition={{ delay: 0.25 }}
                     className="space-y-4"
                 >
                     <div className="flex items-center justify-between">
@@ -270,73 +391,6 @@ export function StockDashboard() {
                     </div>
                 </motion.div>
             </div>
-
-            {/* Bloco 3: OPORTUNIDADES (Rankings de Venda) - Opcional, mantido pois é útil */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="pt-4 border-t border-[#4A3B32]/10"
-            >
-                <div className="mb-6">
-                    <h3 className="text-lg font-bold text-[#4A3B32]">O Que Está Vendendo Bem?</h3>
-                    <p className="text-sm text-gray-400">Top produtos para não deixar faltar.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Top 3 Categorias */}
-                    <div className="bg-white p-5 rounded-2xl border border-[#4A3B32]/5 shadow-sm">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Por Categoria</h4>
-                        <div className="space-y-4">
-                            {topSellers?.byCategory?.slice(0, 3).map((item, i) => (
-                                <div key={i} className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                                            i === 0 ? "bg-amber-100 text-amber-700" :
-                                                i === 1 ? "bg-gray-100 text-gray-600" : "bg-orange-50 text-orange-600"
-                                        )}>{i + 1}</div>
-                                        <span className="text-sm font-bold text-[#4A3B32]">{item.name}</span>
-                                    </div>
-                                    <span className="text-xs font-medium text-gray-400">{item.qty} un</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Top 3 Cores */}
-                    <div className="bg-white p-5 rounded-2xl border border-[#4A3B32]/5 shadow-sm">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Por Cor</h4>
-                        <div className="space-y-4">
-                            {topSellers?.byColor?.slice(0, 3).map((item, i) => (
-                                <div key={i} className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-4 h-4 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: item.name === 'Padrão' ? '#fff' : 'gray' }} />
-                                        <span className="text-sm font-bold text-[#4A3B32]">{item.name}</span>
-                                    </div>
-                                    <span className="text-xs font-medium text-gray-400">{item.qty} un</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Top 3 Lucrativos */}
-                    <div className="bg-white p-5 rounded-2xl border border-[#4A3B32]/5 shadow-sm">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Mais Lucrativos</h4>
-                        <div className="space-y-4">
-                            {topSellers?.byProfit?.slice(0, 3).map((item, i) => (
-                                <div key={i} className="flex justify-between items-center">
-                                    <div className="flex-1 min-w-0 pr-2">
-                                        <p className="text-sm font-bold text-[#4A3B32] truncate">{item.name}</p>
-                                    </div>
-                                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
-                                        R$ {item.margin?.toFixed(0)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </motion.div>
         </div>
     )
 }

@@ -23,10 +23,6 @@ import {
     updateCustomer,
     createCustomer,
     deleteCustomer,
-    getCoupons,
-    createCoupon,
-    updateCoupon,
-    deleteCoupon,
     updateOrder,
     getOrderById as getOrderByIdFromApi,
     reserveStockForMalinha,
@@ -36,6 +32,7 @@ import {
 } from '@/lib/api'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { useOperationalCostsStore } from './operational-costs-store'
+import logger from '@/utils/logger'
 
 export const useAdminStore = create(
     persist(
@@ -65,11 +62,6 @@ export const useAdminStore = create(
             vendasLoading: false,
             vendasError: null,
 
-            // Cupons
-            coupons: [],
-            couponsLoading: false,
-            couponsError: null,
-
             // ==================== PRODUTOS ====================
 
             loadProducts: async (page = 1) => {
@@ -93,7 +85,7 @@ export const useAdminStore = create(
             loadAllProductsForCatalog: async () => {
                 set({ productsLoading: true, productsError: null })
                 try {
-                    console.log('📂 Carregando TODOS os produtos para catálogo...')
+                    logger.info('📂 Carregando TODOS os produtos para catálogo...')
                     const allProducts = await getAllProducts()
 
                     // FILTRO DE SEGURANÇA: Remover undefined/null para evitar crash
@@ -105,7 +97,7 @@ export const useAdminStore = create(
                         productsLoading: false,
                         productsTotal: validProducts.length
                     })
-                    console.log(`✅ ${validProducts.length} produtos carregados para catálogo`)
+                    logger.success(`✅ ${validProducts.length} produtos carregados para catálogo`)
                 } catch (error) {
                     set({ productsError: error.message, productsLoading: false })
                 }
@@ -115,7 +107,7 @@ export const useAdminStore = create(
             loadInventoryForAdmin: async () => {
                 set({ productsLoading: true, productsError: null })
                 try {
-                    console.log('🔐 Carregando inventário completo para Admin...')
+                    logger.info('🔐 Carregando inventário completo para Admin...')
                     const allProducts = await getAllProductsAdmin()
 
                     const sortedProducts = [...allProducts].sort((a, b) => b.id - a.id)
@@ -124,7 +116,7 @@ export const useAdminStore = create(
                         productsLoading: false,
                         productsTotal: allProducts.length
                     })
-                    console.log(`✅ ${allProducts.length} produtos carregados com custo.`)
+                    logger.success(`✅ ${allProducts.length} produtos carregados com custo.`)
                 } catch (error) {
                     set({ productsError: error.message, productsLoading: false })
                 }
@@ -134,14 +126,14 @@ export const useAdminStore = create(
             loadFirstProductsPage: async (filters = {}) => {
                 set({ productsLoading: true, productsError: null, products: [], productsTotal: 0 })
                 try {
-                    console.log('🚀 Carregando primeiros 6 produtos...', filters)
+                    logger.info('🚀 Carregando primeiros 6 produtos...', filters)
                     const { products, total } = await getProductsPaginated(0, 6, filters)
                     set({
                         products,
                         productsLoading: false,
                         productsTotal: total
                     })
-                    console.log(`✅ ${products.length} produtos carregados (de ${total} total)`)
+                    logger.success(`✅ ${products.length} produtos carregados (de ${total} total)`)
                 } catch (error) {
                     set({ productsError: error.message, productsLoading: false })
                 }
@@ -151,17 +143,17 @@ export const useAdminStore = create(
             loadMoreProducts: async (offset, filters = {}) => {
                 // Evitar loading state global para não piscar a tela
                 try {
-                    console.log(`📜 Carregando mais produtos a partir de ${offset}...`, filters)
+                    logger.info(`📜 Carregando mais produtos a partir de ${offset}...`, filters)
                     const { products: newProducts, total } = await getProductsPaginated(offset, 6, filters)
 
                     set(state => ({
                         products: [...state.products, ...newProducts],
                         productsTotal: total
                     }))
-                    console.log(`✅ ${newProducts.length} produtos adicionados`)
+                    logger.success(`✅ ${newProducts.length} produtos adicionados`)
                     return newProducts.length
                 } catch (error) {
-                    console.error('❌ Erro ao carregar mais produtos:', error)
+                    logger.error('❌ Erro ao carregar mais produtos:', error)
                     return 0
                 }
             },
@@ -239,11 +231,11 @@ export const useAdminStore = create(
             loadOrders: async (page = 1) => {
                 set({ ordersLoading: true, ordersError: null })
                 try {
-                    console.log(`⏳ Carregando pedidos (página ${page})...`);
+                    logger.info(`⏳ Carregando pedidos (página ${page})...`);
                     const result = await getOrders(page, 30)
                     const orders = result.orders.sort((a, b) => b.id - a.id)
                     set({ orders, ordersLoading: false, ordersTotal: result.total, ordersPage: page })
-                    console.log(`✅ ${orders.length} pedidos carregados`);
+                    logger.success(`✅ ${orders.length} pedidos carregados`);
                 } catch (error) {
                     set({ ordersError: error.message, ordersLoading: false })
                 }
@@ -546,12 +538,12 @@ export const useAdminStore = create(
             // ==================== VENDAS ====================
 
             loadVendas: async (page = 1) => {
-                console.log(`⏳ Carregando vendas (página ${page})...`);
+                logger.info(`⏳ Carregando vendas (página ${page})...`);
                 set({ vendasLoading: true, vendasError: null })
                 try {
                     const result = await getVendas(page, 30)
                     const vendas = result.vendas.sort((a, b) => b.id - a.id)
-                    console.log(`✅ ${vendas.length} vendas carregadas (total: ${result.total})`);
+                    logger.success(`✅ ${vendas.length} vendas carregadas (total: ${result.total})`);
                     set({ vendas, vendasLoading: false, vendasTotal: result.total, vendasPage: page })
                 } catch (error) {
                     set({ vendasError: error.message, vendasLoading: false })
@@ -617,90 +609,28 @@ export const useAdminStore = create(
                 }
             },
 
-            // ==================== CUPONS ====================
-
-            loadCoupons: async () => {
-                set({ couponsLoading: true, couponsError: null })
-                try {
-                    const coupons = await getCoupons()
-                    set({ coupons, couponsLoading: false })
-                } catch (error) {
-                    set({ couponsError: error.message, couponsLoading: false })
-                }
-            },
-
-            addCoupon: async (couponData) => {
-                set({ couponsLoading: true, couponsError: null })
-                try {
-                    const newCoupon = await createCoupon(couponData)
-                    set(state => ({
-                        coupons: [newCoupon, ...state.coupons],
-                        couponsLoading: false
-                    }))
-                    return { success: true, coupon: newCoupon }
-                } catch (error) {
-                    const userFriendlyError = formatUserFriendlyError(error);
-                    set({ couponsError: userFriendlyError, couponsLoading: false })
-                    return { success: false, error: userFriendlyError }
-                }
-            },
-
-            editCoupon: async (id, couponData) => {
-                set({ couponsLoading: true, couponsError: null })
-                try {
-                    const updatedCoupon = await updateCoupon(id, couponData)
-                    set(state => ({
-                        coupons: state.coupons.map(c =>
-                            c.id === parseInt(id) ? updatedCoupon : c
-                        ),
-                        couponsLoading: false
-                    }))
-                    return { success: true, coupon: updatedCoupon }
-                } catch (error) {
-                    const userFriendlyError = formatUserFriendlyError(error);
-                    set({ couponsError: userFriendlyError, couponsLoading: false })
-                    return { success: false, error: userFriendlyError }
-                }
-            },
-
-            removeCoupon: async (id) => {
-                set({ couponsLoading: true, couponsError: null })
-                try {
-                    await deleteCoupon(id)
-                    set(state => ({
-                        coupons: state.coupons.filter(c => c.id !== parseInt(id)),
-                        couponsLoading: false
-                    }))
-                    return { success: true }
-                } catch (error) {
-                    const userFriendlyError = formatUserFriendlyError(error);
-                    set({ couponsError: userFriendlyError, couponsLoading: false })
-                    return { success: false, error: userFriendlyError }
-                }
-            },
-
             // ==================== CLIENTES ====================
 
             loadCustomers: async (page = 1) => {
-                console.log(`⏳ Carregando clientes (página ${page})...`);
+                logger.info(`⏳ Carregando clientes (página ${page})...`);
                 set({ customersLoading: true, customersError: null })
                 try {
                     const result = await getCustomers(page, 50)
                     const customers = result.customers.sort((a, b) => b.id - a.id)
-                    console.log(`✅ ${customers.length} clientes carregados (total: ${result.total})`);
+                    logger.success(`✅ ${customers.length} clientes carregados (total: ${result.total})`);
                     set({ customers, customersLoading: false, customersTotal: result.total, customersPage: page })
                 } catch (error) {
-                    console.error('❌ Erro ao carregar clientes:', error);
+                    logger.error('❌ Erro ao carregar clientes:', error);
                     set({ customersError: error.message, customersLoading: false })
                 }
             },
 
             addCustomer: async (customerData) => {
-                console.log('Store: Adding customer with data:', customerData);
+                logger.info('Store: Adding customer with data:', customerData);
                 set({ customersLoading: true, customersError: null })
                 try {
                     const newCustomer = await createCustomer(customerData)
-                    console.log('Store: Customer added successfully:', newCustomer);
+                    logger.success('Store: Customer added successfully:', newCustomer);
                     set(state => ({
                         customers: [...state.customers, newCustomer],
                         customersLoading: false
@@ -708,18 +638,18 @@ export const useAdminStore = create(
                     return { success: true, customer: newCustomer }
                 } catch (error) {
                     const userFriendlyError = formatUserFriendlyError(error);
-                    console.error('Store: Error adding customer:', error);
+                    logger.error('Store: Error adding customer:', error);
                     set({ customersError: userFriendlyError, customersLoading: false })
                     return { success: false, error: userFriendlyError }
                 }
             },
 
             editCustomer: async (id, customerData) => {
-                console.log('Store: Editing customer with id:', id, 'and data:', customerData);
+                logger.info('Store: Editing customer with id:', id, 'and data:', customerData);
                 set({ customersLoading: true, customersError: null })
                 try {
                     const updatedCustomer = await updateCustomer(id, customerData)
-                    console.log('Store: Customer updated successfully:', updatedCustomer);
+                    logger.success('Store: Customer updated successfully:', updatedCustomer);
                     set(state => ({
                         customers: state.customers.map(c =>
                             c.id === parseInt(id) ? updatedCustomer : c
@@ -729,7 +659,7 @@ export const useAdminStore = create(
                     return { success: true, customer: updatedCustomer }
                 } catch (error) {
                     const userFriendlyError = formatUserFriendlyError(error);
-                    console.error('Store: Error editing customer:', error);
+                    logger.error('Store: Error editing customer:', error);
                     set({ customersError: userFriendlyError, customersLoading: false })
                     return { success: false, error: userFriendlyError }
                 }

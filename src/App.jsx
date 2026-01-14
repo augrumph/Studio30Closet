@@ -59,6 +59,7 @@ const PurchasesForm = lazy(() => import('@/pages/admin/PurchasesForm').then(modu
 const InstallmentsList = lazy(() => import('@/pages/admin/InstallmentsList').then(module => ({ default: module.InstallmentsList })))
 const ExpensesList = lazy(() => import('@/pages/admin/ExpensesList').then(module => ({ default: module.ExpensesList })))
 const ExpensesForm = lazy(() => import('@/pages/admin/ExpensesForm').then(module => ({ default: module.ExpensesForm })))
+const EntregasList = lazy(() => import('@/pages/admin/EntregasList').then(module => ({ default: module.EntregasList })))
 
 // Test Components
 const SupabaseTester = lazy(() => import('@/components/SupabaseTester'))
@@ -83,80 +84,83 @@ function App() {
                 <ToastProvider>
                     <SiteImagesProvider>
                         <BrowserRouter>
-                        <LoadingBar />
-                        <ScrollToTop />
-                        <AnimatePresence mode="wait">
-                            <Suspense fallback={<PageLoader />}>
-                            <Routes>
-                                {/* Rotas Públicas */}
-                                <Route path="/" element={<Layout />}>
-                                    <Route index element={<Home />} />
-                                    <Route path="catalogo" element={<Catalog />} />
-                                    <Route path="como-funciona" element={<HowItWorks />} />
-                                    <Route path="sobre" element={<About />} />
-                                    <Route path="malinha" element={<Checkout />} />
-                                    <Route path="politica-de-privacidade" element={<PrivacyPolicy />} />
-                                    <Route path="termos-de-servico" element={<TermsOfService />} />
-                                    <Route path="test-supabase" element={<SupabaseTester />} />
-                                    <Route path="test-migration" element={<SupabaseMigrationTester />} />
-                                </Route>
+                            <LoadingBar />
+                            <ScrollToTop />
+                            <AnimatePresence mode="wait">
+                                <Suspense fallback={<PageLoader />}>
+                                    <Routes>
+                                        {/* Rotas Públicas */}
+                                        <Route path="/" element={<Layout />}>
+                                            <Route index element={<Home />} />
+                                            <Route path="catalogo" element={<Catalog />} />
+                                            <Route path="como-funciona" element={<HowItWorks />} />
+                                            <Route path="sobre" element={<About />} />
+                                            <Route path="malinha" element={<Checkout />} />
+                                            <Route path="politica-de-privacidade" element={<PrivacyPolicy />} />
+                                            <Route path="termos-de-servico" element={<TermsOfService />} />
+                                            <Route path="test-supabase" element={<SupabaseTester />} />
+                                            <Route path="test-migration" element={<SupabaseMigrationTester />} />
+                                        </Route>
 
-                                {/* Admin Login (pública) */}
-                                <Route path="/admin/login" element={<AdminLogin />} />
+                                        {/* Admin Login (pública) */}
+                                        <Route path="/admin/login" element={<AdminLogin />} />
 
-                                {/* Rotas Admin (protegidas) */}
-                                <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-                                    <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                                    <Route path="dashboard" element={<Dashboard />} />
+                                        {/* Rotas Admin (protegidas) */}
+                                        <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+                                            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                                            <Route path="dashboard" element={<Dashboard />} />
 
-                                    {/* Produtos */}
-                                    <Route path="products" element={<ProductsList />} />
-                                    <Route path="products/new" element={<ProductsForm />} />
-                                    <Route path="products/:id" element={<ProductsForm />} />
+                                            {/* Produtos */}
+                                            <Route path="products" element={<ProductsList />} />
+                                            <Route path="products/new" element={<ProductsForm />} />
+                                            <Route path="products/:id" element={<ProductsForm />} />
 
-                                    <Route path="malinhas" element={<MalinhasList />} />
-                                    <Route path="malinhas/new" element={<MalinhasForm />} />
-                                    <Route path="malinhas/:id/edit" element={<MalinhasForm />} />
-                                    <Route path="malinhas/:id" element={<MalinhasDetail />} />
+                                            <Route path="malinhas" element={<MalinhasList />} />
+                                            <Route path="malinhas/new" element={<MalinhasForm />} />
+                                            <Route path="malinhas/:id/edit" element={<MalinhasForm />} />
+                                            <Route path="malinhas/:id" element={<MalinhasDetail />} />
 
-                                    {/* Vendas */}
-                                    <Route path="vendas" element={<VendasList />} />
-                                    <Route path="vendas/new" element={<VendasForm />} />
-                                    <Route path="vendas/:id" element={<VendasForm />} />
+                                            {/* Vendas */}
+                                            <Route path="vendas" element={<VendasList />} />
+                                            <Route path="vendas/new" element={<VendasForm />} />
+                                            <Route path="vendas/:id" element={<VendasForm />} />
 
-                                    {/* Clientes */}
-                                    <Route path="customers" element={<CustomersList />} />
-                                    <Route path="customers/new" element={<CustomersForm />} />
-                                    <Route path="customers/:id" element={<CustomersForm />} />
+                                            {/* Entregas (TikTok Shop) */}
+                                            <Route path="entregas" element={<EntregasList />} />
 
-                                    {/* Estoque Inteligente */}
-                                    <Route path="stock" element={<StockDashboard />} />
+                                            {/* Clientes */}
+                                            <Route path="customers" element={<CustomersList />} />
+                                            <Route path="customers/new" element={<CustomersForm />} />
+                                            <Route path="customers/:id" element={<CustomersForm />} />
 
-                                    {/* Fornecedores */}
-                                    <Route path="suppliers" element={<SuppliersList />} />
-                                    <Route path="suppliers/new" element={<SuppliersForm />} />
-                                    <Route path="suppliers/:id" element={<SuppliersForm />} />
+                                            {/* Estoque Inteligente */}
+                                            <Route path="stock" element={<StockDashboard />} />
 
-                                    {/* Compras */}
-                                    <Route path="purchases" element={<PurchasesList />} />
-                                    <Route path="purchases/new" element={<PurchasesForm />} />
-                                    <Route path="purchases/:id" element={<PurchasesForm />} />
+                                            {/* Fornecedores */}
+                                            <Route path="suppliers" element={<SuppliersList />} />
+                                            <Route path="suppliers/new" element={<SuppliersForm />} />
+                                            <Route path="suppliers/:id" element={<SuppliersForm />} />
 
-                                    {/* Crediário */}
-                                    <Route path="installments" element={<InstallmentsList />} />
+                                            {/* Compras */}
+                                            <Route path="purchases" element={<PurchasesList />} />
+                                            <Route path="purchases/new" element={<PurchasesForm />} />
+                                            <Route path="purchases/:id" element={<PurchasesForm />} />
 
-                                    {/* Despesas Fixas */}
-                                    <Route path="expenses" element={<ExpensesList />} />
-                                    <Route path="expenses/new" element={<ExpensesForm />} />
-                                    <Route path="expenses/:id" element={<ExpensesForm />} />
-                                </Route>
-                            </Routes>
-                        </Suspense>
-                    </AnimatePresence>
-                </BrowserRouter>
+                                            {/* Crediário */}
+                                            <Route path="installments" element={<InstallmentsList />} />
+
+                                            {/* Despesas Fixas */}
+                                            <Route path="expenses" element={<ExpensesList />} />
+                                            <Route path="expenses/new" element={<ExpensesForm />} />
+                                            <Route path="expenses/:id" element={<ExpensesForm />} />
+                                        </Route>
+                                    </Routes>
+                                </Suspense>
+                            </AnimatePresence>
+                        </BrowserRouter>
                     </SiteImagesProvider>
-            </ToastProvider>
-        </QueryClientProvider>
+                </ToastProvider>
+            </QueryClientProvider>
         </ErrorBoundary>
     )
 }

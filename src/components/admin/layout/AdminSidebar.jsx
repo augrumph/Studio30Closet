@@ -1,61 +1,22 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, BarChart3, Truck, ShoppingCart, Settings, X, TrendingDown, ChevronLeft } from 'lucide-react'
+import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, BarChart3, Truck, ShoppingCart, Settings, X, TrendingDown, ChevronLeft, PackageCheck } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 
 const menuItems = [
-    {
-        path: '/admin/dashboard',
-        label: 'Dashboard',
-        icon: LayoutDashboard
-    },
-    {
-        path: '/admin/products',
-        label: 'Produtos',
-        icon: Package
-    },
-    {
-        path: '/admin/malinhas',
-        label: 'Malinhas',
-        icon: Calendar
-    },
-    {
-        path: '/admin/vendas',
-        label: 'Vendas',
-        icon: DollarSign
-    },
-    {
-        path: '/admin/customers',
-        label: 'Clientes',
-        icon: Users
-    },
-    {
-        path: '/admin/stock',
-        label: 'Estoque',
-        icon: BarChart3
-    },
-    {
-        path: '/admin/suppliers',
-        label: 'Fornecedores',
-        icon: Truck
-    },
-    {
-        path: '/admin/purchases',
-        label: 'Compras',
-        icon: ShoppingCart
-    },
-    {
-        path: '/admin/installments',
-        label: 'Crediário',
-        icon: DollarSign
-    },
-    {
-        path: '/admin/expenses',
-        label: 'Despesas Fixas',
-        icon: TrendingDown
-    }
+    { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/admin/products', label: 'Produtos', icon: Package },
+    { path: '/admin/malinhas', label: 'Malinhas', icon: Calendar },
+    { path: '/admin/vendas', label: 'Vendas', icon: DollarSign },
+    { path: '/admin/entregas', label: 'Entregas', icon: PackageCheck },
+    { path: '/admin/customers', label: 'Clientes', icon: Users },
+    { path: '/admin/stock', label: 'Estoque', icon: BarChart3 },
+    { path: '/admin/suppliers', label: 'Fornecedores', icon: Truck },
+    { path: '/admin/purchases', label: 'Compras', icon: ShoppingCart },
+    { path: '/admin/installments', label: 'Crediário', icon: DollarSign },
+    { path: '/admin/expenses', label: 'Despesas', icon: TrendingDown }
 ]
 
 export function AdminSidebar({ onClose, isCollapsed = false, onToggleCollapse }) {
@@ -78,10 +39,10 @@ export function AdminSidebar({ onClose, isCollapsed = false, onToggleCollapse })
         <motion.aside
             animate={{ width: isCollapsed ? 80 : 288 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="bg-white border-r border-gray-100 flex flex-col relative z-20 h-full"
+            className="bg-white flex flex-col relative z-20 h-full shadow-[2px_0_8px_-2px_rgba(0,0,0,0.05)]"
         >
             {/* Elegant Header with Logo */}
-            <div className={cn("border-b border-gray-100 select-none transition-all", isCollapsed ? "px-3 py-4" : "px-6 py-4")}>
+            <div className={cn("border-b border-gray-200 select-none transition-all", isCollapsed ? "px-3 py-3 md:py-4" : "px-6 py-3 md:py-4")}>
                 <div className="flex items-center justify-between">
                     {!isCollapsed && (
                         <Link to="/admin/dashboard" onClick={handleLinkClick} className="flex items-center gap-3 flex-1">
@@ -123,7 +84,7 @@ export function AdminSidebar({ onClose, isCollapsed = false, onToggleCollapse })
             </div>
 
             {/* Premium Navigation Menu */}
-            <nav className={cn("flex-1 py-3 space-y-1.5 overflow-y-auto custom-scrollbar transition-all", isCollapsed ? "px-2" : "px-5")}>
+            <nav className={cn("flex-1 py-2 space-y-1 overflow-y-auto custom-scrollbar transition-all", isCollapsed ? "px-2" : "px-4")}>
                 {menuItems.map((item, idx) => (
                     <Link
                         key={item.path}
@@ -135,11 +96,11 @@ export function AdminSidebar({ onClose, isCollapsed = false, onToggleCollapse })
                         <motion.div
                             onHoverStart={() => setHoveredItem(idx)}
                             onHoverEnd={() => setHoveredItem(null)}
-                            whileHover={{ x: isCollapsed ? 0 : 4 }}
+                            whileHover={{ x: isCollapsed ? 0 : 3 }}
                             whileTap={{ scale: 0.98 }}
                             className={cn(
                                 'relative flex items-center justify-center rounded-xl transition-all duration-300',
-                                isCollapsed ? 'px-4 py-3.5' : 'px-4 py-3.5 justify-between',
+                                isCollapsed ? 'px-3 py-2.5' : 'px-3 py-2.5 justify-between',
                                 isActive(item.path)
                                     ? 'bg-[#4A3B32] text-white shadow-lg shadow-[#4A3B32]/10'
                                     : 'text-[#4A3B32]/60 hover:bg-[#FDFBF7] hover:text-[#4A3B32]'
@@ -173,9 +134,7 @@ export function AdminSidebar({ onClose, isCollapsed = false, onToggleCollapse })
                                 </motion.div>
                             )}
 
-                            {isCollapsed && isActive(item.path) && (
-                                <motion.div className="absolute -right-2.5 w-1 h-6 bg-[#C75D3B] rounded-full" />
-                            )}
+
                         </motion.div>
                     </Link>
                 ))}

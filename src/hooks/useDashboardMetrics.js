@@ -82,13 +82,8 @@ export function useDashboardMetrics({
 
         let totalMonthlyFixedExpenses = 0; // Totalzão cadastrado
         let monthlyLoanPayment = 0; // Parcela do empréstimo (Principal + Juros)
-        let monthlyOperationalExpenses = 0; // Sem DAS, sem Empréstimo
-
-        // Loan Params (Hardcoded per user request)
-        // Principal: 6163.03, Rate: 18% a.a. (~1.3888% p.m.)
-        // Juros Mensal (Estimado): ~85.60
-        // O restante da parcela é Amortização (Não entra no DRE)
-        const loanInterestPart = 85.60;
+        let monthlyLoanInterest = 0; // Apenas juros (despesa financeira)
+        let monthlyOperationalExpenses = 0; // Sem DAS, sem Empréstimo, sem Juros
 
         if (dashboardData?.expenses) {
             dashboardData.expenses.forEach(expense => {
@@ -109,8 +104,12 @@ export function useDashboardMetrics({
                     monthlyDasExpense += monthlyValue;
                     dasExpenseName = expense.name;
                 }
-                // Identificar Empréstimo
-                else if (name.includes('empréstimo') || name.includes('emprestimo')) {
+                // Identificar Juros (Despesa Financeira)
+                else if (name.includes('juros') || name.includes('juro')) {
+                    monthlyLoanInterest += monthlyValue;
+                }
+                // Identificar Empréstimo (Amortização)
+                else if (name.includes('empréstimo') || name.includes('emprestimo') || name.includes('amortização') || name.includes('amortizacao')) {
                     monthlyLoanPayment += monthlyValue;
                 }
                 // Despesas Operacionais Gerais (Aluguel, Luz, etc)
@@ -134,15 +133,15 @@ export function useDashboardMetrics({
         // VALORES APLICADOS NO DRE:
         const appliedOperationalExpenses = expensesInPeriod(monthlyOperationalExpenses);
         const appliedDasExpense = expensesInPeriod(monthlyDasExpense);
-        const appliedLoanInterest = expensesInPeriod(loanInterestPart); // Apenas juros!
-        // Amortização (para info, não DRE)
-        const appliedAmortization = expensesInPeriod(monthlyLoanPayment - loanInterestPart);
+        const appliedLoanInterest = expensesInPeriod(monthlyLoanInterest); // Juros do banco de dados
+        const appliedAmortization = expensesInPeriod(monthlyLoanPayment); // Amortização (não entra no DRE)
 
         // =================================================================================
         // 4. CPV e LUCROS
         // =================================================================================
 
         let costWarnings = 0
+        const productsWithoutCost = new Set() // Rastrear produtos sem custo
         let totalItemsSold = 0  // Contador de peças vendidas
         const totalCPV = allSales.reduce((sum, v) => {
             const itemsCost = (v.items || []).reduce((itemSum, item) => {
@@ -151,6 +150,9 @@ export function useDashboardMetrics({
                 totalItemsSold += quantity  // Somar quantidade de peças
                 if (!cost || cost <= 0) {
                     costWarnings++
+                    productsWithoutCost.add(item.name || item.productId || 'Produto desconhecido')
+                    // ⚠️ ESTIMATIVA: Usa 60% do preço de venda como custo
+                    // Isso pode gerar imprecisão nos cálculos de lucro!
                     cost = (item.price || 0) * 0.6
                 }
                 return itemSum + (cost * quantity)
@@ -483,6 +485,7 @@ export function useDashboardMetrics({
             itemsPerSale,
             averageTicket: allSales.length > 0 ? netRevenue / allSales.length : 0,
             costWarnings,
+            productsWithoutCost: Array.from(productsWithoutCost), // Lista de produtos sem custo
             periodDays,
             isFullMonthProjection: shouldShowFullMonth,
 

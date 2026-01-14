@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { CookieProvider } from './contexts/CookieContext'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import logger from './utils/logger'
 import './index.css'
 
 // 🗑️ CLEANUP: Forçar remoção de qualquer Service Worker antigo (cache persistente)
@@ -9,7 +11,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(function (registrations) {
         for (let registration of registrations) {
             registration.unregister()
-            console.log('🧹 Service Worker antigo removido para garantir atualização.')
+            logger.info('🧹 Service Worker antigo removido para garantir atualização.')
         }
     })
 }
@@ -30,10 +32,12 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')).render(
     <StrictMode>
-        <QueryClientProvider client={queryClient}>
-            <CookieProvider>
-                <App />
-            </CookieProvider>
-        </QueryClientProvider>
+        <ErrorBoundary>
+            <QueryClientProvider client={queryClient}>
+                <CookieProvider>
+                    <App />
+                </CookieProvider>
+            </QueryClientProvider>
+        </ErrorBoundary>
     </StrictMode>,
 )

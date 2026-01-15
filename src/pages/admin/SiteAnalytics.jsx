@@ -16,7 +16,7 @@ import { useState } from 'react'
 import {
     Eye, ShoppingCart, MousePointer, TrendingUp,
     Users, Package, AlertTriangle, BarChart3,
-    ArrowUpRight, ArrowDownRight, RefreshCw
+    ArrowUpRight, ArrowDownRight, RefreshCw, Info, X
 } from 'lucide-react'
 import {
     useAnalyticsSummary,
@@ -29,6 +29,56 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { useQueryClient } from '@tanstack/react-query'
 import { SiteAnalyticsSkeleton } from '@/components/admin/PageSkeleton'
+
+// Componente de tooltip clicável
+function InfoTooltip({ text }) {
+    const [isOpen, setIsOpen] = useState(false)
+
+    return (
+        <div className="relative">
+            <button
+                onClick={(e) => {
+                    e.stopPropagation()
+                    setIsOpen(!isOpen)
+                }}
+                className="w-5 h-5 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+            >
+                <Info className="w-3 h-3 text-white" />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        {/* Backdrop para fechar ao clicar fora */}
+                        <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setIsOpen(false)}
+                        />
+
+                        {/* Popover - abre para cima */}
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 5 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute right-0 bottom-7 z-50 w-64 p-3 bg-white rounded-xl shadow-xl border border-gray-100"
+                        >
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                            <p className="text-sm text-[#4A3B32] leading-relaxed pr-4">
+                                {text}
+                            </p>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
 
 export function SiteAnalytics() {
     const [dateRange, setDateRange] = useState('today')
@@ -136,7 +186,10 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-blue-500 to-blue-600 h-full cursor-help" title="Total de vezes que alguém acessou qualquer página do site">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-blue-500 to-blue-600 h-full relative">
+                        <div className="absolute bottom-3 right-3">
+                            <InfoTooltip text="Total de vezes que alguém acessou qualquer página do site" />
+                        </div>
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <Eye className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -156,7 +209,10 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.15 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-purple-500 to-purple-600 h-full cursor-help" title="Quantas vezes a página do catálogo de produtos foi acessada">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-purple-500 to-purple-600 h-full relative">
+                        <div className="absolute bottom-3 right-3">
+                            <InfoTooltip text="Quantas vezes a página do catálogo de produtos foi acessada" />
+                        </div>
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <Package className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -176,7 +232,10 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-[#C75D3B] to-[#A64D31] h-full cursor-help" title="Quantas vezes clicaram em um produto para ver detalhes (abrir modal)">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-[#C75D3B] to-[#A64D31] h-full relative">
+                        <div className="absolute bottom-3 right-3">
+                            <InfoTooltip text="Quantas vezes clicaram em um produto para ver detalhes (abrir modal)" />
+                        </div>
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <MousePointer className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -196,7 +255,10 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.25 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-green-500 to-green-600 h-full cursor-help" title="Quantas vezes um produto foi adicionado à malinha. Taxa = % de quem viu e adicionou">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-green-500 to-green-600 h-full relative">
+                        <div className="absolute bottom-3 right-3">
+                            <InfoTooltip text="Quantas vezes um produto foi adicionado à malinha. Taxa = % de quem viu e adicionou" />
+                        </div>
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <ShoppingCart className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -219,7 +281,10 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-[#4A3B32] to-[#5A4B42] h-full cursor-help" title="Número de visitantes únicos (pessoas diferentes que acessaram o site)">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-[#4A3B32] to-[#5A4B42] h-full relative">
+                        <div className="absolute bottom-3 right-3">
+                            <InfoTooltip text="Número de visitantes únicos (pessoas diferentes que acessaram o site)" />
+                        </div>
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <Users className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -239,7 +304,10 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.35 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-amber-500 to-amber-600 h-full cursor-help" title="Quantidade de malinhas que foram para a tela de checkout (preencheram dados)">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-amber-500 to-amber-600 h-full relative">
+                        <div className="absolute bottom-3 right-3">
+                            <InfoTooltip text="Quantidade de malinhas que foram para a tela de checkout (preencheram dados)" />
+                        </div>
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <BarChart3 className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -259,7 +327,10 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-emerald-500 to-emerald-600 h-full cursor-help" title="Malinhas que o cliente finalizou com sucesso (enviou pelo WhatsApp). Conversão = % de quem iniciou e finalizou">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-emerald-500 to-emerald-600 h-full relative">
+                        <div className="absolute bottom-3 right-3">
+                            <InfoTooltip text="Malinhas que o cliente finalizou com sucesso (enviou pelo WhatsApp). Conversão = % de quem iniciou e finalizou" />
+                        </div>
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <TrendingUp className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -279,7 +350,10 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.45 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-red-500 to-red-600 h-full cursor-help" title="Malinhas com produtos que o cliente adicionou mas não finalizou. São oportunidades de recuperação de vendas!">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-red-500 to-red-600 h-full relative">
+                        <div className="absolute bottom-3 right-3">
+                            <InfoTooltip text="Malinhas com produtos que o cliente adicionou mas não finalizou. São oportunidades de recuperação de vendas!" />
+                        </div>
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <AlertTriangle className="w-6 h-6 md:w-8 md:h-8 text-white/80" />

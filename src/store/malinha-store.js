@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { trackAddToCart, trackRemoveFromCart, saveCartSnapshot } from '@/lib/api/analytics'
 
 const MAX_ITEMS = 20
 
@@ -52,6 +53,13 @@ export const useMalinhaStore = create(
 
                 set({ items: [...items, newItem] })
 
+                // 📊 Analytics: Rastrear adição ao carrinho
+                trackAddToCart(product, size, color)
+
+                // 📊 Analytics: Salvar snapshot para detectar abandono
+                const updatedItems = [...items, newItem]
+                saveCartSnapshot(updatedItems)
+
                 // ✨ Feedback háptico no mobile (vibração sutil)
                 if (typeof navigator !== 'undefined' && navigator.vibrate) {
                     navigator.vibrate([15, 50, 15])
@@ -63,7 +71,17 @@ export const useMalinhaStore = create(
             // Remove item from malinha
             removeItem: (itemId) => {
                 const { items } = get()
-                set({ items: items.filter(item => item.itemId !== itemId) })
+                const removedItem = items.find(item => item.itemId === itemId)
+                const newItems = items.filter(item => item.itemId !== itemId)
+                set({ items: newItems })
+
+                // 📊 Analytics: Rastrear remoção do carrinho
+                if (removedItem) {
+                    trackRemoveFromCart(removedItem.productId)
+                }
+
+                // 📊 Analytics: Atualizar snapshot
+                saveCartSnapshot(newItems)
 
                 // ✨ Feedback háptico no mobile (vibração curta para remoção)
                 if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -72,7 +90,11 @@ export const useMalinhaStore = create(
             },
 
             // Clear all items
-            clearItems: () => set({ items: [] }),
+            clearItems: () => {
+                set({ items: [] })
+                // 📊 Analytics: Limpar snapshot
+                saveCartSnapshot([])
+            },
 
             // Update customer data
             setCustomerData: (data) =>

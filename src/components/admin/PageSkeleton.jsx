@@ -254,6 +254,69 @@ export function MalinhasListSkeleton() {
 }
 
 /**
+ * Site Analytics Skeleton
+ */
+export function SiteAnalyticsSkeleton() {
+    return (
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gray-50 min-h-screen">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+                <div className="space-y-2">
+                    <SkeletonPulse className="h-10 w-64 rounded-lg" />
+                    <SkeletonPulse className="h-4 w-48 rounded opacity-60" />
+                </div>
+                <SkeletonPulse className="h-12 w-12 rounded-xl" />
+            </div>
+
+            {/* Date Range Buttons */}
+            <div className="flex gap-2">
+                {[...Array(4)].map((_, i) => (
+                    <SkeletonPulse key={i} className="h-10 w-24 rounded-xl" />
+                ))}
+            </div>
+
+            {/* First Row KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                {[...Array(4)].map((_, i) => (
+                    <SkeletonPulse key={i} className="rounded-2xl h-32" />
+                ))}
+            </div>
+
+            {/* Second Row KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                {[...Array(4)].map((_, i) => (
+                    <SkeletonPulse key={i} className="rounded-2xl h-32" />
+                ))}
+            </div>
+
+            {/* Two Column Tables */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                <div className="bg-white rounded-2xl p-6 space-y-4">
+                    <SkeletonPulse className="h-6 w-48 rounded" />
+                    {[...Array(5)].map((_, i) => (
+                        <SkeletonPulse key={i} className="h-12 rounded-xl" />
+                    ))}
+                </div>
+                <div className="bg-white rounded-2xl p-6 space-y-4">
+                    <SkeletonPulse className="h-6 w-48 rounded" />
+                    {[...Array(5)].map((_, i) => (
+                        <SkeletonPulse key={i} className="h-12 rounded-xl" />
+                    ))}
+                </div>
+            </div>
+
+            {/* Abandoned Carts Section */}
+            <div className="bg-white rounded-2xl p-6 space-y-4">
+                <SkeletonPulse className="h-6 w-56 rounded" />
+                {[...Array(3)].map((_, i) => (
+                    <SkeletonPulse key={i} className="h-24 rounded-xl" />
+                ))}
+            </div>
+        </div>
+    )
+}
+
+/**
  * Stock Dashboard Skeleton
  */
 export function StockDashboardSkeleton() {
@@ -289,6 +352,7 @@ export function PageSkeleton({ variant = 'default' }) {
     const skeletons = {
         dashboard: <DashboardSkeleton />,
         stock: <StockDashboardSkeleton />,
+        site: <SiteAnalyticsSkeleton />,
         products: <ProductsListSkeleton />,
         customers: <CustomersListSkeleton />,
         vendas: <VendasListSkeleton />,

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Truck, AlertTriangle, User, Phone, Mail, Hash, Calendar, MapPin } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
@@ -11,6 +11,7 @@ import { triggerFireworks } from '@/components/magicui/confetti'
 import { getBlurPlaceholder, getOptimizedImageUrl } from '@/lib/image-optimizer'
 import { sendNewMalinhaEmail } from '@/lib/email-service'
 import { useStock } from '@/hooks/useStock'
+import { trackCheckoutStarted, trackCheckoutCompleted, markCartCheckoutStarted, markCartConverted, saveCustomerDataToCart } from '@/lib/api/analytics'
 
 // Helper para gerar número do pedido
 function generateOrderNumber(orderId) {
@@ -83,6 +84,28 @@ export function Checkout() {
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }, [step])
+
+    // 📊 Analytics: Rastrear início do checkout
+    const hasTrackedCheckoutStart = useRef(false)
+    useEffect(() => {
+        if (items.length > 0 && !hasTrackedCheckoutStart.current) {
+            hasTrackedCheckoutStart.current = true
+            const totalValue = groupedItems.reduce((sum, item) => sum + (item.price * item.count), 0)
+            trackCheckoutStarted(items.length, totalValue)
+            markCartCheckoutStarted()
+        }
+    }, [items.length])
+
+    // 📊 Analytics: Salvar dados do cliente para malinhas abandonadas
+    const lastSavedCustomerData = useRef('')
+    useEffect(() => {
+        const dataKey = `${customerData.name || ''}-${customerData.phone || ''}-${customerData.email || ''}`
+        // Só salva se tiver pelo menos algum dado e se mudou desde a última vez
+        if (dataKey !== '---' && dataKey !== lastSavedCustomerData.current) {
+            lastSavedCustomerData.current = dataKey
+            saveCustomerDataToCart(customerData)
+        }
+    }, [customerData.name, customerData.phone, customerData.email])
 
     // Form handlers
     const handleInputChange = useCallback((e) => {
@@ -189,6 +212,12 @@ export function Checkout() {
                 itemsCount: groupedItems.length,
                 whatsappLink
             })
+
+            // 📊 Analytics: Rastrear checkout completado
+            const totalValue = groupedItems.reduce((sum, item) => sum + (item.price * item.count), 0)
+            trackCheckoutCompleted(result.order?.id, items, totalValue)
+            markCartConverted()
+
             setStep(3)
         } catch (err) {
             console.error(err)

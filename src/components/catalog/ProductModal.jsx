@@ -7,6 +7,7 @@ import { sortSizes } from '@/lib/sizes'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { triggerConfetti } from '@/components/magicui/confetti'
+import { trackProductView } from '@/lib/api/analytics'
 
 export function ProductModal({ product, isOpen, onClose }) {
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0)
@@ -54,6 +55,13 @@ export function ProductModal({ product, isOpen, onClose }) {
 
         return () => {
             isMounted = false
+        }
+    }, [isOpen, product?.id])
+
+    // 📊 Analytics: Rastrear visualização de produto
+    useEffect(() => {
+        if (isOpen && product) {
+            trackProductView(product)
         }
     }, [isOpen, product?.id])
 

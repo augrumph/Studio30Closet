@@ -128,6 +128,10 @@ export function useAdminDashboardData() {
         purchasesQuery.isLoading ||
         dashboardMetricsQuery.isLoading
 
+    // isInitialLoading = true apenas quando NUNCA teve dados (primeira carga)
+    const isInitialLoading =
+        vendasQuery.data === undefined && vendasQuery.isLoading
+
     return {
         vendas: vendasQuery.data || [],
         orders: ordersQuery.data || [],
@@ -135,7 +139,9 @@ export function useAdminDashboardData() {
         suppliers: suppliersQuery.data || [],
         purchases: purchasesQuery.data || [],
         dashboardMetricsRaw: dashboardMetricsQuery.data || {},
+        customers: [], // Placeholder se precisar
         isLoading,
+        isInitialLoading, // ← Usar isso para skeleton
         refetchAll: () => {
             vendasQuery.refetch()
             ordersQuery.refetch()

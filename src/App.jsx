@@ -1,5 +1,5 @@
-import { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense, lazy, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from '@/components/layout'
 import { ScrollToTop } from '@/components/ScrollToTop'
@@ -9,6 +9,23 @@ import { LoadingBar } from '@/components/LoadingBar'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AnimatePresence } from 'framer-motion'
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
+import { trackPageView } from '@/lib/api/analytics'
+
+// ============================================================================
+// Analytics Tracker - Rastreia navegação entre páginas
+// ============================================================================
+function AnalyticsTracker() {
+    const location = useLocation()
+
+    useEffect(() => {
+        // Não rastrear rotas admin
+        if (!location.pathname.startsWith('/admin')) {
+            trackPageView(location.pathname)
+        }
+    }, [location.pathname])
+
+    return null
+}
 
 // ============================================================================
 // React Query Configuration
@@ -60,6 +77,7 @@ const InstallmentsList = lazy(() => import('@/pages/admin/InstallmentsList').the
 const ExpensesList = lazy(() => import('@/pages/admin/ExpensesList').then(module => ({ default: module.ExpensesList })))
 const ExpensesForm = lazy(() => import('@/pages/admin/ExpensesForm').then(module => ({ default: module.ExpensesForm })))
 const EntregasList = lazy(() => import('@/pages/admin/EntregasList').then(module => ({ default: module.EntregasList })))
+const SiteAnalytics = lazy(() => import('@/pages/admin/SiteAnalytics').then(module => ({ default: module.SiteAnalytics })))
 
 // Test Components
 const SupabaseTester = lazy(() => import('@/components/SupabaseTester'))
@@ -86,6 +104,7 @@ function App() {
                         <BrowserRouter>
                             <LoadingBar />
                             <ScrollToTop />
+                            <AnalyticsTracker />
                             <AnimatePresence mode="wait">
                                 <Suspense fallback={<PageLoader />}>
                                     <Routes>
@@ -153,6 +172,9 @@ function App() {
                                             <Route path="expenses" element={<ExpensesList />} />
                                             <Route path="expenses/new" element={<ExpensesForm />} />
                                             <Route path="expenses/:id" element={<ExpensesForm />} />
+
+                                            {/* Analytics do Site */}
+                                            <Route path="site" element={<SiteAnalytics />} />
                                         </Route>
                                     </Routes>
                                 </Suspense>

@@ -24,6 +24,7 @@ import { useAdminDashboardData } from '@/hooks/useAdminDashboardData' // ⚡ NOV
 
 // Componentes
 import { FinancialScoreboard, CashFlowSection, ParcelinhasModal } from '@/components/admin/dashboard'
+import { DashboardSkeleton } from '@/components/admin/PageSkeleton'
 // import { MidiInsights } from '@/components/admin/MidiInsights' // Temporariamente oculto
 
 export function Dashboard() {
@@ -37,6 +38,7 @@ export function Dashboard() {
         suppliers,
         dashboardMetricsRaw,
         isLoading: isLoadingData,
+        isInitialLoading, // ← Usar para skeleton
         refetchAll
     } = useAdminDashboardData()
 
@@ -217,6 +219,11 @@ export function Dashboard() {
     }
 
     const powerInsight = getPowerInsight()
+
+    // Loading inicial - exibe skeleton completo
+    if (isInitialLoading) {
+        return <DashboardSkeleton />
+    }
 
     return (
         <div className="space-y-4 md:space-y-6 max-w-[1600px] mx-auto">

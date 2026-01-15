@@ -1,11 +1,12 @@
 import { ProductCard, ProductModal, ProductFilters, SkeletonCard } from '@/components/catalog'
 import { useMalinhaStore } from '@/store/malinha-store'
-import { useState, useMemo, memo, Suspense } from 'react'
+import { useState, useMemo, memo, Suspense, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { X, SlidersHorizontal, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useCatalog } from '@/hooks/useCatalog'
+import { trackCatalogView } from '@/lib/api/analytics'
 
 // Componente Interno que usa o Hook (para poder usar Suspense no Pai se quisesse, 
 // mas aqui vamos tratar os estados isLoading/error do hook direto para UX suave)
@@ -50,6 +51,15 @@ function CatalogContent() {
 
     // Carrinho (Zustand)
     const { items } = useMalinhaStore()
+
+    // 📊 Analytics: Rastrear visualização do catálogo
+    useEffect(() => {
+        trackCatalogView({
+            category: selectedCategory,
+            sizes: selectedSizes,
+            search: searchQuery
+        })
+    }, []) // Apenas no mount inicial
 
     // Handlers
     const updateFilter = (key, value) => {

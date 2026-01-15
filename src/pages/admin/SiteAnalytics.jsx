@@ -136,7 +136,7 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-blue-500 to-blue-600 h-full">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-blue-500 to-blue-600 h-full cursor-help" title="Total de vezes que alguém acessou qualquer página do site">
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <Eye className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -156,7 +156,7 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.15 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-purple-500 to-purple-600 h-full">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-purple-500 to-purple-600 h-full cursor-help" title="Quantas vezes a página do catálogo de produtos foi acessada">
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <Package className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -176,7 +176,7 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-[#C75D3B] to-[#A64D31] h-full">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-[#C75D3B] to-[#A64D31] h-full cursor-help" title="Quantas vezes clicaram em um produto para ver detalhes (abrir modal)">
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <MousePointer className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -196,7 +196,7 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.25 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-green-500 to-green-600 h-full">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-green-500 to-green-600 h-full cursor-help" title="Quantas vezes um produto foi adicionado à malinha. Taxa = % de quem viu e adicionou">
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <ShoppingCart className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -219,7 +219,7 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-[#4A3B32] to-[#5A4B42] h-full">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-[#4A3B32] to-[#5A4B42] h-full cursor-help" title="Número de visitantes únicos (pessoas diferentes que acessaram o site)">
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <Users className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -239,7 +239,7 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.35 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-amber-500 to-amber-600 h-full">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-amber-500 to-amber-600 h-full cursor-help" title="Quantidade de malinhas que foram para a tela de checkout (preencheram dados)">
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <BarChart3 className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -259,7 +259,7 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-emerald-500 to-emerald-600 h-full">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-emerald-500 to-emerald-600 h-full cursor-help" title="Malinhas que o cliente finalizou com sucesso (enviou pelo WhatsApp). Conversão = % de quem iniciou e finalizou">
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <TrendingUp className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -267,7 +267,7 @@ export function SiteAnalytics() {
                                     {loadingSummary ? '...' : formatNumber(summary?.checkoutsCompleted)}
                                 </span>
                             </div>
-                            <p className="text-sm md:text-base text-white/90 font-medium">Finalizados</p>
+                            <p className="text-sm md:text-base text-white/90 font-medium">Malinhas Finalizadas</p>
                             <p className="text-xs text-white/70 mt-1">Conversão: {summary?.conversionRate || 0}%</p>
                         </CardContent>
                     </Card>
@@ -279,7 +279,7 @@ export function SiteAnalytics() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.45 }}
                 >
-                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-red-500 to-red-600 h-full">
+                    <Card className="border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-red-500 to-red-600 h-full cursor-help" title="Malinhas com produtos que o cliente adicionou mas não finalizou. São oportunidades de recuperação de vendas!">
                         <CardContent className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <AlertTriangle className="w-6 h-6 md:w-8 md:h-8 text-white/80" />
@@ -287,8 +287,8 @@ export function SiteAnalytics() {
                                     {loadingAbandoned ? '...' : abandonedCarts?.length || 0}
                                 </span>
                             </div>
-                            <p className="text-sm md:text-base text-white/90 font-medium">Abandonadas</p>
-                            <p className="text-xs text-white/70 mt-1">Malinhas ativas</p>
+                            <p className="text-sm md:text-base text-white/90 font-medium">Malinhas Abandonadas</p>
+                            <p className="text-xs text-white/70 mt-1">Com produtos no carrinho</p>
                         </CardContent>
                     </Card>
                 </motion.div>

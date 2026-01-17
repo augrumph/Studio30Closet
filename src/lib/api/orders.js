@@ -174,11 +174,28 @@ async function decrementProductStock(items, productsMap) {
 
 /**
  * Buscar todas as orders com paginação
- * @param {number} page - Número da página
- * @param {number} limit - Itens por página
+ * @param {Object} params - Parâmetros de busca
+ * @param {number} params.page - Número da página
+ * @param {number} params.limit - Itens por página
+ * @param {string} params.status - Filtro de status (opcional)
+ * @param {string} params.searchTerm - Termo de busca (opcional)
  * @returns {Promise<{orders: Array, total: number, page: number, limit: number}>}
  */
-export async function getOrders(page = 1, limit = 30) {
+export async function getOrders(paramsOrPage = {}, limitArg) {
+    // Suporta tanto objeto quanto parâmetros posicionais para retrocompatibilidade
+    // Uso: getOrders({ page, limit }) ou getOrders(page, limit)
+    let page, limit;
+
+    if (typeof paramsOrPage === 'object' && paramsOrPage !== null) {
+        // Chamada com objeto: getOrders({ page, limit, status, searchTerm })
+        page = paramsOrPage.page || 1;
+        limit = paramsOrPage.limit || 30;
+    } else {
+        // Chamada posicional: getOrders(page, limit)
+        page = paramsOrPage || 1;
+        limit = limitArg || 30;
+    }
+
     console.log(`🔍 API: Getting orders (page ${page}, limit ${limit})...`);
     const offset = (page - 1) * limit;
 

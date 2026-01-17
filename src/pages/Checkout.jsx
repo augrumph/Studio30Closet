@@ -25,7 +25,7 @@ function generateOrderNumber(orderId) {
 }
 
 export function Checkout() {
-    const { items, removeItem, clearItems, customerData, setCustomerData, setAddressData } = useMalinhaStore()
+    const { items, removeItem, clearItems, resetAll, customerData, setCustomerData, setAddressData } = useMalinhaStore()
     const { addOrder } = useAdminStore()
     const toast = useToast()
 
@@ -217,6 +217,9 @@ export function Checkout() {
             const totalValue = groupedItems.reduce((sum, item) => sum + (item.price * item.count), 0)
             trackCheckoutCompleted(result.order?.id, items, totalValue)
             markCartConverted()
+
+            // 🧹 Limpar carrinho imediatamente após sucesso (dados do cliente também serão limpos ao voltar à loja)
+            clearItems()
 
             setStep(3)
         } catch (err) {
@@ -767,7 +770,7 @@ export function Checkout() {
                                         >
                                             <MessageCircle className="w-5 h-5" /> Enviar no WhatsApp
                                         </button>
-                                        <button onClick={() => { clearItems(); setStep(0); }} className="text-sm font-bold text-[#C75D3B] hover:underline">
+                                        <button onClick={() => { resetAll(); setStep(0); }} className="text-sm font-bold text-[#C75D3B] hover:underline">
                                             Voltar à Loja
                                         </button>
                                     </div>

@@ -25,7 +25,7 @@ function generateOrderNumber(orderId) {
 }
 
 export function Checkout() {
-    const { items, removeItem, clearItems, resetAll, customerData, setCustomerData, setAddressData } = useMalinhaStore()
+    const { items, removeItem, clearItems, resetAll, customerData, setCustomerData, setAddressData, resetCustomerData } = useMalinhaStore()
     const { addOrder } = useAdminStore()
     const toast = useToast()
 
@@ -33,6 +33,17 @@ export function Checkout() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [successOrder, setSuccessOrder] = useState(null)
     const [formErrors, setFormErrors] = useState({})
+
+    // 🧹 Limpar dados de cliente antigos do localStorage ao iniciar novo checkout
+    // Isso resolve o bug de dados do cliente anterior (ex: "Larissa") persistindo
+    const hasCleanedOldData = useRef(false)
+    useEffect(() => {
+        if (!hasCleanedOldData.current && items.length > 0 && !customerData.name) {
+            // Se tem items mas não tem nome preenchido, garantir que dados antigos estejam limpos
+            hasCleanedOldData.current = true
+            resetCustomerData()
+        }
+    }, [])
 
     // ⚡ REACT QUERY: Validação de Estoque e Busca de Dados em Tempo Real
     // Substitui o useEffect manual de fetchProductData
@@ -230,8 +241,8 @@ export function Checkout() {
         }
     }
 
-    // EMPTY STATE
-    if (items.length === 0) {
+    // EMPTY STATE - Não mostrar se estiver na tela de sucesso (step 3)
+    if (items.length === 0 && step !== 3) {
         return (
             <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
                 <div className="text-center max-w-md">

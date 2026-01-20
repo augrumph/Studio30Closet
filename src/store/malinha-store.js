@@ -130,6 +130,9 @@ export const useMalinhaStore = create(
         }),
         {
             name: 'studio30-malinha',
+            // 🔒 Persistir APENAS os items do carrinho, NÃO os dados do cliente
+            // Isso garante que cada novo checkout tenha formulário limpo
+            partialize: (state) => ({ items: state.items }),
         }
     )
 )

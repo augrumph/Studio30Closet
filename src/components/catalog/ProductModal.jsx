@@ -363,21 +363,39 @@ export function ProductModal({ product, isOpen, onClose }) {
                                 Selecione o Tamanho
                             </h4>
                             <div className="flex flex-wrap gap-2">
-                                {sortSizes(product.sizes).map((size) => (
-                                    <button
-                                        key={size}
-                                        onClick={() => setSelectedSize(size)}
-                                        className={cn(
-                                            'min-w-[48px] h-12 px-3 rounded-xl text-sm font-medium transition-all duration-200 border-2 flex items-center justify-center',
-                                            selectedSize === size
-                                                ? 'border-brand-terracotta bg-brand-terracotta text-white'
-                                                : 'border-brand-peach bg-white text-brand-brown hover:border-brand-terracotta'
-                                        )}
-                                    >
-                                        {size === 'U' ? 'TAMANHO ÚNICO' : size}
-                                    </button>
-                                ))}
+                                {(() => {
+                                    // 🔍 Calcular tamanhos disponíveis para a variante atual
+                                    const availableSizes = currentVariant.sizeStock
+                                        ?.filter(s => s.quantity > 0)
+                                        ?.map(s => s.size) || [];
+
+                                    // Se não tiver variants ou sizeStock (produtos antigos), fallback para product.sizes
+                                    const sizesToShow = availableSizes.length > 0
+                                        ? availableSizes
+                                        : (product.sizes || []);
+
+                                    return sortSizes(sizesToShow).map((size) => (
+                                        <button
+                                            key={size}
+                                            onClick={() => setSelectedSize(size)}
+                                            className={cn(
+                                                'min-w-[48px] h-12 px-3 rounded-xl text-sm font-medium transition-all duration-200 border-2 flex items-center justify-center',
+                                                selectedSize === size
+                                                    ? 'border-brand-terracotta bg-brand-terracotta text-white'
+                                                    : 'border-brand-peach bg-white text-brand-brown hover:border-brand-terracotta'
+                                            )}
+                                        >
+                                            {size === 'U' ? 'TAMANHO ÚNICO' : size}
+                                        </button>
+                                    ));
+                                })()}
                             </div>
+                            {/* Mensagem se não houver tamanhos disponíveis para a cor */}
+                            {(!currentVariant.sizeStock?.some(s => s.quantity > 0)) && (
+                                <p className="text-sm text-red-500 mt-2 font-medium">
+                                    Cor esgotada nesta opção.
+                                </p>
+                            )}
                         </div>
 
                         {/* Add Button */}

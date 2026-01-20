@@ -790,29 +790,37 @@ export async function reserveStockForMalinha(items) {
                 continue;
             }
 
-            // Encontrar variante pela cor
+            // Encontrar variante pela cor (Case Insensitive e Trimmed)
+            const normalize = (str) => String(str || '').trim().toLowerCase();
+
             const variantIndex = updatedVariants.findIndex(
-                v => selectedColor
-                    ? v.colorName === selectedColor
-                    : v.colorName === (product?.color || currentProduct?.color || (updatedVariants[0]?.colorName))
+                v => normalize(v.colorName) === normalize(selectedColor)
             );
 
             if (variantIndex === -1) {
-                console.error(`❌ Cor "${selectedColor}" não encontrada no produto ${product.name} (ID: ${productId})`);
-                console.log('   Cores disponíveis:', updatedVariants.map(v => v.colorName).join(', '));
-                console.log('   Variantes completas:', JSON.stringify(updatedVariants, null, 2));
-                throw new Error(`Cor "${selectedColor}" não encontrada no produto ${product.name}. Cores disponíveis: ${updatedVariants.map(v => v.colorName).join(', ')}`);
+                // Tenta encontrar uma cor padrão se falhar
+                const defaultVariantIndex = updatedVariants.findIndex(v => v.colorName === product.color);
+                if (defaultVariantIndex !== -1) {
+                    console.log(`⚠️ Usando cor principal do produto na reserva: ${product.color}`);
+                    // Usa a cor padrão, mas o selectedColor original será preservado no log/item
+                } else {
+                    console.error(`❌ Cor "${selectedColor}" não encontrada no produto ${product.name} (ID: ${productId})`);
+                    console.log('   Cores disponíveis:', updatedVariants.map(v => v.colorName).join(', '));
+                    throw new Error(`Cor "${selectedColor}" não encontrada no produto ${product.name}. Cores disponíveis: ${updatedVariants.map(v => v.colorName).join(', ')}`);
+                }
             }
 
-            const variant = updatedVariants[variantIndex];
+            // Pega a variante correta ou a padrão (se encontrou fallback)
+            const actualVariantIndex = variantIndex !== -1 ? variantIndex : updatedVariants.findIndex(v => v.colorName === product.color);
+            const variant = updatedVariants[actualVariantIndex];
 
             // Encontrar tamanho
-            const sizeStockIndex = variant.sizeStock?.findIndex(s => s.size === selectedSize);
+            const sizeStockIndex = variant.sizeStock?.findIndex(s => normalize(s.size) === normalize(selectedSize));
 
             if (sizeStockIndex === undefined || sizeStockIndex === -1) {
-                console.error(`❌ Tamanho "${selectedSize}" não encontrado na cor "${selectedColor}"`);
+                console.error(`❌ Tamanho "${selectedSize}" não encontrado na cor "${variant.colorName}"`);
                 console.log('   Tamanhos disponíveis:', variant.sizeStock?.map(s => `${s.size} (${s.quantity} un.)`).join(', '));
-                throw new Error(`Tamanho "${selectedSize}" não encontrado no produto ${product.name} cor ${selectedColor}. Tamanhos disponíveis: ${variant.sizeStock?.map(s => s.size).join(', ')}`);
+                throw new Error(`Tamanho "${selectedSize}" não encontrado no produto ${product.name} cor ${variant.colorName}. Tamanhos disponíveis: ${variant.sizeStock?.map(s => s.size).join(', ')}`);
             }
 
             const currentQty = variant.sizeStock[sizeStockIndex].quantity || 0;
@@ -963,22 +971,30 @@ export async function releaseStockForMalinha(items) {
                 continue;
             }
 
-            // Encontrar variante pela cor
+            // Encontrar variante pela cor (Case Insensitive e Trimmed)
+            const normalize = (str) => String(str || '').trim().toLowerCase();
+
             const variantIndex = updatedVariants.findIndex(
-                v => selectedColor
-                    ? v.colorName === selectedColor
-                    : v.colorName === (product?.color || currentProduct?.color || (updatedVariants[0]?.colorName))
+                v => normalize(v.colorName) === normalize(selectedColor)
             );
 
             if (variantIndex === -1) {
                 console.warn(`⚠️ Cor "${selectedColor}" não encontrada, criando entrada`);
-                continue;
+                // Tenta encontrar uma cor padrão se falhar
+                const defaultVariantIndex = updatedVariants.findIndex(v => v.colorName === product.color);
+                if (defaultVariantIndex !== -1) {
+                    console.log(`⚠️ Usando cor principal do produto: ${product.color}`);
+                    // Continue com a cor padrão se não achar a específica
+                } else {
+                    continue;
+                }
             }
 
-            const variant = updatedVariants[variantIndex];
+            // Se não achou a cor exata mas achou fallback, usa, senão pula (melhor que criar entrada duplicada errada)
+            const variant = variantIndex !== -1 ? updatedVariants[variantIndex] : updatedVariants[0];
 
             // Encontrar tamanho
-            const sizeStockIndex = variant.sizeStock?.findIndex(s => s.size === selectedSize);
+            const sizeStockIndex = variant.sizeStock?.findIndex(s => normalize(s.size) === normalize(selectedSize));
 
             if (sizeStockIndex === undefined || sizeStockIndex === -1) {
                 console.warn(`⚠️ Tamanho "${selectedSize}" não encontrado, criando entrada`);
@@ -987,7 +1003,7 @@ export async function releaseStockForMalinha(items) {
                 variant.sizeStock.push({ size: selectedSize, quantity: quantity });
             } else {
                 // Incrementar estoque
-                variant.sizeStock[sizeStockIndex].quantity += quantity;
+                variant.sizeStock[sizeStockIndex].quantity = (variant.sizeStock[sizeStockIndex].quantity || 0) + quantity;
             }
 
             // Calcular novo total

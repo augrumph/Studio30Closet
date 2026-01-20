@@ -154,6 +154,8 @@ export function ProductsList() {
                 </div>
 
                 <div className="flex items-center gap-4">
+
+
                     {selectedProducts.length > 0 && (
                         <motion.button
                             initial={{ opacity: 0, scale: 0.8 }}

@@ -215,7 +215,7 @@ export function Checkout() {
             }).catch(console.error)
 
             const msg = formatMalinhaMessage(groupedItems, customerData)
-            const whatsappLink = generateWhatsAppLink('+5511999999999', msg)
+            const whatsappLink = generateWhatsAppLink('+5541996863879', msg)
 
             setSuccessOrder({
                 orderNumber: generateOrderNumber(result.order?.id),
@@ -766,24 +766,142 @@ export function Checkout() {
                                     </form>
                                 </motion.div>
                             ) : (
-                                <motion.div key="step3" initial={{ scale: 0.9 }} animate={{ scale: 1 }}>
-                                    {/* SUCESSO */}
-                                    <div className="bg-white rounded-2xl shadow-xl p-8 text-center border border-[#4A3B32]/5">
-                                        <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                                            <Check className="w-10 h-10" />
-                                        </div>
-                                        <h2 className="text-3xl font-display font-bold text-[#4A3B32] mb-2">Pedido Confirmado!</h2>
-                                        <p className="text-gray-500 mb-6">Seu pedido <span className="font-mono font-bold text-[#C75D3B]">{successOrder?.orderNumber}</span> foi registrado.</p>
+                                <motion.div
+                                    key="step3"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                                >
+                                    {/* TELA DE SUCESSO PREMIUM */}
+                                    <div className="bg-gradient-to-br from-white via-emerald-50/30 to-white rounded-3xl shadow-2xl border border-emerald-100 overflow-hidden">
+                                        {/* Header com gradiente */}
+                                        <div className="bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 px-8 py-10 text-center relative overflow-hidden">
+                                            {/* Círculos decorativos */}
+                                            <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full -translate-x-1/2 -translate-y-1/2" />
+                                            <div className="absolute bottom-0 right-0 w-24 h-24 bg-white/10 rounded-full translate-x-1/2 translate-y-1/2" />
 
-                                        <button
-                                            onClick={() => window.open(successOrder?.whatsappLink, '_blank')}
-                                            className="w-full btn-primary py-4 mb-3 flex items-center justify-center gap-2"
-                                        >
-                                            <MessageCircle className="w-5 h-5" /> Enviar no WhatsApp
-                                        </button>
-                                        <button onClick={() => { resetAll(); setStep(0); }} className="text-sm font-bold text-[#C75D3B] hover:underline">
-                                            Voltar à Loja
-                                        </button>
+                                            <motion.div
+                                                className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"
+                                                initial={{ scale: 0, rotate: -180 }}
+                                                animate={{ scale: 1, rotate: 0 }}
+                                                transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                                            >
+                                                <Check className="w-10 h-10 text-white" strokeWidth={3} />
+                                            </motion.div>
+                                            <motion.h2
+                                                className="text-3xl font-display font-bold text-white mb-2"
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.3 }}
+                                            >
+                                                Pedido Confirmado! 🎉
+                                            </motion.h2>
+                                            <motion.p
+                                                className="text-emerald-100"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ delay: 0.4 }}
+                                            >
+                                                Sua malinha está quase a caminho!
+                                            </motion.p>
+                                        </div>
+
+                                        {/* Corpo */}
+                                        <div className="p-8 space-y-6">
+                                            {/* Número do Pedido */}
+                                            <motion.div
+                                                className="bg-gradient-to-r from-[#C75D3B]/5 to-[#C75D3B]/10 rounded-2xl p-6 text-center border border-[#C75D3B]/10"
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.5 }}
+                                            >
+                                                <p className="text-sm text-gray-500 mb-1">Número do seu pedido</p>
+                                                <p className="text-2xl font-mono font-bold text-[#C75D3B] tracking-wider">
+                                                    {successOrder?.orderNumber || 'Processando...'}
+                                                </p>
+                                            </motion.div>
+
+                                            {/* Resumo do Pedido */}
+                                            <motion.div
+                                                className="bg-gray-50 rounded-2xl p-6 space-y-4"
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.6 }}
+                                            >
+                                                <h3 className="font-bold text-[#4A3B32] flex items-center gap-2">
+                                                    <ShoppingBag className="w-5 h-5 text-[#C75D3B]" />
+                                                    Resumo do Pedido
+                                                </h3>
+                                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                                    <div className="bg-white rounded-xl p-4 shadow-sm">
+                                                        <p className="text-gray-500">Cliente</p>
+                                                        <p className="font-bold text-[#4A3B32] truncate">{successOrder?.customerName || 'N/A'}</p>
+                                                    </div>
+                                                    <div className="bg-white rounded-xl p-4 shadow-sm">
+                                                        <p className="text-gray-500">Total de Peças</p>
+                                                        <p className="font-bold text-[#4A3B32]">{successOrder?.itemsCount || 0} peças</p>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+
+                                            {/* Próximos Passos */}
+                                            <motion.div
+                                                className="bg-blue-50 border border-blue-100 rounded-2xl p-6"
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.7 }}
+                                            >
+                                                <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                                                    <Truck className="w-5 h-5" />
+                                                    Próximos Passos
+                                                </h3>
+                                                <ol className="text-sm text-blue-800 space-y-2">
+                                                    <li className="flex items-start gap-2">
+                                                        <span className="bg-blue-200 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                                                        <span>Envie seus dados pelo WhatsApp clicando no botão abaixo</span>
+                                                    </li>
+                                                    <li className="flex items-start gap-2">
+                                                        <span className="bg-blue-200 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">2</span>
+                                                        <span>Aguarde a confirmação do agendamento de entrega</span>
+                                                    </li>
+                                                    <li className="flex items-start gap-2">
+                                                        <span className="bg-blue-200 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">3</span>
+                                                        <span>Experimente as peças em casa por até 5 dias!</span>
+                                                    </li>
+                                                </ol>
+                                            </motion.div>
+
+                                            {/* Botão WhatsApp - Destaque Principal */}
+                                            <motion.button
+                                                onClick={() => window.open(successOrder?.whatsappLink, '_blank')}
+                                                className="w-full bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 hover:from-green-600 hover:via-green-700 hover:to-emerald-700 text-white py-5 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.8 }}
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                <MessageCircle className="w-6 h-6" />
+                                                Enviar Pedido no WhatsApp
+                                            </motion.button>
+
+                                            {/* Link para voltar */}
+                                            <motion.div
+                                                className="text-center pt-2"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ delay: 0.9 }}
+                                            >
+                                                <Link
+                                                    to="/catalogo"
+                                                    onClick={() => resetAll()}
+                                                    className="text-sm font-medium text-gray-500 hover:text-[#C75D3B] transition-colors inline-flex items-center gap-1"
+                                                >
+                                                    <ArrowLeft className="w-4 h-4" />
+                                                    Continuar Navegando
+                                                </Link>
+                                            </motion.div>
+                                        </div>
                                     </div>
                                 </motion.div>
                             )}

@@ -974,30 +974,42 @@ export async function releaseStockForMalinha(items) {
             // Encontrar variante pela cor (Case Insensitive e Trimmed)
             const normalize = (str) => String(str || '').trim().toLowerCase();
 
-            const variantIndex = updatedVariants.findIndex(
+            let variantIndex = updatedVariants.findIndex(
                 v => normalize(v.colorName) === normalize(selectedColor)
             );
 
+            // Se não encontrou a cor exata
             if (variantIndex === -1) {
-                console.warn(`⚠️ Cor "${selectedColor}" não encontrada, criando entrada`);
-                // Tenta encontrar uma cor padrão se falhar
-                const defaultVariantIndex = updatedVariants.findIndex(v => v.colorName === product.color);
-                if (defaultVariantIndex !== -1) {
-                    console.log(`⚠️ Usando cor principal do produto: ${product.color}`);
-                    // Continue com a cor padrão se não achar a específica
-                } else {
-                    continue;
+                console.warn(`⚠️ Cor "${selectedColor}" não encontrada nas variantes. Tentando fallback...`);
+
+                // 1. Tentar achar pelo nome da cor principal do produto
+                variantIndex = updatedVariants.findIndex(v => normalize(v.colorName) === normalize(product.color));
+
+                // 2. Se ainda não achou e só tem uma variante, usa ela (comum em produtos de cor única)
+                if (variantIndex === -1 && updatedVariants.length === 1) {
+                    console.log(`⚠️ Usando única variante disponível: ${updatedVariants[0].colorName}`);
+                    variantIndex = 0;
+                }
+
+                // 3. Se ainda não achou, criar a variante para não perder o estoque
+                if (variantIndex === -1) {
+                    console.warn(`⚠️ Criando nova variante para cor "${selectedColor}" para salvar o estoque.`);
+                    updatedVariants.push({
+                        colorName: selectedColor || 'Padrão',
+                        sizeStock: [],
+                        images: []
+                    });
+                    variantIndex = updatedVariants.length - 1;
                 }
             }
 
-            // Se não achou a cor exata mas achou fallback, usa, senão pula (melhor que criar entrada duplicada errada)
-            const variant = variantIndex !== -1 ? updatedVariants[variantIndex] : updatedVariants[0];
+            const variant = updatedVariants[variantIndex];
 
             // Encontrar tamanho
             const sizeStockIndex = variant.sizeStock?.findIndex(s => normalize(s.size) === normalize(selectedSize));
 
             if (sizeStockIndex === undefined || sizeStockIndex === -1) {
-                console.warn(`⚠️ Tamanho "${selectedSize}" não encontrado, criando entrada`);
+                console.warn(`⚠️ Tamanho "${selectedSize}" não encontrado na variante "${variant.colorName}", criando entrada.`);
                 // Criar entrada se não existir
                 variant.sizeStock = variant.sizeStock || [];
                 variant.sizeStock.push({ size: selectedSize, quantity: quantity });

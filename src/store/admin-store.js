@@ -513,7 +513,20 @@ export const useAdminStore = create(
                     // 2. 🔓 Estornar estoque se necessário (se estava reservado)
                     if (order && order.items && !statusesThatReleaseStock.includes(order.status)) {
                         console.log('🔓 Estornando estoque por exclusão de malinha...');
-                        await releaseStockForMalinha(order.items);
+                        const releaseResult = await releaseStockForMalinha(order.items);
+
+                        if (releaseResult.success) {
+                            if (releaseResult.released && releaseResult.released.length > 0) {
+                                toast.success(`Estoque estornado: ${releaseResult.released.length} itens devolvidos.`);
+                            } else {
+                                toast.info('Nenhum item precisou ter estoque estornado.');
+                            }
+                        } else {
+                            toast.error(`Atenção: Falha ao estornar estoque! ${releaseResult.error}`);
+                            console.error('Falha no estorno:', releaseResult);
+                        }
+                    } else {
+                        console.log('ℹ️ Malinha já estava finalizada/cancelada ou sem itens, não estorna estoque.');
                     }
 
                     // 3. Deletar
@@ -529,8 +542,10 @@ export const useAdminStore = create(
 
                     return { success: true }
                 } catch (error) {
+                    console.error('Erro ao deletar malinha:', error);
                     const userFriendlyError = formatUserFriendlyError(error);
                     set({ ordersError: userFriendlyError, ordersLoading: false })
+                    toast.error(`Erro ao deletar: ${userFriendlyError}`);
                     return { success: false, error: userFriendlyError }
                 }
             },

@@ -24,6 +24,8 @@ import { useAdminDashboardData } from '@/hooks/useAdminDashboardData' // ⚡ NOV
 
 // Componentes
 import { FinancialScoreboard, CashFlowSection, ParcelinhasModal } from '@/components/admin/dashboard'
+import { SitePulse } from '@/components/admin/dashboard/SitePulse'
+import { useAnalyticsSummary } from '@/hooks/useAnalytics'
 import { DashboardSkeleton } from '@/components/admin/PageSkeleton'
 // import { MidiInsights } from '@/components/admin/MidiInsights' // Temporariamente oculto
 
@@ -47,6 +49,18 @@ export function Dashboard() {
     const [periodFilter, setPeriodFilter] = useState('all')
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
     const [showParcelinhasModal, setShowParcelinhasModal] = useState(false)
+
+    // Helper para converter filtro do dashboard para filtro de analytics
+    const getAnalyticsRange = () => {
+        if (periodFilter === 'all') return 'all'
+        if (periodFilter === 'last7days') return '7days'
+        if (periodFilter === 'last30days') return '30days'
+        if (periodFilter === 'currentMonth') return '30days' // Aproximado
+        return 'all'
+    }
+
+    // 📊 Site Analytics Metrics
+    const { data: analyticsSummary, isLoading: isLoadingAnalytics } = useAnalyticsSummary(getAnalyticsRange())
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 60000)
@@ -319,6 +333,9 @@ export function Dashboard() {
                     </motion.div>
                 )}
             </motion.div>
+
+            {/* 1.1 SITE PULSE (ANALYTICS) - NOVO */}
+            <SitePulse summary={analyticsSummary} isLoading={isLoadingAnalytics} />
 
             {/* 1.2 MIDI INSIGHTS - Análise Proativa - TEMPORARIAMENTE OCULTO */}
             {/* <motion.div

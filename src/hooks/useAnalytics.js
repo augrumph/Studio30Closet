@@ -36,7 +36,7 @@ export function useAnalyticsSummary(dateRange = 'today') {
             // Buscar contagens por tipo de evento
             const { data: events, error } = await supabase
                 .from('analytics_events')
-                .select('event_type, event_data')
+                .select('event_type, event_data, session_id, referrer, device_type') // FIXED: Added missing fields
                 .gte('created_at', startDateStr)
 
             if (error) throw error
@@ -62,6 +62,34 @@ export function useAnalyticsSummary(dateRange = 'today') {
                 ? ((addToCart / productViews) * 100).toFixed(1)
                 : 0
 
+            // Fontes de Tráfego e Dispositivos
+            const trafficSources = { google: 0, social: 0, direct: 0, other: 0 }
+            const deviceBreakdown = { mobile: 0, desktop: 0, tablet: 0 }
+
+            // Analisar primeira interação de cada sessão
+            const processedSessions = new Set()
+
+            events.forEach(e => {
+                if (!processedSessions.has(e.session_id)) {
+                    // 1. Traffic Source
+                    const ref = (e.referrer || '').toLowerCase()
+                    if (ref.includes('google')) trafficSources.google++
+                    else if (ref.includes('instagram') || ref.includes('facebook') || ref.includes('tiktok')) trafficSources.social++
+                    else if (!ref) trafficSources.direct++
+                    else trafficSources.other++
+
+                    // 2. Device Type
+                    const device = (e.device_type || 'desktop').toLowerCase()
+                    if (deviceBreakdown[device] !== undefined) {
+                        deviceBreakdown[device]++
+                    } else {
+                        deviceBreakdown.desktop++ // Fallback
+                    }
+
+                    processedSessions.add(e.session_id)
+                }
+            })
+
             return {
                 pageViews,
                 catalogViews,
@@ -71,7 +99,9 @@ export function useAnalyticsSummary(dateRange = 'today') {
                 checkoutsCompleted,
                 uniqueSessions,
                 conversionRate,
-                addToCartRate
+                addToCartRate,
+                trafficSources,
+                deviceBreakdown
             }
         },
         staleTime: 1000 * 60 * 2, // 2 min

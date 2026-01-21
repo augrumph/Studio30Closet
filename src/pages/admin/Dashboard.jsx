@@ -24,7 +24,7 @@ import { useAdminDashboardData } from '@/hooks/useAdminDashboardData' // ⚡ NOV
 
 // Componentes
 import { FinancialScoreboard, CashFlowSection, ParcelinhasModal } from '@/components/admin/dashboard'
-import { SitePulse } from '@/components/admin/dashboard/SitePulse'
+// import { SitePulse } from '@/components/admin/dashboard/SitePulse' // Movido para página do site
 import { useAnalyticsSummary } from '@/hooks/useAnalytics'
 import { DashboardSkeleton } from '@/components/admin/PageSkeleton'
 // import { MidiInsights } from '@/components/admin/MidiInsights' // Temporariamente oculto
@@ -334,8 +334,7 @@ export function Dashboard() {
                 )}
             </motion.div>
 
-            {/* 1.1 SITE PULSE (ANALYTICS) - NOVO */}
-            <SitePulse summary={analyticsSummary} isLoading={isLoadingAnalytics} />
+
 
             {/* 1.2 MIDI INSIGHTS - Análise Proativa - TEMPORARIAMENTE OCULTO */}
             {/* <motion.div

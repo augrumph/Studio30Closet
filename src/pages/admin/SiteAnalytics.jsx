@@ -16,8 +16,10 @@ import { useState } from 'react'
 import {
     Eye, ShoppingCart, MousePointer, TrendingUp,
     Users, Package, AlertTriangle, BarChart3,
-    ArrowUpRight, ArrowDownRight, RefreshCw, Info, X
+    ArrowUpRight, ArrowDownRight, RefreshCw, Info, X,
+    Globe, Smartphone, Monitor
 } from 'lucide-react'
+
 import {
     useAnalyticsSummary,
     useTopViewedProducts,
@@ -132,6 +134,30 @@ export function SiteAnalytics() {
             <div className="h-32 bg-gray-200 rounded-2xl"></div>
         </div>
     )
+
+    // Helper Component for Traffic Bars
+    const TrafficBar = ({ label, value, total, color, icon }) => {
+        const percentage = total > 0 ? Math.round((value / total) * 100) : 0
+
+        return (
+            <div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="font-medium text-[#4A3B32] flex items-center gap-2">
+                        <span>{icon}</span> {label}
+                    </span>
+                    <span className="font-bold text-gray-600">{value} ({percentage}%)</span>
+                </div>
+                <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percentage}%` }}
+                        transition={{ duration: 1, ease: "circOut" }}
+                        className={cn("h-full rounded-full", color)}
+                    />
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gray-50 min-h-screen">
@@ -366,6 +392,87 @@ export function SiteAnalytics() {
                         </CardContent>
                     </Card>
                 </motion.div>
+            </div>
+
+
+
+            {/* ========== TRAFFIC & DEVICES (NEW) ========== */}
+            <div className="grid lg:grid-cols-3 gap-6">
+
+                {/* Traffic Sources */}
+                <Card className="lg:col-span-2 border-none shadow-lg bg-white rounded-2xl overflow-hidden">
+                    <CardHeader className="pb-2 border-b border-gray-50">
+                        <CardTitle className="text-lg font-bold text-[#4A3B32] flex items-center gap-2">
+                            <Globe className="w-5 h-5 text-rose-500" />
+                            Origem do Tráfego (Campanhas)
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="space-y-6">
+                            {/* Google Bar */}
+                            <TrafficBar
+                                label="Google / Ads"
+                                value={summary?.trafficSources?.google || 0}
+                                total={(summary?.trafficSources?.google || 0) + (summary?.trafficSources?.social || 0) + (summary?.trafficSources?.direct || 0) + (summary?.trafficSources?.other || 0)}
+                                color="bg-blue-500"
+                                icon="🔍"
+                            />
+                            {/* Social Bar */}
+                            <TrafficBar
+                                label="Instagram / Social"
+                                value={summary?.trafficSources?.social || 0}
+                                total={(summary?.trafficSources?.google || 0) + (summary?.trafficSources?.social || 0) + (summary?.trafficSources?.direct || 0) + (summary?.trafficSources?.other || 0)}
+                                color="bg-purple-500"
+                                icon="📸"
+                            />
+                            {/* Direct Bar */}
+                            <TrafficBar
+                                label="Acesso Direto / WhatsApp"
+                                value={summary?.trafficSources?.direct || 0}
+                                total={(summary?.trafficSources?.google || 0) + (summary?.trafficSources?.social || 0) + (summary?.trafficSources?.direct || 0) + (summary?.trafficSources?.other || 0)}
+                                color="bg-emerald-500"
+                                icon="🔗"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Device Breakdown */}
+                <Card className="border-none shadow-lg bg-white rounded-2xl overflow-hidden">
+                    <CardHeader className="pb-2 border-b border-gray-50">
+                        <CardTitle className="text-lg font-bold text-[#4A3B32] flex items-center gap-2">
+                            <Smartphone className="w-5 h-5 text-amber-500" />
+                            Dispositivos
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-center gap-8 h-full">
+                            {/* Mobile Stat */}
+                            <div className="text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-rose-50 flex items-center justify-center mb-3 mx-auto">
+                                    <Smartphone className="w-8 h-8 text-rose-500" />
+                                </div>
+                                <p className="text-2xl font-bold text-[#4A3B32]">
+                                    {Math.round(((summary?.deviceBreakdown?.mobile || 0) / ((summary?.deviceBreakdown?.mobile || 0) + (summary?.deviceBreakdown?.desktop || 0) + (summary?.deviceBreakdown?.tablet || 0) || 1)) * 100)}%
+                                </p>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Mobile</p>
+                            </div>
+
+                            <div className="h-12 w-px bg-gray-100"></div>
+
+                            {/* Desktop Stat */}
+                            <div className="text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-3 mx-auto">
+                                    <Monitor className="w-8 h-8 text-blue-500" />
+                                </div>
+                                <p className="text-2xl font-bold text-[#4A3B32]">
+                                    {Math.round(((summary?.deviceBreakdown?.desktop || 0) / ((summary?.deviceBreakdown?.mobile || 0) + (summary?.deviceBreakdown?.desktop || 0) + (summary?.deviceBreakdown?.tablet || 0) || 1)) * 100)}%
+                                </p>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Pc/Note</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* ========== TABLES ROW ========== */}
@@ -625,7 +732,7 @@ export function SiteAnalytics() {
                     </CardContent>
                 </Card>
             </motion.div>
-        </div>
+        </div >
     )
 }
 

@@ -57,6 +57,12 @@ export function getDeviceType() {
  */
 export async function trackEvent(eventType, eventData = {}, pagePath = null) {
     try {
+        // 🛡️ SECURITY: Ignorar eventos vindo do Admin
+        if (window.location.pathname.startsWith('/admin')) {
+            console.log('[Analytics] Evento ignorado (Admin):', eventType)
+            return
+        }
+
         const sessionId = getSessionId()
         const deviceType = getDeviceType()
 

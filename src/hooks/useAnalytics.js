@@ -36,8 +36,9 @@ export function useAnalyticsSummary(dateRange = 'today') {
             // Buscar contagens por tipo de evento
             const { data: events, error } = await supabase
                 .from('analytics_events')
-                .select('event_type, event_data, session_id, referrer, device_type') // FIXED: Added missing fields
+                .select('event_type, event_data, session_id, referrer, device_type, created_at') // Include created_at for sorting
                 .gte('created_at', startDateStr)
+                .order('created_at', { ascending: true }) // 🎯 CRÍTICO: Ordenar para first-touch attribution
 
             if (error) throw error
 

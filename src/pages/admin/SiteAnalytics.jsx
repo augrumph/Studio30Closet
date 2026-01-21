@@ -433,6 +433,23 @@ export function SiteAnalytics() {
                                 color="bg-emerald-500"
                                 icon="🔗"
                             />
+                            {/* Other Bar */}
+                            {(summary?.trafficSources?.other > 0) && (
+                                <div className="relative">
+                                    <TrafficBar
+                                        label={
+                                            <span className="flex items-center gap-2">
+                                                Outros / Referência
+                                                <InfoTooltip text="Links de outros sites, blogs, e-mail marketing ou campanhas não rastreadas automaticamente." />
+                                            </span>
+                                        }
+                                        value={summary?.trafficSources?.other || 0}
+                                        total={(summary?.trafficSources?.google || 0) + (summary?.trafficSources?.social || 0) + (summary?.trafficSources?.direct || 0) + (summary?.trafficSources?.other || 0)}
+                                        color="bg-gray-500"
+                                        icon="🌐"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

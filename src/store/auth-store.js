@@ -14,50 +14,58 @@ export const useAuthStore = create(
             loginError: null,
             isLoading: false,
 
-            // Login com username e senha via Supabase RPC
-            login: async (username, password) => {
+            // Login com email e senha via Supabase Auth
+            login: async (email, password) => {
                 set({ isLoading: true, loginError: null })
 
                 try {
-                    // Usar RPC para login (retorna array)
-                    const { data, error } = await supabase
-                        .rpc('admin_login', {
-                            p_username: username,
-                            p_password: password
-                        })
+                    // Usar Supabase Auth padrão
+                    const { data, error } = await supabase.auth.signInWithPassword({
+                        email: email,
+                        password: password
+                    })
 
                     if (error) {
-                        console.error('Erro na RPC admin_login:', error)
+                        console.error('Erro no Supabase Auth:', error)
+                        let errorMessage = 'Erro ao conectar. Tente novamente.'
+                        
+                        // Mensagens de erro mais amigáveis
+                        if (error.message === 'Invalid login credentials') {
+                            errorMessage = 'Email ou senha inválidos'
+                        } else if (error.message.includes('Email not confirmed')) {
+                            errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.'
+                        }
+
                         set({
                             isAuthenticated: false,
                             user: null,
-                            loginError: 'Erro ao conectar. Tente novamente.',
+                            loginError: errorMessage,
                             isLoading: false
                         })
-                        return { success: false, error: 'Erro de conexão' }
+                        return { success: false, error: errorMessage }
                     }
 
-                    // A RPC retorna um array: 1 linha = login OK, 0 linhas = credenciais inválidas
-                    if (!data || data.length === 0) {
-                        set({
+                    if (!data.user) {
+                         set({
                             isAuthenticated: false,
                             user: null,
-                            loginError: 'Usuário ou senha inválidos',
+                            loginError: 'Erro inesperado: Usuário não retornado',
                             isLoading: false
                         })
-                        return { success: false, error: 'Credenciais inválidas' }
+                        return { success: false, error: 'Erro inesperado' }
                     }
 
-                    // Login bem-sucedido - pegar primeiro registro do array
-                    const admin = data[0]
+                    // Login bem-sucedido
+                    const adminUser = {
+                        id: data.user.id,
+                        email: data.user.email,
+                        name: data.user.user_metadata?.name || 'Administrador',
+                        role: 'admin'
+                    }
+
                     set({
                         isAuthenticated: true,
-                        user: {
-                            id: admin.id,
-                            username: admin.username,
-                            name: admin.name || 'Administrador',
-                            role: 'admin'
-                        },
+                        user: adminUser,
                         loginError: null,
                         isLoading: false
                     })
@@ -76,7 +84,13 @@ export const useAuthStore = create(
             },
 
             // Logout
-            logout: () => {
+            logout: async () => {
+                try {
+                    await supabase.auth.signOut()
+                } catch (error) {
+                    console.error('Erro ao fazer logout:', error)
+                }
+                
                 set({
                     isAuthenticated: false,
                     user: null,
@@ -86,33 +100,35 @@ export const useAuthStore = create(
 
             // Validar sessão no servidor (segurança extra)
             validateSession: async () => {
-                const { user, isAuthenticated } = get()
-                if (!isAuthenticated || !user?.id) return false
-
+                // Verificar sessão real do Supabase
                 try {
-                    // Verificar se usuário ainda existe na tabela admins
-                    const { data, error } = await supabase
-                        .from('admins')
-                        .select('id')
-                        .eq('id', user.id)
-                        .maybeSingle()
+                    const { data: { session }, error } = await supabase.auth.getSession()
 
-                    // Se houver erro de rede ou query, NÃO deslogar - só deslogar se usuário realmente não existir
-                    if (error) {
-                        console.warn('⚠️ Erro ao validar sessão (mantendo login):', error)
-                        return true // Manter logado em caso de erro de rede
-                    }
-
-                    if (!data) {
-                        console.warn('❌ Sessão inválida: Usuário não encontrado no banco')
+                    if (error || !session) {
+                         // Se não tem sessão váida no Supabase, desloga localmente
                         set({ isAuthenticated: false, user: null })
                         return false
                     }
 
+                    // Se tem sessão, sincroniza se necessário (opcional)
+                   const { user } = get()
+                   if (!user) {
+                        set({
+                            isAuthenticated: true,
+                            user: {
+                                id: session.user.id,
+                                email: session.user.email,
+                                name: session.user.user_metadata?.name || 'Administrador',
+                                role: 'admin'
+                            }
+                        })
+                   }
+
                     return true
                 } catch (error) {
-                    console.error('⚠️ Erro ao validar sessão (mantendo login):', error)
-                    return true // Manter logado em caso de exceção/erro de rede
+                    console.error('Erro ao validar sessão:', error)
+                    set({ isAuthenticated: false, user: null })
+                    return false
                 }
             },
 

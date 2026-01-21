@@ -23,19 +23,24 @@ export function MalinhasDetail() {
             try {
                 let orderData = orderInStore;
                 if (!orderInStore || !orderInStore.items) {
-                    console.log('📥 Buscando ordem do servidor:', id);
-                    orderData = await fetchOrder(id);
-                    console.log('✅ Ordem carregada:', orderData);
+                    if (!orderInStore || !orderInStore.items) {
+                        // console.log('📥 Buscando ordem do servidor:', id);
+                        orderData = await fetchOrder(id);
+                        // console.log('✅ Ordem carregada:', orderData);
+                    }
                 }
 
                 if (!orderData) {
-                    console.warn('⚠️ Nenhuma ordem encontrada para ID:', id);
+                    if (!orderData) {
+                        // console.warn('⚠️ Nenhuma ordem encontrada para ID:', id);
+                        return;
+                    }
                     return;
                 }
 
                 setOrder(orderData);
             } catch (error) {
-                console.error('❌ Erro ao carregar ordem:', error);
+                // console.error('❌ Erro ao carregar ordem:', error);
                 setOrder(null);
             }
         };

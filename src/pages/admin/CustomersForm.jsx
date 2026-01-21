@@ -36,7 +36,7 @@ export function CustomersForm() {
 
     useEffect(() => {
         if (id && customerData) {
-            console.log('Form: Found customer:', customerData);
+            // console.log('Form: Found customer:', customerData);
             setFormData({
                 ...customerData,
                 addresses: customerData.addresses || [{
@@ -69,7 +69,7 @@ export function CustomersForm() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        console.log('Form: Submitting customer form with id:', id, 'and data:', formData);
+        // console.log('Form: Submitting customer form with id:', id, 'and data:', formData);
 
         const action = isEdit ? updateCustomer({ id: parseInt(id), data: formData }) : createCustomer(formData)
 
@@ -80,7 +80,7 @@ export function CustomersForm() {
                 return isEdit ? 'Dados do cliente atualizados!' : 'Cliente cadastrado com sucesso!'
             },
             error: (err) => {
-                console.error('Form: Customer operation failed:', err);
+                // console.error('Form: Customer operation failed:', err);
                 return `Erro: ${err.message}`
             }
         })

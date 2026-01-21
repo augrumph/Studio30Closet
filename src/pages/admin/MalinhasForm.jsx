@@ -103,7 +103,7 @@ export function MalinhasForm() {
             selectedColor = product.color;
         }
 
-        console.log(`🎨 Cor selecionada para ${product.name} (${size}): ${selectedColor}`);
+        // console.log(`🎨 Cor selecionada para ${product.name} (${size}): ${selectedColor}`);
 
         // Armazenar productId, name, image e outros metadados
         const newItem = {
@@ -144,12 +144,8 @@ export function MalinhasForm() {
 
         const totalValue = formData.items.reduce((sum, item) => sum + item.price, 0)
 
-        // Debug: verificar se o cliente está sendo encontrado
-        const selectedCustomer = customers.find(c => c.id === formData.customerId)
-        console.log('=== DEBUG MALINHA ===')
-        console.log('customerId:', formData.customerId, 'tipo:', typeof formData.customerId)
-        console.log('customers array:', customers.length, 'clientes')
-        console.log('selectedCustomer:', selectedCustomer)
+        // Debug removed
+        // const selectedCustomer = customers.find(c => c.id === formData.customerId)
 
         if (!selectedCustomer) {
             toast.error('Cliente não encontrado. Por favor, selecione novamente.')
@@ -159,7 +155,7 @@ export function MalinhasForm() {
         // Validar preços dos produtos
         const invalidPriceItems = formData.items.filter(item => !item.price || item.price <= 0)
         if (invalidPriceItems.length > 0) {
-            console.log('Itens com preço inválido:', invalidPriceItems)
+            // console.log('Itens com preço inválido:', invalidPriceItems)
             toast.error(`${invalidPriceItems.length} produto(s) sem preço válido. Remova-os da malinha.`)
             return
         }
@@ -188,7 +184,7 @@ export function MalinhasForm() {
             })
         }
 
-        console.log('Payload enviado:', payload)
+        // console.log('Payload enviado:', payload)
 
         const action = isEdit ? updateOrder(parseInt(id), payload) : addOrder(payload)
 

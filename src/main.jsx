@@ -6,12 +6,21 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import logger from './utils/logger'
 import './index.css'
 
+// 🔒 SECURITY: Desabilitar logs em produção para evitar vazamento de dados
+if (import.meta.env.PROD) {
+    console.log = () => { }
+    console.warn = () => { }
+    console.error = () => { }
+    console.info = () => { }
+    console.debug = () => { }
+}
+
 // 🗑️ CLEANUP: Forçar remoção de qualquer Service Worker antigo (cache persistente)
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(function (registrations) {
         for (let registration of registrations) {
             registration.unregister()
-            logger.info('🧹 Service Worker antigo removido para garantir atualização.')
+            // logger.info só funciona se não estivermos em prod (ou se o logger usar console original salvo, mas aqui é seguro remover)
         }
     })
 }

@@ -1,24 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth-store'
-import { LogIn, AlertTriangle, User } from 'lucide-react'
+import { LogIn, User, Mail } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { Input, PasswordInput } from '@/components/ui/Input'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const MAX_LOGIN_ATTEMPTS = 5
-const LOCKOUT_DURATION = 15 * 60 * 1000 // 15 minutes
-
 export function AdminLogin() {
-    const [username, setUsername] = useState('')
+    const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [isLocked, setIsLocked] = useState(false)
-    const [remainingTime, setRemainingTime] = useState(0)
-
-    const loginAttemptsRef = useRef(0)
-    const lockoutTimeRef = useRef(null)
 
     const { login, isAuthenticated, loginError, clearError } = useAuthStore()
     const toast = useToast()
@@ -36,59 +28,21 @@ export function AdminLogin() {
         return () => clearError()
     }, [clearError])
 
-    // Check lockout status
-    useEffect(() => {
-        const checkLockout = () => {
-            if (lockoutTimeRef.current) {
-                const now = Date.now()
-                const timeLeft = lockoutTimeRef.current - now
-
-                if (timeLeft > 0) {
-                    setIsLocked(true)
-                    setRemainingTime(Math.ceil(timeLeft / 1000))
-                } else {
-                    setIsLocked(false)
-                    setRemainingTime(0)
-                    lockoutTimeRef.current = null
-                    loginAttemptsRef.current = 0
-                }
-            }
-        }
-
-        checkLockout()
-        const interval = setInterval(checkLockout, 1000)
-        return () => clearInterval(interval)
-    }, [])
-
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        if (isLocked) {
-            toast.error(`Conta temporariamente bloqueada. Tente novamente em ${Math.floor(remainingTime / 60)}min ${remainingTime % 60}s`)
-            return
-        }
-
         setIsSubmitting(true)
 
-        // ✅ IMPORTANTE: Aguardar resultado da função assíncrona de login
-        const result = await login(username, password)
+        // ✅ Login agora usa email e senha via Supabase Auth
+        const result = await login(email, password)
 
         if (result && result.success) {
-            loginAttemptsRef.current = 0
-            lockoutTimeRef.current = null
             toast.success('Login realizado com sucesso!')
             navigate('/admin/dashboard')
         } else {
-            loginAttemptsRef.current += 1
-
-            if (loginAttemptsRef.current >= MAX_LOGIN_ATTEMPTS) {
-                lockoutTimeRef.current = Date.now() + LOCKOUT_DURATION
-                setIsLocked(true)
-                setRemainingTime(LOCKOUT_DURATION / 1000)
-                toast.error(`Muitas tentativas falhadas. Conta bloqueada por 15 minutos.`)
-            } else {
-                const attemptsLeft = MAX_LOGIN_ATTEMPTS - loginAttemptsRef.current
-                toast.warning(`Credenciais inválidas. ${attemptsLeft} tentativa(s) restante(s)`)
+            // Erros são tratados no store, mas podemos dar um feedback visual extra se necessário
+            if (result?.error) {
+                toast.error(result.error)
             }
         }
 
@@ -168,16 +122,16 @@ export function AdminLogin() {
                     onSubmit={handleSubmit}
                     className="space-y-6"
                 >
-                    {/* Usuário */}
+                    {/* Email */}
                     <Input
-                        label="Usuário"
-                        icon={User}
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
+                        label="Email"
+                        icon={Mail}
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
-                        placeholder="Digite seu usuário"
-                        disabled={isSubmitting || isLocked}
+                        placeholder="Digite seu email"
+                        disabled={isSubmitting}
                         variant="filled"
                     />
 
@@ -188,30 +142,12 @@ export function AdminLogin() {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                         placeholder="Digite sua senha"
-                        disabled={isSubmitting || isLocked}
+                        disabled={isSubmitting}
                     />
 
-                    {/* Erro de bloqueio */}
+                    {/* Erro */}
                     <AnimatePresence>
-                        {isLocked && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                className="bg-amber-50 border-2 border-amber-200 text-amber-800 px-4 py-3 rounded-2xl text-sm flex items-start gap-3 shadow-sm"
-                            >
-                                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-bold">Conta temporariamente bloqueada</p>
-                                    <p className="text-xs mt-1 font-medium">
-                                        Muitas tentativas falhadas. Tente novamente em {Math.floor(remainingTime / 60)}min {remainingTime % 60}s
-                                    </p>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* Erro */}
-                        {loginError && !isLocked && (
+                        {loginError && (
                             <motion.div
                                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -240,7 +176,6 @@ export function AdminLogin() {
                     ) : (
                         <ShimmerButton
                             type="submit"
-                            disabled={isLocked}
                             className="w-full px-8 py-4 rounded-2xl font-bold shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed"
                             shimmerColor="#ffffff"
                             shimmerSize="0.15em"
@@ -260,9 +195,13 @@ export function AdminLogin() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.6, duration: 0.5 }}
                     className="mt-8 text-center"
+                    class="space-y-2"
                 >
                     <p className="text-xs text-[#4A3B32]/40 font-medium">
                         🔒 Área restrita - Apenas administradores
+                    </p>
+                    <p className="text-[10px] text-[#4A3B32]/30">
+                        Login via Supabase Secure Auth
                     </p>
                 </motion.div>
             </motion.div>

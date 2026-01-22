@@ -13,6 +13,32 @@
 import { supabase } from '@/lib/supabase'
 
 // ============================================================================
+// Retry Helper - para resiliência em erros de rede
+// ============================================================================
+
+/**
+ * Executa uma função com retry automático
+ * @param {Function} fn - Função assíncrona a executar
+ * @param {number} maxRetries - Número máximo de tentativas
+ * @param {number} delayMs - Delay entre tentativas (em ms)
+ */
+async function withRetry(fn, maxRetries = 3, delayMs = 500) {
+    let lastError
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn()
+        } catch (err) {
+            lastError = err
+            if (attempt < maxRetries) {
+                // Wait before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, delayMs * attempt))
+            }
+        }
+    }
+    throw lastError
+}
+
+// ============================================================================
 // Session Management
 // ============================================================================
 
@@ -53,13 +79,12 @@ export function getDeviceType() {
 // ============================================================================
 
 /**
- * Envia um evento para o Supabase
+ * Envia um evento para o Supabase com retry automático
  */
 export async function trackEvent(eventType, eventData = {}, pagePath = null) {
     try {
         // 🛡️ SECURITY: Ignorar eventos vindo do Admin
         if (window.location.pathname.startsWith('/admin')) {
-            console.log('[Analytics] Evento ignorado (Admin):', eventType)
             return
         }
 
@@ -76,21 +101,21 @@ export async function trackEvent(eventType, eventData = {}, pagePath = null) {
             device_type: deviceType
         }
 
-        // Enviar evento de forma assíncrona, sem bloquear UI
-        const { error } = await supabase
-            .from('analytics_events')
-            .insert(event)
+        // 🔄 Enviar evento com retry (3 tentativas) para resiliência
+        await withRetry(async () => {
+            const { error } = await supabase
+                .from('analytics_events')
+                .insert(event)
+            if (error) throw error
+        }, 3, 500)
 
-        if (error) {
-            console.warn('[Analytics] Erro ao enviar evento:', error.message)
-        }
-
-        // Atualizar sessão
-        await updateSession(sessionId, deviceType, eventType === 'checkout_completed')
+        // Atualizar sessão (também com retry)
+        await withRetry(async () => {
+            await updateSession(sessionId, deviceType, eventType === 'checkout_completed')
+        }, 2, 300)
 
     } catch (err) {
-        // Falha silenciosa - analytics não deve quebrar a aplicação
-        console.warn('[Analytics] Erro:', err.message)
+        // Falha silenciosa após todas as tentativas - analytics não deve quebrar a aplicação
     }
 }
 

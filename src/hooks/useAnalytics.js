@@ -42,13 +42,23 @@ export function useAnalyticsSummary(dateRange = 'today') {
 
             if (error) throw error
 
-            // Calcular métricas
+            // Calcular métricas básicas
             const pageViews = events.filter(e => e.event_type === 'page_view').length
             const catalogViews = events.filter(e => e.event_type === 'catalog_view').length
             const productViews = events.filter(e => e.event_type === 'product_view').length
             const addToCart = events.filter(e => e.event_type === 'add_to_cart').length
-            const checkoutsStarted = events.filter(e => e.event_type === 'checkout_started').length
             const checkoutsCompleted = events.filter(e => e.event_type === 'checkout_completed').length
+
+            // 🎯 CORRIGIDO: "Malinhas Iniciadas" = sessões que tiveram add_to_cart E checkout_started
+            // Isso evita contar acessos à /malinha sem produtos adicionados
+            const sessionEvents = {}
+            events.forEach(e => {
+                if (!sessionEvents[e.session_id]) sessionEvents[e.session_id] = new Set()
+                sessionEvents[e.session_id].add(e.event_type)
+            })
+            const checkoutsStarted = Object.values(sessionEvents).filter(
+                types => types.has('add_to_cart') && types.has('checkout_started')
+            ).length
 
             // Sessões únicas
             const uniqueSessions = new Set(events.map(e => e.session_id)).size

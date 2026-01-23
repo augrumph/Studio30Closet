@@ -117,8 +117,8 @@ export function Home() {
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] sm:w-[800px] sm:h-[800px] bg-[#E8C4B0]/10 rounded-full blur-[80px] sm:blur-[120px] pointer-events-none translate-x-1/3 -translate-y-1/4" />
 
                 {/* ================= MOBILE HERO ================= */}
-                <div className="md:hidden flex flex-col h-[100svh] relative z-10 px-5">
-                    {/* Spacer para Header - Reduzido drasticamente */}
+                <div className="md:hidden flex flex-col h-[100svh] relative z-10 px-5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+                    {/* Spacer para Header */}
                     <div className="h-4 flex-shrink-0" />
 
                     {/* Logo */}
@@ -145,8 +145,8 @@ export function Home() {
                         <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
 
-                    {/* Grid 2x2 de Produtos */}
-                    <div className="grid grid-cols-2 gap-2.5 max-h-[38vh] min-h-0">
+                    {/* Grid 2x2 de Produtos - Flex para ocupar espaço restante */}
+                    <div className="grid grid-cols-2 gap-2.5 flex-1 min-h-0">
                         {heroLoading || featuredProducts.length === 0 ? (
                             Array.from({ length: 4 }).map((_, idx) => (
                                 <div

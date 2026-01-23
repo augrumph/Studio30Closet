@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Truck, Star, Shield, Clock, Quote, Instagram, ArrowUpRight } from 'lucide-react'
-import { ProductCard, ProductModal, SkeletonCard } from '@/components/catalog'
+import { ProductCard, SkeletonCard } from '@/components/catalog'
 import { useAdminStore } from '@/store/admin-store'
 import { useEffect, useRef, useLayoutEffect, useState } from 'react'
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from '@/components/ui/Carousel'
@@ -10,14 +10,36 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { motion } from 'framer-motion'
 import { usePrefetchProducts } from '@/hooks/usePrefetchProducts'
 import { useSiteImagesContext } from '@/contexts/SiteImagesContext'
+import { getFeaturedProducts } from '@/lib/api/products'
 
 export function Home() {
     const { products, loadProducts, productsLoading } = useAdminStore()
-    const [selectedProduct, setSelectedProduct] = useState(null)
     const { images, loading: imagesLoading } = useSiteImagesContext()
+    const navigate = useNavigate()
+
+    // ⚡ Estado separado para produtos em destaque (carrega MUITO mais rápido)
+    const [heroProducts, setHeroProducts] = useState([])
+    const [heroLoading, setHeroLoading] = useState(true)
 
     // Prefetch produtos em background assim que a homepage monta
     usePrefetchProducts()
+
+    // ⚡ OTIMIZAÇÃO: Carregar produtos em destaque SEPARADAMENTE (query ultra-rápida)
+    useEffect(() => {
+        const loadHeroProducts = async () => {
+            try {
+                const featured = await getFeaturedProducts()
+                if (featured && featured.length > 0) {
+                    setHeroProducts(featured)
+                }
+            } catch (error) {
+                // Silencioso - mantém skeleton
+            } finally {
+                setHeroLoading(false)
+            }
+        }
+        loadHeroProducts()
+    }, [])
 
     useEffect(() => {
         // Se não tem produtos em memória, carregar (fallback)
@@ -62,8 +84,10 @@ export function Home() {
         }
     }, []);
 
-    // Filtrar produtos em destaque que tenham o campo isFeatured como true
-    const featuredProducts = (products || []).filter(p => p.isFeatured).slice(0, 4)
+    // Usar heroProducts (otimizado) ou fallback do store
+    const featuredProducts = heroProducts.length > 0
+        ? heroProducts
+        : (products || []).filter(p => p.isFeatured).slice(0, 4)
 
     // Textura de papel
     const paperTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E")`
@@ -77,39 +101,116 @@ export function Home() {
         <div className="w-full overflow-x-hidden bg-[#FDFBF7] text-[#4A3B32] font-sans selection:bg-[#C75D3B] selection:text-white">
 
             {/* ================= HERO SECTION ================= */}
-            <section className="relative overflow-hidden min-h-screen md:h-screen flex flex-col">
+            <section className="relative overflow-hidden min-h-[100svh] md:h-screen flex flex-col">
                 <div className="absolute inset-0 pointer-events-none z-0" style={{ backgroundImage: paperTexture }} />
 
                 {/* Particles Background - Mobile optimized */}
                 <Particles
                     className="absolute inset-0 z-0"
-                    quantity={typeof window !== 'undefined' && window.innerWidth < 640 ? 20 : 40}
+                    quantity={typeof window !== 'undefined' && window.innerWidth < 640 ? 15 : 40}
                     staticity={30}
                     color="#C75D3B"
                     ease={50}
                 />
 
-                {/* Blob Decorativo - Smaller on mobile */}
+                {/* Blob Decorativo */}
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] sm:w-[800px] sm:h-[800px] bg-[#E8C4B0]/10 rounded-full blur-[80px] sm:blur-[120px] pointer-events-none translate-x-1/3 -translate-y-1/4" />
 
-                {/* Conteúdo Principal Centralizado */}
-                <div className="flex-1 flex items-center justify-center pt-8 md:pt-0 md:-mt-16 lg:-mt-20">
+                {/* ================= MOBILE HERO ================= */}
+                <div className="md:hidden flex flex-col h-[100svh] relative z-10 px-5">
+                    {/* Spacer para Header - Reduzido drasticamente */}
+                    <div className="h-4 flex-shrink-0" />
+
+                    {/* Logo */}
+                    <div className="flex justify-center flex-shrink-0 mb-3">
+                        <img
+                            src={heroLogo}
+                            alt="Studio 30 Closet"
+                            className="w-36 h-auto object-contain"
+                        />
+                    </div>
+
+                    {/* Headline */}
+                    <h1 className="font-display text-2xl text-[#4A3B32] leading-snug text-center px-2 mt-2 mb-3 flex-shrink-0">
+                        O provador mais exclusivo<br />
+                        é a <span className="text-[#C75D3B] italic font-light">sua casa.</span>
+                    </h1>
+
+                    {/* Link Ver Tudo - Discreto e Elegante */}
+                    <Link
+                        to="/catalogo"
+                        className="flex items-center gap-1.5 mb-3 text-[#C75D3B] text-xs font-medium tracking-wide uppercase self-end group"
+                    >
+                        Ver tudo
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </Link>
+
+                    {/* Grid 2x2 de Produtos */}
+                    <div className="grid grid-cols-2 gap-2.5 max-h-[38vh] min-h-0">
+                        {heroLoading || featuredProducts.length === 0 ? (
+                            Array.from({ length: 4 }).map((_, idx) => (
+                                <div
+                                    key={`grid-skel-${idx}`}
+                                    className="relative rounded-xl overflow-hidden bg-gradient-to-br from-[#F5F0EB] to-[#EDE5DE] aspect-[3/4]"
+                                >
+                                    {/* Shimmer Effect */}
+                                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+                                    {/* Ícone central */}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="w-10 h-10 rounded-full bg-[#E8DDD5] flex items-center justify-center animate-pulse">
+                                            <svg className="w-5 h-5 text-[#C7B8AD]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+
+                                    {/* Placeholder do título */}
+                                    <div className="absolute inset-x-0 bottom-0 p-2">
+                                        <div className="h-3 bg-[#E0D6CE] rounded-full w-3/4 animate-pulse" />
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            featuredProducts.slice(0, 4).map((product) => (
+                                <div
+                                    key={`grid-${product.id}`}
+                                    onClick={() => navigate(`/catalogo?productId=${product.id}`)}
+                                    className="relative rounded-xl overflow-hidden bg-[#F5F0EB] cursor-pointer active:scale-[0.98] transition-transform aspect-[3/4]"
+                                >
+                                    <img
+                                        src={product.images?.[0] || '/placeholder.jpg'}
+                                        alt={product.name}
+                                        className="w-full h-full object-cover"
+                                        loading="eager"
+                                    />
+                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                                        <p className="text-white text-[10px] font-medium leading-tight line-clamp-1">
+                                            {product.name}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                </div>
+
+                {/* ================= DESKTOP HERO ================= */}
+                <div className="hidden md:flex flex-1 items-center justify-center pt-0 md:-mt-16 lg:-mt-20">
                     <div className="container-custom relative z-10 w-full px-4 md:px-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-10 xl:gap-16 items-center">
-
-                            {/* LOGO (Esquerda) */}
-                            <div className="flex justify-center lg:justify-end animate-fade-in order-1 mb-4 md:mb-0">
+                            <div className="flex justify-center lg:justify-end animate-fade-in order-1 mb-2 md:mb-0">
                                 <img
                                     src={heroLogo}
                                     alt="Studio 30 Closet - Logo Completa"
                                     width="640"
                                     height="360"
                                     fetchPriority="high"
-                                    className="w-56 sm:w-72 md:w-[26rem] lg:w-[32rem] xl:w-[40rem] h-auto object-contain drop-shadow-xl hover:scale-[1.02] transition-transform duration-700"
+                                    className="w-44 sm:w-72 md:w-[26rem] lg:w-[32rem] xl:w-[40rem] h-auto object-contain drop-shadow-xl hover:scale-[1.02] transition-transform duration-700"
                                 />
                             </div>
 
-                            {/* TEXTO (Direita) */}
                             <div className="text-center lg:text-left space-y-2.5 md:space-y-4 order-2 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                                 <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-[#4A3B32] leading-tight md:leading-[1.1] break-words">
                                     <FadeText
@@ -162,35 +263,53 @@ export function Home() {
                         </div>
                     </div>
                 </div>
+            </section>
 
-                {/* ================= BARRA DE CONFIANÇA (DESKTOP ONLY) ================= */}
-                <div className="hidden md:block relative z-10 border-t border-[#4A3B32]/10 bg-[#FDFBF7]/80 backdrop-blur-sm mb-0">
-                    <div className="container-custom py-4 md:py-5 lg:py-6 px-4 md:px-6">
-                        <div className="grid grid-cols-4 gap-3 lg:gap-4 text-center">
-                            {[
-                                { icon: Shield, text: "Pagamento Seguro" },
-                                { icon: Truck, text: "Entrega Grátis*" },
-                                { icon: Clock, text: "48h para Provar" },
-                                { icon: Star, text: "Curadoria Premium" },
-                            ].map((item, i) => (
-                                <div key={i} className="flex flex-col items-center gap-1 md:gap-1.5 lg:gap-2 group">
-                                    <div className="text-[#C75D3B] group-hover:scale-110 transition-transform duration-300">
-                                        <item.icon className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6" />
-                                    </div>
-                                    <span className="text-[#4A3B32]/80 text-[10px] md:text-xs lg:text-sm font-medium uppercase tracking-wider leading-tight">{item.text}</span>
+
+
+            {/* ================= COMO FUNCIONA (MOBILE) ================= */}
+            <section className="md:hidden py-12 bg-[#FDFBF7]">
+                <div className="px-6">
+                    <h2 className="font-display text-2xl text-[#4A3B32] text-center mb-8">
+                        Como <span className="text-[#C75D3B] italic">Funciona</span>
+                    </h2>
+
+                    <div className="space-y-6">
+                        {[
+                            { num: "01", title: "Escolha", desc: "Monte sua seleção no site ou WhatsApp. Até 20 peças." },
+                            { num: "02", title: "Receba", desc: "Entregamos na sua casa. 24h para experimentar." },
+                            { num: "03", title: "Decida", desc: "Fique com o que amar. Buscamos o restante." }
+                        ].map((step) => (
+                            <div key={step.num} className="flex gap-4 items-start">
+                                <span className="text-[#C75D3B] font-display text-3xl font-light leading-none pt-1">
+                                    {step.num}
+                                </span>
+                                <div>
+                                    <h3 className="font-bold text-[#4A3B32] text-base mb-1">{step.title}</h3>
+                                    <p className="text-[#4A3B32]/70 text-sm leading-relaxed">{step.desc}</p>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-10 text-center">
+                        <Link
+                            to="/como-funciona"
+                            className="inline-flex items-center gap-2 px-6 py-3 border border-[#4A3B32]/20 text-[#4A3B32] rounded-full text-sm font-medium"
+                        >
+                            Saiba mais
+                            <ArrowRight className="w-4 h-4" />
+                        </Link>
                     </div>
                 </div>
             </section>
 
-            {/* ================= COMO FUNCIONA ================= */}
-            <section className="py-16 md:py-24 bg-white relative">
+            {/* ================= COMO FUNCIONA (DESKTOP) ================= */}
+            <section className="hidden md:block py-24 bg-white relative">
                 <div className="container-custom px-4 md:px-6">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center">
                         <div className="relative order-2 lg:order-1">
-                            <div className="aspect-[4/5] rounded-xl md:rounded-[2rem] overflow-hidden shadow-lg md:shadow-xl">
+                            <div className="aspect-[4/5] rounded-[2rem] overflow-hidden shadow-xl">
                                 <img
                                     src={howItWorksSectionImage}
                                     alt="Conceito Malinha"
@@ -200,28 +319,28 @@ export function Home() {
                                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000"
                                 />
                             </div>
-                            <div className="hidden md:block absolute top-6 -left-6 w-full h-full border-2 border-[#C75D3B]/20 rounded-[2rem] -z-10" />
+                            <div className="absolute top-6 -left-6 w-full h-full border-2 border-[#C75D3B]/20 rounded-[2rem] -z-10" />
                         </div>
 
-                        <div className="order-1 lg:order-2 space-y-6 md:space-y-8">
-                            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl text-[#4A3B32] leading-tight">
-                                A Boutique vai <br className="hidden sm:block" />
+                        <div className="order-1 lg:order-2 space-y-8">
+                            <h2 className="font-display text-4xl md:text-5xl text-[#4A3B32] leading-tight">
+                                A Boutique vai <br />
                                 <span className="text-[#C75D3B] italic">até você.</span>
                             </h2>
-                            <p className="text-[#4A3B32]/90 text-base sm:text-lg md:text-lg leading-relaxed">
+                            <p className="text-[#4A3B32]/90 text-lg leading-relaxed">
                                 Esqueça a iluminação ruim dos provadores e a pressa. Com a Malinha Delivery, sua casa se torna o cenário perfeito para suas escolhas.
                             </p>
-                            <div className="space-y-4 md:space-y-6 pt-2 md:pt-4">
+                            <div className="space-y-6 pt-4">
                                 {[
                                     { title: "1. Personalize", desc: "Escolha até 20 peças no site ou WhatsApp." },
                                     { title: "2. Experimente", desc: "Receba em casa. 24h para provar com calma." },
                                     { title: "3. Decida", desc: "Fique só com o que amar. Buscamos o resto." }
                                 ].map((step, idx) => (
-                                    <div key={idx} className="flex gap-3 md:gap-5 border-b border-[#4A3B32]/5 pb-4 md:pb-6 last:border-0">
-                                        <span className="text-[#C75D3B] font-display text-2xl md:text-3xl font-light flex-shrink-0">0{idx + 1}</span>
+                                    <div key={idx} className="flex gap-5 border-b border-[#4A3B32]/5 pb-6 last:border-0">
+                                        <span className="text-[#C75D3B] font-display text-3xl font-light flex-shrink-0">0{idx + 1}</span>
                                         <div className="min-w-0">
-                                            <h4 className="font-bold text-[#4A3B32] text-base md:text-lg mb-1 uppercase tracking-wide">{step.title}</h4>
-                                            <p className="text-[#4A3B32]/90 text-sm md:text-base">{step.desc}</p>
+                                            <h4 className="font-bold text-[#4A3B32] text-lg mb-1 uppercase tracking-wide">{step.title}</h4>
+                                            <p className="text-[#4A3B32]/90 text-base">{step.desc}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -231,27 +350,26 @@ export function Home() {
                 </div>
             </section>
 
-            {/* ================= CURADORIA ================= */}
-            <section className="py-16 md:py-24 bg-[#FDFBF7]">
+            {/* ================= CURADORIA (DESKTOP ONLY) ================= */}
+            <section className="hidden md:block py-24 bg-[#FDFBF7]">
                 <div className="container-custom px-4 md:px-6">
-                    <div className="text-center mb-12 md:mb-16">
-                        <span className="text-[#C75D3B] text-xs font-bold uppercase tracking-[0.2em] mb-2 md:mb-3 block">New Arrivals</span>
-                        <h2 className="font-display text-3xl sm:text-4xl md:text-5xl text-[#4A3B32]">Destaques da Semana</h2>
+                    <div className="text-center mb-16">
+                        <span className="text-[#C75D3B] text-xs font-bold uppercase tracking-[0.2em] mb-3 block">New Arrivals</span>
+                        <h2 className="font-display text-4xl md:text-5xl text-[#4A3B32]">Destaques da Semana</h2>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
                         {productsLoading || products.length === 0 ? (
-                            // Skeleton loading enquanto carrega
                             Array.from({ length: 4 }).map((_, idx) => (
                                 <SkeletonCard key={`skeleton-${idx}`} />
                             ))
                         ) : (
                             featuredProducts.slice(0, 4).map((product) => (
-                                <ProductCard key={product.id} product={product} onQuickView={setSelectedProduct} />
+                                <ProductCard key={product.id} product={product} onQuickView={(p) => navigate(`/catalogo?productId=${p.id}`)} />
                             ))
                         )}
                     </div>
-                    <div className="mt-12 md:mt-16 text-center">
-                        <Link to="/catalogo" className="inline-block border-b-2 border-[#C75D3B] text-[#4A3B32] pb-1 hover:text-[#C75D3B] transition-colors font-medium text-sm md:text-base">
+                    <div className="mt-16 text-center">
+                        <Link to="/catalogo" className="inline-block border-b-2 border-[#C75D3B] text-[#4A3B32] pb-1 hover:text-[#C75D3B] transition-colors font-medium text-base">
                             Ver catálogo completo
                         </Link>
                     </div>
@@ -612,12 +730,6 @@ export function Home() {
                 </div>
             </section>
 
-            {/* Product Modal */}
-            <ProductModal
-                product={selectedProduct}
-                isOpen={!!selectedProduct}
-                onClose={() => setSelectedProduct(null)}
-            />
         </div >
     )
 }

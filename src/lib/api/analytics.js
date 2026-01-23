@@ -242,6 +242,30 @@ export async function trackCheckoutCompleted(orderId, items, totalValue) {
 }
 
 // ============================================================================
+// Social Media Click Tracking
+// ============================================================================
+
+/**
+ * Rastreia clique no botão do WhatsApp
+ */
+export async function trackWhatsAppClick(location = 'navbar') {
+    await trackEvent('social_click_whatsapp', {
+        location,
+        timestamp: new Date().toISOString()
+    })
+}
+
+/**
+ * Rastreia clique no botão do Instagram
+ */
+export async function trackInstagramClick(location = 'navbar') {
+    await trackEvent('social_click_instagram', {
+        location,
+        timestamp: new Date().toISOString()
+    })
+}
+
+// ============================================================================
 // Abandoned Cart Tracking
 // ============================================================================
 

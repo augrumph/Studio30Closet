@@ -47,6 +47,26 @@ export async function getProducts(page = 1, pageSize = 20) {
 }
 
 /**
+ * ⚡ Carregar APENAS produtos em destaque (otimizado para hero)
+ * Busca mínima: apenas 4 produtos com campos essenciais para carregar instantaneamente
+ */
+export async function getFeaturedProducts() {
+    const { data, error } = await supabase
+        .from('products')
+        .select('id, name, images')
+        .eq('is_featured', true)
+        .eq('active', true)
+        .limit(4)
+
+    if (error) {
+        console.error('❌ Erro ao buscar produtos em destaque:', error)
+        throw error
+    }
+
+    return data.map(product => toCamelCase(product))
+}
+
+/**
  * Carregar todos os produtos (para catálogo)
  */
 export async function getAllProducts() {

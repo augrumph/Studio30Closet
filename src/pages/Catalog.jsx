@@ -21,6 +21,7 @@ function CatalogContent() {
     const selectedCategory = searchParams.get('categoria')
     const selectedSizesParam = searchParams.get('tamanhos')
     const selectedSizes = selectedSizesParam ? selectedSizesParam.split(',') : []
+    const productIdFromUrl = searchParams.get('productId')
 
     // ⚡ REACT QUERY HOOK
     // Substitui todo o AdminStore, useEffects e useState de loading
@@ -60,6 +61,22 @@ function CatalogContent() {
             search: searchQuery
         })
     }, []) // Apenas no mount inicial
+
+    // Auto-open product modal if productId in URL
+    useEffect(() => {
+        if (productIdFromUrl && products.length > 0 && !selectedProduct) {
+            // Compare both string and number (URL params are always strings)
+            const product = products.find(p => p.id.toString() === productIdFromUrl)
+
+            if (product) {
+                setSelectedProduct(product)
+                // Remove productId from URL after opening modal
+                const newParams = new URLSearchParams(searchParams)
+                newParams.delete('productId')
+                setSearchParams(newParams, { replace: true })
+            }
+        }
+    }, [productIdFromUrl, products, selectedProduct, searchParams, setSearchParams])
 
     // Handlers
     const updateFilter = (key, value) => {

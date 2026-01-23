@@ -39,6 +39,29 @@ const queryClient = new QueryClient({
     },
 })
 
+// ⚡ PREFETCH IMEDIATO: Carregar produtos em destaque ANTES de renderizar
+// Usa query otimizada do Supabase (apenas 4 produtos, campos mínimos)
+import { getFeaturedProducts } from './lib/api/products'
+
+const prefetchHeroImages = async () => {
+    try {
+        const featured = await getFeaturedProducts()
+        // Preload das imagens com prioridade máxima
+        featured.forEach(product => {
+            const imgUrl = product.images?.[0]
+            if (imgUrl) {
+                const img = new Image()
+                img.src = imgUrl
+            }
+        })
+    } catch (error) {
+        // Silencioso - não bloquear renderização
+    }
+}
+
+// Iniciar prefetch imediatamente (não bloqueia render)
+prefetchHeroImages()
+
 createRoot(document.getElementById('root')).render(
     <StrictMode>
         <ErrorBoundary>

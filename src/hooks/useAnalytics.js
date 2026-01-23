@@ -49,6 +49,10 @@ export function useAnalyticsSummary(dateRange = 'today') {
             const addToCart = events.filter(e => e.event_type === 'add_to_cart').length
             const checkoutsCompleted = events.filter(e => e.event_type === 'checkout_completed').length
 
+            // Cliques em Redes Sociais
+            const whatsappClicks = events.filter(e => e.event_type === 'social_click_whatsapp').length
+            const instagramClicks = events.filter(e => e.event_type === 'social_click_instagram').length
+
             // 🎯 CORRIGIDO: "Malinhas Iniciadas" = sessões que tiveram add_to_cart E checkout_started
             // Isso evita contar acessos à /malinha sem produtos adicionados
             const sessionEvents = {}
@@ -112,7 +116,9 @@ export function useAnalyticsSummary(dateRange = 'today') {
                 conversionRate,
                 addToCartRate,
                 trafficSources,
-                deviceBreakdown
+                deviceBreakdown,
+                whatsappClicks,
+                instagramClicks
             }
         },
         staleTime: 1000 * 60 * 2, // 2 min

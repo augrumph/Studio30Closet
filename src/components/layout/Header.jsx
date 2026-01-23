@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { ShoppingBag, Menu, X } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { cn } from '@/lib/utils'
+import { trackWhatsAppClick, trackInstagramClick } from '@/lib/api/analytics'
 
 const navLinks = [
     { name: 'Início', href: '/' },
@@ -105,6 +106,7 @@ export function Header() {
                             target="_blank"
                             rel="noopener noreferrer"
                             aria-label="Fale conosco no WhatsApp"
+                            onClick={() => trackWhatsAppClick('navbar')}
                             className="flex items-center justify-center w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm border border-brand-peach hover:border-brand-terracotta hover:bg-brand-rose/30 transition-all duration-300 hover:scale-105 shadow-sm"
                         >
                             <svg className="w-4 h-4 text-brand-terracotta" fill="currentColor" viewBox="0 0 24 24">
@@ -118,6 +120,7 @@ export function Header() {
                             target="_blank"
                             rel="noopener noreferrer"
                             aria-label="Siga-nos no Instagram"
+                            onClick={() => trackInstagramClick('navbar')}
                             className="flex items-center justify-center w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm border border-brand-peach hover:border-brand-terracotta hover:bg-brand-rose/30 transition-all duration-300 hover:scale-105 shadow-sm"
                         >
                             <svg className="w-4 h-4 text-brand-terracotta" fill="currentColor" viewBox="0 0 24 24">

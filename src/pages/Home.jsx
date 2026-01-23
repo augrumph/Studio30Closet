@@ -117,7 +117,7 @@ export function Home() {
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] sm:w-[800px] sm:h-[800px] bg-[#E8C4B0]/10 rounded-full blur-[80px] sm:blur-[120px] pointer-events-none translate-x-1/3 -translate-y-1/4" />
 
                 {/* ================= MOBILE HERO ================= */}
-                <div className="md:hidden flex flex-col h-[100svh] relative z-10 px-5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+                <div className="md:hidden flex flex-col h-[100dvh] relative z-10 px-5">
                     {/* Spacer para Header */}
                     <div className="h-4 flex-shrink-0" />
 
@@ -146,7 +146,7 @@ export function Home() {
                     </Link>
 
                     {/* Grid 2x2 de Produtos - Flex para ocupar espaço restante */}
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-6 flex-1 min-h-0 overflow-y-auto pb-4 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-3 flex-1 min-h-0 overflow-y-auto pb-24 custom-scrollbar content-start">
                         {heroLoading || featuredProducts.length === 0 ? (
                             Array.from({ length: 4 }).map((_, idx) => (
                                 <div

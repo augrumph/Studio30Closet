@@ -117,12 +117,9 @@ export function Home() {
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] sm:w-[800px] sm:h-[800px] bg-[#E8C4B0]/10 rounded-full blur-[80px] sm:blur-[120px] pointer-events-none translate-x-1/3 -translate-y-1/4" />
 
                 {/* ================= MOBILE HERO ================= */}
-                <div className="md:hidden flex flex-col h-[100dvh] relative z-10 px-5">
-                    {/* Spacer para Header */}
-                    <div className="h-4 flex-shrink-0" />
-
+                <div className="md:hidden flex flex-col min-h-[100dvh] relative z-10 px-5 pb-24 pt-4">
                     {/* Logo */}
-                    <div className="flex justify-center flex-shrink-0 mb-3">
+                    <div className="flex justify-center mb-4">
                         <img
                             src={heroLogo}
                             alt="Studio 30 Closet"
@@ -131,22 +128,22 @@ export function Home() {
                     </div>
 
                     {/* Headline */}
-                    <h1 className="font-display text-2xl text-[#4A3B32] leading-snug text-center px-2 mt-2 mb-3 flex-shrink-0">
+                    <h1 className="font-display text-2xl text-[#4A3B32] leading-snug text-center px-1 mb-4">
                         O provador mais exclusivo<br />
                         é a <span className="text-[#C75D3B] italic font-light">sua casa.</span>
                     </h1>
 
-                    {/* Link Ver Tudo - Discreto e Elegante */}
+                    {/* Link Ver Tudo */}
                     <Link
                         to="/catalogo"
-                        className="flex items-center gap-1.5 mb-3 text-[#C75D3B] text-xs font-medium tracking-wide uppercase self-end group"
+                        className="flex items-center gap-1.5 mb-6 text-[#C75D3B] text-xs font-medium tracking-wide uppercase self-end group"
                     >
                         Ver tudo
                         <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
 
-                    {/* Grid 2x2 de Produtos - Flex para ocupar espaço restante */}
-                    <div className="grid grid-cols-2 gap-3 flex-1 min-h-0 overflow-y-auto pb-24 custom-scrollbar content-start">
+                    {/* Grid 2x2 de Produtos - Fluxo Natural */}
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-6 w-full">
                         {heroLoading || featuredProducts.length === 0 ? (
                             Array.from({ length: 4 }).map((_, idx) => (
                                 <div

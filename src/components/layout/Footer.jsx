@@ -129,7 +129,7 @@ export function Footer() {
                         <ul className="space-y-4">
                             <li>
                                 <a
-                                    href="https://wa.me/5511999999999"
+                                    href="https://wa.me/5541996863879"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-3 text-[#4A3B32]/70 hover:text-[#C75D3B] transition-all duration-300 text-base group"
@@ -137,7 +137,7 @@ export function Footer() {
                                     <div className="p-2 rounded-full bg-white border border-[#E8C4B0] group-hover:bg-[#C75D3B]/10 group-hover:border-[#C75D3B] transition-all duration-300">
                                         <MessageCircle className="w-4 h-4 text-[#C75D3B]" />
                                     </div>
-                                    <span style={{ letterSpacing: '0.01em' }}>(11) 99999-9999</span>
+                                    <span style={{ letterSpacing: '0.01em' }}>(41) 99686-3879</span>
                                 </a>
                             </li>
                             <li>
@@ -168,7 +168,7 @@ export function Footer() {
                                 <div className="p-2 rounded-full bg-white border border-[#E8C4B0]">
                                     <MapPin className="w-4 h-4 text-[#C75D3B]" />
                                 </div>
-                                <span style={{ letterSpacing: '0.01em' }}>São Paulo, SP</span>
+                                <span style={{ letterSpacing: '0.01em' }}>Curitiba-PR</span>
                             </li>
                         </ul>
                     </div>
@@ -203,7 +203,7 @@ export function Footer() {
                                 <Instagram className="w-4 h-4 text-[#C75D3B] group-hover:text-white transition-colors duration-500" />
                             </a>
                             <a
-                                href="https://wa.me/5511999999999"
+                                href="https://wa.me/5541996863879"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-2.5 rounded-full bg-white border border-[#E8C4B0] hover:bg-[#C75D3B] hover:border-[#C75D3B] transition-all duration-500 hover:scale-110 group"

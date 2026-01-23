@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useCatalog } from '@/hooks/useCatalog'
 import { trackCatalogView } from '@/lib/api/analytics'
+import { getProductById } from '@/lib/api/products'
 
 // Componente Interno que usa o Hook (para poder usar Suspense no Pai se quisesse, 
 // mas aqui vamos tratar os estados isLoading/error do hook direto para UX suave)
@@ -64,18 +65,37 @@ function CatalogContent() {
 
     // Auto-open product modal if productId in URL
     useEffect(() => {
-        if (productIdFromUrl && products.length > 0 && !selectedProduct) {
-            // Compare both string and number (URL params are always strings)
-            const product = products.find(p => p.id.toString() === productIdFromUrl)
+        const handleOpenProduct = async () => {
+            if (productIdFromUrl && !selectedProduct) {
+                // 1. Tentar achar na lista já carregada (mais rápido)
+                const productInList = products.find(p => p.id.toString() === productIdFromUrl)
 
-            if (product) {
-                setSelectedProduct(product)
-                // Remove productId from URL after opening modal
-                const newParams = new URLSearchParams(searchParams)
-                newParams.delete('productId')
-                setSearchParams(newParams, { replace: true })
+                if (productInList) {
+                    setSelectedProduct(productInList)
+                    cleanUrl()
+                    return
+                }
+
+                // 2. Se não achou (pode estar em outra página), buscar individualmente
+                try {
+                    const fetchedProduct = await getProductById(productIdFromUrl)
+                    if (fetchedProduct) {
+                        setSelectedProduct(fetchedProduct)
+                        cleanUrl()
+                    }
+                } catch (err) {
+                    console.error("Erro ao buscar produto para modal:", err)
+                }
             }
         }
+
+        const cleanUrl = () => {
+            const newParams = new URLSearchParams(searchParams)
+            newParams.delete('productId')
+            setSearchParams(newParams, { replace: true })
+        }
+
+        handleOpenProduct()
     }, [productIdFromUrl, products, selectedProduct, searchParams, setSearchParams])
 
     // Handlers

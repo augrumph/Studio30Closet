@@ -198,7 +198,7 @@ function CatalogContent() {
                         {/* Top Message - Mobile First Optimization */}
                         <div className="md:hidden bg-[#E07850]/10 border border-[#E07850]/20 rounded-lg p-3 mb-4 flex items-center justify-center text-center">
                             <p className="text-sm font-medium text-[#E07850]">
-                                🛍️ Prove no conforto da sua casa — eu levo a malinha até você em Mandirituba-PR
+                                🛍️ Prove no conforto da sua casa — eu levo a malinha até você em Mandirituba-PR e região
                             </p>
                         </div>
 

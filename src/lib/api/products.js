@@ -51,19 +51,48 @@ export async function getProducts(page = 1, pageSize = 20) {
  * Busca mínima: apenas 4 produtos com campos essenciais para carregar instantaneamente
  */
 export async function getFeaturedProducts() {
-    const { data, error } = await supabase
+    // 1. Fetch Explicitly Featured items (Max 4)
+    const { data: featuredData, error: featuredError } = await supabase
         .from('products')
         .select('id, name, images')
         .eq('is_featured', true)
         .eq('active', true)
+        .order('updated_at', { ascending: false })
         .limit(4)
 
-    if (error) {
-        console.error('❌ Erro ao buscar produtos em destaque:', error)
-        throw error
+    if (featuredError) {
+        console.error('❌ Erro ao buscar produtos em destaque:', featuredError)
+        throw featuredError
     }
 
-    return data.map(product => toCamelCase(product))
+    let products = featuredData || []
+
+    // 2. Fallback: If less than 4, fill with latest products
+    if (products.length < 4) {
+        const needed = 4 - products.length
+        const existingIds = products.map(p => p.id)
+
+        let query = supabase
+            .from('products')
+            .select('id, name, images')
+            .eq('active', true)
+            .order('created_at', { ascending: false })
+            .limit(needed)
+
+        if (existingIds.length > 0) {
+            query = query.not('id', 'in', `(${existingIds.join(',')})`)
+        }
+
+        const { data: fallbackData, error: fallbackError } = await query
+
+        if (fallbackError) {
+            console.error('⚠️ Erro ao buscar fallback de produtos:', fallbackError)
+        } else if (fallbackData) {
+            products = [...products, ...fallbackData]
+        }
+    }
+
+    return products.map(product => toCamelCase(product))
 }
 
 /**
@@ -76,7 +105,7 @@ export async function getAllProducts() {
     const queryStart = performance.now()
     const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, original_price, images, category, is_new, is_featured, sizes, color, variants, stock, description')
+        .select('id, name, price, original_price, images, category, is_new, is_featured, is_catalog_featured, is_best_seller, sizes, color, variants, stock, description')
         .order('created_at', { ascending: false })
 
     const queryTime = (performance.now() - queryStart).toFixed(0)
@@ -159,7 +188,9 @@ export async function updateProduct(id, productData) {
         color: snakeData.color,
         variants: snakeData.variants,
         is_new: snakeData.isNew || snakeData.is_new,
-        original_price: snakeData.originalPrice || snakeData.original_price
+        original_price: snakeData.originalPrice || snakeData.original_price,
+        is_catalog_featured: snakeData.isCatalogFeatured || snakeData.is_catalog_featured,
+        is_best_seller: snakeData.isBestSeller || snakeData.is_best_seller
     }
 
     const { data, error } = await supabase
@@ -207,7 +238,7 @@ export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) 
     let query = supabase
         .from('products')
         // ✅ FIX: Adicionado 'sizes' e 'color' que faltavam e impediam adicionar ao carrinho
-        .select('id, name, price, images, category, stock, created_at, active, variants, sizes, color', { count: 'estimated' })
+        .select('id, name, price, images, category, stock, created_at, active, variants, sizes, color, is_catalog_featured, is_best_seller', { count: 'estimated' })
         .eq('active', true)
 
     // Filtro de categoria
@@ -226,8 +257,11 @@ export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) 
         query = query.overlaps('sizes', sizes)
     }
 
-    // Ordenação e paginação
-    query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+    // Ordenação e paginação - Priorizar Destaque do Catálogo
+    query = query
+        .order('is_catalog_featured', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
 
     const { data, error, count } = await query
 
@@ -257,7 +291,7 @@ export async function getAllProductsAdmin() {
     // Select explicit fields to include cost_price
     const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, cost_price, images, category, stock, created_at, active, stock_status, trip_count, variants, sizes, color')
+        .select('id, name, price, cost_price, images, category, stock, created_at, active, is_featured, is_new, is_catalog_featured, is_best_seller, stock_status, trip_count, variants, sizes, color')
         .order('id', { ascending: false })
 
     if (error) {

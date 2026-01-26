@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronLeft, ChevronRight, Plus, Check } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Plus, Check, MessageCircle } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
+import { calculateAnchorPrice, calculateInstallment } from '@/lib/price-utils'
 import { sortSizes } from '@/lib/sizes'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
@@ -19,6 +20,17 @@ export function ProductModal({ product, isOpen, onClose }) {
     const [touchStartX, setTouchStartX] = useState(0)
     const [touchEndX, setTouchEndX] = useState(0)
     const { addItem, items, isLimitReached } = useMalinhaStore()
+
+    // 🧠 Lógica centralizada de Preço
+    const anchorPrice = product?.originalPrice || calculateAnchorPrice(product?.price)
+    // Sempre mostrar desconto se o anchor for maior
+    const hasDiscount = anchorPrice > (product?.price || 0)
+    const discountPercent = hasDiscount && anchorPrice
+        ? Math.round((1 - product.price / anchorPrice) * 100)
+        : 0
+
+    // 💳 Parcelamento Psicológico
+    const installmentValue = calculateInstallment(product?.price)
 
     // Carregar imagens completas quando modal abrir
     useEffect(() => {
@@ -107,7 +119,7 @@ export function ProductModal({ product, isOpen, onClose }) {
 
     if (!isOpen || !product) return null
 
-    const hasDiscount = product.originalPrice && product.originalPrice > product.price
+    // Helper for malinha check
     const itemInMalinha = items.some(item => item.id === product.id)
 
     const handleTouchStart = (e) => {
@@ -235,12 +247,12 @@ export function ProductModal({ product, isOpen, onClose }) {
                         >
                             <AnimatePresence mode="wait">
                                 <motion.img
-                                    key={`${selectedVariantIndex}-${selectedImageIndex}`}
+                                    key={`${selectedVariantIndex} -${selectedImageIndex} `}
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     src={currentImages[selectedImageIndex] || '/placeholder.png'}
-                                    alt={`${product.name} - Imagem ${selectedImageIndex + 1}`}
+                                    alt={`${product.name} - Imagem ${selectedImageIndex + 1} `}
                                     className="w-full h-auto max-h-[50vh] md:max-h-none md:h-full object-contain select-none pointer-events-none"
                                     draggable="false"
                                 />
@@ -281,7 +293,7 @@ export function ProductModal({ product, isOpen, onClose }) {
                                                         ? 'bg-white w-6 h-2'
                                                         : 'bg-white/50 w-2 h-2 hover:bg-white/80'
                                                 )}
-                                                aria-label={`Ver imagem ${idx + 1}`}
+                                                aria-label={`Ver imagem ${idx + 1} `}
                                             />
                                         ))}
                                     </div>
@@ -297,7 +309,7 @@ export function ProductModal({ product, isOpen, onClose }) {
                             )}
                             {hasDiscount && (
                                 <span className="bg-brand-coral text-white text-xs font-medium px-3 py-1 rounded-full">
-                                    -{Math.round((1 - product.price / product.originalPrice) * 100)}%
+                                    -{discountPercent}%
                                 </span>
                             )}
                         </div>
@@ -315,16 +327,35 @@ export function ProductModal({ product, isOpen, onClose }) {
                             {product.name}
                         </h2>
 
-                        {/* Price */}
-                        <div className="flex items-baseline gap-3 mb-4">
-                            <span className="text-3xl font-bold text-brand-terracotta">
-                                {formatPrice(product.price)}
-                            </span>
+                        {/* Price Block - Optimized */}
+                        <div className="mb-6 flex flex-col gap-1">
                             {hasDiscount && (
-                                <span className="text-lg text-brand-brown/40 line-through">
-                                    {formatPrice(product.originalPrice)}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-[#999] line-through">
+                                        De {formatPrice(anchorPrice)}
+                                    </span>
+                                    <span className="text-xs font-bold text-[#E07850] bg-[#E07850]/10 px-2 py-0.5 rounded-full">
+                                        -{discountPercent}% oFF
+                                    </span>
+                                </div>
                             )}
+
+                            <div className="flex items-baseline gap-2">
+                                <span className="font-display text-4xl font-bold text-[#E07850]">
+                                    {formatPrice(product.price)}
+                                </span>
+                            </div>
+
+                            <div className="flex flex-col gap-0.5">
+                                {hasDiscount && (
+                                    <span className="text-sm font-semibold text-[#2E7D32]">
+                                        Economia de {formatPrice(anchorPrice - product.price)}
+                                    </span>
+                                )}
+                                <span className="text-sm text-[#666]">
+                                    ou 3x de {formatPrice(installmentValue)} sem juros
+                                </span>
+                            </div>
                         </div>
 
                         {/* Color Selector - Agora logo abaixo do preço */}
@@ -439,11 +470,22 @@ export function ProductModal({ product, isOpen, onClose }) {
                             <p className="text-center text-sm text-brand-brown/50 mt-3">
                                 {items.length}/20 peças na sua malinha
                             </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>,
+
+                            {/* WhatsApp Button */}
+                            <a
+                                href={`https://wa.me/5541996863879?text=${encodeURIComponent(`Olá! Vi a peça ${product.name} no catálogo e gostaria de tirar uma dúvida.`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-4 w-full py-3 rounded-full border border-[#25D366] text-[#25D366] font-medium flex items-center justify-center gap-2 hover:bg-[#25D366] hover:text-white transition-all duration-300"
+                            >
+                                <MessageCircle className="w-5 h-5" />
+                                Dúvidas ? Fale conosco
+                            </a >
+                        </div >
+                    </div >
+                </div >
+            </div >
+        </div >,
         document.body
     )
 }

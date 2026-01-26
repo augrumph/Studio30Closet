@@ -33,6 +33,8 @@ export function ProductsForm() {
         sizes: [],
         isNew: true,
         isFeatured: false,
+        isCatalogFeatured: false,
+        isBestSeller: false,
         stock: 0,
         costPrice: '',
         supplierId: '',
@@ -711,31 +713,16 @@ export function ProductsForm() {
                             </div>
 
                             <div className="flex flex-col gap-4 pt-4">
+                                {/* Destaque Home (Antigo Novidade) */}
                                 <label className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl cursor-pointer group">
                                     <div className="flex items-center gap-3">
-                                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors", formData.isNew ? "bg-[#C75D3B] text-white" : "bg-white text-gray-300")}>
+                                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors", formData.isFeatured ? "bg-[#C75D3B] text-white" : "bg-white text-gray-300")}>
                                             <CheckCircle2 className="w-5 h-5" />
                                         </div>
-                                        <span className="text-sm font-bold text-[#4A3B32]">Novidade</span>
-                                    </div>
-                                    <input
-                                        type="checkbox"
-                                        name="isNew"
-                                        className="hidden"
-                                        checked={formData.isNew}
-                                        onChange={handleChange}
-                                    />
-                                    <div className={cn("w-12 h-6 rounded-full transition-colors relative", formData.isNew ? "bg-[#C75D3B]" : "bg-gray-200")}>
-                                        <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all", formData.isNew ? "left-7" : "left-1")} />
-                                    </div>
-                                </label>
-
-                                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl cursor-pointer group">
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors", formData.isFeatured ? "bg-amber-500 text-white" : "bg-white text-gray-300")}>
-                                            <Layers className="w-5 h-5" />
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-[#4A3B32]">Destaque Home</span>
+                                            <span className="text-[10px] text-gray-400">Aparece na página inicial (4 itens)</span>
                                         </div>
-                                        <span className="text-sm font-bold text-[#4A3B32]">Destaque Home</span>
                                     </div>
                                     <input
                                         type="checkbox"
@@ -744,8 +731,54 @@ export function ProductsForm() {
                                         checked={formData.isFeatured}
                                         onChange={handleChange}
                                     />
-                                    <div className={cn("w-12 h-6 rounded-full transition-colors relative", formData.isFeatured ? "bg-amber-500" : "bg-gray-200")}>
+                                    <div className={cn("w-12 h-6 rounded-full transition-colors relative", formData.isFeatured ? "bg-[#C75D3B]" : "bg-gray-200")}>
                                         <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all", formData.isFeatured ? "left-7" : "left-1")} />
+                                    </div>
+                                </label>
+
+                                {/* Destaque Catálogo */}
+                                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl cursor-pointer group">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors", formData.isCatalogFeatured ? "bg-blue-500 text-white" : "bg-white text-gray-300")}>
+                                            <Layers className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-[#4A3B32]">Destaque Catálogo</span>
+                                            <span className="text-[10px] text-gray-400">Topo da lista (6 itens)</span>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        name="isCatalogFeatured"
+                                        className="hidden"
+                                        checked={formData.isCatalogFeatured}
+                                        onChange={handleChange}
+                                    />
+                                    <div className={cn("w-12 h-6 rounded-full transition-colors relative", formData.isCatalogFeatured ? "bg-blue-500" : "bg-gray-200")}>
+                                        <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all", formData.isCatalogFeatured ? "left-7" : "left-1")} />
+                                    </div>
+                                </label>
+
+                                {/* Mais Vendido (Best Seller) */}
+                                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl cursor-pointer group">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors", formData.isBestSeller ? "bg-purple-500 text-white" : "bg-white text-gray-300")}>
+                                            <Tag className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-[#4A3B32]">Mais Vendido</span>
+                                            <span className="text-[10px] text-gray-400">Badge especial (4 itens)</span>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        name="isBestSeller"
+                                        className="hidden"
+                                        checked={formData.isBestSeller}
+                                        onChange={handleChange}
+                                    />
+                                    <div className={cn("w-12 h-6 rounded-full transition-colors relative", formData.isBestSeller ? "bg-purple-500" : "bg-gray-200")}>
+                                        <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all", formData.isBestSeller ? "left-7" : "left-1")} />
                                     </div>
                                 </label>
 

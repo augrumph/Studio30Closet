@@ -1,6 +1,6 @@
 import { ProductCard, ProductModal, ProductFilters, SkeletonCard } from '@/components/catalog'
 import { useMalinhaStore } from '@/store/malinha-store'
-import { useState, useMemo, memo, Suspense, useEffect } from 'react'
+import { useState, useMemo, memo, Suspense, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { X, SlidersHorizontal, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -130,6 +130,25 @@ function CatalogContent() {
 
     const hasActiveFilters = selectedCategory || selectedSizes.length > 0 || searchQuery.trim()
 
+    // 🔄 Infinite Scroll Logic
+    const loadMoreRef = useRef(null)
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+                    fetchNextPage()
+                }
+            },
+            { threshold: 0.1, rootMargin: '200px' } // Load 200px before reaching bottom
+        )
+
+        if (loadMoreRef.current) {
+            observer.observe(loadMoreRef.current)
+        }
+
+        return () => observer.disconnect()
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+
     // Render de Loading Inicial
     if (isLoading) {
         return (
@@ -176,6 +195,13 @@ function CatalogContent() {
 
                     {/* Products Grid */}
                     <div className="md:col-span-3">
+                        {/* Top Message - Mobile First Optimization */}
+                        <div className="md:hidden bg-[#E07850]/10 border border-[#E07850]/20 rounded-lg p-3 mb-4 flex items-center justify-center text-center">
+                            <p className="text-sm font-medium text-[#E07850]">
+                                🛍️ Prove no conforto da sua casa — eu levo a malinha até você em Mandirituba-PR
+                            </p>
+                        </div>
+
                         {/* MOBILE: Search Bar + Filter Controls */}
                         <div className="md:hidden space-y-3 mb-6">
                             <div className="relative touch-target">
@@ -212,6 +238,8 @@ function CatalogContent() {
                                             <ProductCard
                                                 product={product}
                                                 onQuickView={setSelectedProduct}
+                                                index={index}
+                                                isLarge={index < 2}
                                             />
                                         </motion.div>
                                     ))}
@@ -219,14 +247,15 @@ function CatalogContent() {
 
                                 {/* Load More Button / Infinite Scroll Sentinel */}
                                 {hasNextPage && (
-                                    <div className="mt-8 flex justify-center">
-                                        <button
-                                            onClick={() => fetchNextPage()}
-                                            disabled={isFetchingNextPage}
-                                            className="px-8 py-3 bg-white border border-gray-200 rounded-full font-bold text-[#4A3B32] hover:bg-gray-50 disabled:opacity-50"
-                                        >
-                                            {isFetchingNextPage ? 'Carregando...' : 'Ver mais produtos'}
-                                        </button>
+                                    <div ref={loadMoreRef} className="mt-8 flex justify-center py-8 w-full">
+                                        {isFetchingNextPage ? (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="w-8 h-8 border-4 border-[#C75D3B]/30 border-t-[#C75D3B] rounded-full animate-spin" />
+                                                <p className="text-xs text-[#4A3B32]/60 animate-pulse font-medium">Carregando mais peças...</p>
+                                            </div>
+                                        ) : (
+                                            <div className="h-10 w-full" />
+                                        )}
                                     </div>
                                 )}
                             </>
@@ -293,9 +322,11 @@ function CatalogContent() {
                         initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
                         className="fixed bottom-6 left-4 right-4 z-40 md:hidden"
                     >
-                        <a href="/malinha" className="flex items-center justify-between px-6 py-4 bg-[#C75D3B] text-white rounded-2xl shadow-xl">
-                            <span className="font-bold">{items.length} peças</span>
-                            <span className="font-bold">Ver Malinha</span>
+
+
+                        <a href="/malinha" className="flex items-center justify-between px-6 py-4 bg-[#C75D3B] text-white rounded-2xl shadow-xl relative overflow-hidden">
+                            <span className="font-bold relative z-10">{items.length} peças</span>
+                            <span className="font-bold relative z-10">Ver Malinha</span>
                         </a>
                     </motion.div>
                 )}

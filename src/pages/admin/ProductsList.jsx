@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info } from 'lucide-react'
+import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -42,6 +42,15 @@ export function ProductsList() {
     const [selectedProducts, setSelectedProducts] = useState([])
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, productId: null, productName: '' })
     const [confirmMultiDelete, setConfirmMultiDelete] = useState(false)
+    const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' })
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
 
     // Filter Logic
     const filteredProducts = useMemo(() => {
@@ -55,8 +64,38 @@ export function ProductsList() {
             const matchesStock = stockFilter === 'all' || (stockFilter === 'low' && product.stock <= 2)
 
             return matchesSearch && matchesCategory && matchesStock
+        }).sort((a, b) => {
+            if (!sortConfig.key) return 0;
+
+            let aValue, bValue;
+
+            // Handle calculated fields
+            if (sortConfig.key === 'markup') {
+                aValue = a.costPrice > 0 ? a.price / a.costPrice : 0;
+                bValue = b.costPrice > 0 ? b.price / b.costPrice : 0;
+            } else if (sortConfig.key === 'margin') {
+                aValue = a.price > 0 ? (a.price - a.costPrice) / a.price : -Infinity;
+                bValue = b.price > 0 ? (b.price - b.costPrice) / b.price : -Infinity;
+            } else {
+                aValue = a[sortConfig.key];
+                bValue = b[sortConfig.key];
+            }
+
+            // Handle string comparison for case-insensitive sort
+            if (typeof aValue === 'string') {
+                aValue = aValue.toLowerCase();
+                bValue = bValue != null ? bValue.toLowerCase() : '';
+            }
+
+            if (aValue < bValue) {
+                return sortConfig.direction === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === 'asc' ? 1 : -1;
+            }
+            return 0;
         })
-    }, [products, search, categoryFilter, stockFilter])
+    }, [products, search, categoryFilter, stockFilter, sortConfig])
 
     // Pagination
     const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
@@ -259,11 +298,69 @@ export function ProductsList() {
                                         checked={selectedProducts.length > 0 && selectedProducts.length === filteredProducts.length}
                                     />
                                 </th>
-                                <th className="px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Produto</th>
-                                <th className="hidden sm:table-cell px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Categoria</th>
-                                <th className="px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Custo</th>
-                                <th className="px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Valor</th>
-                                <th className="hidden md:table-cell px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Estoque</th>
+                                <th
+                                    className="px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-[#C75D3B] transition-colors group"
+                                    onClick={() => requestSort('name')}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        Produto
+                                        {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                    </div>
+                                </th>
+                                <th
+                                    className="hidden sm:table-cell px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-[#C75D3B] transition-colors group"
+                                    onClick={() => requestSort('category')}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        Categoria
+                                        {sortConfig.key === 'category' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                    </div>
+                                </th>
+                                <th
+                                    className="px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-right cursor-pointer hover:text-[#C75D3B] transition-colors group"
+                                    onClick={() => requestSort('costPrice')}
+                                >
+                                    <div className="flex items-center justify-end gap-1">
+                                        Custo
+                                        {sortConfig.key === 'costPrice' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                    </div>
+                                </th>
+                                <th
+                                    className="hidden lg:table-cell px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-right cursor-pointer hover:text-[#C75D3B] transition-colors group"
+                                    onClick={() => requestSort('markup')}
+                                >
+                                    <div className="flex items-center justify-end gap-1">
+                                        Markup
+                                        {sortConfig.key === 'markup' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                    </div>
+                                </th>
+                                <th
+                                    className="hidden lg:table-cell px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-right cursor-pointer hover:text-[#C75D3B] transition-colors group"
+                                    onClick={() => requestSort('margin')}
+                                >
+                                    <div className="flex items-center justify-end gap-1">
+                                        Margem
+                                        {sortConfig.key === 'margin' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                    </div>
+                                </th>
+                                <th
+                                    className="px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-right cursor-pointer hover:text-[#C75D3B] transition-colors group"
+                                    onClick={() => requestSort('price')}
+                                >
+                                    <div className="flex items-center justify-end gap-1">
+                                        Valor
+                                        {sortConfig.key === 'price' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                    </div>
+                                </th>
+                                <th
+                                    className="hidden md:table-cell px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-right cursor-pointer hover:text-[#C75D3B] transition-colors group"
+                                    onClick={() => requestSort('stock')}
+                                >
+                                    <div className="flex items-center justify-end gap-1">
+                                        Estoque
+                                        {sortConfig.key === 'stock' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                    </div>
+                                </th>
                                 <th className="px-4 md:px-8 py-3 md:py-5 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Ações</th>
                             </tr>
                         </thead>
@@ -271,7 +368,7 @@ export function ProductsList() {
                             <AnimatePresence>
                                 {isError ? (
                                     <tr>
-                                        <td colSpan="7">
+                                        <td colSpan="9">
                                             <ErrorState
                                                 title="Erro ao carregar produtos"
                                                 description={error?.message}
@@ -282,10 +379,15 @@ export function ProductsList() {
                                 ) : paginatedProducts.length > 0 ? (
                                     paginatedProducts.map((product, idx) => (
                                         <motion.tr
+                                            layout
                                             key={product.id}
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            transition={{ delay: idx * 0.05 }}
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            transition={{
+                                                duration: 0.3,
+                                                layout: { type: "spring", stiffness: 300, damping: 30 }
+                                            }}
                                             className={cn("transition-colors group", selectedProducts.includes(product.id) ? 'bg-[#FFF9F7]' : 'hover:bg-[#FDFBF7]/40')}
                                         >
                                             <td className="px-4 md:px-8 py-4 md:py-6">
@@ -333,6 +435,24 @@ export function ProductsList() {
                                                     R$ {(product.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </span>
                                             </td>
+                                            <td className="hidden lg:table-cell px-4 md:px-8 py-4 md:py-6 text-right">
+                                                <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+                                                    {product.costPrice > 0 ? (((product.price - product.costPrice) / product.costPrice) * 100).toFixed(0) + '%' : '-'}
+                                                </span>
+                                            </td>
+                                            <td className="hidden lg:table-cell px-4 md:px-8 py-4 md:py-6 text-right">
+                                                {(() => {
+                                                    const margin = product.price > 0 ? ((product.price - product.costPrice) / product.price * 100) : 0;
+                                                    return (
+                                                        <span className={cn(
+                                                            "text-sm font-bold px-2 py-1 rounded-md",
+                                                            margin >= 50 ? "text-emerald-600 bg-emerald-50" : margin >= 30 ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50"
+                                                        )}>
+                                                            {product.price > 0 ? margin.toFixed(0) + '%' : '-'}
+                                                        </span>
+                                                    )
+                                                })()}
+                                            </td>
                                             <td className="px-4 md:px-8 py-4 md:py-6 text-right">
                                                 <span className="text-sm font-bold text-[#4A3B32]">
                                                     R$ {(product.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -367,7 +487,7 @@ export function ProductsList() {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="7">
+                                        <td colSpan="9">
                                             <EmptyState
                                                 icon={Package}
                                                 title={search ? "Nenhum produto encontrado" : "Catálogo vazio"}

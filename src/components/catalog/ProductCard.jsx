@@ -1,7 +1,8 @@
 import { memo, useRef } from 'react'
-import { Check, Eye } from 'lucide-react'
+import { Check, Eye, Star } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatPrice, cn } from '@/lib/utils'
+import { calculateAnchorPrice, calculateInstallment } from '@/lib/price-utils'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Pagination } from 'swiper/modules'
 import 'swiper/css'
@@ -9,16 +10,27 @@ import 'swiper/css/pagination'
 import { getOptimizedImageUrl, generateSrcSet, getBlurPlaceholder } from '@/lib/image-optimizer'
 
 
-function ProductCardComponent({ product, onQuickView }) {
+function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false }) {
     if (!product) return null
 
     const swiperRef = useRef(null)
     const { items } = useMalinhaStore()
 
-    const hasDiscount = product.originalPrice && product.originalPrice > product.price
+    // 🧠 Lógica de Preço Psicólogico (Automática)
+    // Se tiver originalPrice no banco, usamos. Se não, calculamos o "De" fictício para efeito âncora.
+    const anchorPrice = product.originalPrice || calculateAnchorPrice(product.price)
+
+    // Sempre mostrar desconto se o anchor for maior (quase sempre será com a função automática)
+    const hasDiscount = anchorPrice > product.price
     const discountPercent = hasDiscount
-        ? Math.round((1 - product.price / product.originalPrice) * 100)
+        ? Math.round((1 - product.price / anchorPrice) * 100)
         : 0
+
+    // 💳 Parcelamento Psicológico (Padrão 3x)
+    const installmentValue = calculateInstallment(product.price)
+
+    // Badges Logic - Driven by Database Flag
+    const showTopBadge = product.isBestSeller
 
     // Imagens: usa a cor selecionada se houver variantes, senão usa catálogo
     const hasVariants = product.variants && product.variants.length > 0
@@ -38,11 +50,16 @@ function ProductCardComponent({ product, onQuickView }) {
 
     return (
         <div
-            className="group cursor-pointer"
+            className={cn(
+                "group cursor-pointer flex flex-col h-full"
+            )}
             onClick={() => onQuickView?.(product)}
         >
             <div
-                className="relative aspect-[3/4] overflow-hidden bg-[#FDFBF7] rounded-2xl shadow-lg transition-shadow duration-300 hover:shadow-2xl"
+                className={cn(
+                    "relative aspect-[3/4] overflow-hidden bg-[#FDFBF7] rounded-2xl shadow-lg transition-shadow duration-300 hover:shadow-2xl",
+                    isLarge ? "aspect-[3/4] md:aspect-[4/5]" : ""
+                )}
             >
                 {/* Swiper Carousel */}
                 <Swiper
@@ -70,12 +87,14 @@ function ProductCardComponent({ product, onQuickView }) {
                             image && (
                                 <SwiperSlide key={idx} className="flex items-center justify-center">
                                     <img
-                                        src={getOptimizedImageUrl(image, 300)}
+                                        src={getOptimizedImageUrl(image, isLarge ? 600 : 300)}
                                         srcSet={generateSrcSet(image, [300, 600, 800])}
-                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
+                                        sizes={isLarge
+                                            ? "(max-width: 640px) 100vw, 50vw"
+                                            : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"}
                                         alt={`${product.name} - Imagem ${idx + 1}`}
-                                        width="300"
-                                        height="400"
+                                        width={isLarge ? "600" : "300"}
+                                        height={isLarge ? "800" : "400"}
                                         loading="lazy"
                                         decoding="async"
                                         fetchPriority={idx === 0 ? 'high' : 'low'}
@@ -137,16 +156,20 @@ function ProductCardComponent({ product, onQuickView }) {
                     }
                 `}</style>
 
-                {/* Premium Badges */}
-                <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col gap-1.5 sm:gap-2 z-10">
-                    {product.isNew && (
-                        <span className="bg-gradient-to-r from-brand-terracotta to-brand-rust text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg border border-white/30 backdrop-blur-sm" style={{ letterSpacing: '0.05em' }}>
-                            NOVO
+                {/* Premium & Conversion Badges */}
+                <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col gap-1.5 sm:gap-2 z-10 w-full pr-4 items-start">
+                    {/* "Mais Vendido" Badge - Controlled by Admin */}
+                    {showTopBadge && !isOutOfStock && (
+                        <span className="bg-[#E07850] text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-md shadow-sm flex items-center gap-1 animate-in fade-in zoom-in duration-300">
+                            <Star className="w-3 h-3 fill-current" />
+                            MAIS VENDIDO
                         </span>
                     )}
+
+                    {/* Discount Badge - Visible even if Best Seller (Per user feedback) */}
                     {hasDiscount && (
-                        <span className="bg-gradient-to-r from-brand-coral to-brand-terracotta text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg border border-white/30 backdrop-blur-sm" style={{ letterSpacing: '0.05em' }}>
-                            -{discountPercent}%
+                        <span className="bg-[#2E7D32] text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-md shadow-sm">
+                            -{discountPercent}% OFF
                         </span>
                     )}
                 </div>
@@ -165,7 +188,7 @@ function ProductCardComponent({ product, onQuickView }) {
 
                 {/* Already in malinha indicator */}
                 {itemInMalinha && !isOutOfStock && (
-                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 rounded-full bg-green-500 text-white">
+                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 rounded-full bg-green-500 text-white z-20">
                         <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </div>
                 )}
@@ -188,23 +211,39 @@ function ProductCardComponent({ product, onQuickView }) {
                 )}
             </div>
 
-            {/* Product Info */}
-            <div className="pt-4 pb-2">
-                <h3 className="text-[10px] font-bold text-[#4A3B32]/60 uppercase tracking-[0.2em] mb-1">
-                    {product.brand || 'Studio 30'}
-                </h3>
-                <h3 className="font-display text-lg text-[#4A3B32] mb-2 px-0 line-clamp-1">
+            {/* Product Info - Optimized for Conversion */}
+            <div className="pt-3 pb-2 flex-1 flex flex-col">
+                {/* Brand name removed as per optimization spec */}
+
+                <h3 className={cn(
+                    "font-display text-[#4A3B32] mb-2 leading-tight line-clamp-2",
+                    isLarge ? "text-xl" : "text-base sm:text-lg"
+                )}>
                     {product.name}
                 </h3>
-                <div className="flex items-center gap-3">
-                    <span className="text-xl font-light text-[#C75D3B]">
-                        {formatPrice(product.price)}
+
+                {/* 🎯 PREÇO OTIMIZADO (HIERARQUIA INVERTIDA) */}
+                <div className="mt-1 flex flex-col gap-0.5">
+
+                    {/* Linha 1: Âncora (Menor, cinza, riscado) */}
+                    <span className="text-xs text-[#999] line-through font-medium">
+                        De {formatPrice(anchorPrice)}
                     </span>
-                    {hasDiscount && (
-                        <span className="text-xs text-[#4A3B32]/60 line-through mt-1">
-                            {formatPrice(product.originalPrice)}
+
+                    {/* Linha 2: Parcelamento (PRINCIPAL, Maior, Destacado) */}
+                    <div className="flex items-center gap-2">
+                        <span className={cn(
+                            "font-bold text-[#E07850]",
+                            isLarge ? "text-xl" : "text-lg"
+                        )}>
+                            3x de {formatPrice(installmentValue)}
                         </span>
-                    )}
+                    </div>
+
+                    {/* Linha 3: Preço à Vista (Rodapé, menor) */}
+                    <span className="text-[11px] sm:text-xs text-[#666] font-medium">
+                        ou {formatPrice(product.price)} à vista
+                    </span>
                 </div>
             </div>
         </div>

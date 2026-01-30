@@ -168,7 +168,8 @@ function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false
                     )}
 
                     {/* Discount Badge - Visible even if Best Seller (Per user feedback) */}
-                    {hasDiscount && (
+                    {/* DISABLED TEMPORARILY BY USER REQUEST */}
+                    {false && hasDiscount && (
                         <span className="bg-[#2E7D32] text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-md shadow-sm">
                             -{discountPercent}% OFF
                         </span>
@@ -227,9 +228,12 @@ function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false
                 <div className="mt-1 flex flex-col gap-0.5">
 
                     {/* Linha 1: Âncora (Menor, cinza, riscado) */}
-                    <span className="text-xs text-[#999] line-through font-medium">
-                        De {formatPrice(anchorPrice)}
-                    </span>
+                    {/* DISABLED TEMPORARILY BY USER REQUEST */}
+                    {false && (
+                        <span className="text-xs text-[#999] line-through font-medium">
+                            De {formatPrice(anchorPrice)}
+                        </span>
+                    )}
 
                     {/* Linha 2: Parcelamento (PRINCIPAL, Maior, Destacado) */}
                     <div className="flex items-center gap-2">

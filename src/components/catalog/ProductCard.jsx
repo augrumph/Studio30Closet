@@ -42,7 +42,7 @@ function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false
     const itemInMalinha = items.some(item => item.id === product.id)
 
     // Verificar se está esgotado (stock <= 0 ou sem variants com estoque)
-    const isOutOfStock = product.stock <= 0 || (
+    const isOutOfStock = (product.stock ?? 0) <= 0 || (
         hasVariants && product.variants.every(v =>
             !v.sizeStock || v.sizeStock.every(s => s.quantity <= 0)
         )
@@ -51,7 +51,8 @@ function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false
     return (
         <div
             className={cn(
-                "group cursor-pointer flex flex-col h-full"
+                "group cursor-pointer flex flex-col h-full",
+                isOutOfStock ? "opacity-75" : ""
             )}
             onClick={() => onQuickView?.(product)}
         >
@@ -197,10 +198,10 @@ function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false
                 {isOutOfStock && (
                     <>
                         {/* Overlay sutil sobre a imagem */}
-                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 pointer-events-none" />
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-30 pointer-events-none" />
 
                         {/* Badge elegante "Esgotado" */}
-                        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                        <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
                             <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-gray-200">
                                 <p className="text-[#4A3B32] font-medium text-xs sm:text-sm uppercase tracking-wide">
                                     Esgotado

@@ -80,7 +80,70 @@ export function CollectionDetail() {
         }
     }, [allProducts, collectionId])
 
-    // ... (addToCollection, removeFromCollection functions remain unchanged)
+    // Adicionar produto à coleção
+    const addToCollection = async (product) => {
+        if (!product || saving) return
+        setSaving(true)
+
+        try {
+            // Arrays atuais
+            const currentCollections = product.collection_ids || []
+            const newCollections = [...new Set([...currentCollections, parseInt(collectionId)])]
+
+            const { error } = await supabase
+                .from('products')
+                .update({ collection_ids: newCollections })
+                .eq('id', product.id)
+
+            if (error) throw error
+
+            // Atualiza estado local
+            setAllProducts(prev => prev.map(p =>
+                p.id === product.id
+                    ? { ...p, collection_ids: newCollections }
+                    : p
+            ))
+
+            toast.success(`Peça adicionada à coleção!`)
+        } catch (err) {
+            console.error(err)
+            toast.error('Erro ao adicionar peça')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    // Remover produto da coleção
+    const removeFromCollection = async (product) => {
+        if (!product || saving) return
+        setSaving(true)
+
+        try {
+            const currentCollections = product.collection_ids || []
+            const newCollections = currentCollections.filter(id => id !== parseInt(collectionId))
+
+            const { error } = await supabase
+                .from('products')
+                .update({ collection_ids: newCollections })
+                .eq('id', product.id)
+
+            if (error) throw error
+
+            // Atualiza estado local
+            setAllProducts(prev => prev.map(p =>
+                p.id === product.id
+                    ? { ...p, collection_ids: newCollections }
+                    : p
+            ))
+
+            toast.success(`Peça removida da coleção.`)
+        } catch (err) {
+            console.error(err)
+            toast.error('Erro ao remover peça')
+        } finally {
+            setSaving(false)
+        }
+    }
 
     if (loading) {
         return (

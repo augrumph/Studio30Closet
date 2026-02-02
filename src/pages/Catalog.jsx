@@ -264,6 +264,7 @@ function CatalogContent() {
                                                 onQuickView={setSelectedProduct}
                                                 index={index}
                                                 isLarge={index < 2}
+                                                priority={index < 4}
                                             />
                                         </motion.div>
                                     ))}
@@ -309,7 +310,7 @@ function CatalogContent() {
                         >
                             <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
                                 <h3 className="font-display text-xl">Filtros</h3>
-                                <button onClick={() => setShowMobileFilters(false)}><X className="w-6 h-6" /></button>
+                                <button onClick={() => setShowMobileFilters(false)} aria-label="Fechar filtros"><X className="w-6 h-6" /></button>
                             </div>
                             <div className="p-6">
                                 <ProductFilters

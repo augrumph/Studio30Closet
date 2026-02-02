@@ -132,18 +132,24 @@ export function ProductFilters({
                 <h4 className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-[0.2em]">
                     Disponibilidade
                 </h4>
-                <label className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-sm text-[#4A3B32]/80 group-hover:text-[#4A3B32] transition-colors">
+                <div
+                    className="flex items-center justify-between cursor-pointer group py-1"
+                    onClick={() => onAvailabilityChange?.(!showOnlyAvailable)}
+                >
+                    <span className="text-sm text-[#4A3B32]/80 group-hover:text-[#4A3B32] transition-colors select-none">
                         Ocultar esgotados
                     </span>
                     <button
-                        onClick={() => onAvailabilityChange?.(!showOnlyAvailable)}
                         className={cn(
-                            "relative w-10 h-5 rounded-full transition-colors duration-200",
+                            "relative w-10 h-5 rounded-full transition-colors duration-200 pointer-events-none", // pointer-events-none to let parent handle click
                             showOnlyAvailable ? "bg-[#C75D3B]" : "bg-gray-300"
                         )}
                         role="switch"
                         aria-checked={showOnlyAvailable}
+                        aria-label="Alternar exibição de produtos esgotados"
+                        tabIndex="-1" // Remove from tab flow since parent handles interaction? Or keep it reachable?
+                    // Better to keep button interactive but let parent handle click? 
+                    // Actually, if parent has onClick, we don't need button to capture it.
                     >
                         <span
                             className={cn(
@@ -152,7 +158,7 @@ export function ProductFilters({
                             )}
                         />
                     </button>
-                </label>
+                </div>
             </div>
 
             {/* Limpar Filtros */}

@@ -10,7 +10,8 @@ import 'swiper/css/pagination'
 import { getOptimizedImageUrl, generateSrcSet, getBlurPlaceholder } from '@/lib/image-optimizer'
 
 
-function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false }) {
+
+function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false, priority = false }) {
     if (!product) return null
 
     const swiperRef = useRef(null)
@@ -96,9 +97,9 @@ function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false
                                         alt={`${product.name} - Imagem ${idx + 1}`}
                                         width={isLarge ? "600" : "300"}
                                         height={isLarge ? "800" : "400"}
-                                        loading="lazy"
+                                        loading={priority && idx === 0 ? "eager" : "lazy"}
                                         decoding="async"
-                                        fetchPriority={idx === 0 ? 'high' : 'low'}
+                                        fetchPriority={priority && idx === 0 ? 'high' : 'auto'}
                                         className="w-full h-full object-cover group-hover:scale-105 select-none pointer-events-none transition-transform duration-300"
                                         draggable="false"
                                         style={{
@@ -176,21 +177,21 @@ function ProductCardComponent({ product, onQuickView, index = 0, isLarge = false
                     )}
                 </div>
 
-                {/* Quick View Button - Sempre visível no mobile, hover no desktop */}
+                {/* Quick View Button - TOUCH OTIMIZADO (44px min) */}
                 <button
                     onClick={(e) => {
                         e.stopPropagation()
                         onQuickView?.(product)
                     }}
                     aria-label="Visualização rápida"
-                    className="absolute top-2 right-2 sm:top-3 sm:right-3 p-2.5 sm:p-2 rounded-full bg-white/95 backdrop-blur-sm text-brand-brown shadow-lg transition-all duration-300 md:opacity-0 md:group-hover:opacity-100 active:scale-90"
+                    className="absolute top-2 right-2 sm:top-3 sm:right-3 w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-sm text-brand-brown shadow-lg transition-all duration-300 md:opacity-0 md:group-hover:opacity-100 active:scale-90"
                 >
-                    <Eye className="w-4 h-4 sm:w-4 sm:h-4" />
+                    <Eye className="w-5 h-5 sm:w-4 sm:h-4" />
                 </button>
 
                 {/* Already in malinha indicator */}
                 {itemInMalinha && !isOutOfStock && (
-                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 rounded-full bg-green-500 text-white z-20">
+                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 rounded-full bg-green-500 text-white z-20 pointer-events-none">
                         <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </div>
                 )}

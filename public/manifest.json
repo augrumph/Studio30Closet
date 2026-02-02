@@ -1,0 +1,23 @@
+{
+    "name": "Studio 30 Closet",
+    "short_name": "Studio 30",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#FDFBF7",
+    "theme_color": "#C75D3B",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/logomarca.webp",
+            "sizes": "192x192",
+            "type": "image/webp",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/logomarca.webp",
+            "sizes": "512x512",
+            "type": "image/webp",
+            "purpose": "any maskable"
+        }
+    ]
+}

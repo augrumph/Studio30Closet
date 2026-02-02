@@ -492,7 +492,7 @@ export function Checkout() {
                                                         <div>
                                                             <div className="flex justify-between items-start">
                                                                 <h3 className="font-bold text-[#4A3B32] text-sm truncate pr-2">{item.name}</h3>
-                                                                <button onClick={() => removeItem(item.itemIds[0])} className="text-gray-400 hover:text-red-500 p-1">
+                                                                <button onClick={() => removeItem(item.itemIds[0])} className="text-gray-400 hover:text-red-500 p-1" aria-label="Remover item">
                                                                     <Trash2 className="w-4 h-4" />
                                                                 </button>
                                                             </div>
@@ -541,7 +541,7 @@ export function Checkout() {
                                                         value={customerData.name}
                                                         onChange={handleInputChange}
                                                         placeholder="Ex: Maria Oliveira"
-                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.name ? 'ring-2 ring-red-300' : ''}`}
+                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base ${formErrors.name ? 'ring-2 ring-red-300' : ''}`}
                                                     />
                                                 </div>
 
@@ -559,7 +559,7 @@ export function Checkout() {
                                                             value={customerData.phone}
                                                             onChange={handleInputChange}
                                                             placeholder="(41) 99999-9999"
-                                                            className={`w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.phone ? 'ring-2 ring-red-300' : ''}`}
+                                                            className={`w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base ${formErrors.phone ? 'ring-2 ring-red-300' : ''}`}
                                                         />
                                                     </div>
                                                 </div>
@@ -578,7 +578,7 @@ export function Checkout() {
                                                             value={customerData.email || ''}
                                                             onChange={handleInputChange}
                                                             placeholder="cliente@email.com"
-                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
                                                         />
                                                     </div>
                                                 </div>
@@ -597,7 +597,7 @@ export function Checkout() {
                                                             value={customerData.cpf || ''}
                                                             onChange={handleInputChange}
                                                             placeholder="000.000.000-00"
-                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
                                                         />
                                                     </div>
                                                 </div>
@@ -615,7 +615,7 @@ export function Checkout() {
                                                             name="birth_date"
                                                             value={customerData.birth_date || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-gray-600"
+                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-gray-600 text-base"
                                                         />
                                                     </div>
                                                 </div>
@@ -643,7 +643,7 @@ export function Checkout() {
                                                         value={customerData.addresses[0]?.zipCode || ''}
                                                         onChange={handleCepChange}
                                                         placeholder="00000-000"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
                                                     />
                                                 </div>
 
@@ -659,7 +659,7 @@ export function Checkout() {
                                                         value={customerData.addresses[0]?.street || ''}
                                                         onChange={handleAddressChange}
                                                         placeholder="Av. Paraná"
-                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.street ? 'ring-2 ring-red-300' : ''}`}
+                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base ${formErrors.street ? 'ring-2 ring-red-300' : ''}`}
                                                     />
                                                 </div>
 
@@ -675,7 +675,7 @@ export function Checkout() {
                                                         value={customerData.addresses[0]?.number || ''}
                                                         onChange={handleAddressChange}
                                                         placeholder="123"
-                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.number ? 'ring-2 ring-red-300' : ''}`}
+                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base ${formErrors.number ? 'ring-2 ring-red-300' : ''}`}
                                                     />
                                                 </div>
 
@@ -691,7 +691,7 @@ export function Checkout() {
                                                         value={customerData.addresses[0]?.neighborhood || ''}
                                                         onChange={handleAddressChange}
                                                         placeholder="Centro"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
                                                     />
                                                 </div>
 
@@ -707,7 +707,7 @@ export function Checkout() {
                                                         value={customerData.addresses[0]?.complement || ''}
                                                         onChange={handleAddressChange}
                                                         placeholder="Apto 42"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
                                                     />
                                                 </div>
 
@@ -723,7 +723,7 @@ export function Checkout() {
                                                         value={customerData.addresses[0]?.city || ''}
                                                         onChange={handleAddressChange}
                                                         placeholder="Curitiba"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
                                                     />
                                                 </div>
 
@@ -740,7 +740,7 @@ export function Checkout() {
                                                         onChange={handleAddressChange}
                                                         placeholder="PR"
                                                         maxLength="2"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all uppercase"
+                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all uppercase text-base"
                                                     />
                                                 </div>
                                             </div>

@@ -39,6 +39,18 @@ export function Home() {
             }
         }
         loadHeroProducts()
+
+        // 🚀 OTIMIZAÇÃO: Preload da página de Catálogo (Chunk Prefetch)
+        // Isso baixa o bundle JS do catálogo em background enquanto o usuário vê a home
+        const preloadCatalog = () => {
+            import('@/pages').then(module => {
+                const { Catalog } = module
+            })
+        }
+
+        // Executar preload após 2s (para não competir com LCP da Home)
+        const timer = setTimeout(preloadCatalog, 2000)
+        return () => clearTimeout(timer)
     }, [])
 
     useEffect(() => {

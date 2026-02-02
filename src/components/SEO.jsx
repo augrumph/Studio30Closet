@@ -24,7 +24,7 @@ export function SEO({
     const siteName = "Studio 30 Closet"
     const defaultDescription = "O provador mais exclusivo é a sua casa. Receba nossa curadoria personalizada (malinha), experimente sem pressa e pague apenas pelo que amar."
     const siteUrl = "https://studio30closet.com.br" // URL de produção (ajustar se mudar)
-    const defaultImage = `${siteUrl}/hero-social.jpg` // Imagem padrão de compartilhamento
+    const defaultImage = `${siteUrl}/social-share.png` // Imagem padrão de compartilhamento (Logo no quadrado)
 
     // Processamento de Dados
     const pageTitle = title ? `${title} | ${siteName}` : `${siteName} - Sua Boutique em Casa`

@@ -30,8 +30,8 @@ export function TermsOfService() {
                 1. Aceitação dos Termos
               </h2>
               <p className="text-[#4A3B32]/70 leading-relaxed">
-                Ao acessar e utilizar a plataforma Studio30 Closet, você concorda em cumprir 
-                e ficar vinculado a estes Termos de Serviço. Se você não concordar com estes 
+                Ao acessar e utilizar a plataforma Studio30 Closet, você concorda em cumprir
+                e ficar vinculado a estes Termos de Serviço. Se você não concordar com estes
                 termos, não utilize nossa plataforma.
               </p>
             </section>
@@ -45,11 +45,11 @@ export function TermsOfService() {
                 <div>
                   <h3 className="font-semibold text-[#4A3B32] mb-3">Uso Pessoal</h3>
                   <p className="text-[#4A3B32]/70">
-                    A plataforma é destinada ao uso pessoal e não comercial. Você concorda em 
+                    A plataforma é destinada ao uso pessoal e não comercial. Você concorda em
                     utilizar o serviço de forma responsável e em conformidade com as leis aplicáveis.
                   </p>
                 </div>
-                
+
                 <div>
                   <h3 className="font-semibold text-[#4A3B32] mb-3">Cadastro e Acesso</h3>
                   <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
@@ -111,8 +111,8 @@ export function TermsOfService() {
               </h2>
               <div className="space-y-4">
                 <p className="text-[#4A3B32]/70 leading-relaxed">
-                  Todo o conteúdo da plataforma (textos, imagens, marcas, logotipos, designs) 
-                  é de propriedade da Studio30 Closet e está protegido por leis de propriedade 
+                  Todo o conteúdo da plataforma (textos, imagens, marcas, logotipos, designs)
+                  é de propriedade da Studio30 Closet e está protegido por leis de propriedade
                   intelectual.
                 </p>
                 <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
@@ -153,19 +153,19 @@ export function TermsOfService() {
               <div className="space-y-4">
                 <h3 className="font-semibold text-[#4A3B32]">6.1 Modificações</h3>
                 <p className="text-[#4A3B32]/70">
-                  Estes Termos podem ser modificados a qualquer momento. As alterações 
+                  Estes Termos podem ser modificados a qualquer momento. As alterações
                   entrarão em vigor a partir da publicação na plataforma.
                 </p>
 
                 <h3 className="font-semibold text-[#4A3B32] mt-6">6.2 Lei Aplicável</h3>
                 <p className="text-[#4A3B32]/70">
-                  Estes Termos são regidos pelas leis brasileiras, em especial pela 
+                  Estes Termos são regidos pelas leis brasileiras, em especial pela
                   Lei Geral de Proteção de Dados (LGPD) e Código de Defesa do Consumidor.
                 </p>
 
                 <h3 className="font-semibold text-[#4A3B32] mt-6">6.3 Foro</h3>
                 <p className="text-[#4A3B32]/70">
-                  Para dirimir quaisquer dúvidas ou controvérsias, as partes elegem 
+                  Para dirimir quaisquer dúvidas ou controvérsias, as partes elegem
                   o Foro da Comarca de São Paulo/SP.
                 </p>
               </div>
@@ -180,8 +180,8 @@ export function TermsOfService() {
                   Para dúvidas sobre estes Termos de Serviço:
                 </p>
                 <div className="space-y-2 text-sm">
-                  <p><strong>E-mail:</strong> contato@studio30.com.br</p>
-                  <p><strong>Telefone:</strong> (11) 99999-9999</p>
+                  <p><strong>E-mail:</strong> contato@studio30closet.com.br</p>
+                  <p><strong>Telefone:</strong> (41) 99686-3879</p>
                   <p><strong>Atendimento:</strong> Segunda a Sexta, 9h às 18h</p>
                 </div>
               </div>

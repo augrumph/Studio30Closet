@@ -558,7 +558,7 @@ export function Checkout() {
                                                             name="phone"
                                                             value={customerData.phone}
                                                             onChange={handleInputChange}
-                                                            placeholder="(13) 99999-9999"
+                                                            placeholder="(41) 99999-9999"
                                                             className={`w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.phone ? 'ring-2 ring-red-300' : ''}`}
                                                         />
                                                     </div>
@@ -658,7 +658,7 @@ export function Checkout() {
                                                         name="street"
                                                         value={customerData.addresses[0]?.street || ''}
                                                         onChange={handleAddressChange}
-                                                        placeholder="Av. Ana Costa"
+                                                        placeholder="Av. Paraná"
                                                         className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all ${formErrors.street ? 'ring-2 ring-red-300' : ''}`}
                                                     />
                                                 </div>
@@ -690,7 +690,7 @@ export function Checkout() {
                                                         name="neighborhood"
                                                         value={customerData.addresses[0]?.neighborhood || ''}
                                                         onChange={handleAddressChange}
-                                                        placeholder="Gonzaga"
+                                                        placeholder="Centro"
                                                         className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
                                                     />
                                                 </div>
@@ -722,7 +722,7 @@ export function Checkout() {
                                                         name="city"
                                                         value={customerData.addresses[0]?.city || ''}
                                                         onChange={handleAddressChange}
-                                                        placeholder="Santos"
+                                                        placeholder="Curitiba"
                                                         className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all"
                                                     />
                                                 </div>
@@ -738,7 +738,7 @@ export function Checkout() {
                                                         name="state"
                                                         value={customerData.addresses[0]?.state || ''}
                                                         onChange={handleAddressChange}
-                                                        placeholder="SP"
+                                                        placeholder="PR"
                                                         maxLength="2"
                                                         className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all uppercase"
                                                     />

@@ -78,6 +78,7 @@ const ExpensesList = lazy(() => import('@/pages/admin/ExpensesList').then(module
 const ExpensesForm = lazy(() => import('@/pages/admin/ExpensesForm').then(module => ({ default: module.ExpensesForm })))
 const EntregasList = lazy(() => import('@/pages/admin/EntregasList').then(module => ({ default: module.EntregasList })))
 const SiteAnalytics = lazy(() => import('@/pages/admin/SiteAnalytics').then(module => ({ default: module.SiteAnalytics })))
+const CollectionDetail = lazy(() => import('@/pages/admin/CollectionDetail').then(module => ({ default: module.CollectionDetail })))
 
 // Test Components
 const SupabaseTester = lazy(() => import('@/components/SupabaseTester'))
@@ -133,6 +134,9 @@ function App() {
                                             <Route path="products" element={<ProductsList />} />
                                             <Route path="products/new" element={<ProductsForm />} />
                                             <Route path="products/:id" element={<ProductsForm />} />
+
+                                            {/* Coleções */}
+                                            <Route path="collections/:collectionId" element={<CollectionDetail />} />
 
                                             <Route path="malinhas" element={<MalinhasList />} />
                                             <Route path="malinhas/new" element={<MalinhasForm />} />

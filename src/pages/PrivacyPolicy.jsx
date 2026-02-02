@@ -30,8 +30,8 @@ export function PrivacyPolicy() {
                 1. Introdução
               </h2>
               <p className="text-[#4A3B32]/70 leading-relaxed">
-                A Studio30 Closet respeita a privacidade de seus clientes e está comprometida com a proteção 
-                dos dados pessoais coletados. Esta Política de Privacidade explica como coletamos, usamos, 
+                A Studio30 Closet respeita a privacidade de seus clientes e está comprometida com a proteção
+                dos dados pessoais coletados. Esta Política de Privacidade explica como coletamos, usamos,
                 armazenamos e protegemos suas informações de acordo com a Lei Geral de Proteção de Dados (LGPD).
               </p>
             </section>
@@ -52,7 +52,7 @@ export function PrivacyPolicy() {
                     <li>Endereço de entrega completo</li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h3 className="font-semibold text-[#4A3B32] mb-3">Dados de Compra e Entrega</h3>
                   <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
@@ -109,7 +109,7 @@ export function PrivacyPolicy() {
               </h2>
               <div className="space-y-4">
                 <p className="text-[#4A3B32]/70 leading-relaxed">
-                  Utilizamos medidas de segurança técnicas, administrativas e físicas para proteger seus dados 
+                  Utilizamos medidas de segurança técnicas, administrativas e físicas para proteger seus dados
                   contra acesso não autorizado, alteração, divulgação ou destruição.
                 </p>
                 <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
@@ -145,8 +145,8 @@ export function PrivacyPolicy() {
                     Para exercer seus direitos, entre em contato conosco:
                   </p>
                   <p className="text-[#4A3B32]/70 text-sm">
-                    E-mail: privacidade@studio30.com.br<br />
-                    Telefone: (11) 99999-9999
+                    E-mail: contato@studio30closet.com.br<br />
+                    Telefone: (41) 99686-3879
                   </p>
                 </div>
               </div>
@@ -159,7 +159,7 @@ export function PrivacyPolicy() {
               </h2>
               <div className="space-y-4">
                 <p className="text-[#4A3B32]/70 leading-relaxed">
-                  Não vendemos, comercializamos ou alugamos seus dados pessoais a terceiros. 
+                  Não vendemos, comercializamos ou alugamos seus dados pessoais a terceiros.
                   Podemos compartilhar informações com:
                 </p>
                 <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
@@ -178,7 +178,7 @@ export function PrivacyPolicy() {
               </h2>
               <div className="space-y-4">
                 <p className="text-[#4A3B32]/70 leading-relaxed">
-                  Seus dados são armazenados em servidores seguros e são retidos apenas pelo tempo necessário 
+                  Seus dados são armazenados em servidores seguros e são retidos apenas pelo tempo necessário
                   para cumprir as finalidades para as quais foram coletados, respeitando prazos legais.
                 </p>
                 <div className="bg-gray-50 rounded-xl p-6">
@@ -198,8 +198,8 @@ export function PrivacyPolicy() {
                 8. Alterações na Política
               </h2>
               <p className="text-[#4A3B32]/70 leading-relaxed">
-                Esta Política de Privacidade pode ser atualizada periodicamente. 
-                As alterações entrarão em vigor a partir da publicação na plataforma. 
+                Esta Política de Privacidade pode ser atualizada periodicamente.
+                As alterações entrarão em vigor a partir da publicação na plataforma.
                 Manteremos você informado sobre mudanças significativas.
               </p>
             </section>
@@ -213,8 +213,8 @@ export function PrivacyPolicy() {
                   Para dúvidas sobre esta Política de Privacidade ou para exercer seus direitos:
                 </p>
                 <div className="space-y-2 text-sm">
-                  <p><strong>E-mail:</strong> privacidade@studio30.com.br</p>
-                  <p><strong>Telefone:</strong> (11) 99999-9999</p>
+                  <p><strong>E-mail:</strong> contato@studio30closet.com.br</p>
+                  <p><strong>Telefone:</strong> (41) 99686-3879</p>
                   <p><strong>Responsável:</strong> Encarregado de Proteção de Dados</p>
                 </div>
               </div>

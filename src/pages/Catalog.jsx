@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useCatalog } from '@/hooks/useCatalog'
 import { trackCatalogView } from '@/lib/api/analytics'
 import { getProductById } from '@/lib/api/products'
+import { getActiveCollections } from '@/lib/api/collections'
 
 // Componente Interno que usa o Hook (para poder usar Suspense no Pai se quisesse, 
 // mas aqui vamos tratar os estados isLoading/error do hook direto para UX suave)
@@ -23,6 +24,13 @@ function CatalogContent() {
     const selectedSizesParam = searchParams.get('tamanhos')
     const selectedSizes = selectedSizesParam ? selectedSizesParam.split(',') : []
     const productIdFromUrl = searchParams.get('productId')
+    const selectedCollection = searchParams.get('colecao')
+
+    // Collections state
+    const [collections, setCollections] = useState([])
+    useEffect(() => {
+        getActiveCollections().then(setCollections).catch(() => { })
+    }, [])
 
     // ⚡ REACT QUERY HOOK
     // Substitui todo o AdminStore, useEffects e useState de loading
@@ -37,7 +45,8 @@ function CatalogContent() {
     } = useCatalog({
         category: selectedCategory,
         sizes: selectedSizes,
-        search: searchQuery
+        search: searchQuery,
+        collection: selectedCollection
     })
 
     // Flattening das páginas do Infinite Query para um array único
@@ -123,12 +132,23 @@ function CatalogContent() {
         setSearchQuery('')
     }
 
+    const handleCollectionChange = (col) => updateFilter('colecao', col)
+
     // Listas estáticas para filtros
     const allSizes = ['PP', 'P', 'M', 'G', 'GG', 'U']
-    // Categorias derivadas dos produtos carregados (ou fixas se preferir)
-    const categoriesList = ['all', ...new Set(products.map(p => p.category))]
 
-    const hasActiveFilters = selectedCategory || selectedSizes.length > 0 || searchQuery.trim()
+    // Categorias corretas mapeadas para o banco de dados (lowercase, sem acento)
+    const CATEGORIES_MAP = [
+        { value: 'all', label: 'Todas' },
+        { value: 'vestidos', label: 'Vestidos' },
+        { value: 'blusas', label: 'Blusas' },
+        { value: 'calcas', label: 'Calças' },
+        { value: 'saias', label: 'Saias' },
+        { value: 'conjuntos', label: 'Conjuntos' },
+        { value: 'shorts', label: 'Shorts' }
+    ]
+
+    const hasActiveFilters = selectedCategory || selectedSizes.length > 0 || searchQuery.trim() || selectedCollection
 
     // 🔄 Infinite Scroll Logic
     const loadMoreRef = useRef(null)
@@ -180,7 +200,7 @@ function CatalogContent() {
                     <aside className="hidden md:block">
                         <div className="sticky top-44">
                             <ProductFilters
-                                categories={['all', 'Vestidos', 'Blusas', 'Calças', 'Saias', 'Conjuntos']} // Hardcoded ou vindo do banco
+                                categories={CATEGORIES_MAP}
                                 selectedCategory={selectedCategory}
                                 onCategoryChange={handleCategoryChange}
                                 sizes={allSizes}
@@ -189,6 +209,10 @@ function CatalogContent() {
                                 onClearFilters={handleClearFilters}
                                 showOnlyAvailable={showOnlyAvailable}
                                 onAvailabilityChange={setShowOnlyAvailable}
+                                // Collections
+                                collections={collections}
+                                selectedCollection={selectedCollection}
+                                onCollectionChange={handleCollectionChange}
                             />
                         </div>
                     </aside>
@@ -289,13 +313,26 @@ function CatalogContent() {
                             </div>
                             <div className="p-6">
                                 <ProductFilters
-                                    categories={['all', 'Vestidos', 'Blusas', 'Calças', 'Saias']}
+                                    categories={CATEGORIES_MAP}
                                     selectedCategory={selectedCategory}
-                                    onCategoryChange={handleCategoryChange}
+                                    onCategoryChange={(cat) => {
+                                        handleCategoryChange(cat)
+                                        setShowMobileFilters(false)
+                                    }}
                                     sizes={allSizes}
                                     selectedSizes={selectedSizes}
-                                    onSizeChange={handleSizeChange}
-                                    onClearFilters={handleClearFilters}
+                                    onSizeChange={handleSizeChange} // Tamanhos continuam permitindo múltipla seleção
+                                    onClearFilters={() => {
+                                        handleClearFilters()
+                                        // setShowMobileFilters(false) // Opcional: fechar ao limpar? Geralmente não.
+                                    }}
+                                    // Collections
+                                    collections={collections}
+                                    selectedCollection={selectedCollection}
+                                    onCollectionChange={(col) => {
+                                        handleCollectionChange(col)
+                                        setShowMobileFilters(false)
+                                    }}
                                 />
                                 <button
                                     onClick={() => setShowMobileFilters(false)}

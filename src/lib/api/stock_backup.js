@@ -389,7 +389,6 @@ export async function getSalesRankingByCategory(startDate, endDate) {
             if (!cat || cat === 'Sem categoria') {
                 cat = officialProduct?.category || 'Geral'
             }
-
             if (!aggregations.byCategory[cat]) {
                 aggregations.byCategory[cat] = { name: cat, qty: 0, revenue: 0, margin: 0 }
             }
@@ -408,8 +407,26 @@ export async function getSalesRankingByCategory(startDate, endDate) {
                 }
             }
 
+            // Só adiciona ao gráfico se tiver uma cor válida
+            if (!color) return // Pula itens sem cor definida
 
-            // Por produto (SEMPRE conta, independente de cor/tamanho faltando)
+            if (!aggregations.byColor[color]) {
+                aggregations.byColor[color] = { name: color, qty: 0, revenue: 0, margin: 0 }
+            }
+            aggregations.byColor[color].qty += qty
+            aggregations.byColor[color].revenue += price * qty
+            aggregations.byColor[color].margin += margin * qty
+
+            // Por tamanho
+            const size = item.selectedSize || 'Sem tamanho'
+            if (!aggregations.bySize[size]) {
+                aggregations.bySize[size] = { name: size, qty: 0, revenue: 0, margin: 0 }
+            }
+            aggregations.bySize[size].qty += qty
+            aggregations.bySize[size].revenue += price * qty
+            aggregations.bySize[size].margin += margin * qty
+
+            // Por produto
             const productId = item.productId || item.name
             if (!aggregations.byProduct[productId]) {
                 aggregations.byProduct[productId] = {
@@ -424,27 +441,6 @@ export async function getSalesRankingByCategory(startDate, endDate) {
             aggregations.byProduct[productId].qty += qty
             aggregations.byProduct[productId].revenue += price * qty
             aggregations.byProduct[productId].margin += margin * qty
-
-            // Só adiciona ao gráfico de COR se tiver uma cor válida
-            if (color) {
-                if (!aggregations.byColor[color]) {
-                    aggregations.byColor[color] = { name: color, qty: 0, revenue: 0, margin: 0 }
-                }
-                aggregations.byColor[color].qty += qty
-                aggregations.byColor[color].revenue += price * qty
-                aggregations.byColor[color].margin += margin * qty
-            }
-
-            // Por tamanho - Só adiciona ao gráfico se tiver tamanho válido
-            const size = item.selectedSize || item.size
-            if (size && size !== 'Sem tamanho') {
-                if (!aggregations.bySize[size]) {
-                    aggregations.bySize[size] = { name: size, qty: 0, revenue: 0, margin: 0 }
-                }
-                aggregations.bySize[size].qty += qty
-                aggregations.bySize[size].revenue += price * qty
-                aggregations.bySize[size].margin += margin * qty
-            }
         })
     })
 
@@ -718,220 +714,5 @@ export async function getDeadStockSummary() {
         count: data.length, // Atenção: isso é só count do limit. Para count total precisaria de count: 'exact'
         totalValue: totalDeadValue,
         items: toCamelCase(data)
-    }
-}
-
-/**
- * 📊 MACHINE LEARNING / ADVANCED ANALYTICS (NOVA API)
- * Calcula KPIs profissionais de varejo: GMROI, Sell-Through, ABC, Inventory Health.
- */
-export async function getAdvancedStockMetrics() {
-    try {
-        console.log('🔄 Calculando KPIs avançados de estoque (GMROI, Sell-Through, ABC)...')
-
-        // 1. Buscar Estoque Atual (Snapshot)
-        const { data: products } = await supabase
-            .from('products')
-            .select('id, name, stock, price, cost_price, created_at, category, images, suppliers(name)')
-            .eq('active', true)
-
-        // 2. Buscar Vendas dos Últimos 30 dias (para Velocity)
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-        const { data: sales } = await supabase
-            .from('vendas')
-            .select('items, total_value, created_at')
-            .gte('created_at', thirtyDaysAgo.toISOString())
-            .neq('payment_status', 'cancelled')
-
-        // MAPEAR VENDAS POR PRODUTO
-        // productStats = map { productId: { soldQty, revenue, cogs } }
-        const productStats = new Map()
-
-        sales?.forEach(sale => {
-            let items = sale.items
-            if (typeof items === 'string') {
-                try { items = JSON.parse(items) } catch { items = [] }
-            }
-            if (!Array.isArray(items)) items = []
-
-            items.forEach(item => {
-                const pid = String(item.productId || item.id)
-                const qty = item.quantity || 1
-                const price = item.price || 0
-                // Tenta achar custo no item, se não, usa 0 (será corrigido com produto oficial depois)
-                const cost = item.costPrice || 0
-
-                if (!productStats.has(pid)) {
-                    productStats.set(pid, { soldQty: 0, revenue: 0, cogs: 0 })
-                }
-                const stat = productStats.get(pid)
-                stat.soldQty += qty
-                stat.revenue += price * qty
-                stat.cogs += cost * qty // Custo provisório
-            })
-        })
-
-        // CONSTRUIR DATASET UNIFICADO
-        let totalStockValue = 0 // PV
-        let totalStockCost = 0 // CMV Inventariado
-        let totalRevenue30d = 0
-        let totalCOGS30d = 0
-        let totalUnitsSold30d = 0
-        let totalUnitsOnHand = 0
-
-        const detailedProducts = products.map(p => {
-            const pid = String(p.id)
-            const stats = productStats.get(pid) || { soldQty: 0, revenue: 0, cogs: 0 }
-
-            // Corrigir COGS se estava zerado na venda (usar custo atual do produto)
-            if (stats.soldQty > 0 && stats.cogs === 0) {
-                stats.cogs = stats.soldQty * (p.cost_price || 0)
-            }
-
-            const stock = p.stock || 0
-            const cost = p.cost_price || 0
-            const price = p.price || 0
-            const margin = price - cost
-
-            // Acumuladores Globais
-            totalStockValue += stock * price
-            totalStockCost += stock * cost
-            totalRevenue30d += stats.revenue
-            totalCOGS30d += stats.cogs
-            totalUnitsSold30d += stats.soldQty
-            totalUnitsOnHand += stock
-
-            // --- CÁLCULO DE KPIS INDIVIDUAIS ---
-
-            // 1. Sell-Through Rate (Velocity) %
-            // = (Vendido / (Vendido + Estoque)) * 100
-            const totalInventoryExposure = stats.soldQty + stock
-            const sellThrough = totalInventoryExposure > 0
-                ? (stats.soldQty / totalInventoryExposure) * 100
-                : 0
-
-            // 2. Weeks of Supply (Cobertura)
-            // = Estoque Atual / (Venda Semanal Média)
-            const weeklySalesRate = stats.soldQty / 4 // Média simples 30 dias / 4 semanas
-            const weeksOfSupply = weeklySalesRate > 0
-                ? stock / weeklySalesRate
-                : stock > 0 ? 999 : 0 // 999 = infinito (encalhado), 0 = sem estoque
-
-            // 3. GMROI Projectado (Anualizado simplificado)
-            // = (Margem Bruta Mensal * 12) / Custo Estoque Médio
-            // Usando custo atual como proxy do médio
-            const grossMarginMonth = stats.revenue - stats.cogs
-            const gmroi = (stock * cost) > 0
-                ? (grossMarginMonth * 12) / (stock * cost)
-                : 0
-
-            return {
-                ...toCamelCase(p),
-                stats: {
-                    soldQty30d: stats.soldQty,
-                    revenue30d: stats.revenue,
-                    cogs30d: stats.cogs,
-                    sellThrough,
-                    weeksOfSupply,
-                    gmroi
-                }
-            }
-        })
-
-        // --- CÁLCULO DA CURVA ABC (CLASSIFICAÇÃO) ---
-        // Classificar por Receita Gerada (Revenue Contribution)
-        const sortedByRevenue = [...detailedProducts].sort((a, b) => b.stats.revenue30d - a.stats.revenue30d)
-
-        let accumulatedRevenue = 0
-        const productsWithABC = sortedByRevenue.map(p => {
-            accumulatedRevenue += p.stats.revenue30d
-            const accumulatedPercent = totalRevenue30d > 0 ? (accumulatedRevenue / totalRevenue30d) * 100 : 100
-
-            let abcClass = 'C'
-            if (accumulatedPercent <= 80) abcClass = 'A' // Top 80% faturamento
-            else if (accumulatedPercent <= 95) abcClass = 'B' // Próximos 15%
-
-            // Ajuste manual: Se vendeu 0, é automaticamente C ou Dead Stock
-            if (p.stats.revenue30d === 0) abcClass = 'C'
-
-            return { ...p, abcClass }
-        })
-
-        // --- CÁLCULO DOS KPIS ELITE (HEADER) ---
-
-        // 1. GMROI GLOBAL
-        const globalGrossMargin = totalRevenue30d - totalCOGS30d
-        const globalGMROI = totalStockCost > 0
-            ? (globalGrossMargin * 12) / totalStockCost
-            : 0
-
-        // 2. SELL-THROUGH GLOBAL
-        const globalSellThrough = (totalUnitsSold30d + totalUnitsOnHand) > 0
-            ? (totalUnitsSold30d / (totalUnitsSold30d + totalUnitsOnHand)) * 100
-            : 0
-
-        // 3. INVENTORY HEALTH SCORE (0-100)
-        // Base 100
-        // - Penalidade por Dead Stock (> 60 dias sem venda e estoque > 0)
-        // - Penalidade por Stockout (ABC A com estoque 0)
-        // - Bônus por GMROI > 2
-        let score = 80 // Start baseline
-
-        const deadItems = productsWithABC.filter(p => p.stats.soldQty30d === 0 && p.stock > 0).length
-        const stockoutsA = productsWithABC.filter(p => p.abcClass === 'A' && p.stock === 0).length
-
-        score -= (deadItems * 0.5) // P perde 0.5 ponto por item parado
-        score -= (stockoutsA * 5) // Perde 5 pontos por produto A em falta (CRÍTICO)
-        if (globalGMROI > 2) score += 10
-        if (globalSellThrough > 40) score += 10
-
-        // Clamp 0-100
-        score = Math.max(0, Math.min(100, score))
-
-
-        // --- DADOS PARA OS COMPONENTES VISUAIS ---
-
-        // 1. Matriz de Risco (Scatter Plot Data)
-        // Eixo X: Weeks of Supply, Eixo Y: Sell-Through
-
-        // 2. Action Lists
-        const reorderList = productsWithABC
-            .filter(p => p.abcClass === 'A' && p.stats.weeksOfSupply < 2) // Curva A acabando em < 2 semanas
-            .sort((a, b) => a.stock - b.stock)
-            .slice(0, 10)
-
-        const liquidateList = productsWithABC
-            .filter(p => p.stats.sellThrough < 5 && p.stock > 0 && p.daysInStock > 60) // Não vende e tá velho
-            .sort((a, b) => b.stock - a.stock)
-            .slice(0, 10)
-
-        const topPerformers = productsWithABC
-            .filter(p => p.stats.sellThrough > 50 && p.stock > 0)
-            .slice(0, 5)
-
-        return {
-            kpis: {
-                gmroi: globalGMROI,
-                sellThrough: globalSellThrough,
-                healthScore: score,
-                totalStockCost,
-                totalStockValue,
-                totalUnitsOnHand,
-                classA_Count: productsWithABC.filter(p => p.abcClass === 'A').length,
-                stockouts_A: stockoutsA
-            },
-            actions: {
-                reorder: reorderList,
-                liquidate: liquidateList,
-                top: topPerformers
-            },
-            inventory: productsWithABC // Full list for charts/table
-        }
-
-    } catch (error) {
-        console.error('❌ Erro no cálculo avançado de estoque:', error)
-        throw error
     }
 }

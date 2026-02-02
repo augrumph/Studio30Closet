@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown, Layers } from 'lucide-react'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -20,6 +20,9 @@ import {
     PaginationPrevious,
 } from "@/components/ui/Pagination"
 import { useAdminProducts } from '@/hooks/useAdminProducts'
+import { CollectionsManagerModal } from '@/components/admin/CollectionsManagerModal'
+import { getActiveCollections } from '@/lib/api/collections'
+
 
 export function ProductsList() {
     // ⚡ REACT QUERY HOOK
@@ -43,6 +46,15 @@ export function ProductsList() {
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, productId: null, productName: '' })
     const [confirmMultiDelete, setConfirmMultiDelete] = useState(false)
     const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' })
+
+    // Collections state
+    const [collectionsModalOpen, setCollectionsModalOpen] = useState(false)
+    const [collections, setCollections] = useState([])
+
+    // Load collections for dropdown
+    useEffect(() => {
+        getActiveCollections().then(setCollections).catch(() => { })
+    }, [])
 
     const requestSort = (key) => {
         let direction = 'asc';
@@ -192,7 +204,16 @@ export function ProductsList() {
                     <p className="text-[#4A3B32]/60 font-medium">Gerencie o estoque e a vitrine do seu Studio.</p>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                    {/* Collections Buttons */}
+                    <button
+                        onClick={() => setCollectionsModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-3 bg-purple-100 text-purple-700 rounded-2xl text-sm font-bold hover:bg-purple-200 transition-all active:scale-95"
+                    >
+                        <Layers className="w-4 h-4" />
+                        Coleções
+                    </button>
+
 
 
                     {selectedProducts.length > 0 && (
@@ -560,6 +581,16 @@ export function ProductsList() {
                 confirmText="Excluir Selecionados"
                 cancelText="Cancelar"
                 variant="danger"
+            />
+
+            {/* Collections Manager Modal */}
+            <CollectionsManagerModal
+                isOpen={collectionsModalOpen}
+                onClose={() => {
+                    setCollectionsModalOpen(false)
+                    // Refresh collections list after closing modal
+                    getActiveCollections().then(setCollections).catch(() => { })
+                }}
             />
         </div>
     )

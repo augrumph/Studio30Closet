@@ -230,7 +230,7 @@ export async function deleteMultipleProducts(productIds) {
  * Usado no Catálogo
  */
 export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) {
-    const { category, sizes, search } = filters
+    const { category, sizes, search, collection } = filters
     const startTime = performance.now()
     console.log(`📡 [Catálogo] Carregando produtos ${offset}-${offset + limit - 1}...`, filters)
 
@@ -238,7 +238,8 @@ export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) 
     let query = supabase
         .from('products')
         // ✅ FIX: Adicionado 'sizes' e 'color' que faltavam e impediam adicionar ao carrinho
-        .select('id, name, price, images, category, stock, created_at, active, variants, sizes, color, is_catalog_featured, is_best_seller', { count: 'estimated' })
+        // ✅ Adicionado collection_ids para filtro de coleções
+        .select('id, name, price, images, category, stock, created_at, active, variants, sizes, color, is_catalog_featured, is_best_seller, collection_ids', { count: 'estimated' })
         .eq('active', true)
 
     // Filtro de categoria
@@ -255,6 +256,11 @@ export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) 
     if (sizes && sizes.length > 0) {
         // Supabase array overlap: sizes column contains at least one of the filter sizes
         query = query.overlaps('sizes', sizes)
+    }
+
+    // Filtro de coleção (array contains the collection ID)
+    if (collection) {
+        query = query.contains('collection_ids', [parseInt(collection)])
     }
 
     // Ordenação e paginação - Priorizar Destaque do Catálogo

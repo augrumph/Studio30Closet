@@ -37,4 +37,5 @@ export * from './purchases.js'
 export * from './orders.js'
 export * from './installments.js'
 export * from './insights.js'
+export * from './collections.js'
 

@@ -130,16 +130,28 @@ export async function createVenda(vendaData) {
     // Decrementar estoque para vendas diretas (não de malinha)
     const isFromMalinha = !!vendaRecord.order_id
     if (!isFromMalinha) {
-        console.log('📦 Venda direta - decrementando estoque...')
+        console.log('📦 Venda direta - iniciando baixa de estoque...')
         try {
             const itemsWithColor = vendaData.items.map(item => ({
                 ...item,
-                selectedColor: item.selectedColor || item.color || 'Padrão'
+                // Garantir que colorSelected ou selectedColor sejam passados como selectedColor para o decrementProductStock
+                selectedColor: item.selectedColor || item.colorSelected || item.color || 'Padrão',
+                selectedSize: item.selectedSize || item.sizeSelected || item.size || 'Único',
+                quantity: item.quantity || 1
             }))
+
+            console.log('📦 Itens para baixa:', JSON.stringify(itemsWithColor.map(i => ({
+                id: i.productId,
+                color: i.selectedColor,
+                size: i.selectedSize,
+                qty: i.quantity
+            })), null, 2))
+
             await decrementProductStock(itemsWithColor)
-            console.log('✅ Estoque decrementado com sucesso')
+            console.log('✅ Estoque baixado com sucesso!')
         } catch (stockError) {
-            console.error('❌ ERRO ao decrementar estoque:', stockError)
+            console.error('❌ ERRO CRÍTICO ao baixar estoque:', stockError)
+            // Não vamos lançar erro para não travar a venda, mas idealmente deveria alertar
         }
     }
 

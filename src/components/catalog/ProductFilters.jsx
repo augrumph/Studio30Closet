@@ -10,25 +10,76 @@ export function ProductFilters({
     onSizeChange,
     onClearFilters,
     showOnlyAvailable,
-    onAvailabilityChange
+    onAvailabilityChange,
+    // New: Collections
+    collections = [],
+    selectedCollection,
+    onCollectionChange
 }) {
-    const hasActiveFilters = selectedCategory || selectedSizes.length > 0
+    const hasActiveFilters = selectedCategory || selectedSizes.length > 0 || selectedCollection
 
     return (
         <div className="space-y-8">
+            {/* Coleções */}
+            {collections.length > 0 && (
+                <div className="space-y-3" role="group" aria-labelledby="collection-filter-label">
+                    <h4 id="collection-filter-label" className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-[0.2em]">
+                        Coleções
+                    </h4>
+                    <button
+                        onClick={() => onCollectionChange?.(null)}
+                        aria-pressed={!selectedCollection}
+                        className={cn(
+                            'block w-full text-left py-2 text-sm transition-colors',
+                            !selectedCollection
+                                ? 'text-[#C75D3B] font-medium'
+                                : 'text-[#4A3B32]/60 hover:text-[#4A3B32]'
+                        )}
+                    >
+                        Ver todas
+                    </button>
+                    {collections.map((col) => {
+                        const isSelected = selectedCollection === String(col.id)
+                        return (
+                            <button
+                                key={col.id}
+                                onClick={() => onCollectionChange?.(String(col.id))}
+                                aria-pressed={isSelected}
+                                aria-label={`Filtrar por coleção: ${col.title}`}
+                                className={cn(
+                                    'block w-full text-left py-2 text-sm transition-colors',
+                                    isSelected
+                                        ? 'text-[#C75D3B] font-medium'
+                                        : 'text-[#4A3B32]/60 hover:text-[#4A3B32]'
+                                )}
+                            >
+                                {col.title}
+                            </button>
+                        )
+                    })}
+                </div>
+            )}
+
+            {/* Divider if collections exist */}
+            {collections.length > 0 && <div className="h-px bg-[#4A3B32]/5" />}
+
             {/* Categorias */}
             <div className="space-y-3" role="group" aria-labelledby="category-filter-label">
                 <h4 id="category-filter-label" className="text-xs font-bold text-[#4A3B32]/40 uppercase tracking-[0.2em]">
                     Categorias
                 </h4>
-                {categories.map((category) => {
-                    const isSelected = selectedCategory === category || (!selectedCategory && category === 'all')
+                {categories.map((cat) => {
+                    const value = typeof cat === 'string' ? cat : cat.value
+                    const label = typeof cat === 'string' ? cat : cat.label
+
+                    const isSelected = selectedCategory === value || (!selectedCategory && value === 'all')
+
                     return (
                         <button
-                            key={category}
-                            onClick={() => onCategoryChange(category === 'all' ? null : category)}
+                            key={value}
+                            onClick={() => onCategoryChange(value === 'all' ? null : value)}
                             aria-pressed={isSelected}
-                            aria-label={`Filtrar por categoria: ${category === 'all' ? 'todas' : category}`}
+                            aria-label={`Filtrar por categoria: ${value === 'all' ? 'todas' : label}`}
                             className={cn(
                                 'block w-full text-left py-2 text-sm transition-colors capitalize',
                                 isSelected
@@ -36,7 +87,7 @@ export function ProductFilters({
                                     : 'text-[#4A3B32]/60 hover:text-[#4A3B32]'
                             )}
                         >
-                            {category === 'all' ? 'Ver todas' : category}
+                            {value === 'all' ? 'Ver todas' : label}
                         </button>
                     )
                 })}

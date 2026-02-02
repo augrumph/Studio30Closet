@@ -11,6 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 
+import { getActiveCollections } from '@/lib/api/collections'
+
 export function ProductsForm() {
     const { id } = useParams()
     const navigate = useNavigate()
@@ -19,6 +21,13 @@ export function ProductsForm() {
     const { createProduct, updateProduct, isCreating, isUpdating } = useAdminProducts()
     const { data: product, isLoading: isLoadingProduct } = useAdminProduct(id)
     const { suppliers, isLoading: isLoadingSuppliers } = useAdminSuppliers() // ✅ Migrado para React Query
+
+    const [activeCollections, setActiveCollections] = useState([]) // New State
+
+    // Load Collections
+    useEffect(() => {
+        getActiveCollections().then(setActiveCollections).catch(() => { })
+    }, [])
 
     const [initialData, setInitialData] = useState(null)
     const [formData, setFormData] = useState({
@@ -38,6 +47,7 @@ export function ProductsForm() {
         stock: 0,
         costPrice: '',
         supplierId: '',
+        collection_ids: [],
         active: true
     })
 
@@ -103,6 +113,7 @@ export function ProductsForm() {
                 originalPrice: product.originalPrice ? product.originalPrice.toString() : '',
                 stock: product.stock || 0,
                 costPrice: product.costPrice ? product.costPrice.toString() : '',
+                collection_ids: product.collection_ids || [], // Map collections
                 active: product.active !== false // Se undefined ou null, considera ativo
             }
             setFormData(data)
@@ -268,6 +279,7 @@ export function ProductsForm() {
             // Para compatibilidade, mantemos a primeira cor/imagem no nível superior também
             color: formData.variants[0]?.colorName || '',
             images: formData.variants[0]?.images || [],
+            collection_ids: formData.collection_ids || [], // Include collections
             active: formData.active // Visibilidade no catálogo
         }
 
@@ -666,6 +678,56 @@ export function ProductsForm() {
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+
+                            {/* Collections Selector */}
+                            <div className="space-y-3">
+                                <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">Coleções</label>
+                                <div className="space-y-2">
+                                    {activeCollections.map(collection => {
+                                        const isSelected = (formData.collection_ids || []).includes(collection.id)
+                                        return (
+                                            <label
+                                                key={collection.id}
+                                                className={cn(
+                                                    "flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer",
+                                                    isSelected
+                                                        ? "bg-purple-50 border-purple-200"
+                                                        : "bg-gray-50 border-transparent hover:bg-gray-100"
+                                                )}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={(e) => {
+                                                        const currentIds = formData.collection_ids || []
+                                                        if (e.target.checked) {
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                collection_ids: [...currentIds, collection.id]
+                                                            }))
+                                                        } else {
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                collection_ids: currentIds.filter(id => id !== collection.id)
+                                                            }))
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 text-purple-600 rounded-md focus:ring-purple-500"
+                                                />
+                                                <span className={cn(
+                                                    "text-sm font-bold",
+                                                    isSelected ? "text-purple-700" : "text-gray-600"
+                                                )}>
+                                                    {collection.title}
+                                                </span>
+                                            </label>
+                                        )
+                                    })}
+                                    {activeCollections.length === 0 && (
+                                        <p className="text-sm text-gray-400 italic px-2">Nenhuma coleção ativa encontrada.</p>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Tamanhos Calculados Automaticamente */}

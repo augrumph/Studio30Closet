@@ -47,7 +47,10 @@ export function useAdminSalesMutations() {
         mutationFn: createVenda,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'sales'] })
-            queryClient.invalidateQueries({ queryKey: ['dashboard', 'metrics'] }) // Atualizar dashboard também
+            // ⚡ Invalidate Dashboard Cache
+            queryClient.invalidateQueries({ queryKey: ['admin', 'all-vendas'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-metrics-raw'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'all-products'] })
         }
     })
 
@@ -56,7 +59,10 @@ export function useAdminSalesMutations() {
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'sales'] })
             queryClient.invalidateQueries({ queryKey: ['admin', 'sale', variables.id] })
-            queryClient.invalidateQueries({ queryKey: ['dashboard', 'metrics'] })
+            // ⚡ Invalidate Dashboard Cache
+            queryClient.invalidateQueries({ queryKey: ['admin', 'all-vendas'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-metrics-raw'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'all-products'] })
         }
     })
 
@@ -64,7 +70,10 @@ export function useAdminSalesMutations() {
         mutationFn: deleteVenda,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'sales'] })
-            queryClient.invalidateQueries({ queryKey: ['dashboard', 'metrics'] })
+            // ⚡ Invalidate Dashboard Cache
+            queryClient.invalidateQueries({ queryKey: ['admin', 'all-vendas'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-metrics-raw'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'all-products'] })
         }
     })
 

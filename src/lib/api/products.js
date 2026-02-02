@@ -54,7 +54,7 @@ export async function getFeaturedProducts() {
     // 1. Fetch Explicitly Featured items (Max 4)
     const { data: featuredData, error: featuredError } = await supabase
         .from('products')
-        .select('id, name, images')
+        .select('id, name, images, price, original_price, stock, variants, is_best_seller')
         .eq('is_featured', true)
         .eq('active', true)
         .order('updated_at', { ascending: false })
@@ -74,7 +74,7 @@ export async function getFeaturedProducts() {
 
         let query = supabase
             .from('products')
-            .select('id, name, images')
+            .select('id, name, images, price, original_price, stock, variants, is_best_seller')
             .eq('active', true)
             .order('created_at', { ascending: false })
             .limit(needed)

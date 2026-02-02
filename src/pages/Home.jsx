@@ -11,6 +11,7 @@ import { motion } from 'framer-motion'
 import { usePrefetchProducts } from '@/hooks/usePrefetchProducts'
 import { useSiteImagesContext } from '@/contexts/SiteImagesContext'
 import { getFeaturedProducts } from '@/lib/api/products'
+import { SEO } from '@/components/SEO'
 
 export function Home() {
     const { products, loadProducts, productsLoading } = useAdminStore()
@@ -111,6 +112,10 @@ export function Home() {
     return (
         // BASE: Fundo Creme Claro Global
         <div className="w-full overflow-x-hidden bg-[#FDFBF7] text-[#4A3B32] font-sans selection:bg-[#C75D3B] selection:text-white">
+            <SEO
+                title="Sua Boutique em Casa"
+                description="Experimente roupas selecionadas no conforto do seu lar. A Studio 30 leva a boutique até você em Curitiba e região."
+            />
 
             {/* ================= HERO SECTION ================= */}
             <section className="relative overflow-hidden min-h-[100svh] md:h-screen flex flex-col">

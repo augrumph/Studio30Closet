@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { HelmetProvider } from 'react-helmet-async'
 import App from './App.jsx'
 import { CookieProvider } from './contexts/CookieContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -65,11 +66,13 @@ prefetchHeroImages()
 createRoot(document.getElementById('root')).render(
     <StrictMode>
         <ErrorBoundary>
-            <QueryClientProvider client={queryClient}>
-                <CookieProvider>
-                    <App />
-                </CookieProvider>
-            </QueryClientProvider>
+            <HelmetProvider>
+                <QueryClientProvider client={queryClient}>
+                    <CookieProvider>
+                        <App />
+                    </CookieProvider>
+                </QueryClientProvider>
+            </HelmetProvider>
         </ErrorBoundary>
     </StrictMode>,
 )

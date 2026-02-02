@@ -50,6 +50,7 @@
     "react-day-picker": "^8.10.1",
     "react-dom": "^19.2.3",
     "react-dropzone": "^14.3.8",
+    "react-helmet-async": "^2.0.5",
     "react-hook-form": "^7.69.0",
     "react-is": "^19.2.3",
     "react-markdown": "^10.1.0",

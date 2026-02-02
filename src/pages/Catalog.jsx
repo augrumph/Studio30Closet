@@ -9,6 +9,7 @@ import { useCatalog } from '@/hooks/useCatalog'
 import { trackCatalogView } from '@/lib/api/analytics'
 import { getProductById } from '@/lib/api/products'
 import { getActiveCollections } from '@/lib/api/collections'
+import { SEO } from '@/components/SEO'
 
 // Componente Interno que usa o Hook (para poder usar Suspense no Pai se quisesse, 
 // mas aqui vamos tratar os estados isLoading/error do hook direto para UX suave)
@@ -72,40 +73,49 @@ function CatalogContent() {
         })
     }, []) // Apenas no mount inicial
 
-    // Auto-open product modal if productId in URL
+    // 🔗 DEEP LINKING: Sincronizar URL com Modal do Produto
+    // 1. URL -> State (Ao carregar ou navegar)
     useEffect(() => {
         const handleOpenProduct = async () => {
             if (productIdFromUrl && !selectedProduct) {
-                // 1. Tentar achar na lista já carregada (mais rápido)
+                // Tentar achar na lista já carregada (mais rápido)
                 const productInList = products.find(p => p.id.toString() === productIdFromUrl)
 
                 if (productInList) {
                     setSelectedProduct(productInList)
-                    cleanUrl()
                     return
                 }
 
-                // 2. Se não achou (pode estar em outra página), buscar individualmente
+                // Se não achou, buscar individualmente
                 try {
                     const fetchedProduct = await getProductById(productIdFromUrl)
                     if (fetchedProduct) {
                         setSelectedProduct(fetchedProduct)
-                        cleanUrl()
                     }
                 } catch (err) {
                     console.error("Erro ao buscar produto para modal:", err)
                 }
             }
         }
+        handleOpenProduct()
+    }, [productIdFromUrl, products])
 
-        const cleanUrl = () => {
-            const newParams = new URLSearchParams(searchParams)
+    // 2. State -> URL (Ao abrir/fechar modal)
+    const handleProductSelect = (product) => {
+        setSelectedProduct(product)
+        const newParams = new URLSearchParams(searchParams)
+
+        if (product) {
+            newParams.set('productId', product.id)
+            // Opcional: Atualizar título da página imediatamente para feedback rápido (SEO cuida do resto)
+            document.title = `${product.name} | Studio 30`
+        } else {
             newParams.delete('productId')
-            setSearchParams(newParams, { replace: true })
+            document.title = "Catálogo | Studio 30"
         }
 
-        handleOpenProduct()
-    }, [productIdFromUrl, products, selectedProduct, searchParams, setSearchParams])
+        setSearchParams(newParams, { replace: true })
+    }
 
     // Handlers
     const updateFilter = (key, value) => {
@@ -193,6 +203,13 @@ function CatalogContent() {
 
     return (
         <div className="min-h-screen bg-[#FDFBF7]">
+            <SEO
+                title={selectedProduct ? selectedProduct.name : "Catálogo Completo"}
+                description={selectedProduct ? `Compre ${selectedProduct.name} - ${selectedProduct.description?.substring(0, 100)}...` : "Explore nossa coleção completa de roupas femininas selecionadas."}
+                image={selectedProduct?.images?.[0]}
+                type={selectedProduct ? 'article' : 'website'}
+            />
+
             {/* Main Content */}
             <div className="container-custom py-6 md:py-20">
                 <div className="grid md:grid-cols-4 gap-6 md:gap-16">
@@ -261,7 +278,7 @@ function CatalogContent() {
                                         >
                                             <ProductCard
                                                 product={product}
-                                                onQuickView={setSelectedProduct}
+                                                onQuickView={handleProductSelect}
                                                 index={index}
                                                 isLarge={index < 2}
                                                 priority={index < 4}
@@ -350,7 +367,7 @@ function CatalogContent() {
             <ProductModal
                 product={selectedProduct}
                 isOpen={!!selectedProduct}
-                onClose={() => setSelectedProduct(null)}
+                onClose={() => handleProductSelect(null)}
             />
 
             {/* Float Cart Button */}

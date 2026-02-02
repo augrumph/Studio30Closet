@@ -12,6 +12,7 @@ import { getBlurPlaceholder, getOptimizedImageUrl } from '@/lib/image-optimizer'
 import { sendNewMalinhaEmail } from '@/lib/email-service'
 import { useStock } from '@/hooks/useStock'
 import { trackCheckoutStarted, trackCheckoutCompleted, markCartCheckoutStarted, markCartConverted, saveCustomerDataToCart } from '@/lib/api/analytics'
+import { SEO } from '@/components/SEO'
 
 // Helper para gerar número do pedido
 function generateOrderNumber(orderId) {
@@ -261,6 +262,11 @@ export function Checkout() {
 
     return (
         <div className="min-h-screen bg-[#FDFBF7] pt-6 pb-20">
+            <SEO
+                title="Minha Malinha"
+                description="Finalize seu pedido da malinha personalizada Studio 30."
+                noIndex={true}
+            />
             <div className="container-custom max-w-4xl">
                 {/* HEADLINE */}
                 <div className="flex items-center justify-between mb-8">

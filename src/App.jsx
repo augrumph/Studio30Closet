@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AnimatePresence } from 'framer-motion'
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
 import { trackPageView } from '@/lib/api/analytics'
+import { SEO } from '@/components/SEO'
 
 // ============================================================================
 // Analytics Tracker - Rastreia navegação entre páginas
@@ -106,6 +107,7 @@ function App() {
                             <LoadingBar />
                             <ScrollToTop />
                             <AnalyticsTracker />
+                            <SEO />
                             <AnimatePresence mode="wait">
                                 <Suspense fallback={<PageLoader />}>
                                     <Routes>

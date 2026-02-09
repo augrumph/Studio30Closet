@@ -130,6 +130,10 @@ export function VendasForm() {
                 setParcelas(venda.numInstallments || 2)
                 setEntryPayment(venda.entryPayment || 0)
                 setInstallmentStartDate(venda.installmentStartDate || '')
+            } else {
+                setParcelas(1)
+                setEntryPayment(0)
+                setInstallmentStartDate('')
             }
         }
     }, [isEdit, vendaData])
@@ -345,13 +349,12 @@ export function VendasForm() {
             success: async (result) => {
                 if (result.success || result.id) { // create/update usually return object with id
                     const vendaId = result.id || result.data?.id
-                    if (isParcelado && !isEdit && vendaId) {
-                        // TODO: Mover criação de parcelas para o servidor ou hook, mas ok por agora
+                    if (isParcelado && vendaId) {
                         try {
                             await createInstallments(vendaId, parcelas, entryPayment, installmentStartDate)
                         } catch (e) {
-                            console.error("Erro ao criar parcelas", e)
-                            toast.error("Venda salva, mas erro ao gerar parcelas.")
+                            console.error("Erro ao sincronizar parcelas", e)
+                            toast.error("Venda salva, mas erro ao atualizar parcelas.")
                         }
                     }
                     navigate('/admin/vendas')

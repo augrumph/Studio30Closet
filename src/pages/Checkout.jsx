@@ -872,7 +872,7 @@ export function Checkout() {
                                                     </li>
                                                     <li className="flex items-start gap-2">
                                                         <span className="bg-blue-200 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">3</span>
-                                                        <span>Experimente as peças em casa por até 5 dias!</span>
+                                                        <span>Experimente as peças em casa por até 24 horas!</span>
                                                     </li>
                                                 </ol>
                                             </motion.div>

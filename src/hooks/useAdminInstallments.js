@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOpenInstallmentSales, getInstallmentsByVendaId, registerInstallmentPayment } from '@/lib/api/installments'
+import { updateVenda } from '@/lib/api/vendas'
 import { toast } from 'sonner'
 
 /**
@@ -133,8 +134,22 @@ export function useAdminInstallmentsMutations() {
         }
     })
 
+    const payFullSaleMutation = useMutation({
+        mutationFn: ({ vendaId }) => updateVenda(vendaId, { paymentStatus: 'paid' }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin', 'installment-sales'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'sales'] })
+            toast.success('Venda quitada com sucesso!')
+        },
+        onError: (err) => {
+            toast.error(`Erro ao quitar venda: ${err.message}`)
+        }
+    })
+
     return {
         registerPayment: registerPaymentMutation.mutateAsync,
-        isRegistering: registerPaymentMutation.isPending
+        isRegistering: registerPaymentMutation.isPending,
+        payFullSale: payFullSaleMutation.mutateAsync,
+        isPayingFull: payFullSaleMutation.isPending
     }
 }

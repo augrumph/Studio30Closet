@@ -272,9 +272,9 @@ export function useDashboardMetrics({
             // isInstallment=true remove da "Venda à vista", mas se for Cartão, o dinheiro "entrou" (ou vai entrar garantido).
             // Apenas 'fiado' e 'fiado_parcelado' dependem 100% de pagamentos manuais de parcelas.
             // Se for 'credito_parcelado' e status='paid', contamos o valor cheio (ou líquido).
-            const isFiado = (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado' || v.paymentMethod === 'crediario');
+            const isCrediario = (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado' || v.paymentMethod === 'crediario');
 
-            if (status === 'paid' && (!isInstallment || !isFiado)) {
+            if (status === 'paid' && (!isInstallment || !isCrediario)) {
                 // ✅ CORREÇÃO: Sempre descontar taxa de maquininha!
                 // Se net existe, usamos. Senão calculamos total - fee
                 amountToAdd = net > 0 ? net : (total - fee);
@@ -394,25 +394,35 @@ export function useDashboardMetrics({
         outflowItems.sort((a, b) => new Date(b.date) - new Date(a.date));
 
 
-        // A Receber... (mantido lógica anterior simplificada)
-        const toReceiveFromSimpleSales = (allVendas || []).reduce((sum, v) => {
-            const status = v.paymentStatus;
-            const isInstallment = v.isInstallment;
-            const total = Number(v.totalValue || 0);
-            const entry = Number(v.entryPayment || 0);
-            if (status === 'pending' && !isInstallment) {
-                return sum + Math.max(0, total - entry);
+        // 3. TOTAL A RECEBER (Simplificado para consistência)
+        // ✅ CORREÇÃO: Pegar TODAS as vendas que são fiado/crediário e somar saldo residual
+        // Isso cobre vendas com ou sem registros na tabela 'installments'
+        const toReceiveAmount = (allVendas || []).reduce((sum, v) => {
+            const isFiado = (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado' || v.paymentMethod === 'crediario');
+            const status = v.paymentStatus || v.payment_status;
+
+            if (!isFiado) return sum;
+
+            // Se for crediário, calculamos o saldo residual real
+            const total = Number(v.totalValue || v.total_value || 0);
+            const entry = Number(v.entryPayment || v.entry_payment || 0);
+
+            // Se tiver parcelas no dashboardData, usamos o saldo das parcelas (mais preciso se houver pagamentos parciais)
+            const saleInstallments = dashboardData?.installments?.filter(inst => inst.vendaId === v.id) || [];
+
+            if (saleInstallments.length > 0) {
+                const installmentsBalance = saleInstallments.reduce((instSum, inst) => {
+                    const instPaid = inst.installmentPayments?.reduce((pSum, p) => pSum + (p.paymentAmount || 0), 0) || 0;
+                    return instSum + Math.max(0, (inst.originalAmount || 0) - instPaid);
+                }, 0);
+                return sum + installmentsBalance;
+            } else {
+                // Senão, se o status não for 'paid', usamos o fallback total - entry
+                // (Ignoramos status 'paid' se o cálculo indicar saldo, para segurança contra dados legados/errados)
+                const fallbackBalance = Math.max(0, total - entry);
+                return sum + fallbackBalance;
             }
-            return sum;
         }, 0);
-
-        const toReceiveFromInstallments = dashboardData?.installments ?
-            dashboardData.installments.reduce((sum, inst) => {
-                const totalPaid = inst.installmentPayments?.reduce((s, p) => s + (p.paymentAmount || 0), 0) || 0;
-                return sum + Math.max(0, (inst.originalAmount || 0) - totalPaid);
-            }, 0) : 0;
-
-        const toReceiveAmount = toReceiveFromSimpleSales + toReceiveFromInstallments;
 
         // Risco
         let overdueAmount = 0;
@@ -431,7 +441,7 @@ export function useDashboardMetrics({
             });
         }
         const defaultPercent = totalInstallmentsCount > 0 ? (overdueCount / totalInstallmentsCount) * 100 : 0;
-        const pendingFiado = (allVendas || []).filter(v => v.paymentMethod === 'fiado' && v.paymentStatus === 'pending').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+        const pendingCrediario = (allVendas || []).filter(v => (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado') && v.paymentStatus === 'pending').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
         return {
             // New DRE Fields
@@ -466,7 +476,7 @@ export function useDashboardMetrics({
             overdueAmount,
             overdueCount,
             defaultPercent,
-            pendingFiado,
+            pendingCrediario,
 
             // Cash Flow Components for Breakdown
             purchasesInPeriod,

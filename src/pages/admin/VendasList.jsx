@@ -110,7 +110,7 @@ export function VendasList() {
         if (!allVendas) return { totalRevenue: 0, pendingFiado: 0, totalDevedores: 0, valorDevedores: 0, averageTicket: 0 }
 
         let totalRevenue = 0
-        let pendingFiado = 0
+        let pendingCrediario = 0
         let totalDevedores = 0
         let valorDevedores = 0
 
@@ -121,15 +121,15 @@ export function VendasList() {
                 totalDevedores += 1
                 valorDevedores += v.totalValue || 0
 
-                if (v.paymentMethod === 'fiado') {
-                    pendingFiado += v.totalValue || 0
+                if (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado') {
+                    pendingCrediario += v.totalValue || 0
                 }
             }
         })
 
         const averageTicket = allVendas.length > 0 ? totalRevenue / allVendas.length : 0
 
-        return { totalRevenue, pendingFiado, totalDevedores, valorDevedores, averageTicket }
+        return { totalRevenue, pendingCrediario, totalDevedores, valorDevedores, averageTicket }
     }, [allVendas])
 
     const paymentMethods = {
@@ -308,7 +308,7 @@ export function VendasList() {
                                                     </button>
                                                 </TooltipTrigger>
                                                 <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                                    <p>Soma total de TODAS as vendas pendentes (Fiado e outros métodos aguardando pagamento).</p>
+                                                    <p>Soma total de TODAS as vendas pendentes (Crediário e outros métodos aguardando pagamento).</p>
                                                 </TooltipContent>
                                             </Tooltip>
                                         </div>

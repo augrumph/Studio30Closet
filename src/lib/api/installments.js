@@ -378,25 +378,49 @@ export async function getOpenInstallmentSales(page = 1, limit = 30) {
 
         if (error) throw error;
 
-        // Buscar resumo de cada venda
-        const vendasComResumo = await Promise.all(
-            data.map(async (venda) => {
-                const summary = await getInstallmentSummary(venda.id);
-                const camelVenda = toCamelCase(venda);
+        const vendasComResumo = await Promise.all(data.map(async (venda) => {
+            let summary = null;
+            try {
+                summary = await getInstallmentSummary(venda.id);
+            } catch (e) {
+                console.warn(`⚠️ Erro ao buscar resumo da venda #${venda.id}:`, e);
+            }
 
-                return {
-                    ...camelVenda,
-                    // ✅ Mapear corretamente o nome do cliente (JOIN com customers)
-                    customerName: venda.customers?.name || 'Cliente desconhecido',
-                    customers: venda.customers ? toCamelCase(venda.customers) : null,
-                    // ✅ Mapear campos do summary para a raiz (para compatibilidade com UI)
-                    dueAmount: summary.remainingValue,
-                    paidAmount: summary.totalValue - summary.remainingValue, // ✅ CORRIGIDO: era remainingAmount
-                    overdueCount: 0, // TODO: Calcular do banco
-                    summary
-                };
-            })
-        );
+            const camelVenda = toCamelCase(venda);
+
+            // ✅ Cálculo de saldo residual manual como fallback
+            const totalVenda = camelVenda.totalValue || 0;
+            const entrada = camelVenda.entryPayment || 0;
+
+            const hasInstallments = summary && !isNaN(summary.totalValue) && summary.totalValue > 0;
+
+            // ✅ IMPORTANTE: Se for crediário, não confiamos cegamente no camelVenda.paymentStatus === 'paid'
+            // pois algumas vendas antigas ou com erro de status podem estar como 'paid' mas ainda terem saldo.
+            // O critério real de "paga" para o crediário é ter saldo residual zero.
+            const dueAmount = hasInstallments
+                ? summary.remainingValue
+                : Math.max(0, totalVenda - entrada);
+
+            return {
+                ...camelVenda,
+                customerName: venda.customers?.name || 'Cliente desconhecido',
+                customers: venda.customers ? toCamelCase(venda.customers) : null,
+                dueAmount: dueAmount,
+                paidAmount: hasInstallments
+                    ? (summary.totalValue - summary.remainingValue)
+                    : entrada,
+                overdueCount: hasInstallments ? (summary.overdueAmount > 0 ? 1 : 0) : 0,
+                summary: summary || {
+                    totalValue: totalVenda,
+                    entryPayment: entrada,
+                    remainingValue: dueAmount,
+                    numInstallments: camelVenda.numInstallments || 1,
+                    paidInstallments: (dueAmount === 0) ? 1 : 0,
+                    pendingInstallments: (dueAmount > 0) ? 1 : 0,
+                    overdueAmount: 0
+                }
+            };
+        }));
 
         console.log(`✅ ${vendasComResumo.length} vendas com crediário encontradas`);
 
@@ -428,24 +452,12 @@ export async function getUpcomingInstallments() {
         endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
         const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
 
-        // Buscar parcelas pendentes que vencem hoje ou até o fim da semana
-        const { data, error } = await supabase
+        // 1. Buscar parcelas reais no banco
+        const { data: realInstallments, error } = await supabase
             .from('installments')
             .select(`
-                id,
-                venda_id,
-                installment_number,
-                due_date,
-                original_amount,
-                paid_amount,
-                remaining_amount,
-                status,
-                vendas!inner(
-                    id,
-                    total_value,
-                    customer_id,
-                    customers(id, name, phone)
-                )
+                id, venda_id, installment_number, due_date, original_amount, paid_amount, remaining_amount, status,
+                vendas!inner(id, total_value, entry_payment, payment_method, payment_status, created_at, customer_id, customers(id, name, phone))
             `)
             .in('status', ['pending', 'overdue'])
             .gte('due_date', todayStr)
@@ -454,40 +466,95 @@ export async function getUpcomingInstallments() {
 
         if (error) throw error;
 
-        // Converter para camelCase e separar por dia
-        const allInstallments = data.map(inst => ({
-            id: inst.id,
-            vendaId: inst.venda_id,
-            installmentNumber: inst.installment_number,
-            dueDate: inst.due_date,
-            originalAmount: inst.original_amount,
-            paidAmount: inst.paid_amount,
-            remainingAmount: inst.remaining_amount,
-            status: inst.status,
-            customerName: inst.vendas?.customers?.name || 'Cliente desconhecido',
-            customerPhone: inst.vendas?.customers?.phone || null,
-            totalValue: inst.vendas?.total_value || 0
-        }));
+        // 2. Buscar vendas no crediário que podem não ter parcelas (legadas ou 1x)
+        const { data: salesData, error: salesError } = await supabase
+            .from('vendas')
+            .select('id, total_value, entry_payment, payment_method, payment_status, created_at, customer_id, customers(id, name, phone)')
+            .in('payment_method', ['fiado', 'fiado_parcelado'])
+            .neq('payment_status', 'paid') // Simplificação inicial
+            .order('created_at', { ascending: true });
+
+        if (salesError) throw salesError;
+
+        // 3. Cruzar dados para encontrar vendas sem parcelas reais
+        const salesWithRealInstallments = new Set(realInstallments.map(i => i.venda_id));
+
+        // Também precisamos saber se a venda tem QUALQUER parcela, mesmo fora do range de datas
+        const { data: allInstIds } = await supabase.from('installments').select('venda_id').in('venda_id', salesData.map(s => s.id));
+        const salesWithAnyInstallments = new Set(allInstIds?.map(i => i.venda_id) || []);
+
+        const virtualInstallments = salesData
+            .filter(s => !salesWithAnyInstallments.has(s.id))
+            .map(s => {
+                const total = s.total_value || 0;
+                const entry = s.entry_payment || 0;
+                const balance = total - entry;
+
+                if (balance <= 0) return null;
+
+                // Trata como vencido/vencendo na data da venda (simplificação)
+                const dueDate = s.created_at.split('T')[0];
+                const isDueTodayOrBefore = dueDate <= todayStr;
+                const isWithinWeek = dueDate <= endOfWeekStr;
+
+                if (!isWithinWeek) return null;
+
+                return {
+                    id: `v-${s.id}`, // Virtual ID
+                    vendaId: s.id,
+                    installmentNumber: 1,
+                    dueDate: dueDate,
+                    originalAmount: total,
+                    paidAmount: entry,
+                    remainingAmount: balance,
+                    status: dueDate < todayStr ? 'overdue' : 'pending',
+                    customerName: s.customers?.name || 'Cliente desconhecido',
+                    customerPhone: s.customers?.phone || null,
+                    totalValue: total,
+                    isVirtual: true
+                };
+            })
+            .filter(Boolean);
+
+        // 4. Combinar e processar
+        const allInstallments = [
+            ...realInstallments.map(inst => ({
+                id: inst.id,
+                vendaId: inst.venda_id,
+                installmentNumber: inst.installment_number,
+                dueDate: inst.due_date,
+                originalAmount: inst.original_amount,
+                paidAmount: inst.paid_amount,
+                remainingAmount: inst.remaining_amount,
+                status: inst.status,
+                customerName: inst.vendas?.customers?.name || 'Cliente desconhecido',
+                customerPhone: inst.vendas?.customers?.phone || null,
+                totalValue: inst.vendas?.total_value || 0
+            })),
+            ...virtualInstallments
+        ];
 
         // Separar vencimentos de hoje e da semana
         const todayInstallments = allInstallments.filter(i => i.dueDate === todayStr);
         const weekInstallments = allInstallments.filter(i => i.dueDate !== todayStr);
 
-        // Buscar quantidade de atrasados
-        const { count: overdueCount } = await supabase
+        // Buscar quantidade de atrasados (Real + Virtual)
+        const { count: realOverdueCount } = await supabase
             .from('installments')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'overdue');
 
+        const virtualOverdueCount = virtualInstallments.filter(i => i.status === 'overdue').length;
+
         const totalDueToday = todayInstallments.reduce((sum, i) => sum + (i.remainingAmount || 0), 0);
         const totalDueThisWeek = weekInstallments.reduce((sum, i) => sum + (i.remainingAmount || 0), 0);
 
-        console.log(`✅ Vencimentos: ${todayInstallments.length} hoje, ${weekInstallments.length} na semana, ${overdueCount || 0} atrasados`);
+        console.log(`✅ Vencimentos: ${todayInstallments.length} hoje, ${weekInstallments.length} na semana, ${(realOverdueCount || 0) + virtualOverdueCount} atrasados`);
 
         return {
             today: todayInstallments,
             thisWeek: weekInstallments,
-            overdueCount: overdueCount || 0,
+            overdueCount: (realOverdueCount || 0) + virtualOverdueCount,
             totalDueToday,
             totalDueThisWeek
         };

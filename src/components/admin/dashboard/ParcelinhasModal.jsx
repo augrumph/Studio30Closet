@@ -29,72 +29,26 @@ export function ParcelinhasModal({ isOpen, onClose }) {
     const loadInstallments = async () => {
         setLoading(true)
         try {
-            const today = new Date()
-            const todayStr = today.toISOString().split('T')[0]
+            // ✅ Usar a API centralizada que já contém a lógica de "parcelas virtuais"
+            const data = await getUpcomingInstallments()
 
-            let endDate = new Date(today)
+            let filtered = []
             if (filter === 'today') {
-                endDate = today
-            } else if (filter === '7days') {
-                endDate.setDate(today.getDate() + 7)
-            } else if (filter === '30days') {
-                endDate.setDate(today.getDate() + 30)
+                filtered = data.today
+            } else {
+                // Para 7 e 30 dias usamos o que a API trouxe (hoje + semana)
+                // Se o usuário quiser 30 dias real teria que carregar mais, 
+                // mas para o dashboard os próximos 7 dias costumam ser o foco.
+                filtered = [...data.today, ...data.thisWeek]
             }
-            const endDateStr = endDate.toISOString().split('T')[0]
 
-            // Buscar parcelas
-            const { data, error } = await supabase
-                .from('installments')
-                .select(`
-                    id,
-                    venda_id,
-                    installment_number,
-                    due_date,
-                    original_amount,
-                    paid_amount,
-                    remaining_amount,
-                    status,
-                    vendas!inner(
-                        id,
-                        total_value,
-                        num_installments,
-                        customer_id,
-                        customers(id, name, phone)
-                    )
-                `)
-                .in('status', ['pending', 'overdue'])
-                .gte('due_date', todayStr)
-                .lte('due_date', endDateStr)
-                .order('due_date', { ascending: true })
+            const totalValor = filtered.reduce((sum, i) => sum + (i.remainingAmount || 0), 0)
 
-            if (error) throw error
-
-            const { count: overdueCount } = await supabase
-                .from('installments')
-                .select('id', { count: 'exact', head: true })
-                .eq('status', 'overdue')
-
-            const processed = data.map(inst => ({
-                id: inst.id,
-                vendaId: inst.venda_id,
-                installmentNumber: inst.installment_number,
-                totalInstallments: inst.vendas?.num_installments || 1,
-                dueDate: inst.due_date,
-                originalAmount: inst.original_amount,
-                paidAmount: inst.paid_amount,
-                remainingAmount: inst.remaining_amount,
-                status: inst.status,
-                customerName: inst.vendas?.customers?.name || 'Cliente desconhecido',
-                customerPhone: inst.vendas?.customers?.phone || null
-            }))
-
-            const totalValor = processed.reduce((sum, i) => sum + (i.remainingAmount || 0), 0)
-
-            setInstallments(processed)
+            setInstallments(filtered)
             setStats({
-                total: processed.length,
+                total: filtered.length,
                 valor: totalValor,
-                atrasadas: overdueCount || 0
+                atrasadas: data.overdueCount || 0
             })
         } catch (err) {
             console.error('Erro ao carregar parcelas:', err)
@@ -141,8 +95,8 @@ export function ParcelinhasModal({ isOpen, onClose }) {
 
                     <div className="relative z-10 flex items-start justify-between mb-6">
                         <div>
-                            <h2 className="text-2xl md:text-3xl font-display font-bold mb-1 tracking-tight">Parcelinhas</h2>
-                            <p className="text-amber-100 font-medium text-sm">Controle de recebíveis</p>
+                            <h2 className="text-2xl md:text-3xl font-display font-bold mb-1 tracking-tight">Vencimentos</h2>
+                            <p className="text-amber-100 font-medium text-sm">Controle de Crediário</p>
                         </div>
                         <button
                             onClick={onClose}
@@ -184,8 +138,7 @@ export function ParcelinhasModal({ isOpen, onClose }) {
                     <div className="flex p-1 bg-black/10 backdrop-blur-sm rounded-xl mt-6 relative z-10 w-fit">
                         {[
                             { value: 'today', label: 'Hoje' },
-                            { value: '7days', label: '7 Dias' },
-                            { value: '30days', label: '30 Dias' }
+                            { value: '7days', label: '7 Dias' }
                         ].map(f => (
                             <button
                                 key={f.value}

@@ -39,8 +39,8 @@ const PAYMENT_METHODS = [
     { id: 'debit', label: 'Débito', icon: CreditCard, color: 'blue' },
     { id: 'card_machine', label: 'Crédito', icon: CreditCard, color: 'violet' },
     { id: 'credito_parcelado', label: 'Parcelado', icon: Calendar, color: 'orange' },
-    { id: 'fiado_parcelado', label: 'Crediário', icon: Receipt, color: 'amber' },
-    { id: 'fiado', label: 'Fiado', icon: Clock, color: 'rose' },
+    { id: 'fiado_parcelado', label: 'Crediário Parc.', icon: Receipt, color: 'amber' },
+    { id: 'fiado', label: 'Crediário', icon: Clock, color: 'rose' },
     { id: 'cash', label: 'Dinheiro', icon: Banknote, color: 'green' },
 ]
 
@@ -210,7 +210,14 @@ export function VendasForm() {
 
     // Handlers
     const handlePaymentMethodChange = (methodId) => {
-        setFormData(prev => ({ ...prev, paymentMethod: methodId }))
+        const isCredit = ['fiado', 'fiado_parcelado'].includes(methodId)
+        setFormData(prev => ({
+            ...prev,
+            paymentMethod: methodId,
+            // ✅ Automar status: Se for crediário, coloca como pendente
+            paymentStatus: isCredit ? 'pending' : 'paid'
+        }))
+
         if (!['credito_parcelado', 'fiado_parcelado'].includes(methodId)) {
             setParcelas(2)
             setEntryPayment(0)

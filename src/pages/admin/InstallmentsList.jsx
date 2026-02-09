@@ -10,7 +10,7 @@ import { useAdminInstallmentSales, useAdminInstallmentDetails, useAdminInstallme
 // Sub-component for Details
 function InstallmentDetails({ vendaId }) {
     const { data: detailsData, isLoading } = useAdminInstallmentDetails(vendaId)
-    const { registerPayment, isRegistering } = useAdminInstallmentsMutations()
+    const { registerPayment, isRegistering, payFullSale, isPayingFull } = useAdminInstallmentsMutations()
     const [selectedInstallment, setSelectedInstallment] = useState(null)
     const [showPaymentModal, setShowPaymentModal] = useState(false)
     const [paymentForm, setPaymentForm] = useState({
@@ -18,6 +18,14 @@ function InstallmentDetails({ vendaId }) {
         date: new Date().toISOString().split('T')[0],
         method: 'dinheiro'
     })
+
+    const handlePayFull = async () => {
+        try {
+            await payFullSale({ vendaId })
+        } catch (error) {
+            // Toast handled by hook
+        }
+    }
 
     const installments = detailsData?.installments || []
 
@@ -48,7 +56,8 @@ function InstallmentDetails({ vendaId }) {
                 installmentId: selectedInstallment.id,
                 amount: parseFloat(paymentForm.amount),
                 date: paymentForm.date,
-                method: paymentForm.method
+                method: paymentForm.method,
+                vendaId: vendaId // Pass vendaId for optimistic update
             })
             setShowPaymentModal(false)
             setPaymentForm({ amount: '', date: new Date().toISOString().split('T')[0], method: 'dinheiro' })
@@ -69,9 +78,18 @@ function InstallmentDetails({ vendaId }) {
 
     if (installments.length === 0) {
         return (
-            <div className="text-center py-8">
-                <AlertCircle className="w-8 h-8 text-[#4A3B32]/20 mx-auto mb-2" />
-                <p className="text-sm text-[#4A3B32]/60">Nenhuma parcela encontrada</p>
+            <div className="text-center py-10 px-4 bg-amber-50/50">
+                <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+                <p className="font-bold text-[#4A3B32] mb-1">Venda sem parcelas registradas</p>
+                <p className="text-sm text-[#4A3B32]/60 mb-6">Esta venda não possui parcelas no sistema (Ex: Venda 1x ou legada).</p>
+                <button
+                    onClick={handlePayFull}
+                    disabled={isPayingFull}
+                    className="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 flex items-center gap-2 mx-auto"
+                >
+                    <Check className="w-5 h-5" />
+                    {isPayingFull ? 'Processando...' : 'Quitar Venda Total'}
+                </button>
             </div>
         )
     }

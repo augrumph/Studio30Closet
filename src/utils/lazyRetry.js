@@ -22,13 +22,14 @@ export const lazyWithRetry = (componentImport) => {
 
             return component
         } catch (error) {
-            // Verifica se é um erro de carregamento de chunk/script
+            // Verifica se é um erro de carregamento de chunk/script (case-insensitive)
+            const errorMessage = error?.message?.toLowerCase() || ''
             const isChunkError =
                 error?.name === 'ChunkLoadError' ||
-                error?.message?.includes('Failed to fetch dynamically imported module') ||
-                error?.message?.includes('Loading chunk') ||
-                error?.message?.includes('timeout loading data') || // O erro reportado pelo usuário
-                error?.message?.includes('Expected a JavaScript-or-Wasm module script') // O erro MIME reportado pelo usuário
+                errorMessage.includes('failed to fetch dynamically imported module') ||
+                errorMessage.includes('loading chunk') ||
+                errorMessage.includes('timeout loading data') ||
+                errorMessage.includes('expected a javascript-or-wasm module script')
 
             if (isChunkError && !pageHasAlreadyBeenForceRefreshed) {
                 // Marcar que tentamos o refresh para evitar loop infinito

@@ -136,11 +136,29 @@ export function ProductsForm() {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target
+        let finalValue = type === 'checkbox' ? checked : value
+
+        // Lidar com vírgula para números
+        if (['price', 'originalPrice', 'costPrice'].includes(name) && typeof value === 'string') {
+            finalValue = value.replace(',', '.')
+        }
+
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: finalValue
         }))
     }
+
+    // Cálculos de Margem em tempo real
+    const profitability = useMemo(() => {
+        const p = parseFloat(formData.price) || 0
+        const c = parseFloat(formData.costPrice) || 0
+        if (p === 0 || c === 0) return { markup: 0, margin: 0 }
+
+        const markup = ((p - c) / c) * 100
+        const margin = ((p - c) / p) * 100
+        return { markup, margin }
+    }, [formData.price, formData.costPrice])
 
     const handleVariantChange = (index, field, value) => {
         const newVariants = [...formData.variants]
@@ -404,9 +422,20 @@ export function ProductsForm() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label htmlFor="product-cost-price" className="text-xs text-gray-400 font-bold uppercase tracking-widest pl-1 text-[#C75D3B]/60">
-                                        Preço de Custo (R$)
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                        <label htmlFor="product-cost-price" className="text-xs text-gray-400 font-bold uppercase tracking-widest pl-1 text-[#C75D3B]/60">
+                                            Preço de Custo (R$)
+                                        </label>
+                                        {(!formData.costPrice || parseFloat(formData.costPrice) === 0) && (
+                                            <motion.span
+                                                animate={{ scale: [1, 1.05, 1], opacity: [0.6, 1, 0.6] }}
+                                                transition={{ repeat: Infinity, duration: 2 }}
+                                                className="text-[10px] font-black text-amber-600 px-2 py-0.5 bg-amber-50 rounded-full flex items-center gap-1"
+                                            >
+                                                <AlertTriangle className="w-3 h-3" /> ESSENCIAL P/ LUCRO
+                                            </motion.span>
+                                        )}
+                                    </div>
                                     <input
                                         id="product-cost-price"
                                         type="text"
@@ -434,6 +463,32 @@ export function ProductsForm() {
                                     onChange={handleChange}
                                 />
                             </div>
+
+                            {/* Resumo de Rentabilidade */}
+                            <AnimatePresence>
+                                {(parseFloat(formData.price) > 0 && parseFloat(formData.costPrice) > 0) && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center justify-around"
+                                    >
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-tighter">Markup</p>
+                                            <p className="text-lg font-black text-emerald-600">+{profitability.markup.toFixed(0)}%</p>
+                                        </div>
+                                        <div className="w-px h-8 bg-emerald-200" />
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-tighter">Margem Líquida</p>
+                                            <p className="text-lg font-black text-emerald-600">{profitability.margin.toFixed(0)}%</p>
+                                        </div>
+                                        <div className="w-px h-8 bg-emerald-200" />
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-tighter">Lucro Bruto/Peça</p>
+                                            <p className="text-lg font-black text-emerald-600">R$ {(parseFloat(formData.price) - parseFloat(formData.costPrice)).toFixed(2)}</p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </CardContent>
                     </Card>
 

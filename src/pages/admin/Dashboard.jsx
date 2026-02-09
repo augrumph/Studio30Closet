@@ -202,6 +202,15 @@ export function Dashboard() {
             })
         }
 
+        // 4. Insight de Precisão de Dados (Custo)
+        if (financialMetrics.costWarnings > 0) {
+            insights.push({
+                priority: 1,
+                text: `Atenção: ${financialMetrics.costWarnings} itens vendidos estão sem preço de custo. O lucro mostrado é uma estimativa e pode não ser 100% real.`,
+                type: 'warning'
+            })
+        }
+
         // 4. Insight de Ticket Médio
         const ticket = financialMetrics.averageTicket || 0
         if (ticket < 150 && financialMetrics.totalSalesCount > 5) {

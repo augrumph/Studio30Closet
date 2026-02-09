@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart } from 'lucide-react'
+import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart, AlertTriangle } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from 'sonner'
@@ -433,6 +433,7 @@ export function VendasList() {
                                 <th className="px-8 py-5">Data / Horário</th>
                                 <th className="px-8 py-5">Cliente</th>
                                 <th className="px-8 py-5">Método</th>
+                                <th className="px-8 py-5 text-right">Lcr Bruto</th>
                                 <th className="px-8 py-5 text-right">Valor Final</th>
                                 <th className="px-8 py-5">Status</th>
                                 <th className="px-8 py-5 text-center">Ações</th>
@@ -474,6 +475,21 @@ export function VendasList() {
                                                 )}>
                                                     {paymentMethods[venda.paymentMethod]?.label}
                                                 </span>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <div className="flex flex-col items-end">
+                                                    <span className={cn(
+                                                        "text-sm font-bold",
+                                                        (venda.totalValue - (venda.costPrice || 0)) > 0 ? "text-emerald-600" : "text-gray-400"
+                                                    )}>
+                                                        R$ {(venda.totalValue - (venda.costPrice || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                    {(venda.costPrice || 0) === 0 && (
+                                                        <span className="text-[8px] text-amber-500 font-black uppercase flex items-center gap-0.5">
+                                                            <AlertTriangle className="w-2 h-2" /> Est.
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-8 py-6 text-right">
                                                 <span className="font-bold text-[#4A3B32] text-sm">

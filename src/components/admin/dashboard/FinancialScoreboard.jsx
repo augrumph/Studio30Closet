@@ -110,7 +110,8 @@ const getSimplifiedCards = (metrics) => {
             descriptionIcon: null,
             descriptionText: 'Competência (DRE)',
             tooltip: 'Lucro contábil do período (Faturamento - CPV - Despesas - Juros).',
-            isCurrency: true
+            isCurrency: true,
+            warning: metrics.costWarnings > 0 ? `${metrics.costWarnings} itens vendidos sem custo (valor estimado).` : null
         },
         {
             label: 'Margem Líquida',
@@ -122,7 +123,8 @@ const getSimplifiedCards = (metrics) => {
             descriptionIconColor: marginStatus.textColor,
             descriptionText: marginStatus.label,
             tooltip: 'Percentual de lucro sobre o faturamento. Ideal > 35%.',
-            isPercentage: true
+            isPercentage: true,
+            warning: metrics.costWarnings > 0 ? 'Margem calculada com custos parciais estimados.' : null
         },
         {
             label: 'Ticket Médio',
@@ -222,19 +224,39 @@ function KPICard({ stat, index }) {
                 {/* Header: Icon + Info */}
                 <div className="flex items-center justify-between mb-2">
                     <div className={cn(
-                        "w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center",
+                        "w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center relative",
                         stat.iconBg
                     )}>
                         <stat.icon className={cn("w-4 h-4 md:w-5 md:h-5", stat.iconColor)} />
+                        {stat.warning && (
+                            <div className="absolute -top-1 -right-1 flex items-center justify-center">
+                                <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500 items-center justify-center">
+                                        <CircleAlert className="w-2.5 h-2.5 text-white" />
+                                    </span>
+                                </span>
+                            </div>
+                        )}
                     </div>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className="p-1 hover:bg-gray-50 rounded-full transition-colors" aria-label={`Informações sobre ${stat.label}`}>
-                                <Info className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500" />
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                                {stat.warning && (
+                                    <CircleAlert className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                                )}
+                                <button className="p-1 hover:bg-gray-50 rounded-full transition-colors" aria-label={`Informações sobre ${stat.label}`}>
+                                    <Info className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500" />
+                                </button>
+                            </div>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs bg-[#4A3B32] text-white p-2.5 text-xs leading-relaxed rounded-lg">
                             <p className="font-semibold mb-0.5">{stat.label}</p>
+                            {stat.warning && (
+                                <p className="text-amber-300 font-bold mb-1 flex items-center gap-1">
+                                    <CircleAlert className="w-3 h-3" /> {stat.warning}
+                                </p>
+                            )}
                             <p className="text-white/80">{stat.tooltip}</p>
                         </TooltipContent>
                     </Tooltip>

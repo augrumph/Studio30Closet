@@ -35,9 +35,29 @@ export async function createInstallments(
     console.log(`💳 Criando ${numInstallments}x | Venda: #${vendaId} | Entrada: R$ ${entryPayment}`);
 
     try {
-        // ✅ IMPORTANTE: Como a função agora é RETURNS SETOF RECORD,
-        // chamamos apenas pelo efeito colateral (criar parcelas no banco)
-        // NÃO usamos o retorno 'data'
+        // 🛡️ SEGURANÇA: Verificar se já existem parcelas com PAGAMENTOS para esta venda
+        const { data: parcelasExistentes, error: erroBusca } = await supabase
+            .from('installments')
+            .select('id, paid_amount')
+            .eq('venda_id', vendaId);
+
+        if (!erroBusca && parcelasExistentes && parcelasExistentes.length > 0) {
+            const temPagamento = parcelasExistentes.some(p => (p.paid_amount || 0) > 0);
+
+            if (temPagamento) {
+                console.warn(`🛑 Bloqueio de Segurança: A venda #${vendaId} já possui pagamentos registrados. Não é possível re-gerar parcelas automaticamente via API.`);
+                return {
+                    success: false,
+                    error: 'Esta venda já possui pagamentos parciais. Para alterar o parcelamento, é necessário estornar os pagamentos primeiro.'
+                };
+            }
+
+            // Se existirem parcelas mas NENHUMA tiver pagamento, podemos prosseguir.
+            // O RPC create_installments lidará com o DELETE das parcelas sem pagamento (ou faremos aqui se necessário).
+            console.log(`♻️ Venda #${vendaId} possui parcelas pendentes (sem pagamento). Prosseguindo com a re-geração.`);
+        }
+
+        // ✅ Chamada ao RPC original
         const { error } = await supabase.rpc('create_installments', {
             p_venda_id: Number(vendaId), // ✅ BIGINT explícito
             p_num_installments: Number(numInstallments), // ✅ INTEGER explícito

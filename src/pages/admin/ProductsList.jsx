@@ -453,9 +453,18 @@ export function ProductsList() {
                                                 </span>
                                             </td>
                                             <td className="px-4 md:px-8 py-4 md:py-6 text-right">
-                                                <span className="text-sm text-gray-400">
-                                                    R$ {(product.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className={cn(
+                                                        "text-sm",
+                                                        (product.costPrice || 0) === 0 ? "text-amber-500 font-bold flex items-center gap-1" : "text-gray-400"
+                                                    )}>
+                                                        {(product.costPrice || 0) === 0 && <AlertTriangle className="w-3 h-3" />}
+                                                        R$ {(product.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                    {(product.costPrice || 0) === 0 && (
+                                                        <span className="text-[9px] text-amber-500 font-black uppercase">Custo Zerado</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="hidden lg:table-cell px-4 md:px-8 py-4 md:py-6 text-right">
                                                 <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">

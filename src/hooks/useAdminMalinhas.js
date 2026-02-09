@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
-import { getOrders, getOrderById, addOrder, updateOrder, deleteOrder, updateOrderStatus } from '@/lib/api/orders'
+import { getOrders, getOrderById, createOrder, updateOrder, deleteOrder, updateOrderStatus } from '@/lib/api/orders'
 import { toast } from 'sonner'
 
 /**

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Receipt, DollarSign, Calendar, FileText, Tag } from 'lucide-react'
 import { useAdminExpense, useAdminExpensesMutations } from '@/hooks/useAdminExpenses'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -61,7 +62,7 @@ export function ExpensesForm() {
                 navigate('/admin/expenses')
                 return isEdit ? 'Gasto atualizado com sucesso!' : 'Gasto cadastrado com sucesso!'
             },
-            error: (err) => `Erro: ${err.message}`
+            error: (err) => formatUserFriendlyError(err)
         })
     }
 

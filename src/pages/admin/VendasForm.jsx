@@ -28,6 +28,7 @@ import { useAdminSalesMutations, useAdminSale } from '@/hooks/useAdminSales'
 import { useCustomerSearch } from '@/hooks/useAdminCustomers'
 import { useAdminProducts } from '@/hooks/useAdminProducts' // Usar hook de produtos já existente
 import { getPaymentFee, createInstallments } from '@/lib/api'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -85,7 +86,7 @@ export function VendasForm() {
         discountAmount: 0
     })
 
-    const [parcelas, setParcelas] = useState(2)
+    const [parcelas, setParcelas] = useState(1)
     const [entryPayment, setEntryPayment] = useState(0)
     const [installmentStartDate, setInstallmentStartDate] = useState('')
     const [feeInfo, setFeeInfo] = useState({ feePercentage: 0, feeValue: 0, netValue: 0 })
@@ -217,10 +218,14 @@ export function VendasForm() {
             paymentStatus: isCredit ? 'pending' : 'paid'
         }))
 
-        if (!['credito_parcelado', 'fiado_parcelado'].includes(methodId)) {
+        if (methodId === 'credito_parcelado') {
             setParcelas(2)
-            setEntryPayment(0)
+        } else if (methodId === 'fiado_parcelado') {
+            setParcelas(1)
+        } else {
+            setParcelas(1)
         }
+        setEntryPayment(0)
     }
 
     const addProduct = (product) => {
@@ -356,7 +361,7 @@ export function VendasForm() {
                 navigate('/admin/vendas')
                 return isEdit ? 'Venda atualizada!' : 'Venda registrada!'
             },
-            error: (err) => err.message || 'Erro ao salvar'
+            error: (err) => formatUserFriendlyError(err)
         })
     }
 

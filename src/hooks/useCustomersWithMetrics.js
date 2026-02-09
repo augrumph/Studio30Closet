@@ -15,7 +15,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCustomersWithMetrics, deleteCustomer, createCustomer, updateCustomer } from '@/lib/api'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
+import { getCustomersWithMetrics, deleteCustomer, createCustomer, updateCustomer } from '@/lib/api/customers'
 import { toast } from 'sonner'
 
 // Query Keys
@@ -50,7 +51,7 @@ export function useDeleteCustomer() {
             toast.success('Cliente removido com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao remover cliente: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         },
     })
 }
@@ -68,7 +69,7 @@ export function useCreateCustomer() {
             toast.success('Cliente criado com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao criar cliente: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         },
     })
 }
@@ -86,7 +87,7 @@ export function useUpdateCustomer() {
             toast.success('Cliente atualizado com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao atualizar cliente: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         },
     })
 }

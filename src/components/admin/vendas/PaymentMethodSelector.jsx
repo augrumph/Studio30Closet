@@ -7,8 +7,7 @@ export const PAYMENT_METHODS = [
     { value: 'debit', label: 'Débito' },
     { value: 'card_machine', label: 'Crédito à Vista' },
     { value: 'credito_parcelado', label: 'Crédito Parcelado (Máquina)' },
-    { value: 'fiado_parcelado', label: 'Crediário Parcelado' },
-    { value: 'fiado', label: 'Crediário (À Vista)' },
+    { value: 'fiado_parcelado', label: 'Crediário' },
     { value: 'cash', label: 'Dinheiro Espécie' }
 ]
 
@@ -37,8 +36,10 @@ export function PaymentMethodSelector({
         onChange(newMethod, newBrand)
 
         // Configurar parcelamento
-        if (newMethod === 'credito_parcelado' || newMethod === 'fiado_parcelado') {
+        if (newMethod === 'credito_parcelado') {
             onInstallmentChange?.(true, 2)
+        } else if (newMethod === 'fiado_parcelado') {
+            onInstallmentChange?.(true, 1)
         } else {
             onInstallmentChange?.(false, 1)
         }
@@ -163,9 +164,9 @@ export function InstallmentConfig({
                     onChange={(e) => onParcelasChange(Number(e.target.value))}
                     className="w-full px-4 py-3 bg-white border-2 border-[#C75D3B]/20 rounded-xl focus:ring-2 focus:ring-[#C75D3B]/30 outline-none font-medium text-[#4A3B32] transition-all hover:border-[#C75D3B]/40"
                 >
-                    {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
                         <option key={n} value={n}>
-                            {n}x {n <= 3 ? '(Taxa: cobrida)' : `(Taxa: ${feePercentage}%)`}
+                            {n}x {n <= 3 ? '(Taxa: coberta)' : `(Taxa: ${feePercentage}%)`}
                         </option>
                     ))}
                 </select>

@@ -570,7 +570,7 @@ export function Dashboard() {
                                             <p className="font-bold text-[#4A3B32] text-base md:text-lg truncate">{venda.customerName}</p>
                                             <span className="text-[9px] md:text-[10px] font-bold text-[#C75D3B] px-1.5 py-0.5 bg-[#FDF0ED] rounded flex-shrink-0">VENDA</span>
                                         </div>
-                                        <p className="text-xs md:text-sm text-gray-400 font-medium truncate">Processado via {venda.paymentMethod === 'fiado' ? 'Crediário' : venda.paymentMethod?.toUpperCase()}</p>
+                                        <p className="text-xs md:text-sm text-gray-400 font-medium truncate">Processado via {venda.paymentMethod?.includes('fiado') || venda.paymentMethod === 'crediario' ? 'Crediário' : venda.paymentMethod?.toUpperCase()}</p>
                                     </div>
                                 </div>
                                 <div className="mt-3 md:mt-0 flex items-center justify-between md:justify-end gap-3 md:gap-10">

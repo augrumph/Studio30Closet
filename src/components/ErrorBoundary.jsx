@@ -26,18 +26,27 @@ class ErrorBoundary extends React.Component {
     }
 
     componentDidCatch(error, errorInfo) {
+        // Verificar se é um erro de carregamento de chunk (WSoD fix)
+        const isChunkError =
+            error?.name === 'ChunkLoadError' ||
+            error?.message?.includes('Failed to fetch dynamically imported module') ||
+            error?.message?.includes('Loading chunk') ||
+            error?.message?.includes('timeout loading data') ||
+            error?.message?.includes('Expected a JavaScript-or-Wasm module script')
+
         // Verificar se já tentou auto-refresh
         const refreshKey = 'studio30_auto_refresh_attempted'
         const lastRefreshTime = sessionStorage.getItem(refreshKey)
         const now = Date.now()
 
+        // Se for erro de chunk, tentamos com prioridade máxima
         // Se nunca tentou ou faz mais de 30 segundos, tenta auto-refresh
-        if (!lastRefreshTime || (now - parseInt(lastRefreshTime)) > 30000) {
+        if ((isChunkError || !lastRefreshTime) && (now - (parseInt(lastRefreshTime) || 0)) > 30000) {
             // Marcar que tentou refresh
             sessionStorage.setItem(refreshKey, now.toString())
 
             // Log do erro antes do refresh
-            console.error('🔄 Erro detectado. Tentando refresh automático...', error?.message)
+            console.error(isChunkError ? '🔄 Erro de chunk detectado. Forçando atualização para versão mais recente...' : '🔄 Erro detectado. Tentando refresh automático...', error?.message)
 
             // Aguardar um momento e fazer refresh
             setTimeout(() => {

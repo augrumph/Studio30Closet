@@ -4,7 +4,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getActiveInsights, dismissInsight, markInsightRead, generateInsights } from '@/lib/api'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
+import { getMidiInsights, dismissInsight, generateInsights } from '@/lib/api/insights'
 import { toast } from 'sonner'
 
 // Query Keys
@@ -39,7 +40,7 @@ export function useDismissInsight() {
             toast.success('Insight dispensado')
         },
         onError: (error) => {
-            toast.error(`Erro ao dispensar insight: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         },
     })
 }
@@ -72,7 +73,7 @@ export function useGenerateInsights() {
             toast.success(`${total} novos insights gerados!`)
         },
         onError: (error) => {
-            toast.error(`Erro ao gerar insights: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         },
     })
 }

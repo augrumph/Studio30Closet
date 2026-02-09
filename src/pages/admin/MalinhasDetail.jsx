@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Clock, MapPin, Phone, Mail, Package, CheckCircle, Truck, XCircle, Calendar, MessageSquare, ExternalLink, ChevronRight, User, Pencil } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -76,10 +77,7 @@ export function MalinhasDetail() {
                 }
                 throw new Error(result.error)
             },
-            error: (err) => ({
-                message: 'Falha na atualização',
-                description: err.message
-            })
+            error: (err) => formatUserFriendlyError(err)
         })
     }
 

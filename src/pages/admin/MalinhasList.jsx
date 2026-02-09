@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Search, Eye, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Calendar, ChevronRight, Plus, Trash2, Package, Pencil, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertDialog } from '@/components/ui/AlertDialog'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/Card'
@@ -108,7 +109,7 @@ export function MalinhasList() {
             toast.success('Malinha removida com sucesso.')
             setDeleteAlert({ isOpen: false, orderId: null })
         } catch (err) {
-            toast.error(`Erro ao remover malinha: ${err.message}`)
+            toast.error(formatUserFriendlyError(err))
         }
     }
 

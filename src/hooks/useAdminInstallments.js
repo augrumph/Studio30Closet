@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOpenInstallmentSales, getInstallmentsByVendaId, registerInstallmentPayment } from '@/lib/api/installments'
 import { updateVenda } from '@/lib/api/vendas'
 import { toast } from 'sonner'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 
 /**
  * Hook to fetch sales with open installments (crediário)
@@ -116,7 +117,7 @@ export function useAdminInstallmentsMutations() {
                     context.previousInstallments
                 )
             }
-            toast.error(`Erro ao registrar pagamento: ${err.message}`)
+            toast.error(formatUserFriendlyError(err))
         },
 
         onSettled: (data, error, variables) => {
@@ -142,7 +143,7 @@ export function useAdminInstallmentsMutations() {
             toast.success('Venda quitada com sucesso!')
         },
         onError: (err) => {
-            toast.error(`Erro ao quitar venda: ${err.message}`)
+            toast.error(formatUserFriendlyError(err))
         }
     })
 

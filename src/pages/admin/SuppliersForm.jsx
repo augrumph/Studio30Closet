@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Building2, Phone, Mail, MapPin, FileText } from 'lucide-react'
 import { useAdminSupplier, useAdminSuppliersMutations } from '@/hooks/useAdminSuppliers'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -50,7 +51,7 @@ export function SuppliersForm() {
                 navigate('/admin/suppliers')
                 return isEdit ? 'Fornecedor atualizado com sucesso!' : 'Fornecedor cadastrado com sucesso!'
             },
-            error: (err) => `Erro: ${err.message}`
+            error: (err) => formatUserFriendlyError(err)
         })
     }
 

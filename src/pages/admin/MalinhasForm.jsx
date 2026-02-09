@@ -15,6 +15,7 @@ import {
 import { useAdminMalinha, useAdminMalinhasMutations } from '@/hooks/useAdminMalinhas'
 import { useCustomerSearch } from '@/hooks/useAdminCustomers'
 import { useAdminProducts } from '@/hooks/useAdminProducts'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -197,7 +198,7 @@ export function MalinhasForm() {
                 }
                 throw new Error(result.error)
             },
-            error: (err) => `Erro: ${err.message}`
+            error: (err) => formatUserFriendlyError(err)
         })
     }
 

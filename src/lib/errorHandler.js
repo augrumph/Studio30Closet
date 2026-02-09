@@ -1,98 +1,95 @@
 /**
  * Utility function to convert database/Supabase errors to user-friendly messages
- * @param {Error} error - The raw error object from Supabase
- * @returns {string} - User-friendly error message
+ * @param {Error|object} error - The raw error object
+ * @returns {string} - User-friendly error message in Portuguese
  */
 export function formatUserFriendlyError(error) {
+  if (!error) return 'Ocorreu um erro inesperado. Tente novamente.';
+
   // If error is already a user-friendly message, return it
-  if (typeof error === 'string') {
-    return error;
+  if (typeof error === 'string') return error;
+
+  const errorMessage = (error.message || '').toLowerCase();
+  const errorCode = error.code || '';
+
+  // 1. Erros de Rede e Conexão
+  if (errorMessage.includes('network') || errorMessage.includes('failed to fetch')) {
+    return 'Sem conexão com a internet. Verifique sua rede e tente novamente.';
   }
 
-  // Handle Supabase-specific error codes and messages
-  if (error && error.message) {
-    const errorMessage = error.message.toLowerCase();
-    
-    // Handle unique constraint violations
-    if (errorMessage.includes('duplicate') || errorMessage.includes('unique')) {
-      if (errorMessage.includes('cpf') || errorMessage.includes('customers_cpf_key')) {
-        return 'CPF já cadastrado. Por favor, verifique e tente novamente.';
-      }
-      if (errorMessage.includes('cnpj') || errorMessage.includes('suppliers_cnpj_key')) {
-        return 'CNPJ já cadastrado. Por favor, verifique e tente novamente.';
-      }
-      if (errorMessage.includes('phone') || errorMessage.includes('customers_phone_key')) {
-        return 'Telefone já cadastrado. Por favor, verifique e tente novamente.';
-      }
-      if (errorMessage.includes('email') || errorMessage.includes('customers_email_key')) {
-        return 'E-mail já cadastrado. Por favor, verifique e tente novamente.';
-      }
-      if (errorMessage.includes('code') || errorMessage.includes('coupons_code_key')) {
-        return 'Código de cupom já existe. Por favor, escolha outro código.';
-      }
-      if (errorMessage.includes('setting_key') || errorMessage.includes('settings_setting_key_key')) {
-        return 'Configuração já existe. Por favor, verifique e tente novamente.';
-      }
-      return 'Este registro já existe no sistema. Por favor, verifique os dados e tente novamente.';
+  if (errorMessage.includes('timeout') || errorMessage.includes('etimedout')) {
+    return 'O servidor demorou muito para responder. Tente novamente em instantes.';
+  }
+
+  // 2. Erros de Banco de Dados (PostgreSQL / Supabase)
+  if (errorCode === '23505' || errorMessage.includes('duplicate') || errorMessage.includes('unique')) {
+    if (errorMessage.includes('customers_phone_key') || errorMessage.includes('phone')) {
+      return 'Este telefone já está cadastrado para outro cliente.';
     }
-    
-    // Handle check constraint violations
-    if (errorMessage.includes('check') || errorMessage.includes('constraint')) {
-      if (errorMessage.includes('quantity') || errorMessage.includes('gt 0')) {
-        return 'A quantidade deve ser maior que zero.';
-      }
-      if (errorMessage.includes('price') || errorMessage.includes('numeric')) {
-        return 'O preço informado é inválido. Por favor, verifique e tente novamente.';
-      }
-      return 'Os dados informados não atendem aos requisitos. Por favor, verifique e tente novamente.';
+    if (errorMessage.includes('customers_email_key') || errorMessage.includes('email')) {
+      return 'Este e-mail já está sendo usado por outro cliente.';
     }
-    
-    // Handle foreign key constraint violations
-    if (errorMessage.includes('foreign') || errorMessage.includes('fk_') || errorMessage.includes('reference')) {
-      return 'Referência inválida. O registro relacionado não existe ou foi excluído.';
+    if (errorMessage.includes('customers_cpf_key') || errorMessage.includes('cpf')) {
+      return 'Este CPF já está cadastrado no sistema.';
     }
-    
-    // Handle not null constraint violations
-    if (errorMessage.includes('not null') || errorMessage.includes('violates not-null')) {
-      return 'Campos obrigatórios não foram preenchidos. Por favor, verifique todos os campos obrigatórios.';
+    if (errorMessage.includes('suppliers_cnpj_key') || errorMessage.includes('cnpj')) {
+      return 'Este CNPJ já está cadastrado para outro fornecedor.';
     }
-    
-    // Handle other specific database errors
-    if (errorMessage.includes('out of range') || errorMessage.includes('overflow')) {
-      return 'O valor informado está fora do intervalo permitido. Por favor, verifique e tente novamente.';
+    if (errorMessage.includes('coupons_code_key') || errorMessage.includes('code')) {
+      return 'Este código de cupom já existe.';
     }
-    
-    if (errorMessage.includes('permission') || errorMessage.includes('forbidden')) {
-      return 'Você não tem permissão para realizar esta operação.';
-    }
-    
-    if (errorMessage.includes('connection') || errorMessage.includes('timeout')) {
-      return 'Erro de conexão com o servidor. Por favor, verifique sua conexão e tente novamente.';
-    }
-    
-    // Generic fallback messages based on error structure
-    if (error.code) {
-      switch (error.code) {
-        case '23505': // Unique violation
-          return 'Este registro já existe no sistema. Por favor, verifique os dados e tente novamente.';
-        case '23503': // Foreign key violation
-          return 'Referência inválida. O registro relacionado não existe ou foi excluído.';
-        case '23514': // Check violation
-          return 'Os dados informados não atendem aos requisitos. Por favor, verifique e tente novamente.';
-        case '23502': // Not null violation
-          return 'Campos obrigatórios não foram preenchidos. Por favor, verifique todos os campos obrigatórios.';
-        case '42501': // Insufficient privilege
-          return 'Você não tem permissão para realizar esta operação.';
-        case '42601': // Syntax error
-          return 'Erro na estrutura da solicitação. Entre em contato com o suporte.';
-        default:
-          return `Erro no sistema: ${error.message}. Por favor, tente novamente ou entre em contato com o suporte.`;
-      }
+    return 'Este registro já existe no sistema.';
+  }
+
+  if (errorCode === '23503' || errorMessage.includes('foreign key') || errorMessage.includes('reference')) {
+    return 'Não é possível realizar esta ação pois existem registros vinculados.';
+  }
+
+  if (errorCode === '23502' || errorMessage.includes('not-null') || errorMessage.includes('null value')) {
+    return 'Preencha todos os campos obrigatórios.';
+  }
+
+  // 3. Erros de Permissão e Autenticação
+  if (errorCode === '42501' || errorMessage.includes('permission') || errorMessage.includes('forbidden') || errorMessage.includes('unauthorized')) {
+    return 'Você não tem permissão para realizar esta ação ou sua sessão expirou.';
+  }
+
+  // 4. Erros do Supabase (PostgREST)
+  const SUPABASE_MESSAGES = {
+    'PGRST116': 'Nenhum registro encontrado.',
+    'PGRST301': 'Sessão expirada. Faça login novamente.',
+    '42P01': 'Tabela não encontrada no banco de dados.',
+    '42703': 'Dados inválidos ou campo não encontrado.'
+  };
+
+  if (SUPABASE_MESSAGES[errorCode]) {
+    return SUPABASE_MESSAGES[errorCode];
+  }
+
+  // 5. Erros HTTP Genéricos
+  if (errorMessage.includes('http')) {
+    const statusMatch = errorMessage.match(/http (\d+)/);
+    if (statusMatch) {
+      const status = parseInt(statusMatch[1]);
+      const httpMessages = {
+        400: 'Dados inválidos. Verifique os campos preenchidos.',
+        401: 'Sessão expirada. Faça login novamente.',
+        404: 'Registro não encontrado no servidor.',
+        429: 'Muitas tentativas. Aguarde um momento.',
+        500: 'Erro interno no servidor. Tente novamente em instantes.',
+        503: 'Servidor temporariamente indisponível.'
+      };
+      if (httpMessages[status]) return httpMessages[status];
     }
   }
-  
-  // Return a generic message if no specific case is matched
-  return 'Ocorreu um erro ao processar sua solicitação. Por favor, verifique os dados e tente novamente.';
+
+  // 6. Mensagens curtas em inglês (Fallback de tradução)
+  if (errorMessage === 'failed to fetch') return 'Erro ao conectar-se ao servidor.';
+
+  // 7. Fallback final
+  return error.message && error.message.length < 100
+    ? error.message
+    : 'Ocorreu um erro ao processar sua solicitação. Tente novamente.';
 }
 
 /**

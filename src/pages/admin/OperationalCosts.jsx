@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Save, CreditCard, Sparkles } from 'lucide-react'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { useOperationalCostsStore } from '@/store/operational-costs-store'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -126,7 +127,7 @@ export function OperationalCosts() {
         if (result.success) {
             toast.success('Taxas salvas com sucesso!')
         } else {
-            toast.error(`Erro ao salvar: ${result.error}`)
+            toast.error(formatUserFriendlyError(result.error))
         }
     }
 

@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react'
 import { useAdminProducts, useAdminProduct } from '@/hooks/useAdminProducts'
 import { useAdminSuppliers } from '@/hooks/useAdminSuppliers'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -294,7 +295,7 @@ export function ProductsForm() {
                 navigate('/admin/products')
                 return id ? 'Produto atualizado com sucesso!' : 'Produto criado com sucesso!'
             },
-            error: (err) => `Erro: ${err.message}`
+            error: (err) => formatUserFriendlyError(err)
         })
     }
 

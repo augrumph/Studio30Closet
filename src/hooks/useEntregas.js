@@ -5,7 +5,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { entregas } from '@/lib/api/entregas'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
+import { getEntregas, getEntregaById, getEntregasMetrics, createEntrega, updateEntrega, deleteEntrega, updateEntregaStatus } from '@/lib/api/entregas'
 import { toast } from 'sonner'
 
 const ENTREGAS_KEY = 'entregas'
@@ -71,7 +72,7 @@ export function useEntregasMutations() {
             invalidateEntregas()
         },
         onError: (error) => {
-            toast.error(`Erro ao criar entrega: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -82,7 +83,7 @@ export function useEntregasMutations() {
             invalidateEntregas()
         },
         onError: (error) => {
-            toast.error(`Erro ao atualizar: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -93,7 +94,7 @@ export function useEntregasMutations() {
             invalidateEntregas()
         },
         onError: (error) => {
-            toast.error(`Erro ao remover: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -112,7 +113,7 @@ export function useEntregasMutations() {
             invalidateEntregas()
         },
         onError: (error) => {
-            toast.error(`Erro ao atualizar status: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 

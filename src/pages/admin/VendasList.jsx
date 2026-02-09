@@ -4,6 +4,7 @@ import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, M
 import { useAdminStore } from '@/store/admin-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from 'sonner'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card'
@@ -107,7 +108,7 @@ export function VendasList() {
     // Usar TODAS as vendas para os cards de métricas (não filtradas)
     // Otimizado: única passagem para calcular todas as métricas
     const metrics = useMemo(() => {
-        if (!allVendas) return { totalRevenue: 0, pendingFiado: 0, totalDevedores: 0, valorDevedores: 0, averageTicket: 0 }
+        if (!allVendas) return { totalRevenue: 0, pendingCrediario: 0, totalDevedores: 0, valorDevedores: 0, averageTicket: 0 }
 
         let totalRevenue = 0
         let pendingCrediario = 0
@@ -152,7 +153,7 @@ export function VendasList() {
             await deleteSale(confirmDelete.vendaId)
             toast.success('Venda removida com sucesso.')
         } catch (error) {
-            toast.error(`Erro ao remover: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
         setConfirmDelete({ ...confirmDelete, isOpen: false })
     }
@@ -370,7 +371,7 @@ export function VendasList() {
 
                         {/* Filtro de Método de Pagamento */}
                         <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl">
-                            {['all', 'pix', 'card', 'fiado'].map(type => (
+                            {['all', 'pix', 'card', 'fiado_parcelado'].map(type => (
                                 <button
                                     key={type}
                                     onClick={() => setFilterType(type)}
@@ -381,7 +382,7 @@ export function VendasList() {
                                             : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
                                     )}
                                 >
-                                    {type === 'all' ? 'Método' : type === 'fiado' ? 'Crediário' : type.toUpperCase()}
+                                    {type === 'all' ? 'Método' : type === 'fiado_parcelado' ? 'Crediário' : type.toUpperCase()}
                                 </button>
                             ))}
                         </div>

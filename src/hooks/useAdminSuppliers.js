@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { getSuppliers, getSupplierById, createSupplier, updateSupplier, deleteSupplier } from '@/lib/api/suppliers'
 import { toast } from 'sonner'
 
@@ -47,7 +48,7 @@ export function useAdminSuppliersMutations() {
             toast.success('Fornecedor criado com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao criar fornecedor: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -59,7 +60,7 @@ export function useAdminSuppliersMutations() {
             toast.success('Fornecedor atualizado com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao atualizar fornecedor: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -70,7 +71,7 @@ export function useAdminSuppliersMutations() {
             toast.success('Fornecedor removido com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao remover fornecedor: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 

@@ -44,46 +44,47 @@ const queryClient = new QueryClient({
 
 // Eager load critical public pages
 import { Home } from '@/pages'
+import { lazyWithRetry } from '@/utils/lazyRetry'
 
 // Lazy load everything else
-const Catalog = lazy(() => import('@/pages').then(module => ({ default: module.Catalog })))
-const HowItWorks = lazy(() => import('@/pages').then(module => ({ default: module.HowItWorks })))
-const About = lazy(() => import('@/pages').then(module => ({ default: module.About })))
-const Checkout = lazy(() => import('@/pages').then(module => ({ default: module.Checkout })))
-const PrivacyPolicy = lazy(() => import('@/pages').then(module => ({ default: module.PrivacyPolicy })))
-const TermsOfService = lazy(() => import('@/pages').then(module => ({ default: module.TermsOfService })))
+const Catalog = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.Catalog })))
+const HowItWorks = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.HowItWorks })))
+const About = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.About })))
+const Checkout = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.Checkout })))
+const PrivacyPolicy = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.PrivacyPolicy })))
+const TermsOfService = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.TermsOfService })))
 
 // Admin Pages (Lazy Loaded)
-const AdminLayout = lazy(() => import('@/components/admin/layout/AdminLayout').then(module => ({ default: module.AdminLayout })))
-const AdminLogin = lazy(() => import('@/pages/admin/AdminLogin').then(module => ({ default: module.AdminLogin })))
-const Dashboard = lazy(() => import('@/pages/admin/Dashboard').then(module => ({ default: module.Dashboard })))
+const AdminLayout = lazyWithRetry(() => import('@/components/admin/layout/AdminLayout').then(module => ({ default: module.AdminLayout })))
+const AdminLogin = lazyWithRetry(() => import('@/pages/admin/AdminLogin').then(module => ({ default: module.AdminLogin })))
+const Dashboard = lazyWithRetry(() => import('@/pages/admin/Dashboard').then(module => ({ default: module.Dashboard })))
 
 // Admin Features
-const ProductsList = lazy(() => import('@/pages/admin/ProductsList').then(module => ({ default: module.ProductsList })))
-const ProductsForm = lazy(() => import('@/pages/admin/ProductsForm').then(module => ({ default: module.ProductsForm })))
-const MalinhasList = lazy(() => import('@/pages/admin/MalinhasList').then(module => ({ default: module.MalinhasList })))
-const MalinhasDetail = lazy(() => import('@/pages/admin/MalinhasDetail').then(module => ({ default: module.MalinhasDetail })))
-const MalinhasForm = lazy(() => import('@/pages/admin/MalinhasForm').then(module => ({ default: module.MalinhasForm })))
-const CustomersList = lazy(() => import('@/pages/admin/CustomersList').then(module => ({ default: module.CustomersList })))
-const CustomersForm = lazy(() => import('@/pages/admin/CustomersForm').then(module => ({ default: module.CustomersForm })))
-const VendasList = lazy(() => import('@/pages/admin/VendasList').then(module => ({ default: module.VendasList })))
-const VendasForm = lazy(() => import('@/pages/admin/VendasForm').then(module => ({ default: module.VendasForm })))
+const ProductsList = lazyWithRetry(() => import('@/pages/admin/ProductsList').then(module => ({ default: module.ProductsList })))
+const ProductsForm = lazyWithRetry(() => import('@/pages/admin/ProductsForm').then(module => ({ default: module.ProductsForm })))
+const MalinhasList = lazyWithRetry(() => import('@/pages/admin/MalinhasList').then(module => ({ default: module.MalinhasList })))
+const MalinhasDetail = lazyWithRetry(() => import('@/pages/admin/MalinhasDetail').then(module => ({ default: module.MalinhasDetail })))
+const MalinhasForm = lazyWithRetry(() => import('@/pages/admin/MalinhasForm').then(module => ({ default: module.MalinhasForm })))
+const CustomersList = lazyWithRetry(() => import('@/pages/admin/CustomersList').then(module => ({ default: module.CustomersList })))
+const CustomersForm = lazyWithRetry(() => import('@/pages/admin/CustomersForm').then(module => ({ default: module.CustomersForm })))
+const VendasList = lazyWithRetry(() => import('@/pages/admin/VendasList').then(module => ({ default: module.VendasList })))
+const VendasForm = lazyWithRetry(() => import('@/pages/admin/VendasForm').then(module => ({ default: module.VendasForm })))
 // Estoque Inteligente
-const StockDashboard = lazy(() => import('@/pages/admin/StockDashboard').then(module => ({ default: module.StockDashboard })))
-const SuppliersList = lazy(() => import('@/pages/admin/SuppliersList').then(module => ({ default: module.SuppliersList })))
-const SuppliersForm = lazy(() => import('@/pages/admin/SuppliersForm').then(module => ({ default: module.SuppliersForm })))
-const PurchasesList = lazy(() => import('@/pages/admin/PurchasesList').then(module => ({ default: module.PurchasesList })))
-const PurchasesForm = lazy(() => import('@/pages/admin/PurchasesForm').then(module => ({ default: module.PurchasesForm })))
-const InstallmentsList = lazy(() => import('@/pages/admin/InstallmentsList').then(module => ({ default: module.InstallmentsList })))
-const ExpensesList = lazy(() => import('@/pages/admin/ExpensesList').then(module => ({ default: module.ExpensesList })))
-const ExpensesForm = lazy(() => import('@/pages/admin/ExpensesForm').then(module => ({ default: module.ExpensesForm })))
-const EntregasList = lazy(() => import('@/pages/admin/EntregasList').then(module => ({ default: module.EntregasList })))
-const SiteAnalytics = lazy(() => import('@/pages/admin/SiteAnalytics').then(module => ({ default: module.SiteAnalytics })))
-const CollectionDetail = lazy(() => import('@/pages/admin/CollectionDetail').then(module => ({ default: module.CollectionDetail })))
+const StockDashboard = lazyWithRetry(() => import('@/pages/admin/StockDashboard').then(module => ({ default: module.StockDashboard })))
+const SuppliersList = lazyWithRetry(() => import('@/pages/admin/SuppliersList').then(module => ({ default: module.SuppliersList })))
+const SuppliersForm = lazyWithRetry(() => import('@/pages/admin/SuppliersForm').then(module => ({ default: module.SuppliersForm })))
+const PurchasesList = lazyWithRetry(() => import('@/pages/admin/PurchasesList').then(module => ({ default: module.PurchasesList })))
+const PurchasesForm = lazyWithRetry(() => import('@/pages/admin/PurchasesForm').then(module => ({ default: module.PurchasesForm })))
+const InstallmentsList = lazyWithRetry(() => import('@/pages/admin/InstallmentsList').then(module => ({ default: module.InstallmentsList })))
+const ExpensesList = lazyWithRetry(() => import('@/pages/admin/ExpensesList').then(module => ({ default: module.ExpensesList })))
+const ExpensesForm = lazyWithRetry(() => import('@/pages/admin/ExpensesForm').then(module => ({ default: module.ExpensesForm })))
+const EntregasList = lazyWithRetry(() => import('@/pages/admin/EntregasList').then(module => ({ default: module.EntregasList })))
+const SiteAnalytics = lazyWithRetry(() => import('@/pages/admin/SiteAnalytics').then(module => ({ default: module.SiteAnalytics })))
+const CollectionDetail = lazyWithRetry(() => import('@/pages/admin/CollectionDetail').then(module => ({ default: module.CollectionDetail })))
 
 // Test Components
-const SupabaseTester = lazy(() => import('@/components/SupabaseTester'))
-const SupabaseMigrationTester = lazy(() => import('@/components/SupabaseMigrationTester'))
+const SupabaseTester = lazyWithRetry(() => import('@/components/SupabaseTester'))
+const SupabaseMigrationTester = lazyWithRetry(() => import('@/components/SupabaseMigrationTester'))
 
 // Loading Component
 function PageLoader() {

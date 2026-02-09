@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, User, Phone, Mail, MapPin, Hash, Info, Calendar } from 'lucide-react'
 import { useAdminCustomer, useAdminCustomersMutations } from '@/hooks/useAdminCustomers'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -80,8 +81,7 @@ export function CustomersForm() {
                 return isEdit ? 'Dados do cliente atualizados!' : 'Cliente cadastrado com sucesso!'
             },
             error: (err) => {
-                // console.error('Form: Customer operation failed:', err);
-                return `Erro: ${err.message}`
+                return formatUserFriendlyError(err)
             }
         })
     }

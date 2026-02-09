@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { getPurchases, getPurchaseById, createPurchase, updatePurchase, deletePurchase } from '@/lib/api/purchases'
 import { toast } from 'sonner'
 
@@ -47,7 +48,7 @@ export function useAdminPurchasesMutations() {
             toast.success('Compra registrada com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao registrar compra: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -59,7 +60,7 @@ export function useAdminPurchasesMutations() {
             toast.success('Compra atualizada com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao atualizar compra: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -70,7 +71,7 @@ export function useAdminPurchasesMutations() {
             toast.success('Compra removida com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao remover compra: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 

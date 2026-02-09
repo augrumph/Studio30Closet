@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getOrders, getOrderById, createOrder, updateOrder, deleteOrder, updateOrderStatus } from '@/lib/api/orders'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
+import { getOrders, getOrderById, addOrder, updateOrder, deleteOrder, updateOrderStatus } from '@/lib/api/orders'
 import { toast } from 'sonner'
 
 /**
@@ -52,7 +53,7 @@ export function useAdminMalinhasMutations() {
             toast.success('Malinha criada com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao criar malinha: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -64,7 +65,7 @@ export function useAdminMalinhasMutations() {
             toast.success('Malinha atualizada com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao atualizar malinha: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -76,7 +77,7 @@ export function useAdminMalinhasMutations() {
             toast.success('Status atualizado com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao atualizar status: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 
@@ -87,7 +88,7 @@ export function useAdminMalinhasMutations() {
             toast.success('Malinha removida com sucesso!')
         },
         onError: (error) => {
-            toast.error(`Erro ao remover malinha: ${error.message}`)
+            toast.error(formatUserFriendlyError(error))
         }
     })
 

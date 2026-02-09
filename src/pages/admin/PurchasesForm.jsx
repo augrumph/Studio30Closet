@@ -4,6 +4,7 @@ import { ArrowLeft, Save, ShoppingCart, DollarSign, Calendar, Package, FileText,
 import { useAdminPurchase, useAdminPurchasesMutations } from '@/hooks/useAdminPurchases'
 import { useAdminSuppliers } from '@/hooks/useAdminSuppliers'
 import { motion } from 'framer-motion'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
@@ -74,7 +75,7 @@ export function PurchasesForm() {
                 navigate('/admin/purchases')
                 return isEdit ? 'Compra atualizada com sucesso!' : 'Compra registrada com sucesso!'
             },
-            error: (err) => `Erro: ${err.message}`
+            error: (err) => formatUserFriendlyError(err)
         })
     }
 

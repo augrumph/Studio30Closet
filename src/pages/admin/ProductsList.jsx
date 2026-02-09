@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown, Layers } from 'lucide-react'
 import { AlertDialog } from '@/components/ui/AlertDialog'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -166,7 +167,7 @@ export function ProductsList() {
             toast.success('Produto excluído do catálogo.')
             setConfirmDelete({ ...confirmDelete, isOpen: false })
         } catch (err) {
-            toast.error(`Erro ao excluir: ${err.message}`)
+            toast.error(formatUserFriendlyError(err))
         }
     }
 
@@ -177,7 +178,7 @@ export function ProductsList() {
             setSelectedProducts([])
             setConfirmMultiDelete(false)
         } catch (err) {
-            toast.error(`Erro ao excluir produtos: ${err.message}`)
+            toast.error(formatUserFriendlyError(err))
         }
     }
 

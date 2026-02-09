@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// Security com configuração de CSP para permitir Supabase
+// Security com configuração de CSP para permitir Supabase, Google Fonts, Google Analytics
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -20,12 +20,27 @@ app.use(helmet({
             connectSrc: [
                 "'self'",
                 "https://wvghryqufnjmdfnjypbu.supabase.co",
-                "wss://wvghryqufnjmdfnjypbu.supabase.co"
+                "wss://wvghryqufnjmdfnjypbu.supabase.co",
+                "https://www.googletagmanager.com",
+                "https://www.google-analytics.com"
             ],
-            imgSrc: ["'self'", "data:", "https:", "blob:"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            fontSrc: ["'self'", "data:"]
+            scriptSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                "https://www.googletagmanager.com",
+                "https://www.google-analytics.com"
+            ],
+            styleSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                "https://fonts.googleapis.com"
+            ],
+            fontSrc: [
+                "'self'",
+                "data:",
+                "https://fonts.gstatic.com"
+            ],
+            imgSrc: ["'self'", "data:", "https:", "blob:"]
         }
     }
 }))

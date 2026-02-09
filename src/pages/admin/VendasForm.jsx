@@ -272,7 +272,7 @@ export function VendasForm() {
             productId: product.id,
             name: product.name,
             price: product.price,
-            costPrice: product.costPrice || 0,
+            costPrice: product.costPrice || product.cost_price || 0,
             quantity: 1,
             selectedColor: color,
             selectedSize: size,

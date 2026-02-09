@@ -51,7 +51,7 @@ export function useAdminInstallmentsMetrics({ status = 'pendentes' } = {}) {
     })
 
     return {
-        metrics: query.data || { count: 0, totalDueEstimative: 0, totalOverdueEstimative: 0 },
+        metrics: query.data || { count: 0, totalDueEstimative: 0, totalOverdueEstimative: 0, overdueCount: 0 },
         isLoading: query.isLoading
     }
 }

@@ -362,10 +362,9 @@ export function InstallmentsList() {
                     <CardContent className="pt-8">
                         <div className="space-y-2">
                             <p className="text-sm text-[#4A3B32]/60 font-medium">Parcelas Vencidas</p>
-                            {/* We don't have exact overdue count from simple query, using N/A or hiding? Or using the passed metric if available */}
-                            <p className="text-3xl font-bold text-red-600">-</p>
+                            <p className="text-3xl font-bold text-red-600">{metrics.overdueCount || 0}</p>
                             <p className="text-xs text-[#4A3B32]/40 font-medium">
-                                Cálculo indisponível no resumo
+                                R$ {(metrics.totalOverdueEstimative || 0).toFixed(2)}
                             </p>
                         </div>
                     </CardContent>

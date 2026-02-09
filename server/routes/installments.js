@@ -178,8 +178,34 @@ router.get('/metrics', cacheMiddleware(300), async (req, res) => {
         const totalCount = data.length
         let totalDueEstimative = 0
         let totalOverdueEstimative = 0
-        // Note: Without checking every installment, overdue is hard to guess.
-        // We will return estimates.
+        let overdueCount = 0
+
+        // Fetch all installments for these vendas to calculate overdue
+        const vendaIds = data.map(v => v.id)
+
+        if (vendaIds.length > 0) {
+            const { data: allInstallments, error: instError } = await supabase
+                .from('installments')
+                .select('venda_id, original_amount, due_date, payments:installment_payments(payment_amount)')
+                .in('venda_id', vendaIds)
+
+            if (!instError && allInstallments) {
+                const now = new Date()
+
+                allInstallments.forEach(inst => {
+                    const originalAmount = parseFloat(inst.original_amount || 0)
+                    const payments = inst.payments || []
+                    const paidAmount = payments.reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0)
+                    const remainingAmount = originalAmount - paidAmount
+
+                    // Check if overdue (past due date and still has remaining amount)
+                    if (remainingAmount > 0.01 && new Date(inst.due_date) < now) {
+                        totalOverdueEstimative += remainingAmount
+                        overdueCount++
+                    }
+                })
+            }
+        }
 
         data.forEach(v => {
             const due = (v.total_value || 0) - (v.entry_payment || 0)
@@ -189,7 +215,8 @@ router.get('/metrics', cacheMiddleware(300), async (req, res) => {
         res.json({
             count: totalCount || 0,
             totalDueEstimative,
-            totalOverdueEstimative // Included as 0 for now as strict calculation is expensive
+            totalOverdueEstimative,
+            overdueCount
         })
 
     } catch (error) {

@@ -1,5 +1,6 @@
 import express from 'express'
 import { supabase } from '../supabase.js'
+import { toCamelCase } from '../utils.js'
 
 const router = express.Router()
 
@@ -42,7 +43,7 @@ router.get('/', async (req, res) => {
         if (error) throw error
 
         res.json({
-            items: data,
+            items: toCamelCase(data),
             total: count,
             page: Number(page),
             pageSize: Number(pageSize),
@@ -66,7 +67,7 @@ router.get('/:id', async (req, res) => {
             .single()
 
         if (error) throw error
-        res.json(data)
+        res.json(toCamelCase(data))
     } catch (err) {
         console.error(`❌ Erro ao buscar produto ${id}:`, err)
         res.status(500).json({ error: 'Erro ao buscar produto' })

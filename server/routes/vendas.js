@@ -1,5 +1,6 @@
 import express from 'express'
 import { supabase } from '../supabase.js'
+import { toCamelCase } from '../utils.js'
 
 const router = express.Router()
 
@@ -52,14 +53,13 @@ router.get('/', async (req, res) => {
 
         if (error) throw error
 
-        // Normalização para o Frontend
-        const items = data.map(v => ({
-            ...v,
-            customerName: v.customers?.name,
-            totalValue: v.total_value,
-            paymentStatus: v.payment_status,
-            createdAt: v.created_at
-        }))
+        // Normalização para o Frontend usando toCamelCase
+        const items = data.map(v => {
+            const camelData = toCamelCase(v)
+            // Adiciona o nome do cliente do relacionamento
+            camelData.customerName = v.customers?.name || camelData.customerName
+            return camelData
+        })
 
         res.json({
             items,

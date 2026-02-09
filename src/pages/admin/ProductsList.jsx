@@ -134,7 +134,7 @@ export function ProductsList() {
     // Handlers
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            setSelectedProducts(filteredProducts.map(p => p.id))
+            setSelectedProducts(sortedProducts.map(p => p.id))
         } else {
             setSelectedProducts([])
         }
@@ -306,7 +306,7 @@ export function ProductsList() {
                                         type="checkbox"
                                         className="rounded border-gray-300 text-[#C75D3B] focus:ring-[#C75D3B]/50 focus-visible:ring-2 focus-visible:ring-[#C75D3B]"
                                         onChange={handleSelectAll}
-                                        checked={selectedProducts.length > 0 && selectedProducts.length === filteredProducts.length}
+                                        checked={selectedProducts.length > 0 && selectedProducts.length === sortedProducts.length}
                                     />
                                 </th>
                                 <th

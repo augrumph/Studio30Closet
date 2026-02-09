@@ -74,15 +74,9 @@ router.get('/ranking', cacheMiddleware(600), async (req, res) => {
         })
 
         if (error) {
-            console.error('Error calling get_stock_ranking:', error)
-            // Fallback to empty data
-            return res.json({
-                byCategory: [],
-                byColor: [],
-                bySize: [],
-                byProduct: [],
-                byProfit: []
-            })
+            console.warn('⚠️ RPC get_stock_ranking não disponível, usando fallback:', error.message)
+            // Fallback: calculate rankings manually
+            return await calculateRankingsFallback(startDate, endDate, res)
         }
 
         // The SQL function returns a JSON object with all rankings
@@ -101,6 +95,141 @@ router.get('/ranking', cacheMiddleware(600), async (req, res) => {
         res.status(500).json({ message: 'Erro ao buscar ranking de vendas' })
     }
 })
+
+/**
+ * Fallback function to calculate rankings manually when RPC is not available
+ */
+async function calculateRankingsFallback(startDate, endDate, res) {
+    try {
+        console.log('📊 Calculando rankings manualmente...')
+
+        // Fetch all sales in the date range
+        const { data: vendas, error: vendasError } = await supabase
+            .from('vendas')
+            .select('id, items, created_at')
+            .gte('created_at', startDate)
+            .lte('created_at', endDate)
+            .neq('payment_status', 'cancelled')
+
+        if (vendasError) throw vendasError
+
+        // Fetch all products for cost_price lookup
+        const { data: products, error: productsError } = await supabase
+            .from('products')
+            .select('id, name, cost_price, category, color')
+
+        if (productsError) throw productsError
+
+        // Create product lookup map
+        const productMap = new Map()
+        products.forEach(p => {
+            productMap.set(p.id, p)
+        })
+
+        // Aggregation maps
+        const categoryStats = new Map()
+        const colorStats = new Map()
+        const sizeStats = new Map()
+        const productStats = new Map()
+
+        // Process all sales
+        vendas.forEach(venda => {
+            let items = venda.items
+            if (typeof items === 'string') {
+                try {
+                    items = JSON.parse(items)
+                } catch {
+                    items = []
+                }
+            }
+            if (!Array.isArray(items)) items = []
+
+            items.forEach(item => {
+                const productId = item.productId || item.id
+                const product = productMap.get(productId)
+                if (!product) return
+
+                const qty = item.quantity || 1
+                const price = item.price || 0
+                const costPrice = product.cost_price || 0
+                const revenue = price * qty
+                const margin = (price - costPrice) * qty
+
+                // Category
+                const category = product.category || 'Sem categoria'
+                if (!categoryStats.has(category)) {
+                    categoryStats.set(category, { name: category, qty: 0, revenue: 0, margin: 0 })
+                }
+                const catStat = categoryStats.get(category)
+                catStat.qty += qty
+                catStat.revenue += revenue
+                catStat.margin += margin
+
+                // Color
+                const color = item.selectedColor || product.color || 'Sem cor'
+                if (!colorStats.has(color)) {
+                    colorStats.set(color, { name: color, qty: 0, revenue: 0, margin: 0 })
+                }
+                const colorStat = colorStats.get(color)
+                colorStat.qty += qty
+                colorStat.revenue += revenue
+                colorStat.margin += margin
+
+                // Size
+                const size = item.selectedSize || 'Único'
+                if (!sizeStats.has(size)) {
+                    sizeStats.set(size, { name: size, qty: 0, revenue: 0, margin: 0 })
+                }
+                const sizeStat = sizeStats.get(size)
+                sizeStat.qty += qty
+                sizeStat.revenue += revenue
+                sizeStat.margin += margin
+
+                // Product
+                if (!productStats.has(productId)) {
+                    productStats.set(productId, {
+                        id: productId,
+                        name: product.name,
+                        qty: 0,
+                        revenue: 0,
+                        margin: 0
+                    })
+                }
+                const prodStat = productStats.get(productId)
+                prodStat.qty += qty
+                prodStat.revenue += revenue
+                prodStat.margin += margin
+            })
+        })
+
+        // Convert maps to sorted arrays
+        const byCategory = Array.from(categoryStats.values()).sort((a, b) => b.qty - a.qty)
+        const byColor = Array.from(colorStats.values()).sort((a, b) => b.qty - a.qty)
+        const bySize = Array.from(sizeStats.values()).sort((a, b) => b.qty - a.qty)
+        const byProduct = Array.from(productStats.values()).sort((a, b) => b.qty - a.qty)
+        const byProfit = Array.from(productStats.values()).sort((a, b) => b.margin - a.margin)
+
+        console.log('✅ Rankings calculados com sucesso')
+
+        return res.json({
+            byCategory,
+            byColor,
+            bySize,
+            byProduct,
+            byProfit
+        })
+
+    } catch (error) {
+        console.error('❌ Erro no fallback de rankings:', error)
+        return res.json({
+            byCategory: [],
+            byColor: [],
+            bySize: [],
+            byProduct: [],
+            byProfit: []
+        })
+    }
+}
 
 /**
  * GET /api/stock/low

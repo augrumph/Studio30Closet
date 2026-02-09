@@ -12,8 +12,23 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// Security
-app.use(helmet())
+// Security com configuração de CSP para permitir Supabase
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            connectSrc: [
+                "'self'",
+                "https://wvghryqufnjmdfnjypbu.supabase.co",
+                "wss://wvghryqufnjmdfnjypbu.supabase.co"
+            ],
+            imgSrc: ["'self'", "data:", "https:", "blob:"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            fontSrc: ["'self'", "data:"]
+        }
+    }
+}))
 
 // CORS
 app.use(cors())

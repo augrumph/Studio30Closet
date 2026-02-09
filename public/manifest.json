@@ -9,8 +9,14 @@
     "icons": [
         {
             "src": "/logomarca.webp",
-            "sizes": "192x192 512x512",
+            "sizes": "128x67",
             "type": "image/webp"
+        },
+        {
+            "src": "/social-share.png",
+            "sizes": "1024x1024",
+            "type": "image/png",
+            "purpose": "any"
         }
     ]
 }

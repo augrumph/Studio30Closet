@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown, Layers } from 'lucide-react'
+import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown, Layers, AlertTriangle } from 'lucide-react'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
@@ -23,36 +23,43 @@ import {
 import { useAdminProducts } from '@/hooks/useAdminProducts'
 import { CollectionsManagerModal } from '@/components/admin/CollectionsManagerModal'
 import { getActiveCollections } from '@/lib/api/collections'
+import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
 
 
 export function ProductsList() {
     // ⚡ REACT QUERY HOOK
+    const [search, setSearch] = useState('')
+    const [categoryFilter, setCategoryFilter] = useState('all')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage] = useState(20)
+
+    // ⚡ BFF DATA: Hook Paginado
     const {
-        products,
+        products: paginatedProducts,
+        total: totalItems,
+        totalPages,
         isLoading: productsLoading,
         isError,
         error,
         deleteProduct,
         deleteMultipleProducts,
         refetch
-    } = useAdminProducts()
+    } = useAdminProducts({
+        page: currentPage,
+        pageSize: itemsPerPage,
+        search: search,
+        category: categoryFilter
+    })
 
     const [searchParams] = useSearchParams()
-    const [search, setSearch] = useState('')
-    const [categoryFilter, setCategoryFilter] = useState('all')
-    const [stockFilter, setStockFilter] = useState(searchParams.get('filter') === 'lowStock' ? 'low' : 'all')
-    const [currentPage, setCurrentPage] = useState(1)
-    const [itemsPerPage] = useState(10)
     const [selectedProducts, setSelectedProducts] = useState([])
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, productId: null, productName: '' })
     const [confirmMultiDelete, setConfirmMultiDelete] = useState(false)
     const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' })
 
-    // Collections state
     const [collectionsModalOpen, setCollectionsModalOpen] = useState(false)
     const [collections, setCollections] = useState([])
 
-    // Load collections for dropdown
     useEffect(() => {
         getActiveCollections().then(setCollections).catch(() => { })
     }, [])
@@ -65,24 +72,13 @@ export function ProductsList() {
         setSortConfig({ key, direction });
     }
 
-    // Filter Logic
-    const filteredProducts = useMemo(() => {
-        if (!products) return []
-        return products.filter(product => {
-            const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) ||
-                product.category.toLowerCase().includes(search.toLowerCase()) ||
-                product.id.toString().includes(search)
-
-            const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter
-            const matchesStock = stockFilter === 'all' || (stockFilter === 'low' && product.stock <= 2)
-
-            return matchesSearch && matchesCategory && matchesStock
-        }).sort((a, b) => {
+    const sortedProducts = useMemo(() => {
+        if (!paginatedProducts) return []
+        return [...paginatedProducts].sort((a, b) => {
             if (!sortConfig.key) return 0;
 
             let aValue, bValue;
 
-            // Handle calculated fields
             if (sortConfig.key === 'markup') {
                 aValue = a.costPrice > 0 ? a.price / a.costPrice : 0;
                 bValue = b.costPrice > 0 ? b.price / b.costPrice : 0;
@@ -94,7 +90,6 @@ export function ProductsList() {
                 bValue = b[sortConfig.key];
             }
 
-            // Handle string comparison for case-insensitive sort
             if (typeof aValue === 'string') {
                 aValue = aValue.toLowerCase();
                 bValue = bValue != null ? bValue.toLowerCase() : '';
@@ -108,39 +103,33 @@ export function ProductsList() {
             }
             return 0;
         })
-    }, [products, search, categoryFilter, stockFilter, sortConfig])
+    }, [paginatedProducts, sortConfig])
 
-    // Pagination
-    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
-    const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-    // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1)
-    }, [search, categoryFilter, stockFilter])
+    }, [search, categoryFilter])
 
-    // Derived Data
     const categories = useMemo(() => {
-        if (!products) return []
-        const cats = new Set(products.map(p => p.category))
+        if (!paginatedProducts) return []
+        const cats = new Set(paginatedProducts.map(p => p.category))
         return Array.from(cats).sort()
-    }, [products])
+    }, [paginatedProducts])
+
+    const {
+        dashboardMetricsRaw: backendMetrics,
+        isLoading: isLoadingMetrics,
+    } = useAdminDashboardData()
 
     const metrics = useMemo(() => {
-        if (!products) return { totalValue: 0, totalCost: 0, totalItems: 0, totalProducts: 0, averageMarkup: '0' }
+        if (!backendMetrics?.inventory) return { totalValue: 0, totalCost: 0, totalItems: 0, totalProducts: 0, averageMarkup: '0' }
         return {
-            totalValue: products.reduce((acc, p) => acc + ((p.price || 0) * (p.stock || 0)), 0),
-            totalCost: products.reduce((acc, p) => acc + ((p.costPrice || 0) * (p.stock || 0)), 0),
-            totalItems: products.reduce((acc, p) => acc + (p.stock || 0), 0),
-            totalProducts: products.length,
-            averageMarkup: (() => {
-                const totalVal = products.reduce((acc, p) => acc + ((p.price || 0) * (p.stock || 0)), 0);
-                const totalCst = products.reduce((acc, p) => acc + ((p.costPrice || 0) * (p.stock || 0)), 0);
-                if (!totalCst || totalCst === 0) return '0';
-                return (((totalVal - totalCst) / totalCst) * 100).toFixed(0);
-            })()
+            totalValue: backendMetrics.inventory.totalEstimatedValue || 0,
+            totalCost: backendMetrics.inventory.totalCostValue || 0,
+            totalItems: backendMetrics.operational?.totalItemsSold || 0,
+            totalProducts: backendMetrics.operational?.totalSalesCount || 0,
+            averageMarkup: (backendMetrics.summary?.netMarginPercent || 0).toFixed(0)
         }
-    }, [products])
+    }, [backendMetrics])
 
     // Handlers
     const handleSelectAll = (e) => {
@@ -183,7 +172,7 @@ export function ProductsList() {
     }
 
     // Skeleton View
-    if (productsLoading && !products.length) {
+    if (productsLoading && (!paginatedProducts || !paginatedProducts.length)) {
         return <ProductsListSkeleton />
     }
 
@@ -398,8 +387,8 @@ export function ProductsList() {
                                             />
                                         </td>
                                     </tr>
-                                ) : paginatedProducts.length > 0 ? (
-                                    paginatedProducts.map((product, idx) => (
+                                ) : sortedProducts.length > 0 ? (
+                                    sortedProducts.map((product, idx) => (
                                         <motion.tr
                                             layout
                                             key={product.id}
@@ -543,7 +532,7 @@ export function ProductsList() {
 
                 <CardFooter className="bg-white border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 p-6">
                     <p className="text-xs text-gray-400 font-medium">
-                        Mostrando <span className="text-[#4A3B32] font-bold">{paginatedProducts.length}</span> de <span className="text-[#4A3B32] font-bold">{filteredProducts.length}</span> produtos
+                        Mostrando <span className="text-[#4A3B32] font-bold">{sortedProducts.length}</span> de <span className="text-[#4A3B32] font-bold">{totalItems}</span> produtos
                     </p>
 
                     {totalPages > 1 && (
@@ -556,8 +545,12 @@ export function ProductsList() {
                                         className="cursor-pointer"
                                     />
                                 </PaginationItem>
-                                {/* Pagination numbers simplified for brevity */}
-                                <span className="mx-2 text-sm text-gray-500">Página {currentPage} de {totalPages}</span>
+
+                                <div className="flex items-center gap-1 mx-4">
+                                    <span className="text-sm font-bold text-[#4A3B32]">Página {currentPage}</span>
+                                    <span className="text-sm text-gray-400">de {totalPages}</span>
+                                </div>
+
                                 <PaginationItem>
                                     <PaginationNext
                                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}

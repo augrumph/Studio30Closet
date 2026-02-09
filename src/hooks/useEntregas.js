@@ -6,25 +6,38 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
-import { getEntregas, getEntregaById, getEntregasMetrics, createEntrega, updateEntrega, deleteEntrega, updateEntregaStatus } from '@/lib/api/entregas'
+import { getEntregas, getEntregaById, getEntregasMetrics, createEntrega, updateEntrega, deleteEntrega } from '@/lib/api/entregas'
 import { toast } from 'sonner'
 
 const ENTREGAS_KEY = 'entregas'
 
 /**
- * Hook to fetch all entregas with optional filters
+ * Hook to fetch all entregas with optional filters (PAGINATED)
  */
-export function useEntregas(options = {}) {
-    const { status, platform, search } = options
+export function useEntregas({ page = 1, pageSize = 20, status = 'all', search = '', platform = '' } = {}) {
 
     const query = useQuery({
-        queryKey: [ENTREGAS_KEY, { status, platform, search }],
-        queryFn: () => entregas.getAll({ status, platform, search }),
+        queryKey: ['entregas', { page, pageSize, status, search, platform }],
+        queryFn: async () => {
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                pageSize: pageSize.toString(),
+                status,
+                search,
+                platform
+            })
+
+            const response = await fetch(`/api/entregas?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar entregas do backend')
+            return response.json()
+        },
         staleTime: 1000 * 60 * 2, // 2 minutes
     })
 
     return {
-        entregas: query.data || [],
+        entregas: query.data?.items || [],
+        total: query.data?.total || 0,
+        totalPages: query.data?.totalPages || 0,
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,
@@ -37,8 +50,12 @@ export function useEntregas(options = {}) {
  */
 export function useEntregaById(id) {
     return useQuery({
-        queryKey: [ENTREGAS_KEY, id],
-        queryFn: () => entregas.getById(id),
+        queryKey: ['entregas', id],
+        queryFn: async () => {
+            const response = await fetch(`/api/entregas/${id}`)
+            if (!response.ok) throw new Error('Falha ao buscar entrega')
+            return response.json()
+        },
         enabled: !!id,
         staleTime: 1000 * 60 * 2,
     })
@@ -49,9 +66,13 @@ export function useEntregaById(id) {
  */
 export function useEntregasMetrics() {
     return useQuery({
-        queryKey: [ENTREGAS_KEY, 'metrics'],
-        queryFn: () => entregas.getMetrics(),
-        staleTime: 1000 * 60 * 1, // 1 minute
+        queryKey: ['entregas', 'metrics'],
+        queryFn: async () => {
+            const response = await fetch(`/api/entregas/metrics`)
+            if (!response.ok) throw new Error('Falha ao buscar métricas de entrega')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 5, // 5 minute
     })
 }
 

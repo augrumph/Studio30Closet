@@ -11,16 +11,29 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function SuppliersList() {
-    const { suppliers, isLoading: suppliersLoading } = useAdminSuppliers()
-    const { deleteSupplier } = useAdminSuppliersMutations()
     const [search, setSearch] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
+
+    const {
+        suppliers,
+        total,
+        totalPages,
+        isLoading: suppliersLoading
+    } = useAdminSuppliers({
+        page: currentPage,
+        pageSize: 20,
+        search
+    })
+
+    const { deleteSupplier } = useAdminSuppliersMutations()
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, supplierId: null, supplierName: '' })
 
-    const filteredSuppliers = (suppliers || []).filter(supplier =>
-        supplier.name?.toLowerCase().includes(search.toLowerCase()) ||
-        supplier.cnpj?.toLowerCase().includes(search.toLowerCase()) ||
-        supplier.city?.toLowerCase().includes(search.toLowerCase())
-    )
+    // Reset pagination when search changes
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [search])
+
+    const filteredSuppliers = suppliers || []
 
     const handleDelete = (id, name) => {
         setConfirmDelete({ isOpen: true, supplierId: id, supplierName: name })
@@ -186,6 +199,31 @@ export function SuppliersList() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex justify-center mt-8 pb-8">
+                    <nav className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Anterior
+                        </button>
+                        <span className="text-sm font-medium text-gray-600 px-2">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Próxima
+                        </button>
+                    </nav>
+                </div>
+            )}
 
             {/* Delete Confirmation Dialog */}
             <AlertDialog

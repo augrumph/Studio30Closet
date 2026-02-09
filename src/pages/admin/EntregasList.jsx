@@ -40,7 +40,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/Card'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { toast } from 'sonner'
-import { useEntregas, useEntregasMutations } from '@/hooks/useEntregas'
+import { useEntregas, useEntregasMutations, useEntregasMetrics } from '@/hooks/useEntregas'
 
 // 🎯 TIKTOK SHOP INTEGRATION - Ready for API credentials
 // TODO: Add TikTok Shop API credentials in .env:
@@ -111,30 +111,52 @@ const initialDeliveries = [
 export function EntregasList() {
     const [activeFilter, setActiveFilter] = useState('all')
     const [searchTerm, setSearchTerm] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage] = useState(20)
     const [selectedDelivery, setSelectedDelivery] = useState(null)
     const [isDetailOpen, setIsDetailOpen] = useState(false)
     const [isConfigured] = useState(false) // Will check for API credentials
 
     // ============================================================================
-    // React Query: Fetch entregas from Supabase
+    // React Query: Fetch entregas from Backend
     // ============================================================================
-    const { entregas: deliveries, isLoading, isError, error, refetch } = useEntregas({
-        status: activeFilter !== 'all' ? activeFilter : undefined,
-        search: searchTerm || undefined
+    const {
+        entregas: deliveries,
+        total,
+        totalPages,
+        isLoading,
+        isError,
+        error,
+        refetch
+    } = useEntregas({
+        page: currentPage,
+        pageSize: itemsPerPage,
+        status: activeFilter,
+        search: searchTerm
     })
+
+    // Fetch Metrics from Backend
+    const { data: serverMetrics } = useEntregasMetrics()
+
     const { updateStatus: updateStatusMutation, isUpdating } = useEntregasMutations()
 
     // ============================================================================
-    // Metrics
+    // Metrics (Use server metrics or fallback)
     // ============================================================================
-    const metrics = useMemo(() => ({
-        total: deliveries.length,
-        pending: deliveries.filter(d => d.status === 'pending').length,
-        processing: deliveries.filter(d => d.status === 'processing').length,
-        shipped: deliveries.filter(d => d.status === 'shipped').length,
-        delivered: deliveries.filter(d => d.status === 'delivered').length,
-        cancelled: deliveries.filter(d => d.status === 'cancelled').length,
-    }), [deliveries])
+    const metrics = useMemo(() => {
+        if (serverMetrics) {
+            return {
+                total: serverMetrics.total || 0,
+                pending: serverMetrics.pending || 0,
+                processing: serverMetrics.processing || 0,
+                shipped: serverMetrics.shipped || 0,
+                delivered: serverMetrics.delivered || 0,
+                cancelled: serverMetrics.cancelled || 0
+            }
+        }
+        // Fallback placeholder
+        return { total: 0, pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0 }
+    }, [serverMetrics])
 
     // ============================================================================
     // Filters
@@ -148,14 +170,14 @@ export function EntregasList() {
     ]
 
     // ============================================================================
-    // Filtered Deliveries (filtering is done server-side now, but keep for local filtering)
+    // Filtered Deliveries (Already filtered by backend)
     // ============================================================================
-    const filteredDeliveries = useMemo(() => {
-        // If using server-side filtering, just return deliveries
-        // Keep local filtering as backup
-        if (!deliveries) return []
-        return deliveries
-    }, [deliveries])
+    const filteredDeliveries = deliveries || []
+
+    // Reset pagination on filter change
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [searchTerm, activeFilter])
 
     // ============================================================================
     // Helpers
@@ -420,7 +442,7 @@ export function EntregasList() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <AnimatePresence>
                     {filteredDeliveries.map((delivery, index) => {
-                        const status = DELIVERY_STATUS[delivery.status]
+                        const status = DELIVERY_STATUS[delivery.status] || DELIVERY_STATUS.pending
                         const StatusIcon = status.icon
 
                         return (
@@ -432,23 +454,25 @@ export function EntregasList() {
                                 transition={{ delay: index * 0.02 }}
                             >
                                 <Card className="border border-gray-100 hover:shadow-lg transition-all h-full bg-white rounded-2xl">
-                                    <CardContent className="p-5 pt-6">
+                                    <CardContent className="p-5 pt-6 flex flex-col h-full">
                                         {/* Header */}
                                         <div className="flex items-start justify-between mb-4">
                                             <div className="flex items-center gap-3 flex-1 min-w-0">
                                                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4A3B32] to-[#5A4B42] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                                    {getInitials(delivery.customer.name)}
+                                                    {getInitials(delivery.customer?.name || 'Cliente')}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="font-bold text-[#4A3B32] text-sm mb-0.5 truncate">
-                                                        {delivery.customer.name}
+                                                        {delivery.customer?.name || 'Cliente sem nome'}
                                                     </h3>
                                                     <p className="text-xs text-gray-400 truncate">{delivery.orderId}</p>
                                                 </div>
                                             </div>
-                                            <span className="px-2 py-0.5 bg-gradient-to-r from-[#00F2EA]/20 to-[#FF0050]/20 text-[#FF0050] rounded-full font-bold text-[10px]">
-                                                TikTok
-                                            </span>
+                                            {delivery.platform === 'tiktok' && (
+                                                <span className="px-2 py-0.5 bg-gradient-to-r from-[#00F2EA]/20 to-[#FF0050]/20 text-[#FF0050] rounded-full font-bold text-[10px]">
+                                                    TikTok
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Status Badge */}
@@ -466,14 +490,14 @@ export function EntregasList() {
                                         <div className="border-t border-gray-100 my-4"></div>
 
                                         {/* Info */}
-                                        <div className="space-y-2 mb-4">
+                                        <div className="space-y-2 mb-4 flex-grow">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs text-gray-500">Valor</span>
-                                                <span className="text-sm font-bold text-emerald-600">{formatCurrency(delivery.total)}</span>
+                                                <span className="text-sm font-bold text-emerald-600">{formatCurrency(delivery.total || 0)}</span>
                                             </div>
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs text-gray-500">Itens</span>
-                                                <span className="text-sm font-medium text-[#4A3B32]">{delivery.items.length} produto(s)</span>
+                                                <span className="text-sm font-medium text-[#4A3B32]">{delivery.items?.length || 0} produto(s)</span>
                                             </div>
                                             {delivery.trackingCode && (
                                                 <div className="flex items-center justify-between">
@@ -487,7 +511,7 @@ export function EntregasList() {
                                         <div className="border-t border-gray-100 my-4"></div>
 
                                         {/* Actions */}
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-2 gap-2 mt-auto">
                                             <button
                                                 onClick={() => {
                                                     setSelectedDelivery(delivery)
@@ -518,7 +542,7 @@ export function EntregasList() {
                                             )}
                                             {delivery.status === 'delivered' && (
                                                 <button
-                                                    onClick={() => openWhatsApp(delivery.customer.phone, delivery.customer.name)}
+                                                    onClick={() => openWhatsApp(delivery.customer?.phone || '', delivery.customer?.name || '')}
                                                     className="flex items-center justify-center gap-2 px-3 py-2.5 bg-green-500 hover:bg-green-600 rounded-xl text-xs font-bold text-white transition-colors"
                                                 >
                                                     <Phone className="w-4 h-4" />
@@ -533,6 +557,31 @@ export function EntregasList() {
                     })}
                 </AnimatePresence>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex justify-center mt-8 pb-8">
+                    <nav className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Anterior
+                        </button>
+                        <span className="text-sm font-medium text-gray-600 px-2">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Próxima
+                        </button>
+                    </nav>
+                </div>
+            )}
 
             {/* Empty State */}
             {filteredDeliveries.length === 0 && (

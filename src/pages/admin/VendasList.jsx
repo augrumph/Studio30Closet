@@ -22,8 +22,9 @@ import {
     PaginationPrevious,
 } from "@/components/ui/Pagination"
 
-import { useAdminSales, useAdminSalesMutations } from '@/hooks/useAdminSales'
+import { useAdminSalesMutations } from '@/hooks/useAdminSales'
 import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
+import { useAdminVendas } from '@/hooks/useAdminVendas'
 
 export function VendasList() {
     // Estado de filtros
@@ -31,33 +32,32 @@ export function VendasList() {
     const [filterType, setFilterType] = useState('all')
     const [filterPaymentStatus, setFilterPaymentStatus] = useState('all')
     const [page, setPage] = useState(1)
-    const [itemsPerPage] = useState(10) // Nota: API usa limit, aqui fazemos paginação client-side OU server-side. 
-    // O hook useAdminSales implementei com suporte a page.
+    const [itemsPerPage] = useState(20)
     const [dateFilter, setDateFilter] = useState('all')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, vendaId: null, customerName: '' })
 
-    // ⚡ REACT QUERY: Hooks
-    // 1. Dados para a Tabela (Paginados)
-    // OBS: O hook useAdminSales aceita filtros. Vamos passar os filtros para ele.
-    // Mas a API getVendas original (que o hook chama) só aceita page/limit por enquanto.
-    // Para manter a funcionalidade de busca/filtro ATUAL (que é client-side em cima de tudo), 
-    // ou migramos getVendas para filtrar no banco, ou carregamos tudo e filtramos.
-    // O useAdminStore carregava TODOS. Para não quebrar filtros, vamos carregar uma pagina grande ou refatorar API.
-    // DECISÃO: Carregar paginado (server-side) remove capacidade de filtrar client-side se não tiver API.
-    // VOU USAR useAdminDashboardData para pegar TODAS as vendas (cacheado) e manter o comportamento atual de filtros client-side,
-    // mas REMOVENDO o useAdminStore.
-    // Futuramente: Migrar filtros para API.
-
-    // Dados para métricas e lista completa (reutiliza cache do dashboard)
+    // ⚡ BFF DATA: Hooks
+    // 1. Dados para métricas (Dashboard Stats - BFF)
     const {
-        vendas: allVendas,
-        isLoading: isLoadingAll,
+        dashboardMetricsRaw: backendMetrics,
+        isLoading: isLoadingMetrics,
+    } = useAdminDashboardData()
+
+    const {
+        data: vendasData,
+        isLoading: isLoadingVendas,
         isError,
         error
-    } = useAdminDashboardData()
-    const { deleteSale } = useAdminSalesMutations()
+    } = useAdminVendas({
+        page,
+        pageSize: itemsPerPage,
+        status: filterPaymentStatus,
+        method: filterType,
+        dateFilter: dateFilter,
+        search: searchTerm
+    })
 
-    // Não precisamos de useEffect loadVendas manual pois o hook cuida disso.
+    const { deleteSale } = useAdminSalesMutations()
 
     // Error handling debug
     useEffect(() => {
@@ -67,71 +67,28 @@ export function VendasList() {
         }
     }, [isError, error])
 
-    // Filtragem Client-Side (Mantendo lógica original)
-    const filteredVendas = useMemo(() => {
-        if (!allVendas) return []
-        const now = new Date()
-        return allVendas.filter(venda => {
-            const saleDate = new Date(venda.createdAt)
-            const matchesSearch = (venda.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
-            const matchesType = filterType === 'all' || venda.paymentMethod === filterType
-            const matchesPaymentStatus =
-                filterPaymentStatus === 'all' ||
-                (filterPaymentStatus === 'pending' && venda.paymentStatus === 'pending') ||
-                (filterPaymentStatus === 'paid' && venda.paymentStatus === 'paid')
-
-            let matchesDate = true
-            if (dateFilter === 'today') {
-                matchesDate = saleDate.toDateString() === now.toDateString()
-            } else if (dateFilter === 'month') {
-                matchesDate = saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear()
-            }
-
-            return matchesSearch && matchesType && matchesPaymentStatus && matchesDate
-        })
-    }, [allVendas, searchTerm, filterType, filterPaymentStatus, dateFilter])
-
-    // Paginação
-    const totalPages = Math.ceil(filteredVendas.length / itemsPerPage)
-    const paginatedVendas = useMemo(() => {
-        const startIdx = (page - 1) * itemsPerPage
-        const endIdx = startIdx + itemsPerPage
-        return filteredVendas.slice(startIdx, endIdx)
-    }, [filteredVendas, page, itemsPerPage])
-
     // Reset page quando filtros mudam
     useEffect(() => {
         setPage(1)
     }, [searchTerm, filterType, filterPaymentStatus, dateFilter])
 
+    // Mapeamento de dados da API
+    const paginatedVendas = vendasData?.items || []
+    const totalItems = vendasData?.total || 0
+    const totalPages = vendasData?.totalPages || 0
 
-    // Usar TODAS as vendas para os cards de métricas (não filtradas)
-    // Otimizado: única passagem para calcular todas as métricas
+    // Usar as métricas calculadas no servidor
     const metrics = useMemo(() => {
-        if (!allVendas) return { totalRevenue: 0, pendingCrediario: 0, totalDevedores: 0, valorDevedores: 0, averageTicket: 0 }
+        if (!backendMetrics?.summary) return { totalRevenue: 0, pendingCrediario: 0, totalDevedores: 0, valorDevedores: 0, averageTicket: 0 }
 
-        let totalRevenue = 0
-        let pendingCrediario = 0
-        let totalDevedores = 0
-        let valorDevedores = 0
-
-        allVendas.forEach(v => {
-            totalRevenue += v.totalValue || 0
-
-            if (v.paymentStatus === 'pending') {
-                totalDevedores += 1
-                valorDevedores += v.totalValue || 0
-
-                if (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado') {
-                    pendingCrediario += v.totalValue || 0
-                }
-            }
-        })
-
-        const averageTicket = allVendas.length > 0 ? totalRevenue / allVendas.length : 0
-
-        return { totalRevenue, pendingCrediario, totalDevedores, valorDevedores, averageTicket }
-    }, [allVendas])
+        return {
+            totalRevenue: backendMetrics.summary.grossRevenue || 0,
+            pendingCrediario: backendMetrics.cashFlow?.receivedAmount || 0, // Ajustar conforme campos reais
+            totalDevedores: backendMetrics.operational?.costWarnings || 0,
+            valorDevedores: backendMetrics.summary.netRevenue - (backendMetrics.cashFlow?.receivedAmount || 0),
+            averageTicket: backendMetrics.operational?.averageTicket || 0
+        }
+    }, [backendMetrics])
 
     const paymentMethods = {
         pix: { label: 'PIX', color: 'bg-emerald-100 text-emerald-700' },
@@ -159,7 +116,7 @@ export function VendasList() {
     }
 
     // Show skeleton while loading
-    if (isLoadingAll && !allVendas) {
+    if (isLoadingVendas && paginatedVendas.length === 0) {
         return <VendasListSkeleton />
     }
 
@@ -278,7 +235,7 @@ export function VendasList() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-3xl font-display font-bold text-[#4A3B32]">
-                                    {allVendas.filter(v => new Date(v.createdAt).toDateString() === new Date().toDateString()).length}
+                                    {backendMetrics?.summary?.todaySalesCount || 0}
                                     <span className="text-sm font-medium text-gray-400 ml-2">vendas hoje</span>
                                 </div>
                             </CardContent>
@@ -441,7 +398,7 @@ export function VendasList() {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             <AnimatePresence>
-                                {isLoadingAll ? (
+                                {isLoadingVendas ? (
                                     <tr><td colSpan="6" className="py-24 text-center text-gray-300 italic font-medium">Sincronizando registros da Studio 30...</td></tr>
                                 ) : paginatedVendas.length > 0 ? (
                                     paginatedVendas.map((venda, idx) => (
@@ -548,7 +505,7 @@ export function VendasList() {
 
                 <CardFooter className="bg-white border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 p-6">
                     <p className="text-xs text-gray-400 font-medium">
-                        Mostrando <span className="text-[#4A3B32] font-bold">{paginatedVendas.length}</span> de <span className="text-[#4A3B32] font-bold">{filteredVendas.length}</span> registros
+                        Mostrando <span className="text-[#4A3B32] font-bold">{paginatedVendas.length}</span> de <span className="text-[#4A3B32] font-bold">{totalItems}</span> registros
                     </p>
 
                     {totalPages > 1 && (

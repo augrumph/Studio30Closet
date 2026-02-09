@@ -321,141 +321,16 @@ export async function getStockMetrics() {
 }
 
 /**
- * Buscar ranking de vendas por categoria
+ * Buscar ranking de vendas por categoria (Via Backend BFF)
  */
 export async function getSalesRankingByCategory(startDate, endDate) {
-    // 1. Buscar vendas
-    let query = supabase
-        .from('vendas')
-        .select('items, total_value, created_at')
-        .neq('payment_status', 'cancelled') // CORREÇÃO: Incluir 'pending' e 'fiado', excluir apenas cancelados
+    const params = new URLSearchParams()
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
 
-    if (startDate) query = query.gte('created_at', startDate)
-    if (endDate) query = query.lte('created_at', endDate)
-
-    const { data: vendas, error } = await query
-
-    if (error) throw error
-
-    // 2. Buscar TODOS os produtos para "consertar" dados históricos sem categoria/cor
-    // Isso resolve o problema de vendas antigas que não salvaram a categoria no JSON
-    const { data: products } = await supabase
-        .from('products')
-        .select('id, name, category, color, sizes, variants, cost_price') // Adicionado cost_price para fallback
-
-    // Mapa de Recuperação: ID/Nome -> Categoria
-    // Normalizamos para lowerCase para maximizar matches
-    const productMap = new Map()
-    products?.forEach(p => {
-        if (p.id) productMap.set(String(p.id), p)
-        if (p.name) productMap.set(p.name.toLowerCase().trim(), p)
-    })
-
-    // Agregar por categoria, cor, tamanho, marca
-    const aggregations = {
-        byCategory: {},
-        byColor: {},
-        bySize: {},
-        byBrand: {},
-        byProduct: {}
-    }
-
-    vendas.forEach(venda => {
-        let items = venda.items
-        if (typeof items === 'string') {
-            try { items = JSON.parse(items) } catch { items = [] }
-        }
-        if (!Array.isArray(items)) items = []
-
-        items.forEach(item => {
-            const qty = item.quantity || 1
-            const price = item.price || 0
-
-            const itemNameRef = item.name ? item.name.toLowerCase().trim() : ''
-            const itemIdRef = String(item.productId || item.id || '')
-
-            // Tentar recuperar dados do produto oficial se faltar no item da venda
-            const officialProduct = productMap.get(itemIdRef) || productMap.get(itemNameRef)
-
-            // CALCULO DE MARGEM ROBUSTO:
-            // 1. Tenta usar o custo salvo na venda (precisão histórica)
-            // 2. Se não tiver, usa o custo atual do produto (fallback para dados antigos)
-            // 3. Se não tiver nada, assume 0
-            const cost = item.costPrice !== undefined ? Number(item.costPrice) : Number(officialProduct?.cost_price || 0)
-            const margin = price - cost
-
-            // Por categoria (Recuperação inteligente)
-            let cat = item.category
-            if (!cat || cat === 'Sem categoria') {
-                cat = officialProduct?.category || 'Geral'
-            }
-
-            if (!aggregations.byCategory[cat]) {
-                aggregations.byCategory[cat] = { name: cat, qty: 0, revenue: 0, margin: 0 }
-            }
-            aggregations.byCategory[cat].qty += qty
-            aggregations.byCategory[cat].revenue += price * qty
-            aggregations.byCategory[cat].margin += margin * qty
-
-            // Por cor - Recuperar cor do produto se não tiver no item
-            let color = item.selectedColor || item.color
-            if (!color || color === 'Sem cor') {
-                // Tentar pegar a cor do produto oficial
-                if (officialProduct) {
-                    // Prioridade: primeira variante com colorName, depois campo color do produto
-                    const firstVariant = officialProduct.variants?.[0]
-                    color = firstVariant?.colorName || officialProduct.color || null
-                }
-            }
-
-
-            // Por produto (SEMPRE conta, independente de cor/tamanho faltando)
-            const productId = item.productId || item.name
-            if (!aggregations.byProduct[productId]) {
-                aggregations.byProduct[productId] = {
-                    id: item.productId,
-                    name: item.name,
-                    image: item.image,
-                    qty: 0,
-                    revenue: 0,
-                    margin: 0
-                }
-            }
-            aggregations.byProduct[productId].qty += qty
-            aggregations.byProduct[productId].revenue += price * qty
-            aggregations.byProduct[productId].margin += margin * qty
-
-            // Só adiciona ao gráfico de COR se tiver uma cor válida
-            if (color) {
-                if (!aggregations.byColor[color]) {
-                    aggregations.byColor[color] = { name: color, qty: 0, revenue: 0, margin: 0 }
-                }
-                aggregations.byColor[color].qty += qty
-                aggregations.byColor[color].revenue += price * qty
-                aggregations.byColor[color].margin += margin * qty
-            }
-
-            // Por tamanho - Só adiciona ao gráfico se tiver tamanho válido
-            const size = item.selectedSize || item.size
-            if (size && size !== 'Sem tamanho') {
-                if (!aggregations.bySize[size]) {
-                    aggregations.bySize[size] = { name: size, qty: 0, revenue: 0, margin: 0 }
-                }
-                aggregations.bySize[size].qty += qty
-                aggregations.bySize[size].revenue += price * qty
-                aggregations.bySize[size].margin += margin * qty
-            }
-        })
-    })
-
-    // Converter para arrays e ordenar
-    return {
-        byCategory: Object.values(aggregations.byCategory).sort((a, b) => b.qty - a.qty),
-        byColor: Object.values(aggregations.byColor).sort((a, b) => b.qty - a.qty),
-        bySize: Object.values(aggregations.bySize).sort((a, b) => b.qty - a.qty),
-        byProduct: Object.values(aggregations.byProduct).sort((a, b) => b.qty - a.qty),
-        byProfit: Object.values(aggregations.byProduct).sort((a, b) => b.margin - a.margin)
-    }
+    const response = await fetch(`/api/stock/ranking?${params.toString()}`)
+    if (!response.ok) throw new Error('Falha ao buscar ranking de vendas')
+    return response.json()
 }
 
 /**
@@ -623,44 +498,18 @@ export async function getAllCategories() {
 // NOVAS FUNÇÕES OTIMIZADAS PARA O CENTRO DE DECISÃO (PERFORMANCE)
 // ==============================================================================
 
+// ==============================================================================
+// NOVAS FUNÇÕES OTIMIZADAS PARA O CENTRO DE DECISÃO (PERFORMANCE)
+// ==============================================================================
+
 /**
  * Buscar apenas os KPIs essenciais para o Header do Dashboard
- * Leve e rápido.
+ * Leve e rápido. (Via Backend BFF)
  */
 export async function getStockHeadlineKPIs() {
-    const { data, error } = await supabase
-        .from('products')
-        .select('id, stock, price, cost_price, stock_status')
-        .eq('active', true)
-
-    if (error) {
-        console.error('❌ Erro ao buscar KPIs de estoque:', error)
-        throw error
-    }
-
-    let totalValue = 0
-    let totalCost = 0
-    let totalItems = 0
-    let productsCount = data.length
-    let lowStockCount = 0
-
-    data.forEach(p => {
-        const stock = p.stock || 0
-        totalItems += stock
-        totalValue += (p.price || 0) * stock
-        totalCost += (p.cost_price || 0) * stock
-        if (stock <= 2) lowStockCount++
-        // Se quiséssemos ser super precisos com variants, precisaríamos de join,
-        // mas para headline rápido, usar stock da tabela products é aceitável.
-    })
-
-    return {
-        totalValue,
-        totalCost,
-        totalItems,
-        productsCount,
-        lowStockCount
-    }
+    const response = await fetch('/api/stock/kpis')
+    if (!response.ok) throw new Error('Falha ao buscar KPIs de estoque')
+    return response.json()
 }
 
 /**
@@ -668,20 +517,9 @@ export async function getStockHeadlineKPIs() {
  * @param {number} limit limit
  */
 export async function getLowStockAlerts(limit = 10) {
-    const { data, error } = await supabase
-        .from('products')
-        .select('id, name, stock, images, category, suppliers(name)')
-        .eq('active', true)
-        .lte('stock', 2) // Hardcoded 2 for simple low stock logic
-        .order('stock', { ascending: true })
-        .limit(limit)
-
-    if (error) {
-        console.error('❌ Erro ao buscar alertas de estoque baixo:', error)
-        throw error
-    }
-
-    return toCamelCase(data)
+    const response = await fetch(`/api/stock/low?limit=${limit}`)
+    if (!response.ok) throw new Error('Falha ao buscar alertas de estoque')
+    return response.json()
 }
 
 /**
@@ -691,34 +529,9 @@ export async function getLowStockAlerts(limit = 10) {
  * Assumindo created_at para simplificar se não houver registro de venda.
  */
 export async function getDeadStockSummary() {
-    // Data de corte: 90 dias atrás
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - 90)
-    const cutoffStr = cutoffDate.toISOString()
-
-    // Produtos criados antes de 90 dias e que ainda tem estoque > 0
-    // (Lógica simples: velho e encalhado)
-    const { data, error } = await supabase
-        .from('products')
-        .select('id, name, stock, cost_price, created_at, images')
-        .eq('active', true)
-        .gt('stock', 0)
-        .lt('created_at', cutoffStr)
-        .order('created_at', { ascending: true })
-        .limit(20)
-
-    if (error) {
-        console.error('❌ Erro ao buscar dead stock:', error)
-        throw error
-    }
-
-    const totalDeadValue = data.reduce((acc, p) => acc + ((p.cost_price || 0) * (p.stock || 0)), 0)
-
-    return {
-        count: data.length, // Atenção: isso é só count do limit. Para count total precisaria de count: 'exact'
-        totalValue: totalDeadValue,
-        items: toCamelCase(data)
-    }
+    const response = await fetch('/api/stock/dead')
+    if (!response.ok) throw new Error('Falha ao buscar dead stock')
+    return response.json()
 }
 
 /**

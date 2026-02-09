@@ -6,21 +6,29 @@ import { toast } from 'sonner'
 /**
  * Hook to fetch paginated orders (malinhas)
  */
-export function useAdminMalinhas(page = 1, limit = 20, status = 'all', searchTerm = '') {
-    // Determine filters object based on API signature
-    // Assuming getOrders takes page, limit, filters object or separate args.
-    // Based on customers/vendas pattern, likely args.
-
+export function useAdminMalinhas({ page = 1, pageSize = 20, status = 'all', search = '', dateFilter = 'all' } = {}) {
     const query = useQuery({
-        queryKey: ['admin', 'malinhas', { page, limit, status, searchTerm }],
-        queryFn: () => getOrders({ page, limit, status, searchTerm }), // Adapting to object if supported, or individual args
+        queryKey: ['admin', 'malinhas', { page, pageSize, status, search, dateFilter }],
+        queryFn: async () => {
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                pageSize: pageSize.toString(),
+                status,
+                search,
+                dateFilter
+            })
+
+            const response = await fetch(`/api/malinhas?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar malinhas do backend')
+            return response.json()
+        },
         staleTime: 1000 * 60 * 2,
-        placeholderData: (prev) => prev
     })
 
     return {
-        malinhas: query.data?.orders || [],
+        malinhas: query.data?.items || [],
         total: query.data?.total || 0,
+        totalPages: query.data?.totalPages || 0,
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,

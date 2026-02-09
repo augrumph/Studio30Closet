@@ -115,8 +115,12 @@ export function useAdminDashboardData() {
     })
 
     const dashboardMetricsQuery = useQuery({
-        queryKey: ['admin', 'dashboard-metrics-raw'],
-        queryFn: getDashboardMetrics,
+        queryKey: ['admin', 'dashboard-metrics-api'],
+        queryFn: async () => {
+            const response = await fetch('/api/dashboard/stats')
+            if (!response.ok) throw new Error('Falha ao buscar métricas do backend')
+            return response.json()
+        },
         staleTime,
     })
 

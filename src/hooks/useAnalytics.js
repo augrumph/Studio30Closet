@@ -1,11 +1,10 @@
 /**
  * useAnalytics Hook
  * 
- * Hook para buscar dados de analytics do site
+ * Hook para buscar dados de analytics do site (via BFF)
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 
 /**
  * Busca resumo de analytics
@@ -14,112 +13,10 @@ export function useAnalyticsSummary(dateRange = 'today') {
     return useQuery({
         queryKey: ['analytics', 'summary', dateRange],
         queryFn: async () => {
-            let startDate = new Date()
-
-            switch (dateRange) {
-                case 'today':
-                    startDate.setHours(0, 0, 0, 0)
-                    break
-                case '7days':
-                    startDate.setDate(startDate.getDate() - 7)
-                    break
-                case '30days':
-                    startDate.setDate(startDate.getDate() - 30)
-                    break
-                case 'all':
-                    startDate = new Date('2020-01-01')
-                    break
-            }
-
-            const startDateStr = startDate.toISOString()
-
-            // Buscar contagens por tipo de evento
-            const { data: events, error } = await supabase
-                .from('analytics_events')
-                .select('event_type, event_data, session_id, referrer, device_type, created_at') // Include created_at for sorting
-                .gte('created_at', startDateStr)
-                .order('created_at', { ascending: true }) // 🎯 CRÍTICO: Ordenar para first-touch attribution
-
-            if (error) throw error
-
-            // Calcular métricas básicas
-            const pageViews = events.filter(e => e.event_type === 'page_view').length
-            const catalogViews = events.filter(e => e.event_type === 'catalog_view').length
-            const productViews = events.filter(e => e.event_type === 'product_view').length
-            const addToCart = events.filter(e => e.event_type === 'add_to_cart').length
-            const checkoutsCompleted = events.filter(e => e.event_type === 'checkout_completed').length
-
-            // Cliques em Redes Sociais
-            const whatsappClicks = events.filter(e => e.event_type === 'social_click_whatsapp').length
-            const instagramClicks = events.filter(e => e.event_type === 'social_click_instagram').length
-
-            // 🎯 CORRIGIDO: "Malinhas Iniciadas" = sessões que tiveram add_to_cart E checkout_started
-            // Isso evita contar acessos à /malinha sem produtos adicionados
-            const sessionEvents = {}
-            events.forEach(e => {
-                if (!sessionEvents[e.session_id]) sessionEvents[e.session_id] = new Set()
-                sessionEvents[e.session_id].add(e.event_type)
-            })
-            const checkoutsStarted = Object.values(sessionEvents).filter(
-                types => types.has('add_to_cart') && types.has('checkout_started')
-            ).length
-
-            // Sessões únicas
-            const uniqueSessions = new Set(events.map(e => e.session_id)).size
-
-            // Taxa de conversão
-            const conversionRate = checkoutsStarted > 0
-                ? ((checkoutsCompleted / checkoutsStarted) * 100).toFixed(1)
-                : 0
-
-            // Taxa de add to cart
-            const addToCartRate = productViews > 0
-                ? ((addToCart / productViews) * 100).toFixed(1)
-                : 0
-
-            // Fontes de Tráfego e Dispositivos
-            const trafficSources = { google: 0, social: 0, direct: 0, other: 0 }
-            const deviceBreakdown = { mobile: 0, desktop: 0, tablet: 0 }
-
-            // Analisar primeira interação de cada sessão
-            const processedSessions = new Set()
-
-            events.forEach(e => {
-                if (!processedSessions.has(e.session_id)) {
-                    // 1. Traffic Source
-                    const ref = (e.referrer || '').toLowerCase()
-                    if (ref.includes('google')) trafficSources.google++
-                    else if (ref.includes('instagram') || ref.includes('facebook') || ref.includes('tiktok')) trafficSources.social++
-                    else if (!ref) trafficSources.direct++
-                    else trafficSources.other++
-
-                    // 2. Device Type
-                    const device = (e.device_type || 'desktop').toLowerCase()
-                    if (deviceBreakdown[device] !== undefined) {
-                        deviceBreakdown[device]++
-                    } else {
-                        deviceBreakdown.desktop++ // Fallback
-                    }
-
-                    processedSessions.add(e.session_id)
-                }
-            })
-
-            return {
-                pageViews,
-                catalogViews,
-                productViews,
-                addToCart,
-                checkoutsStarted,
-                checkoutsCompleted,
-                uniqueSessions,
-                conversionRate,
-                addToCartRate,
-                trafficSources,
-                deviceBreakdown,
-                whatsappClicks,
-                instagramClicks
-            }
+            const queryParams = new URLSearchParams({ dateRange })
+            const response = await fetch(`/api/analytics/summary?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar resumo de analytics')
+            return response.json()
         },
         staleTime: 1000 * 60 * 2, // 2 min
     })
@@ -132,33 +29,10 @@ export function useTopViewedProducts(limit = 10) {
     return useQuery({
         queryKey: ['analytics', 'top-viewed', limit],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('analytics_events')
-                .select('event_data')
-                .eq('event_type', 'product_view')
-
-            if (error) throw error
-
-            // Agrupar por produto
-            const productCounts = {}
-            data.forEach(event => {
-                const productId = event.event_data?.product_id
-                const productName = event.event_data?.product_name
-                if (productId) {
-                    if (!productCounts[productId]) {
-                        productCounts[productId] = {
-                            id: productId,
-                            name: productName || 'Produto',
-                            views: 0
-                        }
-                    }
-                    productCounts[productId].views++
-                }
-            })
-
-            return Object.values(productCounts)
-                .sort((a, b) => b.views - a.views)
-                .slice(0, limit)
+            const queryParams = new URLSearchParams({ limit: limit.toString() })
+            const response = await fetch(`/api/analytics/products/viewed?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar produtos mais visualizados')
+            return response.json()
         },
         staleTime: 1000 * 60 * 5,
     })
@@ -171,35 +45,10 @@ export function useTopAddedToCart(limit = 10) {
     return useQuery({
         queryKey: ['analytics', 'top-cart', limit],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('analytics_events')
-                .select('event_data')
-                .eq('event_type', 'add_to_cart')
-
-            if (error) throw error
-
-            // Agrupar por produto
-            const productCounts = {}
-            data.forEach(event => {
-                const productId = event.event_data?.product_id
-                const productName = event.event_data?.product_name
-                const price = event.event_data?.product_price || 0
-                if (productId) {
-                    if (!productCounts[productId]) {
-                        productCounts[productId] = {
-                            id: productId,
-                            name: productName || 'Produto',
-                            price,
-                            count: 0
-                        }
-                    }
-                    productCounts[productId].count++
-                }
-            })
-
-            return Object.values(productCounts)
-                .sort((a, b) => b.count - a.count)
-                .slice(0, limit)
+            const queryParams = new URLSearchParams({ limit: limit.toString() })
+            const response = await fetch(`/api/analytics/products/added-to-cart?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar produtos mais adicionados')
+            return response.json()
         },
         staleTime: 1000 * 60 * 5,
     })
@@ -212,16 +61,9 @@ export function useAbandonedCarts() {
     return useQuery({
         queryKey: ['analytics', 'abandoned-carts'],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('abandoned_carts')
-                .select('*')
-                .eq('checkout_completed', false)
-                .order('last_activity_at', { ascending: false })
-                .limit(20)
-
-            if (error) throw error
-
-            return data || []
+            const response = await fetch('/api/analytics/carts/abandoned')
+            if (!response.ok) throw new Error('Falha ao buscar carrinhos abandonados')
+            return response.json()
         },
         staleTime: 1000 * 60 * 2,
     })
@@ -234,15 +76,10 @@ export function useRecentEvents(limit = 20) {
     return useQuery({
         queryKey: ['analytics', 'recent-events', limit],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('analytics_events')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(limit)
-
-            if (error) throw error
-
-            return data || []
+            const queryParams = new URLSearchParams({ limit: limit.toString() })
+            const response = await fetch(`/api/analytics/events/recent?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar eventos recentes')
+            return response.json()
         },
         staleTime: 1000 * 30, // 30 segundos
     })

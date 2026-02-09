@@ -4,18 +4,29 @@ import { getSuppliers, getSupplierById, createSupplier, updateSupplier, deleteSu
 import { toast } from 'sonner'
 
 /**
- * Hook to fetch all suppliers (Client-side filtering for now)
+ * Hook to fetch all suppliers (Paginated)
  */
-export function useAdminSuppliers() {
+export function useAdminSuppliers({ page = 1, pageSize = 20, search = '' } = {}) {
     const query = useQuery({
-        queryKey: ['admin', 'suppliers'],
-        queryFn: getSuppliers,
-        staleTime: 1000 * 60 * 10, // 10 min cache
-        placeholderData: (prev) => prev
+        queryKey: ['admin', 'suppliers', { page, pageSize, search }],
+        queryFn: async () => {
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                pageSize: pageSize.toString(),
+                search
+            })
+
+            const response = await fetch(`/api/suppliers?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar fornecedores do backend')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 5, // 5 min
     })
 
     return {
-        suppliers: query.data || [],
+        suppliers: query.data?.items || [],
+        total: query.data?.total || 0,
+        totalPages: query.data?.totalPages || 0,
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,

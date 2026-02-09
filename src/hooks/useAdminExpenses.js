@@ -5,20 +5,55 @@ import { toast } from 'sonner'
 /**
  * Hook to fetch all expenses
  */
-export function useAdminExpenses() {
+/**
+ * Hook to fetch all expenses (Paginated & Filtered via BFF)
+ */
+export function useAdminExpenses({ page = 1, pageSize = 20, search = '' } = {}) {
     const query = useQuery({
-        queryKey: ['admin', 'expenses'],
-        queryFn: getFixedExpenses,
-        staleTime: 1000 * 60 * 60, // 1 hour cache (fixed expenses change rarely)
+        queryKey: ['admin', 'expenses', { page, pageSize, search }],
+        queryFn: async () => {
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                pageSize: pageSize.toString(),
+                search
+            })
+            const response = await fetch(`/api/expenses?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar despesas do backend')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 60,
         placeholderData: (prev) => prev
     })
 
     return {
-        expenses: query.data || [],
+        expenses: query.data?.items || [],
+        total: query.data?.total || 0,
+        totalPages: query.data?.totalPages || 0,
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,
         refetch: query.refetch
+    }
+}
+
+/**
+ * Hook to fetch metrics for expenses
+ */
+export function useAdminExpensesMetrics({ search = '' } = {}) {
+    const query = useQuery({
+        queryKey: ['admin', 'expenses', 'metrics', { search }],
+        queryFn: async () => {
+            const queryParams = new URLSearchParams({ search })
+            const response = await fetch(`/api/expenses/metrics?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar métricas de despesas')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 60
+    })
+
+    return {
+        metrics: query.data || { count: 0, totalValue: 0 },
+        isLoading: query.isLoading
     }
 }
 

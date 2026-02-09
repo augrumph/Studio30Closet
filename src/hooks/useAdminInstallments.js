@@ -5,18 +5,29 @@ import { toast } from 'sonner'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 
 /**
- * Hook to fetch sales with open installments (crediário)
+ * Hook to fetch sales with open installments (crediário) - BFF Paginated
  */
-export function useAdminInstallmentSales(page = 1, limit = 50) {
+export function useAdminInstallmentSales({ page = 1, pageSize = 20, status = 'pendentes' } = {}) {
     const query = useQuery({
-        queryKey: ['admin', 'installment-sales', { page, limit }],
-        queryFn: () => getOpenInstallmentSales(page, limit),
-        staleTime: 0, // ✅ Sempre buscar dados frescos após invalidação
+        queryKey: ['admin', 'installment-sales', { page, pageSize, status }],
+        queryFn: async () => {
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                pageSize: pageSize.toString(),
+                status
+            })
+            const response = await fetch(`/api/installments?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar crediário do backend')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 2, // 2 min
         keepPreviousData: true
     })
 
     return {
-        data: query.data, // { vendas, total, page, limit }
+        vendas: query.data?.items || [],
+        total: query.data?.total || 0,
+        totalPages: query.data?.totalPages || 0,
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,
@@ -25,14 +36,39 @@ export function useAdminInstallmentSales(page = 1, limit = 50) {
 }
 
 /**
- * Hook to fetch installments for a specific sale (details)
+ * Hook to fetch installments metrics (BFF)
+ */
+export function useAdminInstallmentsMetrics({ status = 'pendentes' } = {}) {
+    const query = useQuery({
+        queryKey: ['admin', 'installments', 'metrics', { status }],
+        queryFn: async () => {
+            const queryParams = new URLSearchParams({ status })
+            const response = await fetch(`/api/installments/metrics?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar métricas')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 5
+    })
+
+    return {
+        metrics: query.data || { count: 0, totalDueEstimative: 0, totalOverdueEstimative: 0 },
+        isLoading: query.isLoading
+    }
+}
+
+/**
+ * Hook to fetch installments for a specific sale (details) - BFF
  */
 export function useAdminInstallmentDetails(vendaId) {
     return useQuery({
         queryKey: ['admin', 'installments', vendaId],
-        queryFn: () => getInstallmentsByVendaId(vendaId),
+        queryFn: async () => {
+            const response = await fetch(`/api/installments/${vendaId}/details`)
+            if (!response.ok) throw new Error('Falha ao buscar detalhes do parcelamento')
+            return response.json()
+        },
         enabled: !!vendaId,
-        staleTime: 0 // ✅ Sempre buscar dados frescos após invalidação
+        staleTime: 0 // Always fresh
     })
 }
 

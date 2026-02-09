@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, DollarSign, Calendar, User, AlertCircle, Check, Clock, Trash2, Edit2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/Card'
 import { TableSkeleton } from '@/components/admin/PageSkeleton'
-import { useAdminInstallmentSales, useAdminInstallmentDetails, useAdminInstallmentsMutations } from '@/hooks/useAdminInstallments'
+import { useAdminInstallmentSales, useAdminInstallmentDetails, useAdminInstallmentsMutations, useAdminInstallmentsMetrics } from '@/hooks/useAdminInstallments'
 
 // Sub-component for Details
 function InstallmentDetails({ vendaId }) {
@@ -244,23 +244,35 @@ function InstallmentDetails({ vendaId }) {
 // Main Component
 export function InstallmentsList() {
     const navigate = useNavigate()
-    const { data, isLoading, isError } = useAdminInstallmentSales()
     const [expandedVendaId, setExpandedVendaId] = useState(null)
     const [statusFilter, setStatusFilter] = useState('pendentes') // 'todas', 'pendentes', 'pagas'
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize] = useState(20)
 
-    const allVendas = data?.vendas || []
+    // Reset pagination when filter changes
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [statusFilter])
 
-    // Filtrar vendas baseado no status
-    const vendas = allVendas.filter(venda => {
-        if (statusFilter === 'todas') return true
+    // Fetch Sales (Paginated & Filtered)
+    const {
+        vendas,
+        total,
+        totalPages,
+        isLoading,
+        isError
+    } = useAdminInstallmentSales({
+        page: currentPage,
+        pageSize,
+        status: statusFilter
+    })
 
-        // Uma venda é considerada "paga" se todas as parcelas estiverem pagas (dueAmount = 0)
-        const isPaid = venda.dueAmount === 0
-
-        if (statusFilter === 'pagas') return isPaid
-        if (statusFilter === 'pendentes') return !isPaid
-
-        return true
+    // Fetch Metrics for Cards (Filtered by current status)
+    const {
+        metrics,
+        isLoading: metricsLoading
+    } = useAdminInstallmentsMetrics({
+        status: statusFilter
     })
 
     const handleExpandVenda = (vendaId) => {
@@ -290,10 +302,11 @@ export function InstallmentsList() {
                 <div className="flex items-center gap-3 overflow-x-auto pb-1">
                     {['pendentes', 'pagas', 'todas'].map((status) => {
                         const isActive = statusFilter === status
-                        let count = 0
-                        if (status === 'pendentes') count = allVendas.filter(v => v.dueAmount > 0).length
-                        if (status === 'pagas') count = allVendas.filter(v => v.dueAmount === 0).length
-                        if (status === 'todas') count = allVendas.length
+                        // Count is not available per-status unless we fetch metrics for all statuses.
+                        // Currently we only fetch metrics for the SELECTED status.
+                        // We can't easily show count for other tabs without extra queries.
+                        // We will hide the count badge for non-active tabs or just remove it to simplify.
+                        // OR we trust the metrics returned count for the active tab.
 
                         return (
                             <button
@@ -313,9 +326,9 @@ export function InstallmentsList() {
                                 <span className="capitalize">{status}</span>
                                 <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${isActive
                                     ? (status === 'pendentes' ? 'bg-white/20 text-white' : 'bg-white text-[#4A3B32]')
-                                    : 'bg-gray-200 text-[#4A3B32]/60'
+                                    : 'hidden' // Hide for inactive
                                     }`}>
-                                    {count}
+                                    {isActive ? metrics.count : ''}
                                 </span>
                             </button>
                         )
@@ -323,7 +336,6 @@ export function InstallmentsList() {
                 </div>
             </motion.div>
 
-            {/* Cards de Resumo */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
                     <CardContent className="pt-8">
@@ -331,15 +343,15 @@ export function InstallmentsList() {
                             <p className="text-sm text-[#4A3B32]/60 font-medium">
                                 {statusFilter === 'pendentes' ? 'Vendas Pendentes' : statusFilter === 'pagas' ? 'Vendas Pagas' : 'Vendas Ativas'}
                             </p>
-                            <p className="text-3xl font-bold text-[#C75D3B]">{vendas.length}</p>
+                            <p className="text-3xl font-bold text-[#C75D3B]">{metrics.count || 0}</p>
                         </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-8">
                         <div className="space-y-2">
-                            <p className="text-sm text-[#4A3B32]/60 font-medium">Saldo Devido</p>
-                            <p className="text-3xl font-bold text-amber-600">R$ {vendas.reduce((sum, v) => sum + (v.dueAmount || 0), 0).toFixed(2)}</p>
+                            <p className="text-sm text-[#4A3B32]/60 font-medium">Saldo Devido (Estimado)</p>
+                            <p className="text-3xl font-bold text-amber-600">R$ {(metrics.totalDueEstimative || 0).toFixed(2)}</p>
                             <p className="text-xs text-[#4A3B32]/40 font-medium">
                                 {statusFilter === 'pendentes' ? 'Apenas vendas pendentes' : statusFilter === 'pagas' ? 'Nada a receber' : 'Todas as vendas'}
                             </p>
@@ -350,9 +362,10 @@ export function InstallmentsList() {
                     <CardContent className="pt-8">
                         <div className="space-y-2">
                             <p className="text-sm text-[#4A3B32]/60 font-medium">Parcelas Vencidas</p>
-                            <p className="text-3xl font-bold text-red-600">{vendas.reduce((sum, v) => sum + (v.overdueCount || 0), 0)}</p>
+                            {/* We don't have exact overdue count from simple query, using N/A or hiding? Or using the passed metric if available */}
+                            <p className="text-3xl font-bold text-red-600">-</p>
                             <p className="text-xs text-[#4A3B32]/40 font-medium">
-                                {statusFilter === 'pendentes' ? 'Nas vendas pendentes' : statusFilter === 'pagas' ? 'Já quitadas' : 'No total'}
+                                Cálculo indisponível no resumo
                             </p>
                         </div>
                     </CardContent>
@@ -422,6 +435,30 @@ export function InstallmentsList() {
                     </div>
                 )}
             </AnimatePresence>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex justify-center mt-8 pb-8">
+                    <nav className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Anterior
+                        </button>
+                        <span className="text-sm font-medium text-gray-600 px-2">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Próxima
+                        </button>
+                    </nav>
+                </div>
+            )}
         </div>
     )
 }

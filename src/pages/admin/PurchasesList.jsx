@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign, User, Store } from 'lucide-react'
-import { useAdminPurchases, useAdminPurchasesMutations } from '@/hooks/useAdminPurchases'
+import { useAdminPurchases, useAdminPurchasesMutations, useAdminPurchasesMetrics } from '@/hooks/useAdminPurchases'
 import { useAdminSuppliers } from '@/hooks/useAdminSuppliers'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
@@ -13,7 +13,7 @@ import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function PurchasesList() {
     // Hooks
-    const { purchases, isLoading: purchasesLoading } = useAdminPurchases()
+
     const { suppliers } = useAdminSuppliers() // Needed for mapping supplier IDs
     const { deletePurchase } = useAdminPurchasesMutations()
 
@@ -21,56 +21,43 @@ export function PurchasesList() {
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, purchaseId: null })
     const [periodFilter, setPeriodFilter] = useState('all')
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage] = useState(20)
 
-    const filteredPurchases = purchases.filter(purchase => {
-        // 1. Date Filter
-        const purchaseDate = new Date(purchase.date)
-        const now = new Date()
-        let dateMatches = true
+    // Reset pagination when filters change
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [search, periodFilter, customDateRange])
 
-        if (periodFilter === 'last7days') {
-            const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-            dateMatches = purchaseDate >= cutoff
-        } else if (periodFilter === 'last30days') {
-            const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-            dateMatches = purchaseDate >= cutoff
-        } else if (periodFilter === 'currentMonth') {
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-            dateMatches = purchaseDate >= startOfMonth && purchaseDate <= endOfMonth
-        } else if (periodFilter === 'custom' && customDateRange.start && customDateRange.end) {
-            // Ajustar start para 00:00:00 e end para 23:59:59 para garantir inclusão correta
-            // Como o input date vem YYYY-MM-DD, criamos a data considerando timezap local ou UTC conforme a string
-            const start = new Date(customDateRange.start)
-            start.setHours(0, 0, 0, 0) // Começo do dia
-
-            const end = new Date(customDateRange.end)
-            end.setHours(23, 59, 59, 999) // Fim do dia
-
-            dateMatches = purchaseDate >= start && purchaseDate <= end
-        }
-
-        if (!dateMatches) return false
-
-        // 2. Search Filter
-        const supplier = suppliers.find(s => s.id === purchase.supplierId)
-        const supplierName = supplier?.name || ''
-        return supplierName.toLowerCase().includes(search.toLowerCase()) ||
-            purchase.paymentMethod?.toLowerCase().includes(search.toLowerCase())
+    // Fetch Purchases (Paginated)
+    const {
+        purchases,
+        total,
+        totalPages,
+        isLoading: purchasesLoading
+    } = useAdminPurchases({
+        page: currentPage,
+        pageSize: itemsPerPage,
+        search,
+        period: periodFilter,
+        startDate: customDateRange.start,
+        endDate: customDateRange.end
     })
 
-    // KPI Calculations
-    const totalPurchases = filteredPurchases.reduce((sum, p) => sum + (p.value || 0), 0)
-    const totalItems = filteredPurchases.reduce((sum, p) => sum + (p.pieces || 0), 0)
+    // Fetch Metrics (Server-side aggregation)
+    const { metrics: serverMetrics } = useAdminPurchasesMetrics({
+        search,
+        period: periodFilter,
+        startDate: customDateRange.start,
+        endDate: customDateRange.end
+    })
 
-    // New KPIs
-    const totalLoja = filteredPurchases
-        .filter(p => !p.spentBy || p.spentBy === 'loja')
-        .reduce((sum, p) => sum + (p.value || 0), 0)
-
-    const totalAugusto = filteredPurchases
-        .filter(p => p.spentBy === 'augusto')
-        .reduce((sum, p) => sum + (p.value || 0), 0)
+    // Derived values
+    const filteredPurchases = purchases || []
+    const totalPurchases = serverMetrics.totalValue || 0
+    const totalItems = serverMetrics.totalItems || 0
+    const totalLoja = serverMetrics.totalLoja || 0
+    const totalAugusto = serverMetrics.totalAugusto || 0
 
     const handleDelete = (id) => {
         setConfirmDelete({ isOpen: true, purchaseId: id })
@@ -304,7 +291,7 @@ export function PurchasesList() {
                             <ShoppingCart className="w-6 h-6 text-blue-600" />
                         </div>
                         <div>
-                            <p className="text-xl font-bold text-[#4A3B32]">{filteredPurchases.length}</p>
+                            <p className="text-xl font-bold text-[#4A3B32]">{total}</p>
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight">Total de Compras</p>
                         </div>
                     </CardContent>
@@ -337,7 +324,7 @@ export function PurchasesList() {
                         />
                     </div>
                     <div className="text-sm font-bold text-[#4A3B32]/40">
-                        {filteredPurchases.length} {filteredPurchases.length === 1 ? 'compra' : 'compras'}
+                        {total} {total === 1 ? 'compra' : 'compras'}
                     </div>
                 </div>
 

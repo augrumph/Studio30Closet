@@ -1,0 +1,76 @@
+import express from 'express'
+import { supabase } from '../supabase.js'
+
+const router = express.Router()
+
+// Listagem de Produtos com Paginação e Busca
+router.get('/', async (req, res) => {
+    const {
+        page = 1,
+        pageSize = 20,
+        search = '',
+        category = 'all',
+        active = 'all'
+    } = req.query
+
+    const from = (page - 1) * pageSize
+    const to = from + Number(pageSize) - 1
+
+    console.log(`🏷️ Products API: Buscando página ${page} [Search: ${search}]`)
+
+    try {
+        let query = supabase
+            .from('products')
+            .select('*', { count: 'exact' })
+            .order('name', { ascending: true })
+            .range(from, to)
+
+        if (category !== 'all') {
+            query = query.eq('category', category)
+        }
+
+        if (active !== 'all') {
+            query = query.eq('active', active === 'true')
+        }
+
+        if (search) {
+            query = query.ilike('name', `%${search}%`)
+        }
+
+        const { data, count, error } = await query
+
+        if (error) throw error
+
+        res.json({
+            items: data,
+            total: count,
+            page: Number(page),
+            pageSize: Number(pageSize),
+            totalPages: Math.ceil(count / pageSize)
+        })
+
+    } catch (err) {
+        console.error('❌ Erro na API de Produtos:', err)
+        res.status(500).json({ error: 'Erro ao buscar produtos' })
+    }
+})
+
+// Detalhes do Produto
+router.get('/:id', async (req, res) => {
+    const { id } = req.params
+    try {
+        const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .eq('id', id)
+            .single()
+
+        if (error) throw error
+        res.json(data)
+    } catch (err) {
+        console.error(`❌ Erro ao buscar produto ${id}:`, err)
+        res.status(500).json({ error: 'Erro ao buscar produto' })
+    }
+})
+
+export default router

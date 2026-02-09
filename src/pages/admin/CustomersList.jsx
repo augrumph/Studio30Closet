@@ -36,7 +36,15 @@ export function CustomersList() {
     // ============================================================================
     // React Query: Fetch customers
     // ============================================================================
-    const { customers, total, isLoading, isError, error } = useAdminCustomers(currentPage, 50, search || '', activeFilter === 'all' ? 'all' : activeFilter)
+    const {
+        customers,
+        total,
+        totalPages,
+        isLoading,
+        isError,
+        error
+    } = useAdminCustomers(currentPage, 50, search || '', activeFilter === 'all' ? 'all' : activeFilter)
+
     const { deleteCustomer } = useAdminCustomersMutations()
 
     const totalCustomers = total
@@ -350,7 +358,7 @@ export function CustomersList() {
                                 transition={{ delay: index * 0.02 }}
                             >
                                 <Card className="border border-gray-100 hover:shadow-lg transition-all h-full bg-white rounded-2xl">
-                                    <CardContent className="p-6 pt-6">
+                                    <CardContent className="p-6 pt-6 flex flex-col h-full">
                                         {/* Header */}
                                         <div className="flex items-start justify-between mb-5">
                                             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -417,7 +425,7 @@ export function CustomersList() {
                                         <div className="border-t border-gray-100 my-5"></div>
 
                                         {/* Metrics */}
-                                        <div className="space-y-3 mb-5">
+                                        <div className="space-y-3 mb-5 flex-grow">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-sm text-gray-600">Total Gasto</span>
                                                 <span className="text-lg font-bold text-green-600">
@@ -449,7 +457,7 @@ export function CustomersList() {
                                         <div className="border-t border-gray-100 my-5"></div>
 
                                         {/* Actions */}
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-3 gap-2 mt-auto">
                                             {customer.phone && (
                                                 <button
                                                     onClick={() => openWhatsApp(customer.phone, customer.name)}
@@ -484,6 +492,31 @@ export function CustomersList() {
                     })}
                 </AnimatePresence>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex justify-center mt-8 pb-8">
+                    <nav className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Anterior
+                        </button>
+                        <span className="text-sm font-medium text-gray-600 px-2">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Próxima
+                        </button>
+                    </nav>
+                </div>
+            )}
 
             {/* Empty State */}
             {filteredCustomers.length === 0 && (

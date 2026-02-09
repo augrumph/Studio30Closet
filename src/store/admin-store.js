@@ -7,7 +7,7 @@ import {
     getAllProductsAdmin,
     getProductsPaginated,
     getOrders,
-    getCustomers,
+    getCustomersWithMetrics,
     getVendas,
     createProduct,
     updateProduct,
@@ -630,7 +630,7 @@ export const useAdminStore = create(
                 logger.info(`⏳ Carregando clientes (página ${page})...`);
                 set({ customersLoading: true, customersError: null })
                 try {
-                    const result = await getCustomers(page, 50)
+                    const result = await getCustomersWithMetrics(page, 50)
                     const customers = result.customers.sort((a, b) => b.id - a.id)
                     logger.success(`✅ ${customers.length} clientes carregados (total: ${result.total})`);
                     set({ customers, customersLoading: false, customersTotal: result.total, customersPage: page })
@@ -777,8 +777,7 @@ export const useAdminStore = create(
                             get().loadProducts(),
                             get().loadOrders(),
                             get().loadCustomers(),
-                            get().loadVendas(),
-                            get().loadCoupons()
+                            get().loadVendas()
                         ]),
                         timeoutPromise
                     ])

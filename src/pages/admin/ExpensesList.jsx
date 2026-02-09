@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Receipt, Calendar, DollarSign, Trash2, Edit2, TrendingDown, Sparkles } from 'lucide-react'
-import { useAdminExpenses, useAdminExpensesMutations } from '@/hooks/useAdminExpenses'
+import { useAdminExpenses, useAdminExpensesMutations, useAdminExpensesMetrics } from '@/hooks/useAdminExpenses'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -11,17 +11,34 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { TableSkeleton } from '@/components/admin/PageSkeleton'
 
 export function ExpensesList() {
-    const { expenses, isLoading: expensesLoading } = useAdminExpenses()
+
     const { deleteExpense } = useAdminExpensesMutations()
     const [search, setSearch] = useState('')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, expenseId: null })
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize] = useState(20)
 
+    // Reset pagination when search changes
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [search])
 
+    // Fetch Expenses (Paginated & Filtered)
+    const {
+        expenses,
+        total,
+        totalPages,
+        isLoading: expensesLoading
+    } = useAdminExpenses({
+        page: currentPage,
+        pageSize,
+        search
+    })
 
-    const filteredExpenses = expenses.filter(expense =>
-        expense.name?.toLowerCase().includes(search.toLowerCase()) ||
-        expense.category?.toLowerCase().includes(search.toLowerCase())
-    )
+    // Fetch Metrics
+    const { metrics } = useAdminExpensesMetrics({ search })
+
+    const filteredExpenses = expenses || []
 
     const handleDelete = (id) => {
         setConfirmDelete({ isOpen: true, expenseId: id })
@@ -44,7 +61,7 @@ export function ExpensesList() {
     }
 
     const getTotalMonthly = () => {
-        return filteredExpenses.reduce((sum, e) => sum + (e.value || 0), 0)
+        return metrics.totalValue || 0
     }
 
     const getRecurrenceLabel = (recurrence) => {
@@ -113,7 +130,7 @@ export function ExpensesList() {
                         <div>
                             <p className="text-red-100 text-sm font-bold uppercase tracking-widest mb-2">Total Mensal</p>
                             <p className="text-4xl font-bold text-white">{formatCurrency(getTotalMonthly())}</p>
-                            <p className="text-red-100 text-xs mt-1">{filteredExpenses.length} {filteredExpenses.length === 1 ? 'gasto' : 'gastos'} cadastrados</p>
+                            <p className="text-red-100 text-xs mt-1">{metrics.count || 0} {(metrics.count || 0) === 1 ? 'gasto' : 'gastos'} cadastrados</p>
                         </div>
                         <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center">
                             <TrendingDown className="w-8 h-8 text-white" />
@@ -228,6 +245,31 @@ export function ExpensesList() {
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
+                        </div>
+                    )}
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-center p-6 border-t border-gray-50">
+                            <nav className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-4 py-2 bg-gray-50 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Anterior
+                                </button>
+                                <span className="text-sm font-medium text-gray-600 px-2">
+                                    Página {currentPage} de {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-4 py-2 bg-gray-50 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Próxima
+                                </button>
+                            </nav>
                         </div>
                     )}
                 </CardContent>

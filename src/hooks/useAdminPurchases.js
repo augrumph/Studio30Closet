@@ -4,22 +4,64 @@ import { getPurchases, getPurchaseById, createPurchase, updatePurchase, deletePu
 import { toast } from 'sonner'
 
 /**
- * Hook to fetch all purchases (Client-side filtering mainly, but future server filtering supported)
+ * Hook to fetch all purchases (Paginated & Filtered via BFF)
  */
-export function useAdminPurchases() {
+export function useAdminPurchases({ page = 1, pageSize = 20, search = '', period = 'all', startDate, endDate } = {}) {
+    const queryParams = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        search,
+        period
+    })
+
+    if (startDate) queryParams.append('startDate', startDate)
+    if (endDate) queryParams.append('endDate', endDate)
+
     const query = useQuery({
-        queryKey: ['admin', 'purchases'],
-        queryFn: getPurchases,
-        staleTime: 1000 * 60 * 5, // 5 min cache
-        placeholderData: (prev) => prev
+        queryKey: ['admin', 'purchases', { page, pageSize, search, period, startDate, endDate }],
+        queryFn: async () => {
+            const response = await fetch(`/api/purchases?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar compras do backend')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 5, // 5 min
     })
 
     return {
-        purchases: query.data || [],
+        purchases: query.data?.items || [],
+        total: query.data?.total || 0,
+        totalPages: query.data?.totalPages || 0,
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,
         refetch: query.refetch
+    }
+}
+
+/**
+ * Hook to fetch metrics for purchases
+ */
+export function useAdminPurchasesMetrics({ search = '', period = 'all', startDate, endDate } = {}) {
+    const queryParams = new URLSearchParams({
+        search,
+        period
+    })
+    if (startDate) queryParams.append('startDate', startDate)
+    if (endDate) queryParams.append('endDate', endDate)
+
+    const query = useQuery({
+        queryKey: ['admin', 'purchases', 'metrics', { search, period, startDate, endDate }],
+        queryFn: async () => {
+            const response = await fetch(`/api/purchases/metrics?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar métricas de compras')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 10,
+    })
+
+    return {
+        metrics: query.data || { totalValue: 0, totalItems: 0, totalLoja: 0, totalAugusto: 0, totalThais: 0 },
+        isLoading: query.isLoading
     }
 }
 

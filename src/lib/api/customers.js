@@ -42,8 +42,8 @@ export async function getCustomersWithMetrics(page = 1, limit = 50, searchTerm =
  * Listar clientes paginados (OLD - mantido para compatibilidade)
  * @deprecated Use getCustomersWithMetrics instead for accurate LTV/metrics
  */
-export async function getCustomers(page = 1, limit = 50) {
-    console.log(`⚠️ API: Using legacy getCustomers - consider migrating to getCustomersWithMetrics`)
+export async function getCustomersLegacy(page = 1, limit = 50) {
+    console.error(`❌ CRITICAL: Still using legacy getCustomers! Stack trace:`, new Error().stack)
     console.log(`🔍 API: Getting customers (page ${page}, limit ${limit})...`)
     const offset = (page - 1) * limit
     const { data, error, count } = await supabase

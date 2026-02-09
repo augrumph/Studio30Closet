@@ -22,78 +22,52 @@ import { MalinhasListSkeleton } from '@/components/admin/PageSkeleton'
 import { useAdminMalinhas, useAdminMalinhasMutations } from '@/hooks/useAdminMalinhas'
 
 export function MalinhasList() {
-    // ⚡ REACT QUERY HOOK
-    // ⚡ REACT QUERY HOOK
-    // Fetching last 100 orders to allow client-side filtering without heavy pagination refactor for now
-    // Future: move filters to server-side
-    const {
-        malinhas: orders,
-        isLoading: ordersLoading,
-        isError,
-        error,
-        refetch
-    } = useAdminMalinhas(1, 100, 'all', '')
-
-    const { deleteMalinha: deleteOrder } = useAdminMalinhasMutations()
-
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
     const [dateFilter, setDateFilter] = useState('all') // 'all', 'today', 'month'
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(10)
+
+    // ⚡ REACT QUERY HOOK (BFF Paginado)
+    const {
+        malinhas: paginatedOrders,
+        total: totalItems,
+        totalPages,
+        isLoading: ordersLoading,
+        isError,
+        error,
+        refetch
+    } = useAdminMalinhas({
+        page: currentPage,
+        pageSize: itemsPerPage,
+        status: statusFilter,
+        search: searchTerm,
+        dateFilter: dateFilter
+    })
+
+    const { deleteMalinha: deleteOrder } = useAdminMalinhasMutations()
     const [deleteAlert, setDeleteAlert] = useState({ isOpen: false, orderId: null })
-
-    // Filter Logic
-    const filteredOrders = useMemo(() => {
-        if (!orders) return []
-
-        return orders.filter(order => {
-            const orderNum = order.orderNumber || '';
-            const customerName = order.customer ? order.customer.name || '' : '';
-            const orderDate = new Date(order.createdAt)
-            const now = new Date()
-
-            const matchesSearch =
-                orderNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                customerName.toLowerCase().includes(searchTerm.toLowerCase());
-
-            const matchesStatus = statusFilter === 'all' || order.status === statusFilter
-
-            let matchesDate = true
-            if (dateFilter === 'today') {
-                matchesDate = orderDate.toDateString() === now.toDateString()
-            } else if (dateFilter === 'month') {
-                matchesDate = orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear()
-            }
-
-            return matchesSearch && matchesStatus && matchesDate
-        })
-    }, [orders, searchTerm, statusFilter, dateFilter])
-
-    // Pagination
-    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
-    const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
     // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1)
     }, [searchTerm, statusFilter, dateFilter])
 
-    // Metrics Calculation - Client Side (Fast enough for < 1000 orders)
+    // Metrics Calculation - Ideally from Dashboard API, but using query data for now
     const metrics = useMemo(() => {
-        if (!orders) return { totalActive: 0, pending: 0, completedMonth: 0, totalItems: 0 }
+        if (!paginatedOrders) return { totalActive: 0, pending: 0, completedMonth: 0, totalItems: 0 }
 
         return {
-            totalActive: orders.filter(o => ['pending', 'shipped', 'delivered', 'pickup_scheduled'].includes(o.status)).length,
-            pending: orders.filter(o => o.status === 'pending').length,
-            completedMonth: orders.filter(o => {
+            totalActive: totalItems, // Approximation or we can use more precise backend field
+            pending: paginatedOrders.filter(o => o.status === 'pending').length, // Limited to current page
+            completedMonth: paginatedOrders.filter(o => {
                 const date = new Date(o.createdAt)
                 const now = new Date()
                 return o.status === 'completed' && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
             }).length,
-            totalItems: orders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + (o.itemsCount || 0), 0)
+            totalItems: paginatedOrders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + (o.itemsCount || 0), 0)
         }
-    }, [orders])
+    }, [paginatedOrders, totalItems])
 
     // Handlers
     const handleDelete = (id, e) => {
@@ -124,7 +98,7 @@ export function MalinhasList() {
     }
 
     // Skeleton View
-    if (ordersLoading && !orders.length) {
+    if (ordersLoading && paginatedOrders.length === 0) {
         return <MalinhasListSkeleton />
     }
 
@@ -381,7 +355,7 @@ export function MalinhasList() {
 
                 <CardFooter className="bg-white border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 p-6">
                     <p className="text-xs text-gray-400 font-medium">
-                        Mostrando <span className="text-[#4A3B32] font-bold">{paginatedOrders.length}</span> de <span className="text-[#4A3B32] font-bold">{filteredOrders.length}</span> malinhas
+                        Mostrando <span className="text-[#4A3B32] font-bold">{paginatedOrders.length}</span> de <span className="text-[#4A3B32] font-bold">{totalItems}</span> malinhas
                     </p>
 
                     {totalPages > 1 && (

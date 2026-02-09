@@ -48,14 +48,25 @@ export function useAdminCustomer(id) {
 export function useAdminCustomers(page = 1, limit = 50, searchTerm = '', segmentFilter = 'all') {
     const query = useQuery({
         queryKey: ['admin', 'customers', { page, limit, searchTerm, segmentFilter }],
-        queryFn: () => getCustomersWithMetrics(page, limit, searchTerm, segmentFilter),
+        queryFn: async () => {
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                pageSize: limit.toString(),
+                search: searchTerm,
+                segment: segmentFilter
+            })
+
+            const response = await fetch(`/api/customers?${queryParams.toString()}`)
+            if (!response.ok) throw new Error('Falha ao buscar clientes do backend')
+            return response.json()
+        },
         staleTime: 1000 * 60 * 5, // 5 min
-        placeholderData: (previousData) => previousData
     })
 
     return {
         customers: query.data?.customers || [],
         total: query.data?.total || 0,
+        totalPages: query.data?.totalPages || 0,
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,

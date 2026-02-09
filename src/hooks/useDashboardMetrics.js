@@ -52,17 +52,22 @@ export function useDashboardMetrics({
         // Gross Revenue = Soma de (products_price * quantity) OU (totalValue + discount)
         // Net Revenue = Gross Revenue - Discount
 
+        // Filtrar vendas: ignora canceladas e devolvidas para o DRE
+        const salesToProcess = allSales.filter(v => {
+            const status = (v.paymentStatus || v.payment_status || '').toLowerCase();
+            return status !== 'cancelled' && status !== 'refuted' && status !== 'returned';
+        });
+
         let calculatedGrossRevenue = 0;
         let totalDiscounts = 0;
 
-        allSales.forEach(v => {
-            // Tentar capturar o desconto da venda (campo discount ou similar)
-            const discount = Number(v.discount || v.discountValue || 0);
-
-            // Se totalValue já é o final, então Bruto = Final + Desconto
+        salesToProcess.forEach(v => {
+            // Priority: Real stored fields -> Fallback to legacy structure
+            const discount = Number(v.discountAmount || v.discount || v.discountValue || 0);
+            const originalTotal = Number(v.originalTotal || (Number(v.totalValue || 0) + discount));
             const finalValue = Number(v.totalValue || 0);
 
-            calculatedGrossRevenue += (finalValue + discount);
+            calculatedGrossRevenue += originalTotal;
             totalDiscounts += discount;
         });
 
@@ -70,7 +75,7 @@ export function useDashboardMetrics({
         // 2. DEDUCTIONS (Taxes & Fees)
         // =================================================================================
 
-        const totalFees = allSales.reduce((sum, v) => sum + (v.feeAmount || 0), 0);
+        const totalFees = salesToProcess.reduce((sum, v) => sum + (v.feeAmount || 0), 0);
 
         // DAS (Imposto) - Extrair das despesas fixas
         let monthlyDasExpense = 0;
@@ -145,7 +150,7 @@ export function useDashboardMetrics({
         const productsWithoutCost = new Set() // Rastrear produtos sem custo
         let totalItemsSold = 0  // Contador de peças vendidas
 
-        const totalCPV = allSales.reduce((sum, v) => {
+        const totalCPV = salesToProcess.reduce((sum, v) => {
             const itemsCost = (v.items || []).reduce((itemSum, item) => {
                 let cost = item.costPriceAtTime || item.cost_price_at_time || item.costPrice
                 const quantity = item.quantity || item.qty || 1
@@ -168,7 +173,7 @@ export function useDashboardMetrics({
         const estimatedPercent = totalItemsCheck > 0 ? (costWarnings / totalItemsCheck) * 100 : 0
 
         // Métrica: Peças por Venda
-        const itemsPerSale = allSales.length > 0 ? totalItemsSold / allSales.length : 0
+        const itemsPerSale = salesToProcess.length > 0 ? totalItemsSold / salesToProcess.length : 0
 
         // =================================================================================
         // 5. OPERATIONAL EFFICIENCY (Malinha Metrics & Logistics)

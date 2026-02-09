@@ -15,7 +15,7 @@ export async function getVendas(page = 1, limit = 30) {
     const offset = (page - 1) * limit
     const { data, error, count } = await supabase
         .from('vendas')
-        .select('id, customer_id, total_value, payment_method, payment_status, created_at, fee_amount, net_amount, items, entry_payment, is_installment, customers(id, name)', { count: 'exact' })
+        .select('id, customer_id, total_value, discount_amount, original_total, payment_method, payment_status, created_at, fee_amount, net_amount, items, entry_payment, is_installment, customers(id, name)', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1)
 
@@ -101,6 +101,8 @@ export async function createVenda(vendaData) {
         order_id: snakeData.order_id || null,
         customer_id: snakeData.customer_id,
         total_value: snakeData.total_value,
+        discount_amount: snakeData.discount_amount || snakeData.discount_value || 0,
+        original_total: snakeData.original_total || 0,
         cost_price: snakeData.cost_price || null,
         items: snakeData.items || [],
         payment_method: snakeData.payment_method,
@@ -169,6 +171,8 @@ export async function updateVenda(id, vendaData) {
         order_id: snakeData.order_id || null,
         customer_id: snakeData.customer_id,
         total_value: snakeData.total_value,
+        discount_amount: snakeData.discount_amount || snakeData.discount_value || 0,
+        original_total: snakeData.original_total || 0,
         cost_price: snakeData.cost_price || null,
         items: snakeData.items || [],
         payment_method: snakeData.payment_method,

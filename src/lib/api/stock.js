@@ -323,8 +323,9 @@ export async function getStockMetrics() {
 /**
  * Buscar ranking de vendas por categoria (Via Backend BFF)
  */
-export async function getSalesRankingByCategory(startDate, endDate) {
+export async function getSalesRankingByCategory(startDate, endDate, period = 'all') {
     const params = new URLSearchParams()
+    if (period) params.append('period', period)
     if (startDate) params.append('startDate', startDate)
     if (endDate) params.append('endDate', endDate)
 

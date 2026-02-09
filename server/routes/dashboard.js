@@ -34,7 +34,8 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             { data: expenses, error: eError },
             { data: installments, error: iError },
             { data: purchases, error: pError },
-            { data: orders, error: oError }
+            { data: orders, error: oError },
+            { data: products, error: prodError }
         ] = await Promise.all([
             // Vendas do período (com itens para CPV)
             startDate
@@ -51,11 +52,14 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             supabase.from('purchases').select('*, suppliers(name)'),
 
             // Pedidos (para taxa de retenção da malinha)
-            supabase.from('orders').select('id')
+            supabase.from('orders').select('id'),
+
+            // Produtos (para inventário ATUAL)
+            supabase.from('products').select('id, price, cost_price, stock, active')
         ])
 
-        if (vError || eError || iError || pError || oError) {
-            throw vError || eError || iError || pError || oError
+        if (vError || eError || iError || pError || oError || prodError) {
+            throw vError || eError || iError || pError || oError || prodError
         }
 
         // 3. PROCESSAMENTO FINANCEIRO (Baseado na lógica do useDashboardMetrics.js)
@@ -183,9 +187,19 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             }
         })
 
-        // Inventário (Otimizado)
-        const totalEstimatedValue = salesToProcess.reduce((sum, v) => sum + (v.totalValue || 0), 0) // Placeholder
-        // Na verdade, deveríamos buscar da tabela products, mas para performance BFF, vamos cachear ou processar.
+        // Inventário: Calcular com base nos produtos em estoque (REAL)
+        const activeProducts = (products || []).filter(p => p.active !== false)
+
+        let inventoryTotalValue = 0
+        let inventoryTotalCost = 0
+
+        activeProducts.forEach(p => {
+            const stock = p.stock || 0
+            if (stock > 0) {
+                inventoryTotalValue += (p.price || 0) * stock
+                inventoryTotalCost += (p.cost_price || 0) * stock
+            }
+        })
 
         res.json({
             summary: {
@@ -200,8 +214,10 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                 todaySalesCount
             },
             inventory: {
-                totalEstimatedValue, // TODO: Buscar real do banco se necessário
-                totalCostValue: totalCPV // Placeholder
+                totalEstimatedValue: inventoryTotalValue,
+                totalCostValue: inventoryTotalCost,
+                totalItems: activeProducts.reduce((acc, p) => acc + (p.stock || 0), 0),
+                totalProducts: activeProducts.length
             },
             operational: {
                 totalSalesCount: salesToProcess.length,

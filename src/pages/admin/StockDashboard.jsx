@@ -66,8 +66,6 @@ function KPICard({ title, value, subtext, icon: Icon, tooltip, colorCls, iconCls
 
 // Componente de Lista Rankeada
 function RankingList({ title, icon: Icon, items, valueKey = 'qty', valueSuffix = 'un', colorCls, tooltip }) {
-    if (!items || items.length === 0) return null
-
     return (
         <Card className={cn("border shadow-sm", colorCls)}>
             <CardHeader className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
@@ -89,27 +87,33 @@ function RankingList({ title, icon: Icon, items, valueKey = 'qty', valueSuffix =
                 </div>
             </CardHeader>
             <CardContent className="p-0">
-                <div className="divide-y divide-gray-50">
-                    {items.slice(0, 5).map((item, i) => (
-                        <div key={i} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <span className={cn(
-                                    "flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold",
-                                    i === 0 ? "bg-amber-100 text-amber-700" :
-                                        i === 1 ? "bg-gray-200 text-gray-600" :
-                                            i === 2 ? "bg-orange-100 text-orange-600" :
-                                                "bg-gray-100 text-gray-500"
-                                )}>
-                                    {i + 1}
+                {!items || items.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                        <p className="text-xs text-gray-400">Sem dados de vendas no período</p>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-50">
+                        {items.slice(0, 5).map((item, i) => (
+                            <div key={i} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <span className={cn(
+                                        "flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold",
+                                        i === 0 ? "bg-amber-100 text-amber-700" :
+                                            i === 1 ? "bg-gray-200 text-gray-600" :
+                                                i === 2 ? "bg-orange-100 text-orange-600" :
+                                                    "bg-gray-100 text-gray-500"
+                                    )}>
+                                        {i + 1}
+                                    </span>
+                                    <span className="text-sm font-medium text-[#4A3B32] capitalize">{item.name}</span>
+                                </div>
+                                <span className="text-sm font-bold text-[#C75D3B]">
+                                    {valueKey === 'margin' ? `R$ ${item[valueKey]?.toFixed(0)}` : `${item[valueKey]} ${valueSuffix}`}
                                 </span>
-                                <span className="text-sm font-medium text-[#4A3B32] capitalize">{item.name}</span>
                             </div>
-                            <span className="text-sm font-bold text-[#C75D3B]">
-                                {valueKey === 'margin' ? `R$ ${item[valueKey]?.toFixed(0)}` : `${item[valueKey]} ${valueSuffix}`}
-                            </span>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </CardContent>
         </Card>
     )
@@ -121,28 +125,68 @@ export function StockDashboard() {
     const [topSellers, setTopSellers] = useState(null)
     const [lowStock, setLowStock] = useState([])
     const [deadStock, setDeadStock] = useState(null)
+    const [periodFilter, setPeriodFilter] = useState('all') // 'all', 'last7days', 'last30days', 'currentMonth', 'currentYear'
 
     useEffect(() => {
         loadDashboard()
-    }, [])
+    }, [periodFilter])
 
     const loadDashboard = async () => {
         setLoading(true)
         try {
+            // Calculate date range based on period filter
+            let startDate = null
+            let endDate = null
+
+            if (periodFilter === 'last7days') {
+                const date = new Date()
+                date.setDate(date.getDate() - 7)
+                startDate = date.toISOString()
+                endDate = new Date().toISOString()
+            } else if (periodFilter === 'last30days') {
+                const date = new Date()
+                date.setDate(date.getDate() - 30)
+                startDate = date.toISOString()
+                endDate = new Date().toISOString()
+            } else if (periodFilter === 'currentMonth') {
+                const now = new Date()
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+                endDate = new Date().toISOString()
+            } else if (periodFilter === 'currentYear') {
+                const now = new Date()
+                startDate = new Date(now.getFullYear(), 0, 1).toISOString()
+                endDate = new Date().toISOString()
+            }
+            // If 'all', startDate and endDate remain null (backend will handle)
+
             const [kpisData, salesRanking, lowStockData, deadStockData] = await Promise.all([
                 getStockHeadlineKPIs(),
-                getSalesRankingByCategory(),
+                getSalesRankingByCategory(startDate, endDate, periodFilter),
                 getLowStockAlerts(10),
                 getDeadStockSummary()
             ])
 
+            console.log('📊 Dashboard carregado:')
+            console.log(`   - Período: ${periodFilter}`)
+            console.log(`   - Start Date: ${startDate || 'all'}`)
+            console.log(`   - End Date: ${endDate || 'now'}`)
+            console.log('   - KPIs:', kpisData)
+            console.log('   - Rankings:', salesRanking)
+            console.log('   - Estoque baixo:', lowStockData?.length || 0, 'items')
+            console.log('   - Dead stock:', deadStockData)
+
             setKpis(kpisData)
-            setTopSellers(salesRanking)
-            setLowStock(lowStockData)
-            setDeadStock(deadStockData)
+            setTopSellers(salesRanking || { byCategory: [], byColor: [], bySize: [], byProduct: [], byProfit: [] })
+            setLowStock(lowStockData || [])
+            setDeadStock(deadStockData || { count: 0, totalValue: 0 })
         } catch (error) {
-            console.error('Erro ao carregar dashboard de estoque:', error)
+            console.error('❌ Erro ao carregar dashboard de estoque:', error)
             toast.error('Erro ao atualizar informações')
+            // Set default empty values to prevent UI crashes
+            setKpis({ totalValue: 0, totalCost: 0, totalItems: 0, productsCount: 0, lowStockCount: 0 })
+            setTopSellers({ byCategory: [], byColor: [], bySize: [], byProduct: [], byProfit: [] })
+            setLowStock([])
+            setDeadStock({ count: 0, totalValue: 0 })
         } finally {
             setLoading(false)
         }
@@ -184,6 +228,36 @@ export function StockDashboard() {
                     </button>
                 </div>
             </div>
+
+            {/* Period Filters */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="flex flex-wrap items-center gap-3"
+            >
+                <span className="text-sm font-bold text-[#4A3B32]">Período de Análise:</span>
+                {[
+                    { value: 'all', label: 'Todo o Período' },
+                    { value: 'last7days', label: 'Últimos 7 dias' },
+                    { value: 'last30days', label: 'Últimos 30 dias' },
+                    { value: 'currentMonth', label: 'Mês Atual' },
+                    { value: 'currentYear', label: 'Ano Atual' }
+                ].map(period => (
+                    <button
+                        key={period.value}
+                        onClick={() => setPeriodFilter(period.value)}
+                        className={cn(
+                            'px-4 py-2 rounded-xl font-semibold text-sm transition-all',
+                            periodFilter === period.value
+                                ? 'bg-[#C75D3B] text-white shadow-md'
+                                : 'bg-gray-100 text-[#4A3B32] hover:bg-gray-200'
+                        )}
+                    >
+                        {period.label}
+                    </button>
+                ))}
+            </motion.div>
 
             {/* 1. KPI Cards (Original Layout) */}
             <motion.div
@@ -239,7 +313,15 @@ export function StockDashboard() {
                 <div className="flex items-center gap-2 mb-4">
                     <Star className="w-5 h-5 text-[#C75D3B]" />
                     <h2 className="text-lg font-bold text-[#4A3B32]">O Que Está Vendendo Bem?</h2>
-                    <span className="text-xs text-gray-400 ml-2">Top produtos para não deixar faltar.</span>
+                    <span className="text-xs text-gray-400 ml-2">
+                        Top produtos para não deixar faltar
+                        {periodFilter !== 'all' && ` (${
+                            periodFilter === 'last7days' ? 'Últimos 7 dias' :
+                            periodFilter === 'last30days' ? 'Últimos 30 dias' :
+                            periodFilter === 'currentMonth' ? 'Mês Atual' :
+                            periodFilter === 'currentYear' ? 'Ano Atual' : ''
+                        })`}
+                    </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

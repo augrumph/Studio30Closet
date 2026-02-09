@@ -51,30 +51,39 @@ router.get('/kpis', cacheMiddleware(300), async (req, res) => {
  * GET /api/stock/ranking
  * Ranking de vendas por categoria, cor, tamanho, etc.
  * OPTIMIZED: Uses database aggregation instead of fetching all products
- * Cache: 10 minutes
+ * Cache: DISABLED for debugging
  */
-router.get('/ranking', cacheMiddleware(600), async (req, res) => {
+router.get('/ranking', async (req, res) => {
     try {
-        let { startDate, endDate } = req.query
+        let { startDate, endDate, period = 'all' } = req.query
 
-        // Default to last 30 days if not specified
-        if (!startDate) {
-            const date = new Date()
-            date.setDate(date.getDate() - 30)
-            startDate = date.toISOString()
-        }
-        if (!endDate) {
+        // If period is 'all', don't set date filters (get all time data)
+        if (period !== 'all') {
+            // Default to last 30 days if not specified
+            if (!startDate) {
+                const date = new Date()
+                date.setDate(date.getDate() - 30)
+                startDate = date.toISOString()
+            }
+            if (!endDate) {
+                endDate = new Date().toISOString()
+            }
+        } else {
+            // For 'all' period, set very early start date
+            startDate = '2020-01-01T00:00:00.000Z'
             endDate = new Date().toISOString()
         }
 
         // Use optimized RPC function
-        const { data, error } = await supabase.rpc('get_stock_ranking', {
+        // FORCE FALLBACK: RPC might be failing or returning empty. Using manual calculation for now.
+        const { data, error } = { data: null, error: { message: 'Forced fallback' } }
+        /* await supabase.rpc('get_stock_ranking', {
             start_date: startDate,
             end_date: endDate
-        })
+        }) */
 
         if (error) {
-            console.warn('⚠️ RPC get_stock_ranking não disponível, usando fallback:', error.message)
+            console.warn('⚠️ RPC get_stock_ranking não disponível/desabilitado, usando fallback:', error.message)
             // Fallback: calculate rankings manually
             return await calculateRankingsFallback(startDate, endDate, res)
         }
@@ -102,6 +111,7 @@ router.get('/ranking', cacheMiddleware(600), async (req, res) => {
 async function calculateRankingsFallback(startDate, endDate, res) {
     try {
         console.log('📊 Calculando rankings manualmente...')
+        console.log(`   Período: ${startDate} até ${endDate}`)
 
         // Fetch all sales in the date range
         const { data: vendas, error: vendasError } = await supabase
@@ -111,19 +121,29 @@ async function calculateRankingsFallback(startDate, endDate, res) {
             .lte('created_at', endDate)
             .neq('payment_status', 'cancelled')
 
-        if (vendasError) throw vendasError
+        if (vendasError) {
+            console.error('❌ Erro ao buscar vendas:', vendasError)
+            throw vendasError
+        }
+
+        console.log(`   ✅ ${vendas?.length || 0} vendas encontradas`)
 
         // Fetch all products for cost_price lookup
         const { data: products, error: productsError } = await supabase
             .from('products')
             .select('id, name, cost_price, category, color')
 
-        if (productsError) throw productsError
+        if (productsError) {
+            console.error('❌ Erro ao buscar produtos:', productsError)
+            throw productsError
+        }
 
-        // Create product lookup map
+        console.log(`   ✅ ${products?.length || 0} produtos no banco`)
+
+        // Create product lookup map - USE STRING KEYS FOR ROBUSTNESS
         const productMap = new Map()
         products.forEach(p => {
-            productMap.set(p.id, p)
+            productMap.set(String(p.id), p)
         })
 
         // Aggregation maps
@@ -132,26 +152,44 @@ async function calculateRankingsFallback(startDate, endDate, res) {
         const sizeStats = new Map()
         const productStats = new Map()
 
+        let totalItemsProcessed = 0
+        let itemsWithoutProduct = 0
+
         // Process all sales
-        vendas.forEach(venda => {
+        vendas.forEach((venda, vendaIndex) => {
             let items = venda.items
+
             if (typeof items === 'string') {
                 try {
                     items = JSON.parse(items)
-                } catch {
+                } catch (e) {
+                    console.warn(`   ⚠️ Venda ${venda.id}: Falha ao parsear items JSON: ${e.message}`)
                     items = []
                 }
             }
-            if (!Array.isArray(items)) items = []
 
-            items.forEach(item => {
-                const productId = item.productId || item.id
+            if (!Array.isArray(items)) {
+                items = []
+            }
+
+            items.forEach((item, itemIndex) => {
+                totalItemsProcessed++
+                // Normalize ID to string
+                const productId = String(item.productId || item.id || item.product_id)
+
                 const product = productMap.get(productId)
-                if (!product) return
+                if (!product) {
+                    itemsWithoutProduct++
+                    // Only log first few failures to avoid spam
+                    if (itemsWithoutProduct <= 5) {
+                        console.warn(`      - ⚠️ Produto ID '${productId}' não encontrado no mapa de produtos.`)
+                    }
+                    return
+                }
 
-                const qty = item.quantity || 1
-                const price = item.price || 0
-                const costPrice = product.cost_price || 0
+                const qty = Number(item.quantity) || 1
+                const price = Number(item.price) || 0
+                const costPrice = Number(product.cost_price) || 0
                 const revenue = price * qty
                 const margin = (price - costPrice) * qty
 
@@ -208,6 +246,27 @@ async function calculateRankingsFallback(startDate, endDate, res) {
         const bySize = Array.from(sizeStats.values()).sort((a, b) => b.qty - a.qty)
         const byProduct = Array.from(productStats.values()).sort((a, b) => b.qty - a.qty)
         const byProfit = Array.from(productStats.values()).sort((a, b) => b.margin - a.margin)
+
+        console.log(`   📊 Resumo do processamento:`)
+        console.log(`      - Total de items processados: ${totalItemsProcessed}`)
+        console.log(`      - Items sem produto: ${itemsWithoutProduct}`)
+        console.log(`      - Categorias únicas: ${byCategory.length}`)
+        console.log(`      - Cores únicas: ${byColor.length}`)
+        console.log(`      - Tamanhos únicos: ${bySize.length}`)
+        console.log(`      - Produtos únicos: ${byProduct.length}`)
+
+        if (byCategory.length > 0) {
+            console.log(`   🏆 Top Categoria: ${byCategory[0].name} (${byCategory[0].qty} un)`)
+        }
+        if (byColor.length > 0) {
+            console.log(`   🎨 Top Cor: ${byColor[0].name} (${byColor[0].qty} un)`)
+        }
+        if (bySize.length > 0) {
+            console.log(`   📏 Top Tamanho: ${bySize[0].name} (${bySize[0].qty} un)`)
+        }
+        if (byProfit.length > 0) {
+            console.log(`   💰 Mais Lucrativo: ${byProfit[0].name} (R$ ${byProfit[0].margin.toFixed(2)})`)
+        }
 
         console.log('✅ Rankings calculados com sucesso')
 

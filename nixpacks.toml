@@ -1,0 +1,17 @@
+# Nixpacks configuration for Railway deployment
+# Docs: https://nixpacks.com/docs/configuration/file
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = [
+    "npm install",
+    "cd server && npm install"
+]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "NODE_ENV=production npm start"

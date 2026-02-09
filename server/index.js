@@ -77,9 +77,30 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// ==================== PRODUÇÃO: Servir Frontend Estático ====================
+// Em produção, o servidor Express serve tanto a API quanto o frontend buildado
+if (process.env.NODE_ENV === 'production') {
+    const distPath = path.join(__dirname, '..', 'dist')
+
+    // Servir arquivos estáticos (CSS, JS, imagens)
+    app.use(express.static(distPath, {
+        maxAge: '1y', // Cache de 1 ano para assets com hash
+        etag: true,
+        lastModified: true
+    }))
+
+    // SPA Fallback: Todas as rotas não-API retornam index.html
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'))
+    })
+
+    console.log(`📦 Servindo frontend estático de: ${distPath}`)
+}
+
 // Simulação de delay para teste de loader (opcional)
 // app.use((req, res, next) => setTimeout(next, 500))
 
 app.listen(PORT, () => {
     console.log(`🚀 Studio30 Admin BFF rodando em http://localhost:${PORT}`)
+    console.log(`📍 Modo: ${process.env.NODE_ENV || 'development'}`)
 })

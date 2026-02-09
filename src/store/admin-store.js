@@ -767,9 +767,9 @@ export const useAdminStore = create(
             reloadAll: async () => {
                 set({ isInitialLoading: true })
                 try {
-                    // Timeout de segurança de 15s para conexões lentas (mobile)
+                    // Timeout de segurança de 30s para conexões lentas ou bases grandes
                     const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Timeout loading data')), 15000)
+                        setTimeout(() => reject(new Error('Timeout loading data')), 30000)
                     )
 
                     await Promise.race([

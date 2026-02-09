@@ -439,14 +439,36 @@ export async function createOrder(orderData) {
                     if (existingByPhone) {
                         customerId = existingByPhone.id;
                         console.log('✅ Cliente existente encontrado por Telefone:', customerId);
-                        // Atualizar CPF
-                        await supabase.from('customers').update({ cpf: cpf }).eq('id', customerId);
-                        console.log('🔄 CPF atualizado para o cliente encontrado por telefone.');
                     }
                 }
             }
 
-            // 4. Se ainda não encontrou, criar novo cliente
+            // 4. Se encontrou cliente (por CPF ou Telefone), ATUALIZAR os dados (Nome, Email, etc.)
+            // Isso resolve o bug onde pedidos ficavam no nome de "Larissa Lacerda" se o CPF já existisse
+            if (customerId) {
+                console.log('🔄 Atualizando dados do cliente existente:', customerId);
+                const updatePayload = {
+                    name: customer.name,
+                    email: customer.email || null,
+                    phone: customer.phone?.replace(/\D/g, '') || null,
+                    // CPF já está correto pois ou buscamos por ele ou já o temos
+                    cpf: cpf,
+                    updated_at: new Date().toISOString()
+                };
+
+                const { error: updateError } = await supabase
+                    .from('customers')
+                    .update(updatePayload)
+                    .eq('id', customerId);
+
+                if (updateError) {
+                    console.warn('⚠️ Falha ao atualizar dados do cliente existente (não fatal):', updateError.message);
+                } else {
+                    console.log('✅ Dados do cliente atualizados com sucesso.');
+                }
+            }
+
+            // 5. Se ainda não encontrou, criar novo cliente
             if (!customerId) {
                 console.log('📝 Criando novo cliente com CPF...');
 

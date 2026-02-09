@@ -39,8 +39,7 @@ const PAYMENT_METHODS = [
     { id: 'debit', label: 'Débito', icon: CreditCard, color: 'blue' },
     { id: 'card_machine', label: 'Crédito', icon: CreditCard, color: 'violet' },
     { id: 'credito_parcelado', label: 'Parcelado', icon: Calendar, color: 'orange' },
-    { id: 'fiado_parcelado', label: 'Crediário Parc.', icon: Receipt, color: 'amber' },
-    { id: 'fiado', label: 'Crediário', icon: Clock, color: 'rose' },
+    { id: 'fiado_parcelado', label: 'Crediário', icon: Receipt, color: 'amber' },
     { id: 'cash', label: 'Dinheiro', icon: Banknote, color: 'green' },
 ]
 
@@ -503,7 +502,7 @@ export function VendasForm() {
                                             </div>
 
                                             <div className="grid grid-cols-6 gap-1.5">
-                                                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
                                                     <button
                                                         key={n}
                                                         type="button"
@@ -515,7 +514,7 @@ export function VendasForm() {
                                                                 : "bg-white text-[#4A3B32] hover:bg-[#4A3B32]/5"
                                                         )}
                                                     >
-                                                        {n}x
+                                                        {n === 1 ? '1x' : `${n}x`}
                                                     </button>
                                                 ))}
                                             </div>

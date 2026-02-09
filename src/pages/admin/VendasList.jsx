@@ -138,7 +138,7 @@ export function VendasList() {
         card_machine: { label: 'Crédito', color: 'bg-blue-100 text-blue-700' },
         credito_parcelado: { label: 'Créd. Parc.', color: 'bg-indigo-100 text-indigo-700' },
         fiado: { label: 'Crediário', color: 'bg-amber-100 text-amber-700' },
-        fiado_parcelado: { label: 'Crediário Parc.', color: 'bg-orange-100 text-orange-700' },
+        fiado_parcelado: { label: 'Crediário', color: 'bg-orange-100 text-orange-700' },
         cash: { label: 'Dinheiro', color: 'bg-gray-100 text-gray-700' },
         card: { label: 'Cartão', color: 'bg-blue-100 text-blue-700' }
     }

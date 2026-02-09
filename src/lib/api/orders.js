@@ -569,10 +569,14 @@ export async function createOrder(orderData) {
             throw new Error(`❌ ERRO CRÍTICO: Produto sem ID no item. Dados: ${JSON.stringify(item)}`);
         }
 
-        // Se price/costPrice vierem como 0, buscar do banco
+        // Se price/costPrice vierem como 0 ou nulo, buscar do banco
         const productData = productsMap[item.productId];
-        const finalPrice = item.price && item.price > 0 ? item.price : productData?.price || 0;
-        const finalCostPrice = item.costPrice && item.costPrice > 0 ? item.costPrice : productData?.cost_price || null;
+        const finalPrice = (item.price && item.price > 0) ? item.price : (productData?.price || 0);
+
+        // Prioridade: item.costPrice > productData.cost_price > fallback 0
+        const finalCostPrice = (item.costPrice && item.costPrice > 0)
+            ? item.costPrice
+            : (productData?.cost_price || 0);
 
         const mapped = {
             order_id: newOrder.id,

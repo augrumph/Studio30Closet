@@ -84,7 +84,8 @@ export function Checkout() {
                     selectedColor: item.selectedColor,
                     count: 1,
                     itemIds: [item.itemId],
-                    stock: product.stock !== undefined ? product.stock : 999
+                    stock: product.stock !== undefined ? product.stock : 999,
+                    costPrice: product.costPrice || product.cost_price || 0
                 }
             }
             return acc
@@ -198,7 +199,8 @@ export function Checkout() {
                     quantity: item.count,
                     selectedSize: item.selectedSize,
                     selectedColor: item.selectedColor,
-                    price: item.price
+                    price: item.price,
+                    costPrice: item.costPrice || 0
                 })),
                 notes: customerData.notes
             }

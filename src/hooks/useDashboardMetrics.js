@@ -141,24 +141,31 @@ export function useDashboardMetrics({
         // =================================================================================
 
         let costWarnings = 0
+        let totalItemsCheck = 0
         const productsWithoutCost = new Set() // Rastrear produtos sem custo
         let totalItemsSold = 0  // Contador de peças vendidas
+
         const totalCPV = allSales.reduce((sum, v) => {
             const itemsCost = (v.items || []).reduce((itemSum, item) => {
                 let cost = item.costPriceAtTime || item.cost_price_at_time || item.costPrice
                 const quantity = item.quantity || item.qty || 1
                 totalItemsSold += quantity  // Somar quantidade de peças
+
+                totalItemsCheck += quantity
                 if (!cost || cost <= 0) {
-                    costWarnings++
+                    costWarnings += quantity
                     productsWithoutCost.add(item.name || item.productId || 'Produto desconhecido')
                     // ⚠️ ESTIMATIVA: Usa 60% do preço de venda como custo
-                    // Isso pode gerar imprecisão nos cálculos de lucro!
                     cost = (item.price || 0) * 0.6
                 }
                 return itemSum + (cost * quantity)
             }, 0)
             return sum + itemsCost
         }, 0)
+
+        // Métrica: Cálculo Estimado? (Se mais de 5% dos itens não tiverem custo)
+        const isCPVEstimated = totalItemsCheck > 0 && (costWarnings / totalItemsCheck) > 0.05
+        const estimatedPercent = totalItemsCheck > 0 ? (costWarnings / totalItemsCheck) * 100 : 0
 
         // Métrica: Peças por Venda
         const itemsPerSale = allSales.length > 0 ? totalItemsSold / allSales.length : 0
@@ -495,6 +502,8 @@ export function useDashboardMetrics({
             itemsPerSale,
             averageTicket: allSales.length > 0 ? netRevenue / allSales.length : 0,
             costWarnings,
+            isCPVEstimated,
+            estimatedPercent,
             productsWithoutCost: Array.from(productsWithoutCost), // Lista de produtos sem custo
             periodDays,
             isFullMonthProjection: shouldShowFullMonth,

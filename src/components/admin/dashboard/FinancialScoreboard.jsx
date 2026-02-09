@@ -111,7 +111,11 @@ const getSimplifiedCards = (metrics) => {
             descriptionText: 'Competência (DRE)',
             tooltip: 'Lucro contábil do período (Faturamento - CPV - Despesas - Juros).',
             isCurrency: true,
-            warning: metrics.costWarnings > 0 ? `${metrics.costWarnings} itens vendidos sem custo (valor estimado).` : null
+            warning: metrics.isCPVEstimated
+                ? `${metrics.estimatedPercent.toFixed(0)}% das peças sem custo definido (Lucro Estimado).`
+                : metrics.costWarnings > 0
+                    ? `${metrics.costWarnings} peças sem custo (impacto baixo).`
+                    : null
         },
         {
             label: 'Margem Líquida',
@@ -124,7 +128,7 @@ const getSimplifiedCards = (metrics) => {
             descriptionText: marginStatus.label,
             tooltip: 'Percentual de lucro sobre o faturamento. Ideal > 35%.',
             isPercentage: true,
-            warning: metrics.costWarnings > 0 ? 'Margem calculada com custos parciais estimados.' : null
+            warning: metrics.isCPVEstimated ? 'Margem baseada em custos estimados.' : null
         },
         {
             label: 'Ticket Médio',

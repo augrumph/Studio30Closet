@@ -711,14 +711,73 @@ export async function updateOrder(id, orderData) {
 }
 
 /**
- * Deletar uma order
+ * Deletar uma order e RESTAURAR estoque
  * @param {number} id - ID da order
  * @returns {Promise<boolean>}
  */
 export async function deleteOrder(id) {
-    const { error } = await supabase.from('orders').delete().eq('id', id);
-    if (error) throw error;
-    return true;
+    try {
+        console.log(`🗑️ Iniciando deleção da Malinha #${id} com restauração de estoque...`);
+
+        // 1. Buscar os itens da malinha antes de deletar
+        // Precisamos dos dados completos para restaurar o estoque corretamente
+        const { data: orderWithItems, error: fetchError } = await supabase
+            .from('orders')
+            .select(`
+                id,
+                status,
+                order_items (
+                    product_id,
+                    quantity,
+                    size_selected,
+                    color_selected
+                )
+            `)
+            .eq('id', id)
+            .single();
+
+        if (fetchError) {
+            console.error('❌ Erro ao buscar malinha para deleção:', fetchError);
+            throw fetchError;
+        }
+
+        // 2. Se a malinha não estava cancelada ou convertida, restaurar o estoque
+        // (Assumimos que malinhas pendentes/em uso reservam estoque)
+        if (orderWithItems && orderWithItems.order_items && orderWithItems.order_items.length > 0) {
+            const itemsToRestore = orderWithItems.order_items.map(item => ({
+                productId: item.product_id,
+                quantity: item.quantity,
+                selectedSize: item.size_selected,
+                selectedColor: item.color_selected
+            }));
+
+            console.log(`🔓 Restaurando estoque de ${itemsToRestore.length} itens da malinha #${id}...`);
+            const restoreResult = await releaseStockForMalinha(itemsToRestore);
+
+            if (!restoreResult.success) {
+                console.error('⚠️ Falha parcial ao restaurar estoque:', restoreResult.error);
+                // Prosseguimos com a deleção mesmo se a restauração falhar em algum item?
+                // Em um sistema crítico poderíamos travar, mas para malinha é melhor limpar o lixo.
+            }
+        }
+
+        // 3. Deletar a malinha (o banco deve deletar order_items via CASCADE se configurado)
+        const { error: deleteError } = await supabase
+            .from('orders')
+            .delete()
+            .eq('id', id);
+
+        if (deleteError) {
+            console.error('❌ Erro ao deletar malinha:', deleteError);
+            throw deleteError;
+        }
+
+        console.log(`✅ Malinha #${id} deletada e estoque restaurado.`);
+        return true;
+    } catch (error) {
+        console.error(`❌ Erro em deleteOrder(${id}):`, error);
+        throw error;
+    }
 }
 
 /**

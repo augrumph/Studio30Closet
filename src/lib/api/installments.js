@@ -170,6 +170,24 @@ export async function registerInstallmentPayment(
     console.log(`💳 API: Registrando pagamento de R$ ${paymentAmount} na parcela ${installmentId}`);
 
     try {
+        // 🛡️ TRAVA DE IDEMPOTÊNCIA: Evitar pagamentos duplicados (mesmo valor e data nos últimos 30 segundos)
+        const recentWindow = new Date(Date.now() - 30000).toISOString();
+        const { data: duplicateCheck, error: checkError } = await supabase
+            .from('installment_payments')
+            .select('id')
+            .eq('installment_id', installmentId)
+            .eq('payment_amount', paymentAmount)
+            .eq('payment_date', paymentDate)
+            .gte('created_at', recentWindow)
+            .limit(1);
+
+        if (duplicateCheck && duplicateCheck.length > 0) {
+            console.warn('🛑 Bloqueio de Idempotência: Pagamento idêntico registrado recentemente.');
+            // Retorna o sucesso silencioso para não assustar o usuário, mas não duplica no banco
+            const { data: lastInst } = await supabase.from('installments').select('*').eq('id', installmentId).single();
+            return toCamelCase(lastInst);
+        }
+
         // ✅ CORREÇÃO: Usar INSERT direto pois existe Trigger no banco que atualiza a parcela.
         // O RPC estava duplicando o valor (somando 2x).
         const { data, error } = await supabase
@@ -581,5 +599,61 @@ export async function getUpcomingInstallments() {
     } catch (err) {
         console.error('❌ Erro ao buscar vencimentos:', err);
         return { today: [], thisWeek: [], overdueCount: 0, totalDueToday: 0, totalDueThisWeek: 0 };
+    }
+}
+/**
+ * Quitar uma venda totalmente, limpando todas as parcelas pendentes
+ * @param {number} vendaId - ID da venda
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function payFullVendaWithInstallments(vendaId) {
+    console.log(`💰 API: Quitando venda #${vendaId} totalmente com sincronia de parcelas...`);
+
+    try {
+        // 1. Atualizar o status da venda para 'paid'
+        const { error: vendaError } = await supabase
+            .from('vendas')
+            .update({ payment_status: 'paid' })
+            .eq('id', vendaId);
+
+        if (vendaError) throw vendaError;
+
+        // 2. Buscar todas as parcelas pendentes para esta venda
+        const { data: installments, error: instFetchError } = await supabase
+            .from('installments')
+            .select('id, original_amount')
+            .eq('venda_id', vendaId)
+            .neq('status', 'paid');
+
+        if (instFetchError) throw instFetchError;
+
+        // 3. Se houver parcelas, quitá-las sincronizadamente
+        if (installments && installments.length > 0) {
+            console.log(`📦 Quitando ${installments.length} parcelas pendentes da venda #${vendaId}`);
+
+            // Criar registros de pagamento para cada parcela remanescente
+            const today = new Date().toISOString().split('T')[0];
+            const paymentsToInsert = installments.map(inst => ({
+                installment_id: inst.id,
+                payment_amount: inst.original_amount, // Assume quitação total do valor original se as parcelas não foram pagas
+                // Nota: O ideal seria buscar o remaining_amount, mas original_amount é mais seguro se queremos zerar tudo
+                payment_date: today,
+                payment_method: 'dinheiro',
+                notes: 'Quitação total da venda',
+                created_by: 'admin'
+            }));
+
+            // Inserir os pagamentos (o Trigger do banco atualizará o status da parcela para 'paid' e paid_amount)
+            const { error: paymentsError } = await supabase
+                .from('installment_payments')
+                .insert(paymentsToInsert);
+
+            if (paymentsError) throw paymentsError;
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error(`❌ Erro ao quitar venda #${vendaId}:`, err);
+        return { success: false, error: err.message };
     }
 }

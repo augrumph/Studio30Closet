@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getOpenInstallmentSales, getInstallmentsByVendaId, registerInstallmentPayment } from '@/lib/api/installments'
+import { getOpenInstallmentSales, getInstallmentsByVendaId, registerInstallmentPayment, payFullVendaWithInstallments } from '@/lib/api/installments'
 import { updateVenda } from '@/lib/api/vendas'
 import { toast } from 'sonner'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
@@ -106,7 +106,26 @@ export function useAdminInstallmentsMutations() {
                 }
             })
 
-            return { previousInstallments, vendaId }
+            // Snapshot da lista principal
+            const previousSales = queryClient.getQueryData(['admin', 'installment-sales'])
+
+            // Update Otimista da Lista Principal
+            queryClient.setQueryData(['admin', 'installment-sales'], (old) => {
+                if (!old || !old.vendas) return old
+                return {
+                    ...old,
+                    vendas: old.vendas.map(v => {
+                        if (v.id === vendaId) {
+                            const newDue = Math.max(0, (v.dueAmount || 0) - amount)
+                            const newPaid = (v.paidAmount || 0) + amount
+                            return { ...v, dueAmount: newDue, paidAmount: newPaid }
+                        }
+                        return v
+                    })
+                }
+            })
+
+            return { previousInstallments, previousSales, vendaId }
         },
 
         onError: (err, newTodo, context) => {
@@ -115,6 +134,12 @@ export function useAdminInstallmentsMutations() {
                 queryClient.setQueryData(
                     ['admin', 'installments', context.vendaId],
                     context.previousInstallments
+                )
+            }
+            if (context?.previousSales) {
+                queryClient.setQueryData(
+                    ['admin', 'installment-sales'],
+                    context.previousSales
                 )
             }
             toast.error(formatUserFriendlyError(err))
@@ -136,11 +161,16 @@ export function useAdminInstallmentsMutations() {
     })
 
     const payFullSaleMutation = useMutation({
-        mutationFn: ({ vendaId }) => updateVenda(vendaId, { paymentStatus: 'paid' }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin', 'installment-sales'] })
-            queryClient.invalidateQueries({ queryKey: ['admin', 'sales'] })
-            toast.success('Venda quitada com sucesso!')
+        mutationFn: ({ vendaId }) => payFullVendaWithInstallments(vendaId),
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ['admin', 'installment-sales'] })
+                queryClient.invalidateQueries({ queryKey: ['admin', 'sales'] })
+                queryClient.invalidateQueries({ queryKey: ['admin', 'installments'] })
+                toast.success('Venda quitada com sucesso!')
+            } else {
+                toast.error(result.error || 'Erro ao quitar venda')
+            }
         },
         onError: (err) => {
             toast.error(formatUserFriendlyError(err))

@@ -12,6 +12,7 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { Info } from 'lucide-react'
 import { VendasListSkeleton } from '@/components/admin/PageSkeleton'
+import { ErrorState } from '@/components/admin/shared'
 import {
     Pagination,
     PaginationContent,
@@ -47,7 +48,8 @@ export function VendasList() {
         data: vendasData,
         isLoading: isLoadingVendas,
         isError,
-        error
+        error,
+        refetch
     } = useAdminVendas({
         page,
         pageSize: itemsPerPage,
@@ -58,14 +60,6 @@ export function VendasList() {
     })
 
     const { deleteSale } = useAdminSalesMutations()
-
-    // Error handling debug
-    useEffect(() => {
-        if (isError) {
-            console.error("VendasList Error:", error)
-            toast.error("Erro ao carregar vendas. Tente fazer login novamente.")
-        }
-    }, [isError, error])
 
     // Reset page quando filtros mudam
     useEffect(() => {
@@ -398,8 +392,18 @@ export function VendasList() {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             <AnimatePresence>
-                                {isLoadingVendas ? (
-                                    <tr><td colSpan="6" className="py-24 text-center text-gray-300 italic font-medium">Sincronizando registros da Studio 30...</td></tr>
+                                {isError ? (
+                                    <tr>
+                                        <td colSpan="7">
+                                            <ErrorState
+                                                title="Erro ao carregar vendas"
+                                                description={formatUserFriendlyError(error)}
+                                                onRetry={refetch}
+                                            />
+                                        </td>
+                                    </tr>
+                                ) : isLoadingVendas ? (
+                                    <tr><td colSpan="7" className="py-24 text-center text-gray-300 italic font-medium">Sincronizando registros da Studio 30...</td></tr>
                                 ) : paginatedVendas.length > 0 ? (
                                     paginatedVendas.map((venda, idx) => (
                                         <motion.tr
@@ -489,7 +493,7 @@ export function VendasList() {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="6" className="py-24 text-center">
+                                        <td colSpan="7" className="py-24 text-center">
                                             <div className="flex flex-col items-center gap-3">
                                                 <Search className="w-12 h-12 text-gray-100" />
                                                 <p className="text-gray-400 font-medium font-display text-lg">Nenhum registro encontrado.</p>

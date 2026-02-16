@@ -26,6 +26,7 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
         staleTime: 1000 * 30, // 30 segundos - busca mais fresca
         gcTime: 1000 * 60 * 5, // 5 minutos no cache
         refetchOnWindowFocus: false, // Não refetch ao focar janela
+        placeholderData: (previousData) => previousData, // Mantém dados anteriores durante loading
     })
 
     const deleteMutation = useMutation({

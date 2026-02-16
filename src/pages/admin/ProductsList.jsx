@@ -30,10 +30,10 @@ console.log("🚀 ProductsList component loaded - v2 [DEBUG]")
 // ...
 
 export function ProductsList() {
-    // ⚡ REACT QUERY HOOK - ULTRA OPTIMIZED
+    // ⚡ REACT QUERY HOOK - REALTIME INSTANT SEARCH
     const [searchInput, setSearchInput] = useState('')
     const [search, setSearch] = useState('')
-    const debouncedSearch = useDebounce(searchInput, 200) // Reduzido de 400ms para 200ms
+    const debouncedSearch = useDebounce(searchInput, 150) // Ultra rápido: 150ms
     const [categoryFilter, setCategoryFilter] = useState('all')
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(20)
@@ -182,8 +182,8 @@ export function ProductsList() {
         }
     }
 
-    // Skeleton View
-    if (productsLoading && (!paginatedProducts || !paginatedProducts.length)) {
+    // Skeleton View - APENAS no primeiro carregamento
+    if (productsLoading && (!paginatedProducts || paginatedProducts.length === 0) && !searchInput) {
         return <ProductsListSkeleton />
     }
 
@@ -310,31 +310,47 @@ export function ProductsList() {
                         )}
                         <input
                             type="text"
-                            placeholder="🔍 Buscar por nome, categoria ou ID... (ultra rápido)"
+                            placeholder="Digite para buscar instantaneamente..."
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    setSearch(searchInput)
-                                }
-                            }}
-                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
+                            className="w-full pl-12 pr-16 py-3 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
                         />
                         {searchInput && (
-                            <motion.button
+                            <motion.div
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                onClick={() => {
-                                    setSearchInput('')
-                                    setSearch('')
-                                }}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2"
                             >
-                                <span className="text-lg">×</span>
-                            </motion.button>
+                                {!productsLoading && totalItems > 0 && (
+                                    <span className="text-xs font-bold text-[#C75D3B] bg-[#C75D3B]/10 px-2 py-1 rounded-full">
+                                        {totalItems}
+                                    </span>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        setSearchInput('')
+                                        setSearch('')
+                                    }}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <span className="text-lg">×</span>
+                                </button>
+                            </motion.div>
                         )}
                     </div>
                 </div>
+
+                {/* Barra de progresso sutil - apenas durante busca */}
+                {productsLoading && searchInput && (
+                    <div className="h-1 bg-gray-100 overflow-hidden">
+                        <motion.div
+                            initial={{ width: "0%" }}
+                            animate={{ width: "100%" }}
+                            transition={{ duration: 0.5, ease: "easeInOut" }}
+                            className="h-full bg-gradient-to-r from-[#C75D3B] to-[#E67E50]"
+                        />
+                    </div>
+                )}
 
                 <TableWrapper>
                     <table className="w-full text-left">

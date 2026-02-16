@@ -82,13 +82,7 @@ const EntregasList = lazyWithRetry(() => import('@/pages/admin/EntregasList').th
 const SiteAnalytics = lazyWithRetry(() => import('@/pages/admin/SiteAnalytics').then(module => ({ default: module.SiteAnalytics })))
 const CollectionDetail = lazyWithRetry(() => import('@/pages/admin/CollectionDetail').then(module => ({ default: module.CollectionDetail })))
 
-// Bingo
-const BingoPlay = lazyWithRetry(() => import('@/pages/BingoPlay').then(module => ({ default: module.BingoPlay })))
-const BingoAdmin = lazyWithRetry(() => import('@/pages/admin/BingoAdmin').then(module => ({ default: module.BingoAdmin })))
 
-// Bingo
-const BingoPlay = lazyWithRetry(() => import('@/pages/BingoPlay').then(module => ({ default: module.BingoPlay })))
-const BingoAdmin = lazyWithRetry(() => import('@/pages/admin/BingoAdmin').then(module => ({ default: module.BingoAdmin })))
 
 // Test Components
 const SupabaseTester = lazyWithRetry(() => import('@/components/SupabaseTester'))
@@ -191,12 +185,8 @@ function App() {
                                             {/* Analytics do Site */}
                                             <Route path="site" element={<SiteAnalytics />} />
 
-                                            {/* Bingo Admin */}
-                                            <Route path="bingo" element={<BingoAdmin />} />
-                                        </Route>
 
-                                        {/* Rota do Participante do Bingo (Pública) */}
-                                        <Route path="/bingo" element={<BingoPlay />} />
+
                                     </Routes>
                                 </Suspense>
                             </AnimatePresence>

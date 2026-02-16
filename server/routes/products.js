@@ -22,11 +22,11 @@ router.get('/', async (req, res) => {
     try {
         const isFull = req.query.full === 'true'
 
-        // Lite columns: Exclui colunas pesadas com Base64 (variants, description, images)
-        // No modo lite, NÃO carregamos images (Base64) para velocidade máxima
+        // Lite columns: Exclui apenas variants e description (pesados)
+        // images é incluído porque são necessárias para exibição
         const selectColumns = isFull
             ? '*'
-            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id'
+            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id, images'
 
         let query = supabase
             .from('products')
@@ -62,12 +62,12 @@ router.get('/', async (req, res) => {
 
         if (error) throw error
 
-        // No modo lite, adicionar placeholder para imagens (evita Base64)
+        // Otimização: No modo lite, retornar apenas a primeira imagem
         const items = isFull
             ? toCamelCase(data)
             : toCamelCase(data).map(item => ({
                 ...item,
-                images: ['/placeholder-product.jpg'] // Placeholder rápido
+                images: item.images ? [item.images[0]] : [] // Apenas primeira imagem
             }))
 
         res.json({

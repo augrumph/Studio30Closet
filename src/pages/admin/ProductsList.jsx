@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown, Layers, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown, Layers, AlertTriangle, Activity } from 'lucide-react'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
@@ -131,6 +131,23 @@ export function ProductsList() {
         isLoading: isLoadingMetrics,
     } = useAdminDashboardData()
 
+    // Sell-Through Rate
+    const [sellThroughData, setSellThroughData] = useState(null)
+    const [isLoadingSTR, setIsLoadingSTR] = useState(true)
+
+    useEffect(() => {
+        fetch('/api/products/metrics/sell-through')
+            .then(res => res.json())
+            .then(data => {
+                setSellThroughData(data)
+                setIsLoadingSTR(false)
+            })
+            .catch(err => {
+                console.error('Erro ao carregar STR:', err)
+                setIsLoadingSTR(false)
+            })
+    }, [])
+
     const metrics = useMemo(() => {
         if (!backendMetrics?.inventory) return { totalValue: 0, totalCost: 0, totalItems: 0, totalProducts: 0, averageMarkup: '0' }
         return {
@@ -244,7 +261,7 @@ export function ProductsList() {
 
             {/* Quick Insights Cards */}
             <TooltipProvider delayDuration={200}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                     {productsLoading ? <KPISkeletonCard /> : (
                         <KPI_Card
                             icon={TrendingUp} iconColor="text-emerald-600" bgColor="bg-emerald-50"
@@ -289,6 +306,9 @@ export function ProductsList() {
                             subtitle="Modelos ativos"
                             tooltip="Quantidade de modelos de produtos diferentes cadastrados."
                         />
+                    )}
+                    {isLoadingSTR ? <KPISkeletonCard /> : (
+                        <STR_Card data={sellThroughData} />
                     )}
                 </div>
             </TooltipProvider>
@@ -679,6 +699,70 @@ function KPI_Card({ icon: Icon, iconColor, bgColor, title, value, subtitle, tool
                 <CardContent>
                     <div className="text-2xl font-display font-bold text-[#4A3B32]">{value}</div>
                     <p className={`text-[10px] ${iconColor} font-medium mt-1`}>{subtitle}</p>
+                </CardContent>
+            </Card>
+        </motion.div>
+    )
+}
+
+function STR_Card({ data }) {
+    if (!data) return null
+
+    const { sellThroughRate, status, message, metaIdeal } = data
+
+    // Cores baseadas no status
+    const statusColors = {
+        excellent: { bg: 'bg-emerald-50', icon: 'text-emerald-600', text: 'text-emerald-600' },
+        good: { bg: 'bg-green-50', icon: 'text-green-600', text: 'text-green-600' },
+        warning: { bg: 'bg-amber-50', icon: 'text-amber-600', text: 'text-amber-600' },
+        critical: { bg: 'bg-red-50', icon: 'text-red-600', text: 'text-red-600' }
+    }
+
+    const colors = statusColors[status] || statusColors.good
+
+    return (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className={`border-${colors.bg.replace('bg-', '').replace('-50', '')}-50 bg-white group overflow-hidden relative h-full`}>
+                <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 ${colors.bg} rounded-xl`}>
+                                <Activity className={`w-5 h-5 ${colors.icon}`} />
+                            </div>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Sell-Through</span>
+                        </div>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                    <Info className="w-4 h-4 text-gray-300" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-sm bg-gray-900 text-white p-4 text-sm">
+                                <p className="font-bold mb-2">Capacidade de Venda (STR)</p>
+                                <p className="mb-2">Mede sua eficiência em vender o estoque disponível.</p>
+                                <p className="text-xs opacity-80">
+                                    Fórmula: Vendas ÷ (Estoque Inicial + Entradas) × 100
+                                </p>
+                                <p className="text-xs opacity-80 mt-2">
+                                    Meta ideal: {metaIdeal?.min}% - {metaIdeal?.max}%
+                                </p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-baseline gap-2">
+                        <div className={`text-2xl font-display font-bold ${colors.text}`}>
+                            {sellThroughRate}%
+                        </div>
+                        {status === 'excellent' && (
+                            <span className="text-xs font-bold text-emerald-600">🎯</span>
+                        )}
+                        {status === 'critical' && (
+                            <span className="text-xs font-bold text-red-600">⚠️</span>
+                        )}
+                    </div>
+                    <p className={`text-[10px] ${colors.text} font-medium mt-1`}>{message}</p>
                 </CardContent>
             </Card>
         </motion.div>

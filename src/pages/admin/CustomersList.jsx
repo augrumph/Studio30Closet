@@ -20,6 +20,7 @@ import {
     Users, Award, Cake
 } from 'lucide-react'
 import { useAdminCustomers, useAdminCustomersMutations } from '@/hooks/useAdminCustomers'
+import { useDebounce } from '@/hooks/useDebounce'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -27,8 +28,19 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { CustomersListSkeleton } from '@/components/admin/PageSkeleton'
 
 export function CustomersList() {
+    const [searchInput, setSearchInput] = useState('')
     const [search, setSearch] = useState('')
+    const debouncedSearch = useDebounce(searchInput, 400)
     const [currentPage, setCurrentPage] = useState(1)
+
+    // Sync debounced search with search state
+    useState(() => {
+        // Initial sync if any
+    }, [])
+
+    useEffect(() => {
+        setSearch(debouncedSearch)
+    }, [debouncedSearch])
     const [activeFilter, setActiveFilter] = useState('all')
     const [selectedCustomer, setSelectedCustomer] = useState(null)
     const [isDetailOpen, setIsDetailOpen] = useState(false)
@@ -302,8 +314,13 @@ export function CustomersList() {
                         <input
                             type="text"
                             placeholder="Buscar por nome, telefone, email, Instagram..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    setSearch(searchInput)
+                                }
+                            }}
                             className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl md:rounded-2xl focus:border-[#C75D3B] focus:bg-white transition-all outline-none text-sm"
                         />
                     </div>

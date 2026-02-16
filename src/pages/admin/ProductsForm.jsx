@@ -21,7 +21,7 @@ export function ProductsForm() {
     // ⚡ REACT QUERY: Hooks otimizados
     const { createProduct, updateProduct, isCreating, isUpdating } = useAdminProducts()
     const { data: product, isLoading: isLoadingProduct } = useAdminProduct(id)
-    const { suppliers, isLoading: isLoadingSuppliers } = useAdminSuppliers() // ✅ Migrado para React Query
+    const { suppliers, isLoading: isLoadingSuppliers } = useAdminSuppliers({ pageSize: 100 }) // ✅ Migrado para React Query
 
     const [activeCollections, setActiveCollections] = useState([]) // New State
 

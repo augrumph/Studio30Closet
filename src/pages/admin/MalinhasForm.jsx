@@ -12,6 +12,7 @@ import {
     Clock,
     Check
 } from 'lucide-react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useAdminMalinha, useAdminMalinhasMutations } from '@/hooks/useAdminMalinhas'
 import { useCustomerSearch } from '@/hooks/useAdminCustomers'
 import { useAdminProducts } from '@/hooks/useAdminProducts'
@@ -35,13 +36,24 @@ export function MalinhasForm() {
     const [customerSearch, setCustomerSearch] = useState('')
     const { customers: filteredCustomers } = useCustomerSearch(customerSearch)
 
+    const [productSearchInput, setProductSearchInput] = useState('')
     const [productSearch, setProductSearch] = useState('')
-    const { products: allProducts } = useAdminProducts() // Fetches all products (cached)
+    const debouncedProductSearch = useDebounce(productSearchInput, 400)
 
-    // Local filtering for products
-    const filteredProducts = allProducts.filter(p =>
-        p.name.toLowerCase().includes(productSearch.toLowerCase())
-    )
+    // Sync debounced search
+    useEffect(() => {
+        setProductSearch(debouncedProductSearch)
+    }, [debouncedProductSearch])
+
+    const { products: allProducts } = useAdminProducts({
+        search: productSearch,
+        active: 'true',
+        pageSize: 50,
+        full: false // ⚡ Optimization: Lite search
+    }) // Fetches products based on search
+
+    // Local filtering for products (Now using backend results)
+    const filteredProducts = allProducts
 
     const [formData, setFormData] = useState({
         customerId: '',
@@ -257,8 +269,13 @@ export function MalinhasForm() {
                                     type="text"
                                     placeholder="Buscar produtos..."
                                     className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium"
-                                    value={productSearch}
-                                    onChange={(e) => setProductSearch(e.target.value)}
+                                    value={productSearchInput}
+                                    onChange={(e) => setProductSearchInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            setProductSearch(productSearchInput)
+                                        }
+                                    }}
                                 />
                             </div>
                         </div>
@@ -286,9 +303,22 @@ export function MalinhasForm() {
                                                     "relative aspect-square overflow-hidden bg-gray-100",
                                                     canBeAdded && "cursor-pointer group/image"
                                                 )}
-                                                onClick={() => {
-                                                    if (canBeAdded && product.sizes && product.sizes.length > 0) {
-                                                        addItem(product, product.sizes[0])
+                                                onClick={async () => {
+                                                    if (!canBeAdded) return;
+
+                                                    try {
+                                                        let fullProduct = product;
+                                                        // Se for lite (sem variantes), busca o full
+                                                        if (!product.variants) {
+                                                            const res = await fetch(`/api/products/${product.id}?full=true`);
+                                                            fullProduct = await res.json();
+                                                        }
+
+                                                        if (fullProduct.sizes && fullProduct.sizes.length > 0) {
+                                                            addItem(fullProduct, fullProduct.sizes[0]);
+                                                        }
+                                                    } catch (err) {
+                                                        toast.error('Erro ao carregar detalhes do produto');
                                                     }
                                                 }}
                                             >

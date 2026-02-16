@@ -121,7 +121,7 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
 
                 if (!cost || cost <= 0) {
                     costWarnings += quantity
-                    cost = (item.price || 0) * 0.6 // Estimativa fallback
+                    cost = 0 // Don't estimate, use 0 if not provided
                 }
                 totalCPV += (cost * quantity)
             })
@@ -201,6 +201,10 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             }
         })
 
+        const inventoryAverageMarkup = inventoryTotalCost > 0
+            ? ((inventoryTotalValue - inventoryTotalCost) / inventoryTotalCost) * 100
+            : 0
+
         res.json({
             summary: {
                 grossRevenue,
@@ -217,7 +221,8 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                 totalEstimatedValue: inventoryTotalValue,
                 totalCostValue: inventoryTotalCost,
                 totalItems: activeProducts.reduce((acc, p) => acc + (p.stock || 0), 0),
-                totalProducts: activeProducts.length
+                totalProducts: activeProducts.length,
+                averageMarkup: inventoryAverageMarkup
             },
             operational: {
                 totalSalesCount: salesToProcess.length,

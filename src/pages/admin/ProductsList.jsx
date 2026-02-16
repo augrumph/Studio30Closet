@@ -21,17 +21,23 @@ import {
     PaginationPrevious,
 } from "@/components/ui/Pagination"
 import { useAdminProducts } from '@/hooks/useAdminProducts'
+import { useDebounce } from '@/hooks/useDebounce'
 import { CollectionsManagerModal } from '@/components/admin/CollectionsManagerModal'
-import { getActiveCollections } from '@/lib/api/collections'
-import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
-
+// ...
 
 export function ProductsList() {
     // ⚡ REACT QUERY HOOK
+    const [searchInput, setSearchInput] = useState('')
     const [search, setSearch] = useState('')
+    const debouncedSearch = useDebounce(searchInput, 400)
     const [categoryFilter, setCategoryFilter] = useState('all')
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(20)
+
+    // Sync debounced search with search state
+    useEffect(() => {
+        setSearch(debouncedSearch)
+    }, [debouncedSearch])
 
     // ⚡ BFF DATA: Hook Paginado
     const {
@@ -48,7 +54,8 @@ export function ProductsList() {
         page: currentPage,
         pageSize: itemsPerPage,
         search: search,
-        category: categoryFilter
+        category: categoryFilter,
+        full: false // ⚡ Lite optimization
     })
 
     const [searchParams] = useSearchParams()
@@ -125,9 +132,9 @@ export function ProductsList() {
         return {
             totalValue: backendMetrics.inventory.totalEstimatedValue || 0,
             totalCost: backendMetrics.inventory.totalCostValue || 0,
-            totalItems: backendMetrics.operational?.totalItemsSold || 0,
-            totalProducts: backendMetrics.operational?.totalSalesCount || 0,
-            averageMarkup: (backendMetrics.summary?.netMarginPercent || 0).toFixed(0)
+            totalItems: backendMetrics.inventory?.totalItems || 0,
+            totalProducts: backendMetrics.inventory?.totalProducts || 0,
+            averageMarkup: (backendMetrics.inventory?.averageMarkup || 0).toFixed(0)
         }
     }, [backendMetrics])
 
@@ -290,8 +297,13 @@ export function ProductsList() {
                         <input
                             type="text"
                             placeholder="Buscar por nome, categoria ou ID..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    setSearch(searchInput)
+                                }
+                            }}
                             className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
                         />
                     </div>

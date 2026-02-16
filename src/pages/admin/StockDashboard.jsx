@@ -199,9 +199,8 @@ export function StockDashboard() {
     // Helper para formatar moeda
     const money = (val) => `R$ ${(val || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
 
-    // Calcular margem do top 1
-    const topProduct = topSellers?.byProfit?.[0]
-    const topMarginPct = topProduct ? ((topProduct.margin / topProduct.revenue) * 100).toFixed(0) : 0
+    // Markup Médio do estoque atual
+    const averageMarkup = kpis?.averageMarkup || 0
 
     return (
         <div className="space-y-8 pb-20 max-w-[1600px] mx-auto">
@@ -285,13 +284,13 @@ export function StockDashboard() {
                     tooltip="Quanto você PAGOU por todas as peças que ainda tem em estoque. É o seu 'dinheiro parado' em roupas."
                 />
                 <KPICard
-                    title="Performance"
-                    value={`${topMarginPct}%`}
-                    subtext={`Margem do Top 1: ${topProduct?.name || '-'}`}
+                    title="Markup Médio"
+                    value={`${averageMarkup.toFixed(0)}%`}
+                    subtext="Lucro bruto sobre o custo"
                     icon={TrendingUp}
                     iconCls="text-blue-600"
                     colorCls="bg-blue-50/50 border-blue-100"
-                    tooltip="A margem de lucro do produto MAIS LUCRATIVO. Ex: Se a margem é 50%, você lucrou R$50 a cada R$100 vendidos desse item."
+                    tooltip="A média de lucro bruto sobre o custo de todo o seu estoque atual."
                 />
                 <KPICard
                     title="Estoque Baixo"
@@ -315,12 +314,11 @@ export function StockDashboard() {
                     <h2 className="text-lg font-bold text-[#4A3B32]">O Que Está Vendendo Bem?</h2>
                     <span className="text-xs text-gray-400 ml-2">
                         Top produtos para não deixar faltar
-                        {periodFilter !== 'all' && ` (${
-                            periodFilter === 'last7days' ? 'Últimos 7 dias' :
+                        {periodFilter !== 'all' && ` (${periodFilter === 'last7days' ? 'Últimos 7 dias' :
                             periodFilter === 'last30days' ? 'Últimos 30 dias' :
-                            periodFilter === 'currentMonth' ? 'Mês Atual' :
-                            periodFilter === 'currentYear' ? 'Ano Atual' : ''
-                        })`}
+                                periodFilter === 'currentMonth' ? 'Mês Atual' :
+                                    periodFilter === 'currentYear' ? 'Ano Atual' : ''
+                            })`}
                     </span>
                 </div>
 

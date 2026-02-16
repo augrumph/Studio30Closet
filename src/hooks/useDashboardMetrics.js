@@ -160,8 +160,8 @@ export function useDashboardMetrics({
                 if (!cost || cost <= 0) {
                     costWarnings += quantity
                     productsWithoutCost.add(item.name || item.productId || 'Produto desconhecido')
-                    // ⚠️ ESTIMATIVA: Usa 60% do preço de venda como custo
-                    cost = (item.price || 0) * 0.6
+                    // ⚠️ NO ESTIMATE: Use 0 if cost is not defined
+                    cost = 0
                 }
                 return itemSum + (cost * quantity)
             }, 0)

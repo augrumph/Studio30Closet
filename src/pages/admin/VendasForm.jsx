@@ -60,18 +60,27 @@ export function VendasForm() {
     const { data: vendaData, isLoading: isLoadingVenda } = useAdminSale(id)
 
     // UI States
+    const [productSearchInput, setProductSearchInput] = useState('')
     const [productSearch, setProductSearch] = useState('')
+    const debouncedProductSearch = useDebounce(productSearchInput, 400)
     const [customerSearch, setCustomerSearch] = useState('')
     const [showCustomerSearch, setShowCustomerSearch] = useState(false)
     const [activeSection, setActiveSection] = useState('payment') // payment, products, customer
 
+    // Sync debounced search
+    useEffect(() => {
+        setProductSearch(debouncedProductSearch)
+    }, [debouncedProductSearch])
+
     // Search Hooks
     const { customers: filteredCustomers, isFetching: isSearchingCustomers } = useCustomerSearch(customerSearch)
 
-    // TODO: Adicionar suporte a busca no useAdminProducts ou filtrar local (como já faz, mas otimizado)
-    // Por enquanto, vamos carregar tudo e filtrar localmente, mas o ideal seria busca no servidor.
-    // O useAdminProducts carrega tudo (getAllProductsAdmin).
-    const { products: allProducts } = useAdminProducts()
+    // ⚡ Optimization: Lite search (no Base64)
+    const { products: allProducts } = useAdminProducts({
+        search: productSearch,
+        active: 'true',
+        full: false
+    })
 
     // Estados do formulário
     const [formData, setFormData] = useState({
@@ -192,13 +201,13 @@ export function VendasForm() {
         calculateFee()
     }, [formData.paymentMethod, formData.cardBrand, formData.totalValue, formData.discountAmount, parcelas])
 
-    // Produtos filtrados (Client-side filtering for simplicity, as we have all products)
+    // Produtos filtrados (Agora vem pronto do backend via React Query)
     const filteredProducts = useMemo(() => {
-        if (!productSearch.trim()) return []
+        // Mostra produtos do backend que tem estoque
         return (allProducts || [])
-            .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) && p.stock > 0)
-            .slice(0, 6)
-    }, [allProducts, productSearch])
+            .filter(p => p.stock > 0)
+            .slice(0, 10) // Cache local de até 10 resultados visíveis
+    }, [allProducts])
 
     // Clientes filtrados (Já vem do hook filteredCustomers, não precisamos de useMemo local)
     // const filteredCustomers = ... (REMOVED)
@@ -748,8 +757,13 @@ export function VendasForm() {
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#4A3B32]/30" />
                                         <input
                                             type="text"
-                                            value={productSearch}
-                                            onChange={(e) => setProductSearch(e.target.value)}
+                                            value={productSearchInput}
+                                            onChange={(e) => setProductSearchInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    setProductSearch(productSearchInput)
+                                                }
+                                            }}
                                             placeholder="Buscar produto..."
                                             className="w-full pl-10 pr-4 py-3 bg-[#4A3B32]/5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#C75D3B]/20"
                                         />
@@ -768,7 +782,21 @@ export function VendasForm() {
                                                     <button
                                                         key={product.id}
                                                         type="button"
-                                                        onClick={() => addProduct(product)}
+                                                        onClick={async () => {
+                                                            try {
+                                                                // Se não tem variantes (lite), busca o produto completo antes de adicionar
+                                                                if (!product.variants) {
+                                                                    const res = await fetch(`/api/products/${product.id}?full=true`)
+                                                                    const fullProduct = await res.json()
+                                                                    addProduct(fullProduct)
+                                                                } else {
+                                                                    addProduct(product)
+                                                                }
+                                                            } catch (err) {
+                                                                toast.error('Erro ao buscar detalhes do produto')
+                                                                addProduct(product)
+                                                            }
+                                                        }}
                                                         className="flex items-center gap-2 p-2 bg-[#4A3B32]/5 rounded-xl hover:bg-[#C75D3B]/10 transition-colors text-left"
                                                     >
                                                         <div className="w-12 h-12 rounded-lg bg-white overflow-hidden flex-shrink-0">

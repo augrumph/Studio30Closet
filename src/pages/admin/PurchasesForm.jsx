@@ -17,7 +17,7 @@ export function PurchasesForm() {
     // Hooks
     const { createPurchase, updatePurchase, isCreating, isUpdating } = useAdminPurchasesMutations()
     const { data: purchaseData, isLoading: isLoadingPurchase } = useAdminPurchase(id ? parseInt(id) : null)
-    const { suppliers } = useAdminSuppliers()
+    const { suppliers } = useAdminSuppliers({ pageSize: 100 })
 
     const purchasesLoading = isCreating || isUpdating || isLoadingPurchase
 

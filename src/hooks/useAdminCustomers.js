@@ -22,7 +22,7 @@ export function useCustomerSearch(searchTerm = '') {
 
     const query = useQuery({
         queryKey: ['admin', 'customers', 'search', debouncedSearchTerm],
-        queryFn: () => getCustomersWithMetrics(1, 10, debouncedSearchTerm), // Busca paginada limpa
+        queryFn: () => getCustomersWithMetrics(1, 50, debouncedSearchTerm), // Busca paginada limpa
         enabled: debouncedSearchTerm.length > 2 || debouncedSearchTerm.length === 0, // Só busca se tiver 3 chars ou vazio (inicial)
         staleTime: 1000 * 60 * 5,
         placeholderData: (previousData) => previousData

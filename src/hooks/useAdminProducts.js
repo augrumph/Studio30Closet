@@ -1,15 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-    deleteProduct as deleteProductApi,
-    deleteMultipleProducts as deleteMultipleProductsApi,
-    createProduct as createProductApi,
-    updateProduct as updateProductApi
-} from '@/lib/api/products'
+import { deleteProduct as deleteProductApi, deleteMultipleProducts as deleteMultipleProductsApi } from '@/lib/api/products'
 
 /**
  * Hook para buscar produtos com paginação no servidor
  */
-export function useAdminProducts({ page = 1, pageSize = 20, search = '', category = 'all', active = 'all' } = {}) {
+export function useAdminProducts({ page = 1, pageSize = 20, search = '', category = 'all', active = 'all', full = false } = {}) {
     const queryClient = useQueryClient()
 
     const query = useQuery({
@@ -20,7 +15,8 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
                 pageSize: pageSize.toString(),
                 search,
                 category,
-                active
+                active,
+                full: full.toString()
             })
 
             const response = await fetch(`/api/products?${queryParams.toString()}`)
@@ -44,21 +40,6 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
         }
     })
 
-    const createMutation = useMutation({
-        mutationFn: createProductApi,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin', 'products-paginated'] })
-        }
-    })
-
-    const updateMutation = useMutation({
-        mutationFn: ({ id, data }) => updateProductApi(id, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin', 'products-paginated'] })
-            queryClient.invalidateQueries({ queryKey: ['admin', 'product'] })
-        }
-    })
-
     return {
         ...query,
         products: query.data?.items || [],
@@ -66,10 +47,6 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
         totalPages: query.data?.totalPages || 0,
         deleteProduct: deleteMutation.mutateAsync,
         deleteMultipleProducts: multiDeleteMutation.mutateAsync,
-        createProduct: createMutation.mutateAsync,
-        updateProduct: updateMutation.mutateAsync,
-        isCreating: createMutation.isPending,
-        isUpdating: updateMutation.isPending,
         refetch: query.refetch
     }
 }

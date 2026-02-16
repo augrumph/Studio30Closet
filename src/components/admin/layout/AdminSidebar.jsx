@@ -17,7 +17,8 @@ const menuItems = [
     { path: '/admin/purchases', label: 'Compras', icon: ShoppingCart },
     { path: '/admin/installments', label: 'Crediário', icon: DollarSign },
     { path: '/admin/expenses', label: 'Despesas', icon: TrendingDown },
-    { path: '/admin/site', label: 'Site', icon: BarChart3 }
+    { path: '/admin/site', label: 'Site', icon: BarChart3 },
+    { path: '/admin/bingo', label: 'Bingo', icon: Calendar }
 ]
 
 export function AdminSidebar({ onClose, isCollapsed = false, onToggleCollapse }) {

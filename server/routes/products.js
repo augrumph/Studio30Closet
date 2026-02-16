@@ -20,9 +20,16 @@ router.get('/', async (req, res) => {
     console.log(`🏷️ Products API: Buscando página ${page} [Search: ${search}]`)
 
     try {
+        const isFull = req.query.full === 'true'
+
+        // Lite columns: Exclui colunas pesadas com Base64 (variants, images, description) se não for busca full
+        const selectColumns = isFull
+            ? '*'
+            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id'
+
         let query = supabase
             .from('products')
-            .select('*', { count: 'exact' })
+            .select(selectColumns, { count: 'exact' })
             .order('name', { ascending: true })
             .range(from, to)
 

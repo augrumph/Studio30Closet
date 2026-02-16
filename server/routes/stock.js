@@ -33,12 +33,17 @@ router.get('/kpis', cacheMiddleware(300), async (req, res) => {
             if (stock <= 2) lowStockCount++
         })
 
+        const averageMarkup = totalCost > 0
+            ? ((totalValue - totalCost) / totalCost) * 100
+            : 0
+
         res.json({
             totalValue,
             totalCost,
             totalItems,
             productsCount,
-            lowStockCount
+            lowStockCount,
+            averageMarkup
         })
 
     } catch (error) {

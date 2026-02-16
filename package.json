@@ -4,13 +4,12 @@
   "description": "Studio30 Closet - E-commerce Platform",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev": "npm-run-all --parallel server client",
     "client": "vite",
-    "server": "cd server && npm run dev",
+    "server": "npm run dev --prefix server",
     "build": "vite build",
     "preview": "vite preview",
     "migrate": "node teste_integracao_supabase.js",
-    "start": "cd server && npm start",
     "postbuild": "cd server && npm install"
   },
   "keywords": [
@@ -73,6 +72,7 @@
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.2.1",
     "dotenv": "^17.2.3",
+    "npm-run-all": "^4.1.5",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "vite": "^6.0.0"

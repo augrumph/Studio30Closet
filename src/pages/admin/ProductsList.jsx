@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/Pagination"
 import { useAdminProducts } from '@/hooks/useAdminProducts'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
 import { CollectionsManagerModal } from '@/components/admin/CollectionsManagerModal'
 // ...
 

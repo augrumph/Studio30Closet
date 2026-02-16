@@ -157,14 +157,6 @@ export function MalinhasForm() {
 
         const totalValue = formData.items.reduce((sum, item) => sum + item.price, 0)
 
-        // Debug removed
-        // const selectedCustomer = customers.find(c => c.id === formData.customerId)
-
-        if (!selectedCustomer) {
-            toast.error('Cliente não encontrado. Por favor, selecione novamente.')
-            return
-        }
-
         // Validar preços dos produtos
         const invalidPriceItems = formData.items.filter(item => !item.price || item.price <= 0)
         if (invalidPriceItems.length > 0) {
@@ -199,7 +191,7 @@ export function MalinhasForm() {
 
         // console.log('Payload enviado:', payload)
 
-        const action = isEdit ? updateOrder(parseInt(id), payload) : addOrder(payload)
+        const action = isEdit ? updateMalinha(parseInt(id), payload) : createMalinha(payload)
 
         toast.promise(action, {
             loading: isEdit ? 'Atualizando malinha...' : 'Criando malinha...',

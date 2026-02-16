@@ -22,10 +22,11 @@ router.get('/', async (req, res) => {
     try {
         const isFull = req.query.full === 'true'
 
-        // Lite columns: Exclui colunas pesadas com Base64 (variants, images, description) se não for busca full
+        // Lite columns: Exclui colunas pesadas com Base64 (variants, description) se não for busca full
+        // images é incluído porque são URLs (não pesado) e necessário para exibição
         const selectColumns = isFull
             ? '*'
-            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id'
+            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id, images'
 
         let query = supabase
             .from('products')

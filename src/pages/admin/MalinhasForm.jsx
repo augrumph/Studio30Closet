@@ -10,7 +10,9 @@ import {
     ShoppingBag,
     Calendar as CalendarIcon,
     Clock,
-    Check
+    Check,
+    X,
+    Package
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useAdminMalinha, useAdminMalinhasMutations } from '@/hooks/useAdminMalinhas'
@@ -64,6 +66,8 @@ export function MalinhasForm() {
         items: []
     })
 
+    const [variantModal, setVariantModal] = useState({ open: false, product: null, selectedColor: null, selectedSize: null })
+
 
     const [showCustomerSearch, setShowCustomerSearch] = useState(false)
 
@@ -88,56 +92,91 @@ export function MalinhasForm() {
         }
     }, [isEdit, orderData])
 
-    const addItem = (product, size) => {
+    const addItemToCart = (product, color, size) => {
         // Validação: garantir que product tem ID
         if (!product.id) {
             toast.error('Erro: Produto sem ID válido');
             return;
         }
 
-        // 🎨 Determinar a cor do produto
-        // Se o produto tem variants, pega a primeira cor que tem o tamanho selecionado em estoque
-        let selectedColor = 'Padrão'; // Valor padrão se não encontrar
-
-        if (product.variants && product.variants.length > 0) {
-            // Procurar variante que tem o tamanho selecionado
-            const variantWithSize = product.variants.find(v =>
-                v.sizeStock && v.sizeStock.some(s => s.size === size)
-            );
-
-            if (variantWithSize && variantWithSize.colorName) {
-                selectedColor = variantWithSize.colorName;
-            } else if (product.variants[0]?.colorName) {
-                selectedColor = product.variants[0].colorName;
-            } else if (product.color) {
-                selectedColor = product.color;
-            }
-        } else if (product.color) {
-            selectedColor = product.color;
-        }
-
-        // console.log(`🎨 Cor selecionada para ${product.name} (${size}): ${selectedColor}`);
-
-        // Armazenar productId, name, image e outros metadados
         const newItem = {
             productId: product.id,
             productName: product.name,
             price: product.price,
             image: product.images?.[0] || product.image || null,
             selectedSize: size,
-            selectedColor: selectedColor, // 🎨 CRUCIAL para reserva de estoque
+            selectedColor: color,
             quantity: 1
         }
         setFormData(prev => ({
             ...prev,
             items: [...prev.items, newItem]
         }))
-        // Não fecha mais o modal - permite adicionar múltiplos produtos
-        toast.success(`Produto ${product.name} (${size}) adicionado!`, {
-            description: `${formData.items.length + 1} ${formData.items.length + 1 === 1 ? 'item' : 'itens'} na malinha`,
-            icon: '✅',
+
+        toast.success(`Adicionado: ${product.name} (${color} - ${size})`, {
+            description: `${formData.items.length + 1} itens na malinha`,
             duration: 2000
         })
+    }
+
+    const initiateAddProduct = (product, preSelectedSize = null) => {
+        if (!product.stock || product.stock <= 0) {
+            toast.error('Produto sem estoque')
+            return
+        }
+
+        const hasVariants = product.variants?.length > 0
+
+        // Se j tem tamanho pr-selecionado (clicou no boto de tamanho)
+        if (preSelectedSize && hasVariants) {
+            // Verifica quantas opes de cor existem para esse tamanho
+            const variantsWithSize = product.variants.filter(v => v.sizeStock?.some(s => s.size === preSelectedSize && s.quantity > 0))
+
+            if (variantsWithSize.length > 1) {
+                // Mltiplas cores: Abre modal j com tamanho selecionado
+                setVariantModal({
+                    open: true,
+                    product,
+                    selectedColor: null,
+                    selectedSize: preSelectedSize
+                })
+                return
+            } else if (variantsWithSize.length === 1) {
+                // S uma cor: Adiciona direto
+                addItemToCart(product, variantsWithSize[0].colorName, preSelectedSize)
+                return
+            }
+        }
+
+        const hasMultipleOptions = hasVariants && (
+            product.variants.length > 1 ||
+            product.variants.some(v => (v.sizeStock || []).length > 1)
+        )
+
+        if (hasVariants && !hasMultipleOptions) {
+            const color = product.variants[0].colorName
+            const size = product.variants[0].sizeStock?.[0]?.size
+            if (color && size) {
+                addItemToCart(product, color, size)
+                return
+            }
+        }
+
+        if (hasVariants) {
+            const firstAvailable = product.variants.find(v => v.sizeStock?.some(s => s.quantity > 0))
+            setVariantModal({
+                open: true,
+                product,
+                selectedColor: firstAvailable?.colorName || product.variants[0].colorName,
+                selectedSize: null
+            })
+            return
+        }
+
+        // Sem variantes (produto simples)
+        // Tenta pegar o primeiro tamanho se existir na estrutura antiga ou null
+        const defaultSize = product.sizes?.[0] || 'UN'
+        addItemToCart(product, 'Padrão', defaultSize)
     }
 
     const removeItem = (idx) => {
@@ -300,15 +339,11 @@ export function MalinhasForm() {
 
                                                     try {
                                                         let fullProduct = product;
-                                                        // Se for lite (sem variantes), busca o full
                                                         if (!product.variants) {
                                                             const res = await fetch(`/api/products/${product.id}?full=true`);
                                                             fullProduct = await res.json();
                                                         }
-
-                                                        if (fullProduct.sizes && fullProduct.sizes.length > 0) {
-                                                            addItem(fullProduct, fullProduct.sizes[0]);
-                                                        }
+                                                        initiateAddProduct(fullProduct)
                                                     } catch (err) {
                                                         toast.error('Erro ao carregar detalhes do produto');
                                                     }
@@ -357,7 +392,20 @@ export function MalinhasForm() {
                                                         return (
                                                             <button
                                                                 key={size}
-                                                                onClick={() => canBeAdded && addItem(product, size)}
+                                                                onClick={async () => {
+                                                                    if (!canBeAdded) return
+                                                                    try {
+                                                                        let fullProduct = product;
+                                                                        if (!product.variants) {
+                                                                            const res = await fetch(`/api/products/${product.id}?full=true`);
+                                                                            fullProduct = await res.json();
+                                                                        }
+                                                                        initiateAddProduct(fullProduct, size)
+                                                                    } catch (err) {
+                                                                        console.error(err)
+                                                                        toast.error('Erro ao carregar detalhes')
+                                                                    }
+                                                                }}
                                                                 disabled={!canBeAdded}
                                                                 className={cn(
                                                                     "relative px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
@@ -625,6 +673,145 @@ export function MalinhasForm() {
                 </div>
             </div>
 
+            {/* Modal de Variante */}
+            <AnimatePresence>
+                {variantModal.open && variantModal.product && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
+                        onClick={() => setVariantModal({ open: false, product: null, selectedColor: null, selectedSize: null })}
+                    >
+                        <motion.div
+                            initial={{ y: 100, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 100, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl max-h-[80vh] overflow-y-auto"
+                        >
+                            <div className="p-4 border-b border-[#4A3B32]/5 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-xl bg-[#4A3B32]/5 overflow-hidden">
+                                        {variantModal.product.images?.[0] ? (
+                                            <img src={variantModal.product.images[0]} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <Package className="w-5 h-5 text-[#4A3B32]/20" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-[#4A3B32]">{variantModal.product.name}</h3>
+                                        <p className="text-sm text-[#C75D3B] font-bold">R$ {variantModal.product.price?.toFixed(2)}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setVariantModal({ open: false, product: null, selectedColor: null, selectedSize: null })}
+                                    className="p-2 hover:bg-[#4A3B32]/5 rounded-xl"
+                                >
+                                    <X className="w-5 h-5 text-[#4A3B32]/50" />
+                                </button>
+                            </div>
+
+                            <div className="p-4 space-y-4">
+                                {/* Cores */}
+                                <div>
+                                    <p className="text-xs font-bold text-[#4A3B32]/50 uppercase mb-2">Cor</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {variantModal.product.variants?.map((v, i) => {
+                                            const hasStock = v.sizeStock?.some(s => s.quantity > 0)
+                                            return (
+                                                <button
+                                                    key={i}
+                                                    type="button"
+                                                    onClick={() => hasStock && setVariantModal(prev => ({
+                                                        ...prev,
+                                                        selectedColor: v.colorName,
+                                                        // Se mudou de cor e o tamanho atual não existe nessa cor, reseta tamanho
+                                                        selectedSize: (prev.selectedSize && v.sizeStock.some(s => s.size === prev.selectedSize && s.quantity > 0)) ? prev.selectedSize : null
+                                                    }))}
+                                                    disabled={!hasStock}
+                                                    className={cn(
+                                                        "px-4 py-2 rounded-xl text-sm font-medium transition-all",
+                                                        variantModal.selectedColor === v.colorName
+                                                            ? "bg-[#4A3B32] text-white"
+                                                            : hasStock
+                                                                ? "bg-[#4A3B32]/5 text-[#4A3B32]"
+                                                                : "bg-[#4A3B32]/5 text-[#4A3B32]/30 line-through"
+                                                    )}
+                                                >
+                                                    {v.colorName}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Tamanhos */}
+                                {variantModal.selectedColor && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                    >
+                                        <p className="text-xs font-bold text-[#4A3B32]/50 uppercase mb-2">Tamanho</p>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {variantModal.product.variants
+                                                ?.find(v => v.colorName === variantModal.selectedColor)
+                                                ?.sizeStock?.map((s, i) => (
+                                                    <button
+                                                        key={i}
+                                                        type="button"
+                                                        onClick={() => s.quantity > 0 && setVariantModal(prev => ({
+                                                            ...prev,
+                                                            selectedSize: s.size
+                                                        }))}
+                                                        disabled={s.quantity <= 0}
+                                                        className={cn(
+                                                            "py-3 rounded-xl text-sm font-bold transition-all",
+                                                            variantModal.selectedSize === s.size
+                                                                ? "bg-[#C75D3B] text-white"
+                                                                : s.quantity > 0
+                                                                    ? "bg-[#4A3B32]/5 text-[#4A3B32]"
+                                                                    : "bg-[#4A3B32]/5 text-[#4A3B32]/30"
+                                                        )}
+                                                    >
+                                                        {s.size}
+                                                        <span className="block text-[10px] font-normal opacity-60">
+                                                            {s.quantity > 0 ? `${s.quantity}un` : 'Esgotado'}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </div>
+
+                            <div className="p-4 border-t border-[#4A3B32]/5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (variantModal.selectedColor && variantModal.selectedSize) {
+                                            addItemToCart(variantModal.product, variantModal.selectedColor, variantModal.selectedSize)
+                                            setVariantModal({ open: false, product: null, selectedColor: null, selectedSize: null })
+                                        }
+                                    }}
+                                    disabled={!variantModal.selectedColor || !variantModal.selectedSize}
+                                    className={cn(
+                                        "w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all",
+                                        variantModal.selectedColor && variantModal.selectedSize
+                                            ? "bg-[#C75D3B] text-white"
+                                            : "bg-[#4A3B32]/10 text-[#4A3B32]/30"
+                                    )}
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    Adicionar
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

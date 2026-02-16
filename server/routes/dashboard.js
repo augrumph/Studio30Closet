@@ -86,7 +86,7 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             orderId: v.order_id,
             items: (v.items || []).map(item => ({
                 ...item,
-                costPrice: item.cost_price || item.costPriceAtTime || item.cost_price_at_time || 0,
+                costPrice: item.costPrice || item.cost_price || item.costPriceAtTime || item.cost_price_at_time || 0,
                 price: item.price || 0,
                 quantity: item.quantity || item.qty || 1
             }))

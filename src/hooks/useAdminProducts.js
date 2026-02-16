@@ -23,7 +23,9 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
             if (!response.ok) throw new Error('Falha ao buscar produtos do backend')
             return response.json()
         },
-        staleTime: 1000 * 60 * 5, // 5 minutos de cache
+        staleTime: 1000 * 30, // 30 segundos - busca mais fresca
+        gcTime: 1000 * 60 * 5, // 5 minutos no cache
+        refetchOnWindowFocus: false, // Não refetch ao focar janela
     })
 
     const deleteMutation = useMutation({

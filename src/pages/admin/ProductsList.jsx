@@ -30,10 +30,10 @@ console.log("🚀 ProductsList component loaded - v2 [DEBUG]")
 // ...
 
 export function ProductsList() {
-    // ⚡ REACT QUERY HOOK
+    // ⚡ REACT QUERY HOOK - ULTRA OPTIMIZED
     const [searchInput, setSearchInput] = useState('')
     const [search, setSearch] = useState('')
-    const debouncedSearch = useDebounce(searchInput, 400)
+    const debouncedSearch = useDebounce(searchInput, 200) // Reduzido de 400ms para 200ms
     const [categoryFilter, setCategoryFilter] = useState('all')
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(20)
@@ -297,10 +297,20 @@ export function ProductsList() {
             <Card className="overflow-hidden border-none shadow-2xl shadow-gray-100">
                 <div className="p-6 border-b border-gray-50 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                        {productsLoading && searchInput ? (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4"
+                            >
+                                <div className="w-4 h-4 border-2 border-[#C75D3B] border-t-transparent rounded-full animate-spin" />
+                            </motion.div>
+                        ) : (
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                        )}
                         <input
                             type="text"
-                            placeholder="Buscar por nome, categoria ou ID..."
+                            placeholder="🔍 Buscar por nome, categoria ou ID... (ultra rápido)"
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -310,6 +320,19 @@ export function ProductsList() {
                             }}
                             className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
                         />
+                        {searchInput && (
+                            <motion.button
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                onClick={() => {
+                                    setSearchInput('')
+                                    setSearch('')
+                                }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <span className="text-lg">×</span>
+                            </motion.button>
+                        )}
                     </div>
                 </div>
 

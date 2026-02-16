@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
     const from = (page - 1) * pageSize
     const to = from + Number(pageSize) - 1
 
-    console.log(`🏷️ Products API: Buscando página ${page} [Search: ${search}]`)
+    console.log(`🔍 Products API: Página ${page} [Search: "${search}"]`)
 
     try {
         const isFull = req.query.full === 'true'
@@ -31,9 +31,8 @@ router.get('/', async (req, res) => {
         let query = supabase
             .from('products')
             .select(selectColumns, { count: 'exact' })
-            .order('name', { ascending: true })
-            .range(from, to)
 
+        // Aplicar filtros primeiro (mais eficiente)
         if (category !== 'all') {
             query = query.eq('category', category)
         }
@@ -42,9 +41,22 @@ router.get('/', async (req, res) => {
             query = query.eq('active', active === 'true')
         }
 
+        // Busca otimizada: suporta busca por nome, ID e categoria
         if (search) {
-            query = query.ilike('name', `%${search}%`)
+            const searchLower = search.toLowerCase().trim()
+            // Se for número, busca por ID também
+            if (!isNaN(searchLower)) {
+                query = query.or(`name.ilike.%${searchLower}%,id.eq.${searchLower},category.ilike.%${searchLower}%`)
+            } else {
+                // Busca por nome e categoria
+                query = query.or(`name.ilike.%${searchLower}%,category.ilike.%${searchLower}%`)
+            }
         }
+
+        // Ordenação e paginação por último
+        query = query
+            .order('name', { ascending: true })
+            .range(from, to)
 
         const { data, count, error } = await query
 

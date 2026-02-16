@@ -24,6 +24,7 @@ import { useAdminProducts } from '@/hooks/useAdminProducts'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useAdminDashboardData } from '@/hooks/useAdminDashboardData.js'
 import { CollectionsManagerModal } from '@/components/admin/CollectionsManagerModal'
+import { getActiveCollections } from '@/lib/api/collections'
 
 console.log("🚀 ProductsList component loaded - v2 [DEBUG]")
 // ...

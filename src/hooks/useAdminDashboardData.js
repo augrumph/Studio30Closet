@@ -38,7 +38,7 @@ const fetchAllVendas = async () => {
         items: (v.items || []).map(i => ({
             ...i,
             productId: i.product_id || i.productId, // Fallback para schemas mistos
-            costPrice: i.cost_price,
+            costPrice: i.costPrice || i.cost_price || 0,
             costPriceAtTime: i.cost_price_at_time || i.costPriceAtTime,
             quantity: i.quantity || i.qty || 1
         }))

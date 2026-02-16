@@ -237,7 +237,10 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                 pendingCrediario,
                 valorDevedores,
                 totalFees
-            }
+            },
+            // Dados brutos para cálculo preciso no frontend (useDashboardMetrics)
+            expenses: expenses || [],
+            installments: installments || []
         })
 
     } catch (err) {

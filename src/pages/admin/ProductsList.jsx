@@ -30,10 +30,10 @@ console.log("🚀 ProductsList component loaded - v2 [DEBUG]")
 // ...
 
 export function ProductsList() {
-    // ⚡ REACT QUERY HOOK - REALTIME INSTANT SEARCH
+    // ⚡ REACT QUERY HOOK - ULTRA FAST SEARCH
     const [searchInput, setSearchInput] = useState('')
     const [search, setSearch] = useState('')
-    const debouncedSearch = useDebounce(searchInput, 150) // Ultra rápido: 150ms
+    const debouncedSearch = useDebounce(searchInput, 300) // 300ms para estabilidade
     const [categoryFilter, setCategoryFilter] = useState('all')
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(20)
@@ -708,7 +708,7 @@ function KPI_Card({ icon: Icon, iconColor, bgColor, title, value, subtitle, tool
 function STR_Card({ data }) {
     if (!data) return null
 
-    const { sellThroughRate, status, message, metaIdeal } = data
+    const { sellThroughRate, status, message, metaVenda, faltaParaMeta } = data
 
     // Cores baseadas no status
     const statusColors = {
@@ -729,7 +729,7 @@ function STR_Card({ data }) {
                             <div className={`p-2 ${colors.bg} rounded-xl`}>
                                 <Activity className={`w-5 h-5 ${colors.icon}`} />
                             </div>
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Sell-Through</span>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Capacidade Venda</span>
                         </div>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -739,12 +739,12 @@ function STR_Card({ data }) {
                             </TooltipTrigger>
                             <TooltipContent className="max-w-sm bg-gray-900 text-white p-4 text-sm">
                                 <p className="font-bold mb-2">Capacidade de Venda (STR)</p>
-                                <p className="mb-2">Mede sua eficiência em vender o estoque disponível.</p>
-                                <p className="text-xs opacity-80">
-                                    Fórmula: Vendas ÷ (Estoque Inicial + Entradas) × 100
+                                <p className="mb-2">Mede o quanto você atingiu da meta de 30% do faturamento estimado.</p>
+                                <p className="text-xs opacity-80 mb-1">
+                                    Meta: R$ {metaVenda?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
-                                <p className="text-xs opacity-80 mt-2">
-                                    Meta ideal: {metaIdeal?.min}% - {metaIdeal?.max}%
+                                <p className="text-xs opacity-80">
+                                    Fórmula: Meta = Faturamento Estimado × 30%
                                 </p>
                             </TooltipContent>
                         </Tooltip>
@@ -763,6 +763,11 @@ function STR_Card({ data }) {
                         )}
                     </div>
                     <p className={`text-[10px] ${colors.text} font-medium mt-1`}>{message}</p>
+                    {faltaParaMeta > 0 && (
+                        <p className="text-[9px] text-gray-400 mt-1">
+                            Falta: R$ {faltaParaMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                    )}
                 </CardContent>
             </Card>
         </motion.div>

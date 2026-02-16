@@ -22,11 +22,11 @@ router.get('/', async (req, res) => {
     try {
         const isFull = req.query.full === 'true'
 
-        // Lite columns: Exclui colunas pesadas com Base64 (variants, description) se não for busca full
-        // images é incluído porque são URLs (não pesado) e necessário para exibição
+        // Lite columns: Exclui colunas pesadas com Base64 (variants, description, images)
+        // No modo lite, NÃO carregamos images (Base64) para velocidade máxima
         const selectColumns = isFull
             ? '*'
-            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id, images'
+            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id'
 
         let query = supabase
             .from('products')
@@ -62,8 +62,16 @@ router.get('/', async (req, res) => {
 
         if (error) throw error
 
+        // No modo lite, adicionar placeholder para imagens (evita Base64)
+        const items = isFull
+            ? toCamelCase(data)
+            : toCamelCase(data).map(item => ({
+                ...item,
+                images: ['/placeholder-product.jpg'] // Placeholder rápido
+            }))
+
         res.json({
-            items: toCamelCase(data),
+            items,
             total: count,
             page: Number(page),
             pageSize: Number(pageSize),
@@ -77,15 +85,27 @@ router.get('/', async (req, res) => {
 })
 
 // Sell-Through Rate (STR) - Capacidade de Venda
+// FÓRMULA AJUSTADA: Meta de Venda = Faturamento Estimado Total × 30%
 router.get('/metrics/sell-through', async (req, res) => {
-    console.log('📊 Calculando Sell-Through Rate...')
+    console.log('📊 Calculando Sell-Through Rate (Fórmula Ajustada)...')
 
     try {
         const now = new Date()
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
         const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
 
-        // 1. VENDAS DO PERÍODO (Faturamento Bruto em preço de venda)
+        // 1. FATURAMENTO ESTIMADO TOTAL (Valor de venda do estoque TOTAL)
+        const { data: products, error: pError } = await supabase
+            .from('products')
+            .select('price, stock, active')
+
+        if (pError) throw pError
+
+        const faturamentoEstimadoTotal = (products || [])
+            .filter(p => p.active)
+            .reduce((sum, p) => sum + ((p.price || 0) * (p.stock || 0)), 0)
+
+        // 2. VENDAS DO MÊS (Faturamento Real)
         const { data: vendas, error: vError } = await supabase
             .from('vendas')
             .select('total_value, payment_status')
@@ -94,75 +114,48 @@ router.get('/metrics/sell-through', async (req, res) => {
 
         if (vError) throw vError
 
-        const vendasTotais = (vendas || [])
+        const vendasMes = (vendas || [])
             .filter(v => ['paid', 'pending'].includes(v.payment_status?.toLowerCase()))
             .reduce((sum, v) => sum + (v.total_value || 0), 0)
 
-        // 2. ESTOQUE ATUAL (Valor de venda)
-        const { data: products, error: pError } = await supabase
-            .from('products')
-            .select('price, stock, active')
+        // 3. META DE VENDA = 30% do Faturamento Estimado Total
+        const metaVenda = faturamentoEstimadoTotal * 0.30
 
-        if (pError) throw pError
+        // 4. CAPACIDADE DE VENDA (% da Meta Atingida)
+        const sellThroughRate = metaVenda > 0 ? (vendasMes / metaVenda) * 100 : 0
 
-        const estoqueAtual = (products || [])
-            .filter(p => p.active && p.stock > 0)
-            .reduce((sum, p) => sum + ((p.price || 0) * (p.stock || 0)), 0)
-
-        // 3. COMPRAS DO MÊS (Entradas - Valor em preço de venda)
-        // Assume que compras têm markup médio de 2x (ou pode buscar o markup real de cada produto)
-        const { data: purchases, error: purError } = await supabase
-            .from('purchases')
-            .select('value')
-            .gte('date', firstDayOfMonth)
-            .lte('date', lastDayOfMonth)
-
-        if (purError) throw purError
-
-        // Convertendo custo de compra para preço de venda (usando markup médio de 2x)
-        // Em produção, você deveria buscar o markup real de cada compra
-        const entradasMes = (purchases || []).reduce((sum, p) => sum + ((p.value || 0) * 2), 0)
-
-        // 4. ESTOQUE INICIAL = Estoque Atual - Entradas + Vendas
-        const estoqueInicial = estoqueAtual - entradasMes + vendasTotais
-
-        // 5. FÓRMULA PERFEITA DO SELL-THROUGH
-        const base = estoqueInicial + entradasMes
-        const sellThroughRate = base > 0 ? (vendasTotais / base) * 100 : 0
-
-        // 6. ANÁLISE QUALITATIVA
+        // 5. ANÁLISE QUALITATIVA
         let status = 'excellent'
-        let message = 'Excelente! Meta atingida.'
+        let message = 'Meta atingida! Parabéns!'
 
-        if (sellThroughRate < 20) {
+        if (sellThroughRate < 50) {
             status = 'critical'
-            message = 'Crítico! Estoque parado.'
-        } else if (sellThroughRate < 30) {
+            message = 'Crítico! Muito abaixo da meta.'
+        } else if (sellThroughRate < 80) {
             status = 'warning'
             message = 'Atenção! Abaixo da meta.'
-        } else if (sellThroughRate <= 40) {
+        } else if (sellThroughRate < 100) {
             status = 'good'
-            message = 'Bom! Dentro da meta.'
-        } else if (sellThroughRate > 60) {
-            status = 'warning'
-            message = 'Atenção! Risco de ruptura.'
+            message = 'Bom! Quase lá!'
+        } else if (sellThroughRate >= 120) {
+            status = 'excellent'
+            message = 'Excelente! Superou a meta! 🎉'
         }
+
+        // 6. FALTA PARA META
+        const faltaParaMeta = Math.max(0, metaVenda - vendasMes)
 
         res.json({
             sellThroughRate: Number(sellThroughRate.toFixed(1)),
-            vendasTotais,
-            estoqueInicial,
-            entradasMes,
-            base,
+            vendasMes,
+            faturamentoEstimadoTotal,
+            metaVenda,
+            faltaParaMeta,
             status,
             message,
             periodo: {
                 inicio: firstDayOfMonth,
                 fim: lastDayOfMonth
-            },
-            metaIdeal: {
-                min: 30,
-                max: 40
             }
         })
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Save, X, Plus, Trash2, Package, Tag, Layers, Image as ImageIcon, CheckCircle2, Palette, Truck, AlertTriangle, Loader2, Eye, EyeOff, Calculator } from 'lucide-react'
 import { useAdminProducts, useAdminProduct } from '@/hooks/useAdminProducts'
 import { useAdminSuppliers } from '@/hooks/useAdminSuppliers'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
@@ -53,6 +53,48 @@ export function ProductsForm() {
     })
 
     const [activeColorTab, setActiveColorTab] = useState('0')
+
+    // 🏷️ Promoção Automática
+    const [promoParams, setPromoParams] = useState({
+        enabled: false,
+        discountPercent: ''
+    })
+
+    const calculatePromoPrice = (original, percent) => {
+        if (!original || !percent) return 0
+        const originalFloat = parseFloat(original.toString().replace(',', '.'))
+        const percentFloat = parseFloat(percent.toString().replace(',', '.'))
+        if (isNaN(originalFloat) || isNaN(percentFloat)) return 0
+
+        const discounted = originalFloat * (1 - percentFloat / 100)
+
+        // Lógica de Arredondamento Psicológico: Sempre para X9,90 (Cima)
+        // Ex: 54.00 -> 59.90
+        // Ex: 59.95 -> 69.90
+        const baseTens = Math.floor(discounted / 10) * 10
+        let target = baseTens + 9.90
+
+        if (target < discounted) {
+            target += 10
+        }
+
+        return target
+    }
+
+    const handleApplyPromo = () => {
+        const currentPrice = formData.price
+        const calculated = calculatePromoPrice(currentPrice, promoParams.discountPercent)
+
+        if (calculated > 0) {
+            setFormData(prev => ({
+                ...prev,
+                originalPrice: prev.originalPrice || currentPrice, // Salva o preço atual como original se não tiver
+                price: calculated.toFixed(2).replace('.', ',') // Atualiza o preço de venda
+            }))
+            toast.success(`Promoção aplicada! De R$ ${currentPrice} por R$ ${calculated.toFixed(2).replace('.', ',')}`)
+            setPromoParams(prev => ({ ...prev, enabled: false, discountPercent: '' })) // Reset
+        }
+    }
 
     // Calcular tamanhos e estoque automaticamente em tempo real
     const calculatedSizes = useMemo(() => {
@@ -447,6 +489,68 @@ export function ProductsForm() {
                                         onChange={handleChange}
                                     />
                                 </div>
+                            </div>
+
+                            {/* 🏷️ Calculadora de Promoção */}
+                            <div className="p-5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 bg-purple-100 rounded-lg">
+                                            <Calculator className="w-4 h-4 text-purple-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-purple-900">Calculadora de Promoção</p>
+                                            <p className="text-[10px] text-purple-600 font-medium">Aplica % e arredonda para x9,90</p>
+                                        </div>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={promoParams.enabled}
+                                            onChange={(e) => setPromoParams(prev => ({ ...prev, enabled: e.target.checked }))}
+                                        />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </label>
+                                </div>
+
+                                <AnimatePresence>
+                                    {promoParams.enabled && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="pt-2 flex items-end gap-3">
+                                                <div className="flex-1 space-y-1">
+                                                    <label className="text-[10px] font-bold text-purple-800 uppercase">Desconto (%)</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full px-4 py-3 bg-white border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 outline-none text-purple-900 font-bold"
+                                                        placeholder="Ex: 50"
+                                                        value={promoParams.discountPercent}
+                                                        onChange={(e) => setPromoParams(prev => ({ ...prev, discountPercent: e.target.value }))}
+                                                    />
+                                                </div>
+                                                <div className="flex-1 space-y-1">
+                                                    <label className="text-[10px] font-bold text-purple-800 uppercase">Novo Preço</label>
+                                                    <div className="px-4 py-3 bg-white/50 border border-purple-100 rounded-xl text-purple-900 font-bold">
+                                                        R$ {calculatePromoPrice(formData.price, promoParams.discountPercent).toFixed(2).replace('.', ',')}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleApplyPromo}
+                                                    disabled={!promoParams.discountPercent}
+                                                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    Aplicar
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
 
                             <div className="space-y-2">

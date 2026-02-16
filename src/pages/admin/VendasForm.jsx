@@ -24,6 +24,7 @@ import {
     BadgePercent,
     Loader2
 } from 'lucide-react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useAdminSalesMutations, useAdminSale } from '@/hooks/useAdminSales'
 import { useCustomerSearch } from '@/hooks/useAdminCustomers'
 import { useAdminProducts } from '@/hooks/useAdminProducts' // Usar hook de produtos já existente

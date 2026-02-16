@@ -22,14 +22,19 @@ app.use(helmet({
                 "https://wvghryqufnjmdfnjypbu.supabase.co",
                 "wss://wvghryqufnjmdfnjypbu.supabase.co",
                 "https://www.googletagmanager.com",
-                "https://www.google-analytics.com"
+                "https://www.google-analytics.com",
+                "https://www.google.com",
+                "https://googleads.g.doubleclick.net"
             ],
             scriptSrc: [
                 "'self'",
                 "'unsafe-inline'",
                 "https://www.googletagmanager.com",
-                "https://www.google-analytics.com"
+                "https://www.google-analytics.com",
+                "https://googleads.g.doubleclick.net",
+                "https://www.googleadservices.com"
             ],
+            scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: [
                 "'self'",
                 "'unsafe-inline'",
@@ -40,7 +45,8 @@ app.use(helmet({
                 "data:",
                 "https://fonts.gstatic.com"
             ],
-            imgSrc: ["'self'", "data:", "https:", "blob:"]
+            imgSrc: ["'self'", "data:", "https:", "blob:", "https://www.google.com", "https://googleads.g.doubleclick.net"],
+            frameSrc: ["'self'", "https://www.googletagmanager.com"]
         }
     }
 }))
@@ -50,20 +56,20 @@ app.use(cors())
 
 // Compression - reduces response size by 70-90%
 app.use(compression({
-  filter: (req, res) => {
-    if (req.headers['x-no-compression']) {
-      return false
-    }
-    return compression.filter(req, res)
-  },
-  level: 6 // Balance between speed and compression ratio
+    filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+            return false
+        }
+        return compression.filter(req, res)
+    },
+    level: 6 // Balance between speed and compression ratio
 }))
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Limit each IP to 1000 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // Limit each IP to 1000 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.'
 })
 app.use('/api/', limiter)
 

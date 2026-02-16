@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "migrate": "node teste_integracao_supabase.js",
-    "postbuild": "cd server && npm install"
+    "postbuild": "cd server && npm install",
+    "start": "cd server && npm start"
   },
   "keywords": [
     "supabase",

@@ -256,6 +256,58 @@ export function useDashboardMetrics({
         const netMarginPercent = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0;
 
         // =================================================================================
+        // 5. RETAIL KPI: LOYALTY & AUR
+        // =================================================================================
+
+        // Map first purchase date for all customers
+        const customerFirstPurchase = new Map();
+        // Sort all sales by date ascending to find true first purchase
+        const sortedAllSales = [...(allVendas || [])].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        sortedAllSales.forEach(sale => {
+            const cid = sale.customerId || sale.customer_id;
+            if (cid && !customerFirstPurchase.has(cid)) {
+                customerFirstPurchase.set(cid, new Date(sale.createdAt).getTime());
+            }
+        });
+
+        let recurringRevenue = 0;
+        let newCustomersCount = 0;
+        const uniqueCustomersInPeriod = new Set();
+
+        salesToProcess.forEach(sale => {
+            const cid = sale.customerId || sale.customer_id;
+            const saleTime = new Date(sale.createdAt).getTime();
+            const saleTotal = Number(sale.totalValue || 0); // Use Total or Net? Usually Net for weight.
+
+            if (cid) {
+                const firstTime = customerFirstPurchase.get(cid);
+                // If this sale is strictly after the first purchase time (with small buffer), it's recurring
+                // Or if it IS the first purchase, it's new.
+
+                // We want to know if the customer is "New" IN THIS PERIOD.
+                // A customer is "New" if their first purchase is within the current period's effective range.
+                // But simpler: Is this specific sale a "Return" sale?
+                // If saleTime > firstTime, it is a return sale.
+
+                if (saleTime > firstTime) {
+                    recurringRevenue += saleTotal;
+                } else {
+                    // First time buying
+                    // We only count them as "New Customer" if we haven't counted them already in this loop (though typically 1 first purchase)
+                    if (!uniqueCustomersInPeriod.has(cid)) {
+                        newCustomersCount++;
+                    }
+                }
+                uniqueCustomersInPeriod.add(cid);
+            }
+        });
+
+        const fidelityRate = grossRevenue > 0 ? (recurringRevenue / grossRevenue) * 100 : 0;
+        const averageUnitRetail = totalItemsSold > 0 ? netRevenue / totalItemsSold : 0;
+
+
+        // =================================================================================
         // FLUXO DE CAIXA E OUTROS
         // =================================================================================
 
@@ -516,6 +568,12 @@ export function useDashboardMetrics({
             // Efficiency Metrics
             logisticsCost,
             logisticsCostPercent: grossRevenue > 0 ? (logisticsCost / grossRevenue) * 100 : 0,
+
+            // New Retail KPIs
+            fidelityRate, // % Receita Recorrente
+            newCustomersCount, // Qtd Novos Clientes
+            averageUnitRetail, // Preço Médio por Peça (AUR)
+
             retentionRate,
             malinhaStats: {
                 sent: totalItemsSentInMalinhas,

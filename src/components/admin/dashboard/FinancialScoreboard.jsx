@@ -15,7 +15,8 @@ import {
     CircleX,
     Sparkles,
     Package,
-    Truck
+    Truck,
+    Users
 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
@@ -167,25 +168,25 @@ const getSimplifiedCards = (metrics) => {
             isDecimal: true
         },
         {
-            label: 'Taxa de Retenção', // Malinha Accuracy
-            value: metrics.retentionRate,
-            icon: CircleCheck,
+            label: 'Fidelização (Recorrência)',
+            value: metrics.fidelityRate,
+            icon: Users, // Need to ensure Users is imported or pick another
             iconBg: retentionBg,
             iconColor: retentionStatus,
             descriptionIcon: null,
-            descriptionText: `${metrics.malinhaStats?.sold || 0} vendidas / ${metrics.malinhaStats?.sent || 0} env.`,
-            tooltip: 'Percentual de peças que ficaram com a cliente em relação ao total enviado nas malinhas. (Vendido / Enviado)',
+            descriptionText: `${metrics.newCustomersCount || 0} novos clientes`,
+            tooltip: 'Percentual do faturamento vindo de clientes que já compraram antes. Indica lealdade da base.',
             isPercentage: true
         },
         {
-            label: 'Custo Logístico', // Logistics impact
-            value: metrics.logisticsCost,
-            icon: Truck,
+            label: 'Preço Médio por Peça',
+            value: metrics.averageUnitRetail,
+            icon: Sparkles, // Reuse Sparkles or similar
             iconBg: logisticsBg,
             iconColor: logisticsStatus,
             descriptionIcon: null,
-            descriptionText: `${(metrics.logisticsCostPercent || 0).toFixed(1)}% da Rec.`,
-            tooltip: 'Gasto total com Motoboy, Frete e Entregas no período.',
+            descriptionText: 'Valor agregado',
+            tooltip: 'Valor médio de venda de cada peça (AUR).',
             isCurrency: true
         },
 

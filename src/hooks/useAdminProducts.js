@@ -29,6 +29,21 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
         placeholderData: (previousData) => previousData, // Mantém dados anteriores durante loading
     })
 
+    const createMutation = useMutation({
+        mutationFn: (data) => import('@/lib/api/products').then(mod => mod.createProduct(data)),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin', 'products-paginated'] })
+        }
+    })
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }) => import('@/lib/api/products').then(mod => mod.updateProduct(id, data)),
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['admin', 'products-paginated'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'product', variables.id] })
+        }
+    })
+
     const deleteMutation = useMutation({
         mutationFn: deleteProductApi,
         onSuccess: () => {
@@ -48,8 +63,12 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
         products: query.data?.items || [],
         total: query.data?.total || 0,
         totalPages: query.data?.totalPages || 0,
+        createProduct: createMutation.mutateAsync,
+        updateProduct: updateMutation.mutateAsync,
         deleteProduct: deleteMutation.mutateAsync,
         deleteMultipleProducts: multiDeleteMutation.mutateAsync,
+        isCreating: createMutation.isPending,
+        isUpdating: updateMutation.isPending,
         refetch: query.refetch
     }
 }

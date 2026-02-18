@@ -208,8 +208,28 @@ async function calculateRankingsFallback(startDate, endDate, res) {
                 catStat.revenue += revenue
                 catStat.margin += margin
 
-                // Color
-                const color = item.selectedColor || product.color || 'Sem cor'
+                // Color (Normalized)
+                let rawColor = item.selectedColor || product.color || 'Sem cor'
+                // Normalization Logic inline or helper
+                const normalizeColor = (c) => {
+                    if (!c) return 'Sem cor'
+                    const lower = c.toLowerCase().trim()
+
+                    const map = {
+                        'preta': 'Preto', 'vermelha': 'Vermelho', 'branca': 'Branco', 'amarela': 'Amarelo', 'roxa': 'Roxo',
+                        'dourada': 'Dourado', 'prateada': 'Prata', 'salmao': 'Salmão', 'cafe': 'Café', 'petroleo': 'Petróleo',
+                        'limao': 'Limão', 'bordo': 'Bordô', 'lilas': 'Lilás', 'onca': 'Onça', 'poa': 'Poá',
+                        'geometrico': 'Geométrico', 'estampada': 'Estampado', 'listrada': 'Listrado', 'rosê': 'Rosê', 'rose': 'Rosê'
+                    }
+
+                    if (map[lower]) return map[lower]
+
+                    // Capialization
+                    return lower.charAt(0).toUpperCase() + lower.slice(1)
+                }
+
+                const color = normalizeColor(rawColor)
+
                 if (!colorStats.has(color)) {
                     colorStats.set(color, { name: color, qty: 0, revenue: 0, margin: 0 })
                 }
@@ -218,8 +238,18 @@ async function calculateRankingsFallback(startDate, endDate, res) {
                 colorStat.revenue += revenue
                 colorStat.margin += margin
 
-                // Size
-                const size = item.selectedSize || 'Único'
+                // Size (Normalized)
+                let rawSize = item.selectedSize || 'Único'
+
+                const normalizeSize = (s) => {
+                    if (!s) return 'Único'
+                    const upper = s.toUpperCase().trim()
+                    if (['U', 'UN', 'UNICO', 'TU', 'ÚNICO'].includes(upper)) return 'Único'
+                    return upper
+                }
+
+                const size = normalizeSize(rawSize)
+
                 if (!sizeStats.has(size)) {
                     sizeStats.set(size, { name: size, qty: 0, revenue: 0, margin: 0 })
                 }
@@ -245,7 +275,6 @@ async function calculateRankingsFallback(startDate, endDate, res) {
             })
         })
 
-        // Convert maps to sorted arrays
         const byCategory = Array.from(categoryStats.values()).sort((a, b) => b.qty - a.qty)
         const byColor = Array.from(colorStats.values()).sort((a, b) => b.qty - a.qty)
         const bySize = Array.from(sizeStats.values()).sort((a, b) => b.qty - a.qty)

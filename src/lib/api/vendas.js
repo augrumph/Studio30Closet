@@ -163,42 +163,33 @@ export async function createVenda(vendaData) {
 /**
  * Atualizar venda existente
  */
+/**
+ * Atualizar venda existente - VIA BACKEND
+ */
 export async function updateVenda(id, vendaData) {
-    console.log('API: Updating venda with id:', id)
-    const snakeData = toSnakeCase(vendaData)
+    console.log('🚀 Sending updateVenda request to backend:', id);
 
-    const vendaRecord = {
-        order_id: snakeData.order_id || null,
-        customer_id: snakeData.customer_id,
-        total_value: snakeData.total_value,
-        discount_amount: snakeData.discount_amount || snakeData.discount_value || 0,
-        original_total: snakeData.original_total || 0,
-        cost_price: snakeData.cost_price || null,
-        items: snakeData.items || [],
-        payment_method: snakeData.payment_method,
-        payment_status: snakeData.payment_status || (snakeData.payment_method === 'fiado' ? 'pending' : 'paid'),
-        card_brand: snakeData.card_brand || null,
-        fee_percentage: snakeData.fee_percentage || 0,
-        fee_amount: snakeData.fee_amount || 0,
-        net_amount: snakeData.net_amount,
-        is_installment: snakeData.is_installment || false,
-        num_installments: snakeData.num_installments || 1,
-        entry_payment: snakeData.entry_payment || 0,
-        installment_start_date: snakeData.installment_start_date || null
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/vendas/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(vendaData)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server Error: ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Backend updated venda:', result);
+        return result;
+    } catch (error) {
+        console.error('❌ Backend updateVenda failed:', error);
+        throw error;
     }
-
-    const { data, error } = await supabase
-        .from('vendas')
-        .update(vendaRecord)
-        .eq('id', id)
-        .select()
-        .single()
-
-    if (error) {
-        console.error('API Error updating venda:', error)
-        throw error
-    }
-    return toCamelCase(data)
 }
 
 /**

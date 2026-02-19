@@ -385,253 +385,38 @@ export async function getOrderById(id) {
 }
 
 /**
- * Criar uma nova order (malinha)
- * @param {Object} orderData - Dados da order
- * @returns {Promise<Object>} Order criada
+ * Criar uma nova order (malinha) - VIA BACKEND para garantir Email
  */
 export async function createOrder(orderData) {
-    console.log('🔍 DEBUG createOrder - Received orderData:', orderData);
+    console.log('🚀 Sending createOrder request to backend...');
 
-    const { customer, items, customerId: customerIdFromData, ...restOfOrderData } = orderData;
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/orders`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(orderData)
+        });
 
-    console.log('📦 DEBUG - Destructured data:', {
-        customer,
-        items: items?.length || 0,
-        customerId: customerIdFromData,
-        restOfOrderData
-    });
-
-    let customerId = customerIdFromData;
-
-    // ✅ Se não tiver customerId mas tiver dados do cliente, criar ou buscar cliente
-    if (!customerId && customer) {
-        console.log('👤 Buscando/criando cliente a partir dos dados recebidos...');
-
-        // 1. Validação Obrigatória de CPF
-        const cpf = customer.cpf?.replace(/\D/g, '');
-        if (!cpf || cpf.length < 11) {
-            throw new Error("CPF válido (11 dígitos) é obrigatório para finalizar o pedido.");
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server Error: ${errorText}`);
         }
 
-        try {
-            // 2. Buscar cliente existente por CPF (Prioridade absoluta)
-            const { data: existingCustomer } = await supabase
-                .from('customers')
-                .select('id')
-                .eq('cpf', cpf)
-                .maybeSingle();
+        const result = await response.json();
+        console.log('✅ Backend created order:', result);
 
-            if (existingCustomer) {
-                customerId = existingCustomer.id;
-                console.log('✅ Cliente existente encontrado por CPF:', customerId);
-            }
-
-            // 3. Se não encontrou, buscar por TELEFONE como fallback
-            if (!customerId && customer.phone) {
-                const phone = customer.phone?.replace(/\D/g, '');
-                if (phone) {
-                    const { data: existingByPhone } = await supabase
-                        .from('customers')
-                        .select('id')
-                        .eq('phone', phone)
-                        .maybeSingle();
-
-                    if (existingByPhone) {
-                        customerId = existingByPhone.id;
-                        console.log('✅ Cliente existente encontrado por Telefone:', customerId);
-                    }
-                }
-            }
-
-            // 4. Se encontrou cliente (por CPF ou Telefone), ATUALIZAR os dados (Nome, Email, etc.)
-            // Isso resolve o bug onde pedidos ficavam no nome de "Larissa Lacerda" se o CPF já existisse
-            if (customerId) {
-                console.log('🔄 Atualizando dados do cliente existente:', customerId);
-                const updatePayload = {
-                    name: customer.name,
-                    email: customer.email || null,
-                    phone: customer.phone?.replace(/\D/g, '') || null,
-                    // CPF já está correto pois ou buscamos por ele ou já o temos
-                    cpf: cpf,
-                    updated_at: new Date().toISOString()
-                };
-
-                const { error: updateError } = await supabase
-                    .from('customers')
-                    .update(updatePayload)
-                    .eq('id', customerId);
-
-                if (updateError) {
-                    console.warn('⚠️ Falha ao atualizar dados do cliente existente (não fatal):', updateError.message);
-                } else {
-                    console.log('✅ Dados do cliente atualizados com sucesso.');
-                }
-            }
-
-            // 5. Se ainda não encontrou, criar novo cliente
-            if (!customerId) {
-                console.log('📝 Criando novo cliente com CPF...');
-
-                const customerRecord = {
-                    name: customer.name,
-                    phone: customer.phone?.replace(/\D/g, '') || null,
-                    email: customer.email || null,
-                    cpf: cpf,
-                    addresses: customer.addresses || []
-                };
-
-                const { data: newCustomer, error: customerError } = await supabase
-                    .from('customers')
-                    .insert([customerRecord])
-                    .select()
-                    .single();
-
-                if (customerError) {
-                    if (customerError.code === '23505') {
-                        console.warn('⚠️ Cliente duplicado detectado na criação, tentando recuperação...');
-                        const { data: retryCustomer } = await supabase
-                            .from('customers')
-                            .select('id')
-                            .or(`cpf.eq.${cpf},phone.eq.${customerRecord.phone}`)
-                            .single();
-                        if (retryCustomer) customerId = retryCustomer.id;
-                    } else {
-                        console.error('❌ Erro ao criar cliente:', customerError);
-                        throw new Error('Erro ao criar cliente: ' + customerError.message);
-                    }
-                } else {
-                    customerId = newCustomer.id;
-                    console.log('✅ Novo cliente criado com ID:', customerId);
-                }
-            }
-        } catch (error) {
-            console.error('❌ Erro ao processar cliente:', error);
-            if (error.message && error.message.includes("CPF")) throw error;
-            throw new Error('Erro ao processar dados do cliente: ' + error.message);
+        if (result.success && result.order) {
+            // Fetch complete data to return consistent structure
+            return getOrderById(result.order.id);
+        } else {
+            throw new Error(result.error || 'Failed to create order');
         }
+    } catch (error) {
+        console.error('❌ Backend createOrder failed:', error);
+        throw error;
     }
-
-    if (!customerId) {
-        throw new Error("Dados do cliente são obrigatórios. Preencha nome e telefone.");
-    }
-
-    console.log('📝 Creating order record with customer_id:', customerId);
-
-    const orderRecord = {
-        customer_id: customerId,
-        status: restOfOrderData.status || 'pending',
-        total_value: restOfOrderData.totalValue !== undefined
-            ? restOfOrderData.totalValue
-            : (items || []).reduce((sum, item) => sum + (item.price || 0), 0),
-        delivery_date: restOfOrderData.deliveryDate || null,
-        pickup_date: restOfOrderData.pickupDate || null,
-        converted_to_sale: restOfOrderData.convertedToSale !== undefined ? restOfOrderData.convertedToSale : false,
-    };
-
-    console.log('💾 Order record to insert:', orderRecord);
-
-    const { data: newOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert([orderRecord])
-        .select()
-        .single();
-
-    if (orderError) {
-        console.error('❌ ERROR creating order:', orderError);
-        throw orderError;
-    }
-
-    console.log('✅ Order created:', newOrder);
-
-    console.log('📋 Processing items:', items?.length || 0);
-
-    // Buscar dados dos produtos para preencher preços corretos
-    const productIds = [...new Set((items || []).map(item => item.productId).filter(id => id))];
-    let productsMap = {};
-
-    if (productIds.length > 0) {
-        const { data: productsData } = await supabase
-            .from('products')
-            .select('id, price, cost_price')
-            .in('id', productIds);
-
-        if (productsData) {
-            productsMap = productsData.reduce((acc, p) => {
-                acc[p.id] = p;
-                return acc;
-            }, {});
-        }
-    }
-
-    const orderItems = (items || []).map(item => {
-        // Validação forte: product_id DEVE estar definido
-        if (!item.productId) {
-            throw new Error(`❌ ERRO CRÍTICO: Produto sem ID no item. Dados: ${JSON.stringify(item)}`);
-        }
-
-        // Se price/costPrice vierem como 0 ou nulo, buscar do banco
-        const productData = productsMap[item.productId];
-        const finalPrice = (item.price && item.price > 0) ? item.price : (productData?.price || 0);
-
-        // Prioridade: item.costPrice > productData.cost_price > fallback 0
-        const finalCostPrice = (item.costPrice && item.costPrice > 0)
-            ? item.costPrice
-            : (productData?.cost_price || 0);
-
-        const mapped = {
-            order_id: newOrder.id,
-            product_id: item.productId,
-            quantity: item.quantity || 1,
-            price_at_time: finalPrice,
-            size_selected: item.selectedSize,
-            color_selected: item.selectedColor || 'Padrão',
-            cost_price_at_time: finalCostPrice
-        };
-        console.log('🔄 Mapped item:', mapped);
-        return mapped;
-    });
-
-    if (orderItems.length > 0) {
-        console.log('💾 Inserting order items:', orderItems);
-        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-        if (itemsError) {
-            console.error('❌ ERROR inserting order items:', itemsError);
-            throw itemsError;
-        }
-        console.log('✅ Order items inserted');
-    } else {
-        console.warn('⚠️ WARNING: No items to insert');
-    }
-
-    // 📦 IMPORTANTE: Decrementar estoque automaticamente para cada item vendido
-    // NOTA: Isso foi movido para a criação da malinha (reserva de estoque)
-    // Quando uma malinha é criada, o estoque já é reservado via reserveStockForMalinha
-    console.log('📦 Ordem criada - estoque será gerenciado via reserveStockForMalinha');
-
-    // 🔄 IMPORTANTE: Buscar os dados completos da ordem criada para retornar com infos do produto
-    console.log('🔄 Buscando dados completos do pedido com informações do cliente...');
-    const completeOrderData = await getOrderById(newOrder.id);
-
-    // ✅ CONFIRMAÇÃO FINAL - Cliente Associado com Sucesso
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('✅ VENDA REALIZADA COM SUCESSO!');
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('📦 PEDIDO:', {
-        orderId: newOrder.id,
-        customerId: customerId,
-        items: items?.length || 0,
-        totalValue: completeOrderData?.totalValue || 'N/A',
-        status: completeOrderData?.status || 'pending'
-    });
-    console.log('👤 CLIENTE ASSOCIADO:', {
-        id: customerId,
-        name: customer?.name || 'N/A',
-        phone: customer?.phone || 'N/A',
-        email: customer?.email || 'N/A'
-    });
-    console.log('═══════════════════════════════════════════════════════════');
-
-    return completeOrderData;
 }
 
 /**
@@ -640,78 +425,39 @@ export async function createOrder(orderData) {
  * @param {Object} orderData - Dados para atualizar
  * @returns {Promise<Object>} Order atualizada
  */
+/**
+ * Atualizar uma order existente (VIA BACKEND para transação segura)
+ * @param {number} id - ID da order
+ * @param {Object} orderData - Dados para atualizar
+ * @returns {Promise<Object>} Order atualizada
+ */
 export async function updateOrder(id, orderData) {
-    console.log('API: Updating order with id:', id, 'and data:', orderData);
+    console.log('🚀 Sending updateOrder request to backend:', id);
 
-    // Criar objeto com campos explícitos em snake_case para evitar problemas
-    const orderRecord = {};
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/orders/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(orderData)
+        });
 
-    // Mapear apenas campos que são colunas reais da tabela orders
-    if (orderData.customerId !== undefined) orderRecord.customer_id = orderData.customerId;
-    if (orderData.customer_id !== undefined) orderRecord.customer_id = orderData.customer_id;
-    if (orderData.status !== undefined) orderRecord.status = orderData.status;
-    if (orderData.totalValue !== undefined) orderRecord.total_value = orderData.totalValue;
-    if (orderData.total_value !== undefined) orderRecord.total_value = orderData.total_value;
-    if (orderData.deliveryDate !== undefined) orderRecord.delivery_date = orderData.deliveryDate;
-    if (orderData.delivery_date !== undefined) orderRecord.delivery_date = orderData.delivery_date;
-    if (orderData.pickupDate !== undefined) orderRecord.pickup_date = orderData.pickupDate;
-    if (orderData.pickup_date !== undefined) orderRecord.pickup_date = orderData.pickup_date;
-    if (orderData.convertedToSale !== undefined) orderRecord.converted_to_sale = orderData.convertedToSale;
-    if (orderData.converted_to_sale !== undefined) orderRecord.converted_to_sale = orderData.converted_to_sale;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server Error: ${errorText}`);
+        }
 
-    console.log('API: Prepared record for update (only DB fields):', orderRecord);
+        const result = await response.json();
+        console.log('✅ Backend updated order:', result);
 
-    const { data, error } = await supabase
-        .from('orders')
-        .update(orderRecord)
-        .eq('id', id)
-        .select()
-        .single();
+        // Fetch complete data to return consistent structure (with items populated for UI)
+        return getOrderById(id);
 
-    if (error) {
-        console.error('API Error updating order:', error);
+    } catch (error) {
+        console.error('❌ Backend updateOrder failed:', error);
         throw error;
     }
-    console.log('API: Updated order:', data);
-
-    // 🔄 Atualizar itens se fornecidos
-    if (orderData.items && orderData.items.length > 0) {
-        console.log('📋 Atualizando order_items para order_id:', id);
-
-        // 1. Deletar itens antigos
-        const { error: deleteError } = await supabase
-            .from('order_items')
-            .delete()
-            .eq('order_id', id);
-
-        if (deleteError) {
-            console.error('❌ Erro ao deletar itens antigos:', deleteError);
-            throw deleteError;
-        }
-
-        // 2. Inserir novos itens
-        const orderItems = orderData.items.map(item => ({
-            order_id: id,
-            product_id: item.productId,
-            quantity: item.quantity || 1,
-            price_at_time: item.price || 0,
-            size_selected: item.selectedSize || '',
-            color_selected: item.selectedColor || 'Padrão',
-            cost_price_at_time: item.costPrice || null
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItems);
-
-        if (itemsError) {
-            console.error('❌ Erro ao inserir novos itens:', itemsError);
-            throw itemsError;
-        }
-        console.log('✅ Itens da malinha atualizados com sucesso');
-    }
-
-    return toCamelCase(data);
 }
 
 /**

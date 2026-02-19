@@ -243,7 +243,29 @@ export function VendasForm() {
     }
 
     const addProduct = (product) => {
-        if (!product.stock || product.stock <= 0) {
+        // Helper to check effective stock (DB + currently in form)
+        // This is crucial for editing Pending sales that hold stock.
+        const checkStock = (p, color, size) => {
+            const variant = p.variants?.find(v => v.colorName === color)
+            const stockItem = variant?.sizeStock?.find(s => s.size === size)
+            const dbStock = stockItem?.quantity || 0
+
+            const inThisSale = formData.items
+                .filter(item => item.productId === p.id && item.selectedColor === color && item.selectedSize === size)
+                .reduce((acc, item) => acc + (item.quantity || 1), 0)
+
+            return (dbStock + inThisSale) > 0
+        }
+
+        const hasAnyStock = () => {
+            const inSaleTotal = formData.items
+                .filter(item => item.productId === product.id)
+                .reduce((acc, item) => acc + (item.quantity || 1), 0)
+
+            return ((product.stock || 0) + inSaleTotal) > 0
+        }
+
+        if (!hasAnyStock()) {
             toast.error('Produto sem estoque')
             return
         }
@@ -257,14 +279,17 @@ export function VendasForm() {
         if (hasVariants && !hasMultipleOptions) {
             const color = product.variants[0].colorName
             const size = product.variants[0].sizeStock?.[0]?.size
-            if (color && size) {
+            if (color && size && checkStock(product, color, size)) {
                 addItemToCart(product, color, size)
                 return
             }
         }
 
         if (hasVariants) {
-            const firstAvailable = product.variants.find(v => v.sizeStock?.some(s => s.quantity > 0))
+            // Find first available variant using effective stock
+            const firstAvailable = product.variants.find(v =>
+                v.sizeStock?.some(s => checkStock(product, v.colorName, s.size))
+            )
             setVariantModal({
                 open: true,
                 product,
@@ -1051,7 +1076,16 @@ export function VendasForm() {
                                     <p className="text-xs font-bold text-[#4A3B32]/50 uppercase mb-2">Cor</p>
                                     <div className="flex flex-wrap gap-2">
                                         {variantModal.product.variants?.map((v, i) => {
-                                            const hasStock = v.sizeStock?.some(s => s.quantity > 0)
+                                            // Calculate effective stock status (DB + In Form)
+                                            const hasStock = v.sizeStock?.some(s => {
+                                                const inSale = formData.items.filter(item =>
+                                                    item.productId === variantModal.product.id &&
+                                                    item.selectedColor === v.colorName &&
+                                                    item.selectedSize === s.size
+                                                ).reduce((acc, i) => acc + (i.quantity || 1), 0)
+                                                return (s.quantity + inSale) > 0
+                                            })
+
                                             return (
                                                 <button
                                                     key={i}
@@ -1088,30 +1122,42 @@ export function VendasForm() {
                                         <div className="grid grid-cols-4 gap-2">
                                             {variantModal.product.variants
                                                 ?.find(v => v.colorName === variantModal.selectedColor)
-                                                ?.sizeStock?.map((s, i) => (
-                                                    <button
-                                                        key={i}
-                                                        type="button"
-                                                        onClick={() => s.quantity > 0 && setVariantModal(prev => ({
-                                                            ...prev,
-                                                            selectedSize: s.size
-                                                        }))}
-                                                        disabled={s.quantity <= 0}
-                                                        className={cn(
-                                                            "py-3 rounded-xl text-sm font-bold transition-all",
-                                                            variantModal.selectedSize === s.size
-                                                                ? "bg-[#C75D3B] text-white"
-                                                                : s.quantity > 0
-                                                                    ? "bg-[#4A3B32]/5 text-[#4A3B32]"
-                                                                    : "bg-[#4A3B32]/5 text-[#4A3B32]/30"
-                                                        )}
-                                                    >
-                                                        {s.size}
-                                                        <span className="block text-[10px] font-normal opacity-60">
-                                                            {s.quantity > 0 ? `${s.quantity}un` : 'Esgotado'}
-                                                        </span>
-                                                    </button>
-                                                ))}
+                                                ?.sizeStock?.map((s, i) => {
+                                                    // Effective Stock Check
+                                                    const inSale = formData.items.filter(item =>
+                                                        item.productId === variantModal.product.id &&
+                                                        item.selectedColor === variantModal.selectedColor &&
+                                                        item.selectedSize === s.size
+                                                    ).reduce((acc, i) => acc + (i.quantity || 1), 0)
+
+                                                    const effectiveQty = (s.quantity || 0) + inSale
+                                                    const hasSizeStock = effectiveQty > 0
+
+                                                    return (
+                                                        <button
+                                                            key={i}
+                                                            type="button"
+                                                            onClick={() => hasSizeStock && setVariantModal(prev => ({
+                                                                ...prev,
+                                                                selectedSize: s.size
+                                                            }))}
+                                                            disabled={!hasSizeStock}
+                                                            className={cn(
+                                                                "py-3 rounded-xl text-sm font-bold transition-all",
+                                                                variantModal.selectedSize === s.size
+                                                                    ? "bg-[#C75D3B] text-white"
+                                                                    : hasSizeStock
+                                                                        ? "bg-[#4A3B32]/5 text-[#4A3B32]"
+                                                                        : "bg-[#4A3B32]/5 text-[#4A3B32]/30"
+                                                            )}
+                                                        >
+                                                            {s.size}
+                                                            <span className="block text-[10px] font-normal opacity-60">
+                                                                {hasSizeStock ? `${effectiveQty}un` : 'Esgotado'}
+                                                            </span>
+                                                        </button>
+                                                    )
+                                                })}
                                         </div>
                                     </motion.div>
                                 )}

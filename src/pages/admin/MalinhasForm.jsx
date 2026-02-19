@@ -120,20 +120,43 @@ export function MalinhasForm() {
     }
 
     const initiateAddProduct = (product, preSelectedSize = null) => {
-        if (!product.stock || product.stock <= 0) {
+        // Helper to check effective stock for a variant
+        const checkStock = (p, color, size) => {
+            const variant = p.variants?.find(v => v.colorName === color)
+            const stockItem = variant?.sizeStock?.find(s => s.size === size)
+            const dbStock = stockItem?.quantity || 0
+
+            const inMalinha = formData.items
+                .filter(item => item.productId === p.id && item.selectedColor === color && item.selectedSize === size)
+                .reduce((acc, item) => acc + (item.quantity || 1), 0)
+
+            return (dbStock + inMalinha) > 0
+        }
+
+        // Helper to check if ANY variant has stock
+        const hasAnyStock = () => {
+            // Simple fallback: if global stock > 0 OR if we have items in malinha
+            const inMalinhaTotal = formData.items
+                .filter(item => item.productId === product.id)
+                .reduce((acc, item) => acc + (item.quantity || 1), 0)
+
+            return ((product.stock || 0) + inMalinhaTotal) > 0
+        }
+
+        if (!hasAnyStock()) {
             toast.error('Produto sem estoque')
             return
         }
 
         const hasVariants = product.variants?.length > 0
 
-        // Se j tem tamanho pr-selecionado (clicou no boto de tamanho)
+        // Se já tem tamanho pré-selecionado (clicou no botão de tamanho)
         if (preSelectedSize && hasVariants) {
-            // Verifica quantas opes de cor existem para esse tamanho
-            const variantsWithSize = product.variants.filter(v => v.sizeStock?.some(s => s.size === preSelectedSize && s.quantity > 0))
+            // Verifica quantas opções de cor existem para esse tamanho, considerando stock efetivo
+            const variantsWithSize = product.variants.filter(v => checkStock(product, v.colorName, preSelectedSize))
 
             if (variantsWithSize.length > 1) {
-                // Mltiplas cores: Abre modal j com tamanho selecionado
+                // Múltiplas cores: Abre modal já com tamanho selecionado
                 setVariantModal({
                     open: true,
                     product,
@@ -142,9 +165,12 @@ export function MalinhasForm() {
                 })
                 return
             } else if (variantsWithSize.length === 1) {
-                // S uma cor: Adiciona direto
+                // Só uma cor: Adiciona direto
                 addItemToCart(product, variantsWithSize[0].colorName, preSelectedSize)
                 return
+            } else {
+                // Nenhuma cor com estoque para esse tamanho? (Raro se clicou no botão de tamanho validado)
+                // Falback para abrir modal
             }
         }
 
@@ -156,14 +182,18 @@ export function MalinhasForm() {
         if (hasVariants && !hasMultipleOptions) {
             const color = product.variants[0].colorName
             const size = product.variants[0].sizeStock?.[0]?.size
-            if (color && size) {
+            if (color && size && checkStock(product, color, size)) {
                 addItemToCart(product, color, size)
                 return
             }
         }
 
         if (hasVariants) {
-            const firstAvailable = product.variants.find(v => v.sizeStock?.some(s => s.quantity > 0))
+            // Find first available variant logic updated
+            const firstAvailable = product.variants.find(v =>
+                v.sizeStock?.some(s => checkStock(product, v.colorName, s.size))
+            )
+
             setVariantModal({
                 open: true,
                 product,
@@ -315,9 +345,18 @@ export function MalinhasForm() {
                         <div className="grid md:grid-cols-3 gap-3">
                             {filteredProducts.length > 0 ? (
                                 filteredProducts.map(product => {
-                                    const addedCount = formData.items.filter(item => item.productId === product.id).length
+                                    // Calculate quantity of this product CURRENTLY in the malinha (being edited/created)
+                                    // We add this back to the "global stock" to see if we can add MORE or change it.
+                                    const quantityInMalinha = formData.items
+                                        .filter(item => item.productId === product.id)
+                                        .reduce((acc, item) => acc + (item.quantity || 1), 0)
+
+                                    const addedCount = quantityInMalinha // For UI "added" state
                                     const isAdded = addedCount > 0
-                                    const canBeAdded = product.stock > 0
+
+                                    // Fix: Available stock = Database Stock + Stock Held By This Malinha
+                                    const effectiveStock = (product.stock || 0) + quantityInMalinha
+                                    const canBeAdded = effectiveStock > 0
 
                                     return (
                                         <motion.div
@@ -720,7 +759,16 @@ export function MalinhasForm() {
                                     <p className="text-xs font-bold text-[#4A3B32]/50 uppercase mb-2">Cor</p>
                                     <div className="flex flex-wrap gap-2">
                                         {variantModal.product.variants?.map((v, i) => {
-                                            const hasStock = v.sizeStock?.some(s => s.quantity > 0)
+                                            // Calculate if this variant has ANY stock (DB + Malinha)
+                                            const hasStock = v.sizeStock?.some(s => {
+                                                const inMalinha = formData.items.filter(item =>
+                                                    item.productId === variantModal.product.id &&
+                                                    item.selectedColor === v.colorName &&
+                                                    item.selectedSize === s.size
+                                                ).reduce((acc, i) => acc + (i.quantity || 1), 0)
+                                                return (s.quantity + inMalinha) > 0
+                                            })
+
                                             return (
                                                 <button
                                                     key={i}
@@ -729,7 +777,7 @@ export function MalinhasForm() {
                                                         ...prev,
                                                         selectedColor: v.colorName,
                                                         // Se mudou de cor e o tamanho atual não existe nessa cor, reseta tamanho
-                                                        selectedSize: (prev.selectedSize && v.sizeStock.some(s => s.size === prev.selectedSize && s.quantity > 0)) ? prev.selectedSize : null
+                                                        selectedSize: (prev.selectedSize && v.sizeStock.some(s => s.size === prev.selectedSize)) ? prev.selectedSize : null
                                                     }))}
                                                     disabled={!hasStock}
                                                     className={cn(
@@ -758,30 +806,42 @@ export function MalinhasForm() {
                                         <div className="grid grid-cols-4 gap-2">
                                             {variantModal.product.variants
                                                 ?.find(v => v.colorName === variantModal.selectedColor)
-                                                ?.sizeStock?.map((s, i) => (
-                                                    <button
-                                                        key={i}
-                                                        type="button"
-                                                        onClick={() => s.quantity > 0 && setVariantModal(prev => ({
-                                                            ...prev,
-                                                            selectedSize: s.size
-                                                        }))}
-                                                        disabled={s.quantity <= 0}
-                                                        className={cn(
-                                                            "py-3 rounded-xl text-sm font-bold transition-all",
-                                                            variantModal.selectedSize === s.size
-                                                                ? "bg-[#C75D3B] text-white"
-                                                                : s.quantity > 0
-                                                                    ? "bg-[#4A3B32]/5 text-[#4A3B32]"
-                                                                    : "bg-[#4A3B32]/5 text-[#4A3B32]/30"
-                                                        )}
-                                                    >
-                                                        {s.size}
-                                                        <span className="block text-[10px] font-normal opacity-60">
-                                                            {s.quantity > 0 ? `${s.quantity}un` : 'Esgotado'}
-                                                        </span>
-                                                    </button>
-                                                ))}
+                                                ?.sizeStock?.map((s, i) => {
+                                                    // Calculate effective stock for this size
+                                                    const inMalinha = formData.items.filter(item =>
+                                                        item.productId === variantModal.product.id &&
+                                                        item.selectedColor === variantModal.selectedColor &&
+                                                        item.selectedSize === s.size
+                                                    ).reduce((acc, i) => acc + (i.quantity || 1), 0)
+
+                                                    const effectiveQty = (s.quantity || 0) + inMalinha
+                                                    const hasSizeStock = effectiveQty > 0
+
+                                                    return (
+                                                        <button
+                                                            key={i}
+                                                            type="button"
+                                                            onClick={() => hasSizeStock && setVariantModal(prev => ({
+                                                                ...prev,
+                                                                selectedSize: s.size
+                                                            }))}
+                                                            disabled={!hasSizeStock}
+                                                            className={cn(
+                                                                "py-3 rounded-xl text-sm font-bold transition-all",
+                                                                variantModal.selectedSize === s.size
+                                                                    ? "bg-[#C75D3B] text-white"
+                                                                    : hasSizeStock
+                                                                        ? "bg-[#4A3B32]/5 text-[#4A3B32]"
+                                                                        : "bg-[#4A3B32]/5 text-[#4A3B32]/30"
+                                                            )}
+                                                        >
+                                                            {s.size}
+                                                            <span className="block text-[10px] font-normal opacity-60">
+                                                                {hasSizeStock ? `${effectiveQty}un` : 'Esgotado'}
+                                                            </span>
+                                                        </button>
+                                                    )
+                                                })}
                                         </div>
                                     </motion.div>
                                 )}

@@ -75,4 +75,68 @@ router.get('/', async (req, res) => {
     }
 })
 
+// Deletar venda
+router.delete('/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { error } = await supabase.from('vendas').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error) {
+        console.error('API Error deleting venda:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Atualizar venda (MISSING ROUTE ADDED)
+router.put('/:id', async (req, res) => {
+    const { id } = req.params;
+    const vendaData = req.body;
+    console.log(`📦 PUT /api/vendas/${id} - Updating sale`, vendaData);
+
+    try {
+        // Convert camelCase to snake_case for DB
+        const snakeData = toSnakeCase(vendaData); // Ensure toSnakeCase is imported or available helper is used
+
+        // Prepare record to update
+        // We carefully construct the object to avoid undefined values overriding existing ones if not intended, 
+        // but typically a PUT replaces or updates provided fields.
+
+        // Helper to check if value is valid for update
+        const isValid = (val) => val !== undefined;
+
+        const vendaRecord = {};
+        if (isValid(snakeData.customer_id)) vendaRecord.customer_id = snakeData.customer_id;
+        if (isValid(snakeData.total_value)) vendaRecord.total_value = snakeData.total_value;
+        if (isValid(snakeData.discount_amount)) vendaRecord.discount_amount = snakeData.discount_amount;
+        if (isValid(snakeData.original_total)) vendaRecord.original_total = snakeData.original_total;
+        if (isValid(snakeData.payment_method)) vendaRecord.payment_method = snakeData.payment_method;
+        if (isValid(snakeData.payment_status)) vendaRecord.payment_status = snakeData.payment_status;
+        if (isValid(snakeData.card_brand)) vendaRecord.card_brand = snakeData.card_brand;
+        if (isValid(snakeData.fee_percentage)) vendaRecord.fee_percentage = snakeData.fee_percentage;
+        if (isValid(snakeData.fee_amount)) vendaRecord.fee_amount = snakeData.fee_amount;
+        if (isValid(snakeData.net_amount)) vendaRecord.net_amount = snakeData.net_amount;
+        if (isValid(snakeData.is_installment)) vendaRecord.is_installment = snakeData.is_installment;
+        if (isValid(snakeData.num_installments)) vendaRecord.num_installments = snakeData.num_installments;
+        if (isValid(snakeData.entry_payment)) vendaRecord.entry_payment = snakeData.entry_payment;
+        if (isValid(snakeData.installment_start_date)) vendaRecord.installment_start_date = snakeData.installment_start_date;
+        if (isValid(snakeData.items)) vendaRecord.items = snakeData.items;
+
+        const { data, error } = await supabase
+            .from('vendas')
+            .update(vendaRecord)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        console.log('✅ Sale updated:', data);
+        res.json(toCamelCase(data)); // Ensure toCamelCase is available
+    } catch (error) {
+        console.error('❌ API Error updating venda:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 export default router

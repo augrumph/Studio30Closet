@@ -11,6 +11,7 @@ import { AnimatePresence } from 'framer-motion'
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
 import { trackPageView } from '@/lib/api/analytics'
 import { SEO } from '@/components/SEO'
+import { VersionCheck } from '@/components/VersionCheck'
 
 // ============================================================================
 // Analytics Tracker - Rastreia navegação entre páginas
@@ -110,6 +111,7 @@ function App() {
                             <LoadingBar />
                             <ScrollToTop />
                             <AnalyticsTracker />
+                            <VersionCheck />
                             <SEO />
                             <AnimatePresence mode="wait">
                                 <Suspense fallback={<PageLoader />}>

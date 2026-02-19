@@ -277,30 +277,10 @@ export const useAdminStore = create(
             updateOrder: async (id, orderData) => {
                 set({ ordersLoading: true, ordersError: null })
                 try {
-                    // Status que LIBERAM estoque (malinha finalizada/cancelada)
-                    const statusesThatReleaseStock = ['completed', 'cancelled', 'delivered'];
+                    // A lógica de transação (Release Old -> Reserve New) agora está no Backend (PUT /api/orders/:id)
+                    // O frontend apenas envia os dados e recebe a order atualizada.
 
-                    // 1. Buscar a malinha ATUAL para saber o que estornar
-                    // Tentamos pegar do estado local primeiro
-                    let currentOrder = get().orders.find(o => o.id === parseInt(id));
-                    if (!currentOrder || !currentOrder.items) {
-                        currentOrder = await getOrderByIdFromApi(id);
-                    }
-
-                    // 2. 🔓 Estornar estoque dos itens ANTIGOS se a malinha tinha estoque reservado
-                    if (currentOrder && currentOrder.items && !statusesThatReleaseStock.includes(currentOrder.status)) {
-                        console.log('🔓 Estornando estoque dos itens anteriores para atualização...');
-                        await releaseStockForMalinha(currentOrder.items);
-                    }
-
-                    // 3. Atualizar no banco
                     const updatedOrder = await updateOrder(id, orderData)
-
-                    // 4. 🔒 Reservar estoque dos NOVOS itens se o status mantém reserva
-                    if (orderData.items && orderData.items.length > 0 && !statusesThatReleaseStock.includes(orderData.status)) {
-                        console.log('🔒 Reservando estoque dos novos itens...');
-                        await reserveStockForMalinha(orderData.items);
-                    }
 
                     set(state => ({
                         orders: state.orders.map(o =>
@@ -309,7 +289,8 @@ export const useAdminStore = create(
                         ordersLoading: false
                     }))
 
-                    // Recarregar produtos
+                    // Recarregar produtos para garantir que a UI mostre o estoque correto
+                    // (pois o backend alterou o estoque)
                     get().loadProducts();
 
                     return { success: true, order: updatedOrder }

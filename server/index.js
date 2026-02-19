@@ -94,6 +94,7 @@ import expensesRouter from './routes/expenses.js'
 import analyticsRouter from './routes/analytics.js'
 import stockRouter from './routes/stock.js'
 import imagesRouter from './routes/images.js'
+import ordersRouter from './routes/orders.js'
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api/vendas', vendasRouter)
 app.use('/api/products', productsRouter)
@@ -107,6 +108,7 @@ app.use('/api/expenses', expensesRouter)
 app.use('/api/analytics', analyticsRouter)
 app.use('/api/stock', stockRouter)
 app.use('/api/images', imagesRouter)
+app.use('/api/orders', ordersRouter) // Nova rota para orders + email
 
 // Health Check
 app.get('/health', (req, res) => {

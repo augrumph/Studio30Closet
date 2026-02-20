@@ -448,7 +448,6 @@ export function ProductModal({ product: initialProduct, isOpen, onClose }) {
                             "text-[11px] text-white/60 font-medium tracking-wide mt-2 uppercase",
                             isMobile ? "text-center" : "text-left"
                         )}>
-                            Mais de 45 peças entregues
                         </p>
 
                         {(!currentVariant.sizeStock?.some(s => s.quantity > 0)) && (

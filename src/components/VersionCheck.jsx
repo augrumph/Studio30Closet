@@ -20,17 +20,39 @@ export function VersionCheck() {
                 if (savedVersion && savedVersion !== currentVersion) {
                     console.log(`🔄 New version available: ${currentVersion} (Current: ${savedVersion})`);
 
-                    toast.info('Nova atualização disponível!', {
-                        description: 'O sistema foi atualizado. Clique para carregar as novidades.',
-                        duration: Infinity,
-                        action: {
-                            label: 'Atualizar Agora',
-                            onClick: () => {
-                                localStorage.setItem('app_version', currentVersion);
-                                window.location.reload(true);
-                            }
-                        }
-                    });
+                    // Check if user is on a protected route (form/edit)
+                    const isFormRoute = window.location.pathname.includes('/new') ||
+                        window.location.pathname.includes('/edit') ||
+                        window.location.pathname.match(/\/admin\/products\/\d+/);
+
+                    if (isFormRoute) {
+                        console.log('⏳ Update pending: User is on a form route. Waiting for navigation/idle.');
+                        return;
+                    }
+
+                    // Perform silent update after short delay of idleness OR when tab is hidden
+                    let updateTimeout;
+
+                    const performUpdate = () => {
+                        console.log('🚀 Performing automatic update...');
+                        localStorage.setItem('app_version', currentVersion);
+                        window.location.reload(true);
+                    };
+
+                    const handleVisibilityChange = () => {
+                        if (document.hidden) performUpdate();
+                    };
+
+                    // Update when tab is hidden (most non-disruptive)
+                    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+                    // Or update after 2 minutes even if visible, if not on a form
+                    updateTimeout = setTimeout(performUpdate, 2 * 60 * 1000);
+
+                    return () => {
+                        document.removeEventListener('visibilitychange', handleVisibilityChange);
+                        clearTimeout(updateTimeout);
+                    };
                 } else if (!savedVersion) {
                     // First load, just save it
                     localStorage.setItem('app_version', currentVersion);

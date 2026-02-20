@@ -7,6 +7,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { supabase } from '@/lib/supabase'
 import { getCollections } from '@/lib/api/collections'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 export function CollectionDetail() {
     const { collectionId } = useParams()
@@ -295,7 +296,7 @@ export function CollectionDetail() {
                                                 <div className="flex items-center gap-4">
                                                     <div className="relative">
                                                         <img
-                                                            src={product.images?.[0] || '/placeholder.png'}
+                                                            src={getOptimizedImageUrl(product.images?.[0], 100) || '/placeholder.png'}
                                                             alt={product.name}
                                                             className="w-14 h-14 rounded-2xl object-cover bg-gray-100 shadow-sm pointer-events-none"
                                                         />
@@ -372,7 +373,7 @@ export function CollectionDetail() {
                                             >
                                                 <div className="flex items-center gap-4">
                                                     <img
-                                                        src={product.images?.[0] || '/placeholder.png'}
+                                                        src={getOptimizedImageUrl(product.images?.[0], 100) || '/placeholder.png'}
                                                         alt={product.name}
                                                         className="w-14 h-14 rounded-2xl object-cover bg-gray-100 shadow-sm pointer-events-none"
                                                     />

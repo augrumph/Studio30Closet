@@ -1,6 +1,14 @@
 import express from 'express'
-import { supabase } from '../supabase.js'
+import { pool, getClient } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { updateProductStock } from '../stock-utils.js'
+
+const router = express.Router()
+
+// EmailJS Configuration
+const SERVICE_ID = 'service_3h2tyup'
+const TEMPLATE_ID = 'template_wghvxdb'
+const PUBLIC_KEY = 'DkaN2O0h-27lkoW94'
 
 // Helper: Convert to snake_case
 function toSnakeCase(obj) {
@@ -13,349 +21,459 @@ function toSnakeCase(obj) {
     }, {})
 }
 
-// Helper: Update Product Stock (Replicated from Frontend)
-async function updateProductStock(productId, quantity, color, size, type = 'reserve') {
-    // type: 'reserve' (subtract) | 'restore' (add)
-    const multiplier = type === 'reserve' ? -1 : 1
-    const qtyChange = quantity * multiplier
+// GET /api/orders - List Orders
+router.get('/', async (req, res) => {
+    const {
+        page = 1,
+        pageSize = 30, // Alterado para 30 padrão (igual frontend original)
+        status = 'all',
+        searchTerm = ''
+    } = req.query
 
-    console.log(`📦 Stock Update [${type.toUpperCase()}]: Product ${productId}, Qty: ${qtyChange}, Color: ${color}, Size: ${size}`)
-
-    // 1. Fetch Product
-    const { data: product, error: fetchError } = await supabase
-        .from('products')
-        .select('id, variants, stock, name, color')
-        .eq('id', productId)
-        .single()
-
-    if (fetchError || !product) {
-        throw new Error(`Product ${productId} not found: ${fetchError?.message}`)
-    }
-
-    // 2. Find Variant
-    let variants = product.variants || []
-    if (!variants.length) throw new Error(`Product ${productId} has no variants`)
-
-    const normalize = s => String(s || '').trim().toLowerCase()
-
-    // Find Color Variant
-    let variantIndex = variants.findIndex(v => normalize(v.colorName) === normalize(color))
-    if (variantIndex === -1) {
-        // Only use default if exact color not found AND it matches default color logic?
-        // Let's replicate frontend strictly: check default color
-        variantIndex = variants.findIndex(v => v.colorName === product.color)
-        if (variantIndex === -1) {
-            throw new Error(`Color "${color}" not found in product ${product.name}`)
-        }
-    }
-    const variant = variants[variantIndex]
-
-    // Find Size in Variant
-    const sizeIndex = variant.sizeStock?.findIndex(s => normalize(s.size) === normalize(size))
-    if (sizeIndex === undefined || sizeIndex === -1) {
-        throw new Error(`Size "${size}" not found in color "${variant.colorName}"`)
-    }
-
-    // 3. Check / Update Stock
-    const currentQty = variant.sizeStock[sizeIndex].quantity || 0
-
-    // Only check if RESERVING
-    if (type === 'reserve' && currentQty < quantity) {
-        throw new Error(`Insufficient stock for ${product.name} (${variant.colorName}/${size}). Available: ${currentQty}`)
-    }
-
-    // Update Quantity
-    variant.sizeStock[sizeIndex].quantity = currentQty + qtyChange
-
-    // Recalculate Total Stock
-    const newTotalStock = variants.reduce((acc, v) =>
-        acc + (v.sizeStock || []).reduce((sum, s) => sum + (s.quantity || 0), 0), 0
-    )
-
-    // 4. Save to DB
-    const { error: updateError } = await supabase
-        .from('products')
-        .update({ variants, stock: newTotalStock, updated_at: new Date().toISOString() })
-        .eq('id', productId)
-
-    if (updateError) throw new Error(`Failed to update stock for Product ${productId}: ${updateError.message}`)
-
-    // 5. Log Movement (Optional but good)
-    supabase.from('stock_movements').insert({
-        product_id: productId,
-        quantity: quantity,
-        movement_type: type === 'reserve' ? 'saida_malinha' : 'entrada_devolucao',
-        notes: `Malinha Update (${type}): ${color}/${size}`
-    }).then(({ error }) => {
-        if (error) console.error('Error logging stock movement:', error)
-    })
-
-    return true
-}
-
-const router = express.Router()
-
-// EMAILJS CONFIG (Should be in .env but hardcoding for now based on src/lib/email-service.js)
-const SERVICE_ID = 'service_3h2tyup'
-const TEMPLATE_ID = 'template_wghvxdb'
-const PUBLIC_KEY = 'DkaN2O0h-27lkoW94'
-const PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY // Optional if using public key is enough for REST, but usually need private for server-side safely?
-// Actually EmailJS REST API uses: service_id, template_id, user_id (public key), template_params, accessToken (private key if allowed).
-// Let's stick to Public Key pattern if it works, or just use fetch.
-
-router.post('/', async (req, res) => {
-    console.log('📦 POST /api/orders - Creating Order & Sending Email');
-    const orderData = req.body;
+    const offset = (page - 1) * pageSize // page params already parsed by express query but better to ensure
+    const limit = Number(pageSize)
 
     try {
-        // 1. Create Order in Supabase (We can reuse the logic from src/lib/api/orders.js but better to do it here directly)
-        // Check for customer creation logic... it's complex in frontend. 
-        // STRATEGY: Receive the FULL payload including customer info?
-        // OR: Expect frontend to have created customer/reservation?
-        // Let's assume frontend does the heavy lifting of structure calculation and sends the final payload ready for DB
-        // BUT the plan was to move logic to backend.
-        // For SPEED and ROBUSTNESS: Let's create a "proxy" endpoint that does the DB insert AND email.
+        let whereConditions = []
+        let params = []
+        let paramIndex = 1
 
-        // Simpler: The frontend `createOrder` is very complex (creates customer, reserves stock).
-        // Replicating ALL that in Node.js right now might introduce bugs if I miss a step.
-        // ALTERNATIVE: Keep creation in Frontend, but call this endpoint JUST for Email? 
-        // NO, user said "trigger email IMMEDIATELY".
-        // BEST APPROACH: Frontend calls this endpoint. This endpoint calls Supabase to Insert. Then triggers Email.
+        if (status && status !== 'all') {
+            whereConditions.push(`o.status = $${paramIndex++}`)
+            params.push(status)
+        }
 
-        // Let's try to just handle the Insert + Email here.
-        // We need to handle:
-        // 1. Customer (find or create)
-        // 2. Order Insert
-        // 3. Items Insert
+        if (searchTerm) {
+            whereConditions.push(`(c.name ILIKE $${paramIndex} OR o.id::text ILIKE $${paramIndex})`)
+            params.push(`%${searchTerm}%`)
+            paramIndex++
+        }
 
-        // Extract data
-        const { customer, items, ...orderFields } = orderData;
+        const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
 
-        let customerId = orderFields.customerId;
+        const { rows } = await pool.query(`
+            SELECT
+                COUNT(*) OVER() as total_count,
+                o.*,
+                c.name as customer_name,
+                c.phone as customer_phone,
+                c.id as customer_id_joined,
+                json_build_object(
+                    'id', c.id,
+                    'name', c.name,
+                    'phone', c.phone
+                ) as customer
+            FROM orders o
+            LEFT JOIN customers c ON c.id = o.customer_id
+            ${whereClause}
+            ORDER BY o.created_at DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `, [...params, limit, offset])
 
-        // 1. Handle Customer (Simplified check)
+        const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
+
+        const orders = rows.map(row => {
+            const camelRow = toCamelCase(row)
+            return {
+                ...camelRow,
+                orderNumber: `#${String(row.id).padStart(6, '0')}`,
+                // Garantir estrutura do customer
+                customer: camelRow.customer || { name: 'Cliente desconhecido' }
+            }
+        })
+
+        res.json({
+            orders,
+            total,
+            page: Number(page),
+            pageSize: limit,
+            totalPages: Math.ceil(total / limit)
+        })
+
+    } catch (error) {
+        console.error("❌ Erro ao listar orders:", error)
+        res.status(500).json({ error: 'Erro ao buscar orders' })
+    }
+})
+
+// GET /api/orders/:id - Get Order Details
+router.get('/:id', async (req, res) => {
+    const { id } = req.params
+
+    try {
+        // Query to get order + items + customer + products details for items
+        const { rows } = await pool.query(`
+            SELECT
+                o.*,
+                json_build_object(
+                    'id', c.id,
+                    'name', c.name,
+                    'phone', c.phone,
+                    'email', c.email,
+                    'cpf', c.cpf,
+                    'address', c.address
+                ) as customer,
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'id', oi.id,
+                            'orderId', oi.order_id,
+                            'productId', oi.product_id,
+                            'quantity', oi.quantity,
+                            'selectedSize', oi.size_selected,
+                            'selectedColor', oi.color_selected,
+                            'priceAtTime', oi.price_at_time,
+                            'price', oi.price_at_time, -- alias legacy
+                            'productName', p.name,
+                            'images', p.images,
+                            'stock', p.stock
+                        )
+                    )
+                    FROM order_items oi
+                    LEFT JOIN products p ON p.id = oi.product_id
+                    WHERE oi.order_id = o.id
+                ) as items
+            FROM orders o
+            LEFT JOIN customers c ON c.id = o.customer_id
+            WHERE o.id = $1
+        `, [id])
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Order não encontrada' })
+        }
+
+        const order = toCamelCase(rows[0])
+
+        // Enrich items if needed, or ensure array
+        if (!order.items) order.items = []
+
+        // Formatar image principal para frontend
+        order.items = order.items.map(item => ({
+            ...item,
+            image: item.images && item.images.length > 0 ? item.images[0] : 'https://via.placeholder.com/150'
+        }))
+
+        res.json(order)
+
+    } catch (error) {
+        console.error(`❌ Erro ao buscar order ${id}:`, error)
+        res.status(500).json({ error: 'Erro ao buscar order' })
+    }
+})
+router.post('/', async (req, res) => {
+    console.log('📦 POST /api/orders - Creating Order & Sending Email')
+    const orderData = req.body
+
+    const client = await getClient()
+
+    try {
+        await client.query('BEGIN')
+
+        const { customer, items, ...orderFields } = orderData
+        let customerId = orderFields.customerId
+
+        // 1. Handle Customer
         if (!customerId && customer) {
-            // Try to find by CPF
-            const cpf = customer.cpf?.replace(/\D/g, '');
+            const cpf = customer.cpf?.replace(/\D/g, '')
             if (cpf) {
-                const { data: existing } = await supabase.from('customers').select('id').eq('cpf', cpf).maybeSingle();
-                if (existing) customerId = existing.id;
+                const { rows: existing } = await client.query(
+                    'SELECT id FROM customers WHERE cpf = $1',
+                    [cpf]
+                )
+                if (existing.length > 0) customerId = existing[0].id
             }
 
-            // If not, create
             if (!customerId) {
-                const { data: newCust, error: custErr } = await supabase.from('customers').insert([{
-                    name: customer.name,
-                    cpf: cpf,
-                    phone: customer.phone,
-                    email: customer.email,
-                    addresses: customer.addresses
-                }]).select().single();
-
-                if (custErr) throw custErr;
-                customerId = newCust.id;
+                const { rows: newCust } = await client.query(
+                    `INSERT INTO customers (name, cpf, phone, email, addresses)
+                     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+                    [
+                        customer.name,
+                        cpf || null,
+                        customer.phone || null,
+                        customer.email || null,
+                        customer.addresses ? JSON.stringify(customer.addresses) : '[]'
+                    ]
+                )
+                customerId = newCust[0].id
             }
         }
 
-        if (!customerId) throw new Error('Customer ID required');
+        if (!customerId) throw new Error('Customer ID required')
 
         // 2. Insert Order
-        const { data: newOrder, error: orderErr } = await supabase.from('orders').insert([{
-            customer_id: customerId,
-            status: orderFields.status || 'pending',
-            total_value: orderFields.totalValue,
-            delivery_date: orderFields.deliveryDate,
-            pickup_date: orderFields.pickupDate
-        }]).select().single();
-
-        if (orderErr) throw orderErr;
+        const { rows: newOrder } = await client.query(
+            `INSERT INTO orders (customer_id, status, total_value, delivery_date, pickup_date)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [
+                customerId,
+                orderFields.status || 'pending',
+                orderFields.totalValue || 0,
+                orderFields.deliveryDate || null,
+                orderFields.pickupDate || null
+            ]
+        )
 
         // 3. Insert Items
         if (items && items.length) {
-            const orderItems = items.map(item => ({
-                order_id: newOrder.id,
-                product_id: item.productId,
-                quantity: item.quantity,
-                size_selected: item.selectedSize,
-                color_selected: item.selectedColor,
-                price_at_time: item.price
-            }));
+            for (const item of items) {
+                await client.query(
+                    `INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time)
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [
+                        newOrder[0].id,
+                        item.productId,
+                        item.quantity,
+                        item.selectedSize || null,
+                        item.selectedColor || null,
+                        item.price || 0
+                    ]
+                )
 
-            const { error: itemsErr } = await supabase.from('order_items').insert(orderItems);
-            if (itemsErr) throw itemsErr;
-        }
-
-        // 4. Send Email (Server Side)
-        // Using fetch to EmailJS API
-        const emailData = {
-            service_id: SERVICE_ID,
-            template_id: TEMPLATE_ID,
-            user_id: PUBLIC_KEY,
-            template_params: {
-                subject: `Nova malinha para ${customer.name} [${items.length} peças]`,
-                customer_name: customer.name,
-                items_count: items.length,
-                order_link: `https://studio30closet.com.br/admin/malinhas`,
-                order_id: newOrder.id,
-                to_email: 'studio30closet@gmail.com'
+                // Reserve stock for each item
+                if (item.selectedColor && item.selectedSize) {
+                    await updateProductStock(
+                        client,
+                        item.productId,
+                        item.quantity,
+                        item.selectedColor,
+                        item.selectedSize,
+                        'reserve'
+                    )
+                }
             }
-        };
-
-        const emailRes = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(emailData)
-        });
-
-        if (emailRes.ok) {
-            console.log('✅ Email sent successfully');
-        } else {
-            console.error('❌ Email failed:', await emailRes.text());
         }
 
-        res.json({ success: true, order: newOrder });
+        await client.query('COMMIT')
+
+
+
+        res.json({ success: true, order: toCamelCase(newOrder[0]) })
 
     } catch (error) {
-        console.error('❌ Create Order Error:', error);
-        res.status(500).json({ error: error.message });
+        await client.query('ROLLBACK')
+        console.error('❌ Create Order Error:', error)
+        res.status(500).json({ error: error.message })
+    } finally {
+        client.release()
     }
-});
+})
 
-// PUT /api/orders/:id - Transactional Update
+// PUT /api/orders/:id - Update Order with Transaction
 router.put('/:id', async (req, res) => {
-    const { id } = req.params;
-    const orderData = req.body;
-    console.log(`📦 PUT /api/orders/${id} - Updating Order Transactionally`);
+    const { id } = req.params
+    const orderData = req.body
+    console.log(`📦 PUT /api/orders/${id} - Updating Order Transactionally`)
+
+    const client = await getClient()
 
     try {
-        // 1. Fetch Current Order Items (to restore stock)
-        const { data: currentOrder, error: fetchError } = await supabase
-            .from('orders')
-            .select(`
-                status,
-                order_items (
-                    product_id, quantity, size_selected, color_selected
-                )
-            `)
-            .eq('id', id)
-            .single();
+        await client.query('BEGIN')
 
-        if (fetchError || !currentOrder) throw new Error('Order not found');
+        // 1. Fetch Current Order Items
+        const { rows: currentOrderRows } = await client.query(
+            `SELECT
+                o.status,
+                json_agg(
+                    json_build_object(
+                        'product_id', oi.product_id,
+                        'quantity', oi.quantity,
+                        'size_selected', oi.size_selected,
+                        'color_selected', oi.color_selected
+                    )
+                ) FILTER (WHERE oi.id IS NOT NULL) as order_items
+             FROM orders o
+             LEFT JOIN order_items oi ON oi.order_id = o.id
+             WHERE o.id = $1
+             GROUP BY o.id, o.status`,
+            [id]
+        )
 
-        // Logic: 
-        // IF status releases stock (completed/cancelled), NO RESTORE needed unless we are changing status BACK to pending?
-        // BUT assume edit happens primarily on 'pending'/'active' orders.
-        // IF "Active" -> "Active" (just editing items):
-        //    Restore ALL old items.
-        //    Reserve ALL new items.
-        // This is safest.
+        if (currentOrderRows.length === 0) throw new Error('Order not found')
 
-        const statusesThatHoldStock = ['pending', 'active', 'shipped'];
-        const isHoldingStock = statusesThatHoldStock.includes(currentOrder.status);
+        const currentOrder = currentOrderRows[0]
+
+        // 2. Restore stock from old items
+        const statusesThatHoldStock = ['pending', 'active', 'shipped']
+        const isHoldingStock = statusesThatHoldStock.includes(currentOrder.status)
 
         if (isHoldingStock && currentOrder.order_items?.length) {
-            console.log(`🔓 Restoring stock for ${currentOrder.order_items.length} old items...`);
+            console.log(`🔓 Restoring stock for ${currentOrder.order_items.length} old items...`)
             for (const item of currentOrder.order_items) {
-                await updateProductStock(
-                    item.product_id,
-                    item.quantity,
-                    item.color_selected,
-                    item.size_selected,
-                    'restore'
-                );
+                if (item.color_selected && item.size_selected) {
+                    await updateProductStock(
+                        client,
+                        item.product_id,
+                        item.quantity,
+                        item.color_selected,
+                        item.size_selected,
+                        'restore'
+                    )
+                }
             }
         }
 
-        // 2. Update Order Details
-        const { items, customer, ...fieldsToUpdate } = orderData;
-        const snakeFields = toSnakeCase(fieldsToUpdate);
+        // 3. Update Order Details
+        const { items, customer, ...fieldsToUpdate } = orderData
+        const snakeFields = toSnakeCase(fieldsToUpdate)
 
-        // Filter valid fields only
-        const validFields = [
-            'status', 'total_value', 'delivery_date', 'pickup_date',
-            'customer_id', 'converted_to_sale', 'payment_status'
-        ];
-        const updatePayload = {};
+        const updateParts = []
+        const updateValues = []
+        let paramIndex = 1
+
+        const validFields = ['status', 'total_value', 'delivery_date', 'pickup_date', 'customer_id', 'converted_to_sale', 'payment_status']
+
         validFields.forEach(field => {
-            if (snakeFields[field] !== undefined) updatePayload[field] = snakeFields[field];
-        });
+            if (snakeFields[field] !== undefined) {
+                updateParts.push(`${field} = $${paramIndex}`)
+                updateValues.push(snakeFields[field])
+                paramIndex++
+            }
+        })
 
-        const { data: updatedOrder, error: updateError } = await supabase
-            .from('orders')
-            .update(updatePayload)
-            .eq('id', id)
-            .select()
-            .single();
+        if (updateParts.length > 0) {
+            updateValues.push(id)
+            await client.query(
+                `UPDATE orders SET ${updateParts.join(', ')} WHERE id = $${paramIndex}`,
+                updateValues
+            )
+        }
 
-        if (updateError) throw updateError;
-
-        // 3. Replace Items (Delete Old -> Insert New)
-        // (Only if items array is provided in payload. If null, we assume no change in items?)
-        // The frontend sends items array on edit.
+        // 4. Replace Items
         if (items && Array.isArray(items)) {
-            console.log(`🔄 Replacing items with ${items.length} new items...`);
+            console.log(`🔄 Replacing items with ${items.length} new items...`)
 
-            // Delete old
-            const { error: deleteError } = await supabase
-                .from('order_items')
-                .delete()
-                .eq('order_id', id);
+            // Delete old items
+            await client.query('DELETE FROM order_items WHERE order_id = $1', [id])
 
-            if (deleteError) throw deleteError;
-
-            // Prepare new
-            const newOrderItems = items.map(item => ({
-                order_id: id,
-                product_id: item.productId,
-                quantity: item.quantity,
-                size_selected: item.selectedSize,
-                color_selected: item.selectedColor,
-                price_at_time: item.price
-            }));
-
-            // Insert new
-            if (newOrderItems.length > 0) {
-                const { error: insertError } = await supabase
-                    .from('order_items')
-                    .insert(newOrderItems);
-
-                if (insertError) throw insertError;
+            // Insert new items
+            if (items.length > 0) {
+                for (const item of items) {
+                    await client.query(
+                        `INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time)
+                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [
+                            id,
+                            item.productId,
+                            item.quantity,
+                            item.selectedSize || null,
+                            item.selectedColor || null,
+                            item.price || 0
+                        ]
+                    )
+                }
             }
 
-            // 4. Reserve Stock for New Items
-            // Only if new status holds stock
-            const newStatus = updatePayload.status || currentOrder.status;
-            const willHoldStock = statusesThatHoldStock.includes(newStatus);
+            // 5. Reserve Stock for New Items
+            const newStatus = snakeFields.status || currentOrder.status
+            const willHoldStock = statusesThatHoldStock.includes(newStatus)
 
-            if (willHoldStock && newOrderItems.length > 0) {
-                console.log(`🔒 Reserving stock for ${newOrderItems.length} new items...`);
-                for (const item of newOrderItems) {
-                    try {
+            if (willHoldStock && items.length > 0) {
+                console.log(`🔒 Reserving stock for ${items.length} new items...`)
+                for (const item of items) {
+                    if (item.selectedColor && item.selectedSize) {
                         await updateProductStock(
-                            item.product_id,
+                            client,
+                            item.productId,
                             item.quantity,
-                            item.color_selected,
-                            item.size_selected,
+                            item.selectedColor,
+                            item.selectedSize,
                             'reserve'
-                        );
-                    } catch (reserveErr) {
-                        console.error(`❌ Reservation Logic Error: ${reserveErr.message}`);
-                        // CRITICAL: We should rollback here!
-                        // For now, re-throwing to fail the request but data might be partially inconsistent.
-                        // Ideally: Re-restore this item? Or fail hard.
-                        throw new Error(`Failed to reserve stock: ${reserveErr.message}`);
+                        )
                     }
                 }
             }
         }
 
-        console.log('✅ Order updated successfully');
-        res.json(toCamelCase(updatedOrder));
+        await client.query('COMMIT')
+
+        // Fetch updated order
+        const { rows: finalOrder } = await client.query('SELECT * FROM orders WHERE id = $1', [id])
+
+        console.log('✅ Order updated successfully')
+        res.json(toCamelCase(finalOrder[0]))
 
     } catch (error) {
-        console.error('❌ Update Order Error:', error);
-        res.status(500).json({ error: error.message });
+        await client.query('ROLLBACK')
+        console.error('❌ Update Order Error:', error)
+        res.status(500).json({ error: error.message })
+    } finally {
+        client.release()
     }
-});
+})
 
-export default router;
+// DELETE /api/orders/:id - Delete Order
+router.delete('/:id', async (req, res) => {
+    const { id } = req.params
+    console.log(`📦 DELETE /api/orders/${id} - Deleting Order`)
+
+    const client = await getClient()
+
+    try {
+        await client.query('BEGIN')
+
+        // 1. Fetch Order to check stock
+        const { rows: orderRows } = await client.query(
+            `SELECT
+                o.status,
+                json_agg(
+                    json_build_object(
+                        'product_id', oi.product_id,
+                        'quantity', oi.quantity,
+                        'size_selected', oi.size_selected,
+                        'color_selected', oi.color_selected
+                    )
+                ) FILTER (WHERE oi.id IS NOT NULL) as order_items
+             FROM orders o
+             LEFT JOIN order_items oi ON oi.order_id = o.id
+             WHERE o.id = $1
+             GROUP BY o.id, o.status`,
+            [id]
+        )
+
+        if (orderRows.length === 0) {
+            await client.query('ROLLBACK')
+            return res.status(404).json({ error: 'Order not found' })
+        }
+
+        const order = orderRows[0]
+        const statusesThatHoldStock = ['pending', 'active', 'shipped']
+        const isHoldingStock = statusesThatHoldStock.includes(order.status)
+
+        // 2. Restore Stock if needed
+        if (isHoldingStock && order.order_items && order.order_items.length > 0) {
+            console.log(`🔓 Restoring stock for deleted order ${id}...`)
+            for (const item of order.order_items) {
+                if (item.color_selected && item.size_selected) {
+                    await updateProductStock(
+                        client,
+                        item.product_id,
+                        item.quantity,
+                        item.color_selected,
+                        item.size_selected,
+                        'restore'
+                    )
+                }
+            }
+        }
+
+        // 3. Delete Items
+        await client.query('DELETE FROM order_items WHERE order_id = $1', [id])
+
+        // 4. Delete Order
+        await client.query('DELETE FROM orders WHERE id = $1', [id])
+
+        await client.query('COMMIT')
+        console.log(`✅ Order ${id} deleted successfully`)
+        res.json({ success: true })
+
+    } catch (error) {
+        await client.query('ROLLBACK')
+        console.error('❌ Delete Order Error:', error)
+        res.status(500).json({ error: error.message })
+    } finally {
+        client.release()
+    }
+})
+
+export default router

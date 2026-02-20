@@ -3,12 +3,13 @@ import { ArrowRight, Heart, Sparkles, Users2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import amorImg from '../images/amor.jpeg'
 import { useSiteImagesContext } from '@/contexts/SiteImagesContext'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 export function About() {
     const { images } = useSiteImagesContext()
 
     // Usar imagem do banco ou fallback para a imagem local
-    const aboutHeroImage = images?.about_hero_image || amorImg
+    const aboutHeroImage = images?.about_hero_image ? getOptimizedImageUrl(images.about_hero_image, 600) : amorImg
 
     return (
         <div className="w-full bg-[#FDFBF7]">

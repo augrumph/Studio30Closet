@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 export function MalinhasForm() {
     const { id } = useParams()
@@ -389,7 +390,7 @@ export function MalinhasForm() {
                                                 }}
                                             >
                                                 <img
-                                                    src={product.images?.[0]}
+                                                    src={getOptimizedImageUrl(product.images?.[0], 400)}
                                                     alt={product.name}
                                                     className="w-full h-full object-cover transition-transform group-hover/image:scale-105"
                                                 />
@@ -608,7 +609,7 @@ export function MalinhasForm() {
                                                         className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group hover:bg-gray-100 transition-all"
                                                     >
                                                         <div className="w-12 h-14 rounded-lg overflow-hidden bg-white flex-shrink-0">
-                                                            <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                                                            <img src={getOptimizedImageUrl(item.image, 200)} alt={item.productName} className="w-full h-full object-cover" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-xs font-bold text-[#4A3B32] truncate">{item.productName}</p>
@@ -733,7 +734,7 @@ export function MalinhasForm() {
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 rounded-xl bg-[#4A3B32]/5 overflow-hidden">
                                         {variantModal.product.images?.[0] ? (
-                                            <img src={variantModal.product.images[0]} alt="" className="w-full h-full object-cover" />
+                                            <img src={getOptimizedImageUrl(variantModal.product.images[0], 200)} alt="" className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
                                                 <Package className="w-5 h-5 text-[#4A3B32]/20" />

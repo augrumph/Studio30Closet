@@ -2,15 +2,16 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Check, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useSiteImagesContext } from '@/contexts/SiteImagesContext'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 export function HowItWorks() {
     const { images } = useSiteImagesContext()
 
-    // URLs das imagens do banco ou fallback
-    const step1Image = images?.step_1_image || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80'
-    const step2Image = images?.step_2_image || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'
-    const step3Image = images?.step_3_image || 'https://images.unsplash.com/photo-1558171813-4c088753af8f?w=600&q=80'
-    const step4Image = images?.step_4_image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&q=80'
+    // URLs das imagens do banco com proxy/otimização
+    const step1Image = images?.step_1_image ? getOptimizedImageUrl(images.step_1_image, 600) : 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80'
+    const step2Image = images?.step_2_image ? getOptimizedImageUrl(images.step_2_image, 600) : 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'
+    const step3Image = images?.step_3_image ? getOptimizedImageUrl(images.step_3_image, 600) : 'https://images.unsplash.com/photo-1558171813-4c088753af8f?w=600&q=80'
+    const step4Image = images?.step_4_image ? getOptimizedImageUrl(images.step_4_image, 600) : 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&q=80'
 
     return (
         <div className="w-full bg-[#FDFBF7]">

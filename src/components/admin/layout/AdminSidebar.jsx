@@ -49,7 +49,7 @@ export function AdminSidebar({ onClose, isCollapsed = false, onToggleCollapse })
                     {!isCollapsed && (
                         <Link to="/admin/dashboard" onClick={handleLinkClick} className="flex items-center gap-3 flex-1">
                             <img
-                                src="/logomarca.PNG"
+                                src="/logomarca.webp"
                                 alt="Studio 30 Closet"
                                 className="h-12 object-contain"
                             />

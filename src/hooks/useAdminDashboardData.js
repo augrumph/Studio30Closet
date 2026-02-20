@@ -81,43 +81,70 @@ const fetchAllProducts = async () => {
     return data
 }
 
-export function useAdminDashboardData() {
+export function useAdminDashboardData(filters = {}) {
+    const { period = 'all', start, end } = filters
     const staleTime = 1000 * 60 * 5 // 5 minutos de cache
 
     const vendasQuery = useQuery({
         queryKey: ['admin', 'all-vendas'],
-        queryFn: fetchAllVendas,
+        queryFn: async () => {
+            const res = await fetch('/api/vendas?pageSize=1000') // Buscar todas para analytics
+            if (!res.ok) throw new Error('Erro ao buscar vendas')
+            const data = await res.json()
+            return data.vendas || []
+        },
         staleTime,
     })
 
     const ordersQuery = useQuery({
         queryKey: ['admin', 'all-orders'],
-        queryFn: fetchAllOrders,
+        queryFn: async () => {
+            const res = await fetch('/api/orders')
+            if (!res.ok) throw new Error('Erro ao buscar pedidos')
+            return res.json()
+        },
         staleTime,
     })
 
     const productsQuery = useQuery({
         queryKey: ['admin', 'all-products'],
-        queryFn: fetchAllProducts,
+        queryFn: async () => {
+            const res = await fetch('/api/products')
+            if (!res.ok) throw new Error('Erro ao buscar produtos')
+            return res.json()
+        },
         staleTime,
     })
 
     const suppliersQuery = useQuery({
         queryKey: ['admin', 'all-suppliers'],
-        queryFn: fetchAllSuppliers,
+        queryFn: async () => {
+            const res = await fetch('/api/suppliers')
+            if (!res.ok) throw new Error('Erro ao buscar fornecedores')
+            return res.json()
+        },
         staleTime,
     })
 
     const purchasesQuery = useQuery({
         queryKey: ['admin', 'all-purchases'],
-        queryFn: fetchAllPurchases,
+        queryFn: async () => {
+            const res = await fetch('/api/purchases')
+            if (!res.ok) throw new Error('Erro ao buscar compras')
+            return res.json()
+        },
         staleTime,
     })
 
     const dashboardMetricsQuery = useQuery({
-        queryKey: ['admin', 'dashboard-metrics-api'],
+        queryKey: ['admin', 'dashboard-metrics-api', period, start, end],
         queryFn: async () => {
-            const response = await fetch('/api/dashboard/stats')
+            const params = new URLSearchParams()
+            if (period) params.append('period', period)
+            if (start) params.append('start', start)
+            if (end) params.append('end', end)
+
+            const response = await fetch(`/api/dashboard/stats?${params.toString()}`)
             if (!response.ok) throw new Error('Falha ao buscar métricas do backend')
             return response.json()
         },
@@ -132,20 +159,19 @@ export function useAdminDashboardData() {
         purchasesQuery.isLoading ||
         dashboardMetricsQuery.isLoading
 
-    // isInitialLoading = true apenas quando NUNCA teve dados (primeira carga)
     const isInitialLoading =
         vendasQuery.data === undefined && vendasQuery.isLoading
 
     return {
         vendas: vendasQuery.data || [],
-        orders: ordersQuery.data || [],
-        products: productsQuery.data || [],
-        suppliers: suppliersQuery.data || [],
-        purchases: purchasesQuery.data || [],
+        orders: ordersQuery.data?.orders || [],
+        products: productsQuery.data?.items || [],
+        suppliers: suppliersQuery.data?.items || [],
+        purchases: purchasesQuery.data?.items || [],
         dashboardMetricsRaw: dashboardMetricsQuery.data || {},
-        customers: [], // Placeholder se precisar
+        customers: [],
         isLoading,
-        isInitialLoading, // ← Usar isso para skeleton
+        isInitialLoading,
         refetchAll: () => {
             vendasQuery.refetch()
             ordersQuery.refetch()
@@ -156,3 +182,5 @@ export function useAdminDashboardData() {
         }
     }
 }
+
+

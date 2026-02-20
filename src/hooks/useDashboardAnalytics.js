@@ -16,10 +16,14 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
         }).reverse()
 
         return last7Days.map(date => {
-            const daySales = vendas.filter(v => v.createdAt?.startsWith(date))
+            const daySales = vendas.filter(v => {
+                const vDateStr = v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt || '')
+                return vDateStr.startsWith(date)
+            })
                 .reduce((acc, v) => acc + (v.totalValue || 0), 0)
             return { date, value: daySales }
         })
+
     }, [vendas])
 
     const maxWeeklyValue = Math.max(...weeklyData.map(d => d.value), 100)
@@ -33,9 +37,11 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
             weekEnd.setDate(weekEnd.getDate() + 6)
 
             const weekSales = vendas.filter(v => {
-                const vDate = new Date(v.createdAt?.split('T')[0])
+                const vDateStr = v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt || '')
+                const vDate = new Date(vDateStr.split('T')[0])
                 return vDate >= weekStart && vDate <= weekEnd
             }).reduce((acc, v) => acc + (v.totalValue || 0), 0)
+
 
             weeks.push({
                 label: `Sem ${4 - i}`,
@@ -55,12 +61,14 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
 
         return sortedVendas.map(v => {
             accumulated += (v.totalValue || 0)
+            const vDateStr = v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt || '')
             return {
-                date: v.createdAt?.split('T')[0],
+                date: vDateStr.split('T')[0],
                 value: accumulated,
                 saleDate: new Date(v.createdAt)
             }
         })
+
     }, [vendas])
 
     const maxAccumulatedValue = Math.max(...accumulatedData.map(d => d.value), 100)

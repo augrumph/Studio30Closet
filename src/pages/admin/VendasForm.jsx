@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { DatePicker } from '@/components/ui/DatePicker'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 // Configuração dos métodos de pagamento
 const PAYMENT_METHODS = [
@@ -827,7 +828,7 @@ export function VendasForm() {
                                                     >
                                                         <div className="w-12 h-12 rounded-lg bg-white overflow-hidden flex-shrink-0">
                                                             {product.images?.[0] ? (
-                                                                <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
+                                                                <img src={getOptimizedImageUrl(product.images[0], 400)} alt="" className="w-full h-full object-cover" />
                                                             ) : (
                                                                 <div className="w-full h-full flex items-center justify-center">
                                                                     <Package className="w-5 h-5 text-[#4A3B32]/20" />
@@ -1050,7 +1051,7 @@ export function VendasForm() {
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 rounded-xl bg-[#4A3B32]/5 overflow-hidden">
                                         {variantModal.product.images?.[0] ? (
-                                            <img src={variantModal.product.images[0]} alt="" className="w-full h-full object-cover" />
+                                            <img src={getOptimizedImageUrl(variantModal.product.images[0], 200)} alt="" className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
                                                 <Package className="w-5 h-5 text-[#4A3B32]/20" />

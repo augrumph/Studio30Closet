@@ -1,10 +1,8 @@
+
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { supabase } from '@/lib/supabase'
+import { apiClient } from '@/lib/api-client'
 
-
-
-// Extending the store definition to include validateSession properly inside the object
 export const useAuthStore = create(
     persist(
         (set, get) => ({
@@ -14,58 +12,26 @@ export const useAuthStore = create(
             loginError: null,
             isLoading: false,
 
-            // Login com email e senha via Supabase Auth
+            // Login com email e senha via API Própria
             login: async (email, password) => {
                 set({ isLoading: true, loginError: null })
 
                 try {
-                    // Usar Supabase Auth padrão
-                    const { data, error } = await supabase.auth.signInWithPassword({
-                        email: email,
-                        password: password
+                    const data = await apiClient('/auth/login', {
+                        method: 'POST',
+                        body: { email, password }
                     })
 
-                    if (error) {
-                        console.error('Erro no Supabase Auth:', error)
-                        let errorMessage = 'Erro ao conectar. Tente novamente.'
-                        
-                        // Mensagens de erro mais amigáveis
-                        if (error.message === 'Invalid login credentials') {
-                            errorMessage = 'Email ou senha inválidos'
-                        } else if (error.message.includes('Email not confirmed')) {
-                            errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.'
-                        }
+                    // Se falhar o apiClient lança erro, caindo no catch
 
-                        set({
-                            isAuthenticated: false,
-                            user: null,
-                            loginError: errorMessage,
-                            isLoading: false
-                        })
-                        return { success: false, error: errorMessage }
-                    }
+                    const { token, user } = data
 
-                    if (!data.user) {
-                         set({
-                            isAuthenticated: false,
-                            user: null,
-                            loginError: 'Erro inesperado: Usuário não retornado',
-                            isLoading: false
-                        })
-                        return { success: false, error: 'Erro inesperado' }
-                    }
-
-                    // Login bem-sucedido
-                    const adminUser = {
-                        id: data.user.id,
-                        email: data.user.email,
-                        name: data.user.user_metadata?.name || 'Administrador',
-                        role: 'admin'
-                    }
+                    // Salvar token para uso no apiClient
+                    localStorage.setItem('auth_token', token)
 
                     set({
                         isAuthenticated: true,
-                        user: adminUser,
+                        user: user,
                         loginError: null,
                         isLoading: false
                     })
@@ -73,24 +39,22 @@ export const useAuthStore = create(
 
                 } catch (error) {
                     console.error('Erro no login:', error)
+                    const errorMessage = error.message || 'Erro ao fazer login. Tente novamente.'
+
                     set({
                         isAuthenticated: false,
                         user: null,
-                        loginError: 'Erro ao fazer login. Tente novamente.',
+                        loginError: errorMessage,
                         isLoading: false
                     })
-                    return { success: false, error: 'Erro ao fazer login' }
+                    return { success: false, error: errorMessage }
                 }
             },
 
             // Logout
             logout: async () => {
-                try {
-                    await supabase.auth.signOut()
-                } catch (error) {
-                    console.error('Erro ao fazer logout:', error)
-                }
-                
+                localStorage.removeItem('auth_token')
+
                 set({
                     isAuthenticated: false,
                     user: null,
@@ -98,35 +62,25 @@ export const useAuthStore = create(
                 })
             },
 
-            // Validar sessão no servidor (segurança extra)
+            // Validar sessão no servidor
             validateSession: async () => {
-                // Verificar sessão real do Supabase
+                const token = localStorage.getItem('auth_token')
+                if (!token) {
+                    set({ isAuthenticated: false, user: null })
+                    return false
+                }
+
                 try {
-                    const { data: { session }, error } = await supabase.auth.getSession()
+                    const data = await apiClient('/auth/me')
 
-                    if (error || !session) {
-                         // Se não tem sessão váida no Supabase, desloga localmente
-                        set({ isAuthenticated: false, user: null })
-                        return false
-                    }
-
-                    // Se tem sessão, sincroniza se necessário (opcional)
-                   const { user } = get()
-                   if (!user) {
-                        set({
-                            isAuthenticated: true,
-                            user: {
-                                id: session.user.id,
-                                email: session.user.email,
-                                name: session.user.user_metadata?.name || 'Administrador',
-                                role: 'admin'
-                            }
-                        })
-                   }
-
+                    set({
+                        isAuthenticated: true,
+                        user: data.user
+                    })
                     return true
                 } catch (error) {
-                    console.error('Erro ao validar sessão:', error)
+                    console.error('Sessão inválida:', error)
+                    localStorage.removeItem('auth_token')
                     set({ isAuthenticated: false, user: null })
                     return false
                 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { AdminSidebar } from './AdminSidebar'
 import { AdminTopbar } from './AdminTopbar'
-import { Toaster } from 'sonner'
+
 import { motion, AnimatePresence } from 'framer-motion'
 import { CommandPalette } from '../CommandPalette'
 import { PageSkeleton } from '../PageSkeleton'
@@ -49,21 +49,6 @@ export function AdminLayout() {
     return (
         <div className="flex h-screen bg-[#FAF8F5] overflow-hidden max-w-screen">
             <CommandPalette />
-            <Toaster
-                richColors
-                position="top-center"
-                toastOptions={{
-                    className: 'shadow-xl border border-gray-100 rounded-2xl',
-                    style: {
-                        background: 'white',
-                        fontFamily: 'Inter, system-ui, sans-serif',
-                        fontSize: '0.875rem',
-                        fontWeight: 500,
-                        color: '#4A3B32',
-                    },
-                    duration: 4000,
-                }}
-            />
 
             {/* Desktop Sidebar - Collapsible */}
             <div className="hidden lg:block">

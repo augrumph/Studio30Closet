@@ -1,108 +1,85 @@
 import express from 'express'
-import { supabase } from '../supabase.js'
+import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 
 const router = express.Router()
 
-/**
- * GET /api/expenses
- * Listagem de despesas fixas com paginação e busca
- */
+// GET /api/expenses - List expenses
 router.get('/', async (req, res) => {
-    const {
-        page = 1,
-        pageSize = 20,
-        search = ''
-    } = req.query
-
-    const from = (page - 1) * pageSize
-    const to = from + Number(pageSize) - 1
-
-    console.log(`💸 Expenses API: Buscando página ${page} [Search: '${search}']`)
+    const { page = 1, pageSize = 20, search = '' } = req.query
+    const offset = (page - 1) * pageSize
+    const limit = Number(pageSize)
 
     try {
-        let query = supabase
-            .from('fixed_expenses')
-            .select('*', { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range(from, to)
+        let whereClause = ''
+        let params = []
+        let paramIndex = 1
 
         if (search) {
-            query = query.or(`name.ilike.%${search}%,category.ilike.%${search}%,notes.ilike.%${search}%`)
+            whereClause = `WHERE (name ILIKE $${paramIndex} OR category ILIKE $${paramIndex} OR notes ILIKE $${paramIndex})`
+            params.push(`%${search}%`)
+            paramIndex++
         }
 
-        const { data, error, count } = await query
+        const { rows } = await pool.query(`
+            SELECT COUNT(*) OVER() as total_count, *
+            FROM fixed_expenses
+            ${whereClause}
+            ORDER BY created_at DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex+1}
+        `, [...params, limit, offset])
 
-        if (error) throw error
+        const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
 
         res.json({
-            items: (data || []).map(toCamelCase),
-            total: count || 0,
+            items: rows.map(toCamelCase),
+            total,
             page: Number(page),
-            pageSize: Number(pageSize),
-            totalPages: Math.ceil((count || 0) / Number(pageSize))
+            pageSize,
+            totalPages: Math.ceil(total / pageSize)
         })
-
     } catch (error) {
-        console.error("Erro na API de Despesas:", error)
-        res.status(500).json({ message: 'Erro interno do servidor ao buscar despesas' })
+        console.error("❌ Erro na API de Despesas:", error)
+        res.status(500).json({ message: 'Erro interno do servidor' })
     }
 })
 
-/**
- * GET /api/expenses/metrics
- * Métricas gerais (total mensal filtrado)
- */
+// GET /api/expenses/metrics - Get expenses metrics
 router.get('/metrics', async (req, res) => {
     const { search = '' } = req.query
 
     try {
-        let query = supabase
-            .from('fixed_expenses')
-            .select('value')
+        let whereClause = ''
+        let params = []
 
         if (search) {
-            query = query.or(`name.ilike.%${search}%,category.ilike.%${search}%,notes.ilike.%${search}%`)
+            whereClause = 'WHERE (name ILIKE $1 OR category ILIKE $1 OR notes ILIKE $1)'
+            params.push(`%${search}%`)
         }
 
-        const { data, error } = await query
+        const { rows } = await pool.query(`
+            SELECT
+                COUNT(*) as count,
+                COALESCE(SUM(value), 0) as total_value
+            FROM fixed_expenses
+            ${whereClause}
+        `, params)
 
-        if (error) throw error
-
-        // Sum values
-        const totalValue = data.reduce((sum, item) => sum + (parseFloat(item.value) || 0), 0)
-
-        res.json({
-            count: data.length,
-            totalValue
-        })
-
+        res.json(toCamelCase(rows[0]))
     } catch (error) {
-        console.error("Erro na API de Métricas de Despesas:", error)
-        res.status(500).json({ message: 'Erro ao buscar métricas de despesas' })
+        console.error("❌ Erro ao buscar métricas de despesas:", error)
+        res.status(500).json({ message: 'Erro ao buscar métricas' })
     }
 })
 
-/**
- * GET /api/expenses/:id
- * Detalhes da despesa
- */
+// GET /api/expenses/:id - Get expense
 router.get('/:id', async (req, res) => {
-    const { id } = req.params
-
     try {
-        const { data, error } = await supabase
-            .from('fixed_expenses')
-            .select('*')
-            .eq('id', id)
-            .single()
-
-        if (error) throw error
-
-        res.json(toCamelCase(data))
-
+        const { rows } = await pool.query('SELECT * FROM fixed_expenses WHERE id = $1', [req.params.id])
+        if (rows.length === 0) return res.status(404).json({ error: 'Despesa não encontrada' })
+        res.json(toCamelCase(rows[0]))
     } catch (error) {
-        console.error(`Erro ao buscar despesa ${id}:`, error)
+        console.error("❌ Erro ao buscar despesa:", error)
         res.status(500).json({ message: 'Erro ao buscar despesa' })
     }
 })

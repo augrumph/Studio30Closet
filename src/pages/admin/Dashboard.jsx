@@ -30,25 +30,31 @@ import { DashboardSkeleton } from '@/components/admin/PageSkeleton'
 // import { MidiInsights } from '@/components/admin/MidiInsights' // Temporariamente oculto
 
 export function Dashboard() {
+    const [periodFilter, setPeriodFilter] = useState('all')
+    const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
+    const [showParcelinhasModal, setShowParcelinhasModal] = useState(false)
+
+
     // ⚡ REACT QUERY: Carregamento otimizado de todos os dados necessários
     const {
         vendas,
         products,
         orders,
-        customers, // Se necessário para contagem
+        customers,
         purchases,
         suppliers,
         dashboardMetricsRaw,
         isLoading: isLoadingData,
-        isInitialLoading, // ← Usar para skeleton
+        isInitialLoading,
         refetchAll
-    } = useAdminDashboardData()
+    } = useAdminDashboardData({
+        period: periodFilter,
+        start: customDateRange.start,
+        end: customDateRange.end
+    })
 
     const [currentTime, setCurrentTime] = useState(new Date())
-    // const [dashboardData, setDashboardData] = useState(null) // REMOVIDO: Vem do hook
-    const [periodFilter, setPeriodFilter] = useState('all')
-    const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
-    const [showParcelinhasModal, setShowParcelinhasModal] = useState(false)
+
 
     // Helper para converter filtro do dashboard para filtro de analytics
     const getAnalyticsRange = () => {
@@ -124,17 +130,29 @@ export function Dashboard() {
         })
     }, [vendas, periodFilter, customDateRange])
 
-    // Usar hooks de cálculo (MANTIDOS INTACTOS para garantir precisão)
-    const financialMetrics = useDashboardMetrics({
-        filteredVendas,
-        allVendas: vendas,
-        orders,
-        purchases,
-        dashboardData: dashboardMetricsRaw,
-        periodDays,
-        periodFilter,
-        customDateRange
-    })
+    // ⚡ BFF METRICS: Usar dados pré-calculados do backend para garantir precisão e consistência
+    const financialMetrics = useMemo(() => {
+        const raw = dashboardMetricsRaw || {}
+        const summary = raw.summary || {}
+        const operational = raw.operational || {}
+        const cashFlow = raw.cashFlow || {}
+
+        return {
+            ...summary,
+            ...operational,
+            ...cashFlow,
+            toReceiveAmount: cashFlow.valorDevedores || 0, // Mapeamento para o componente
+            toReceiveCount: operational.totalDevedores || 0,
+            costWarnings: operational.costWarnings || 0,
+            receivedAmount: cashFlow.receivedAmount || 0,
+            totalSalesCount: operational.totalSalesCount || 0,
+            averageTicket: operational.averageTicket || 0,
+            netRevenue: summary.netRevenue || 0,
+            netMarginPercent: summary.netMarginPercent || 0,
+            cashFlowDetails: cashFlow.cashFlowDetails || { inflows: [], outflows: [] }
+        }
+    }, [dashboardMetricsRaw])
+
 
     const {
         weeklyData,

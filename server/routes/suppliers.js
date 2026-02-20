@@ -1,72 +1,60 @@
 import express from 'express'
-import { supabase } from '../supabase.js'
+import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 
 const router = express.Router()
 
-/**
- * GET /api/suppliers
- * Listagem de fornecedores com paginação e busca
- */
+// GET /api/suppliers - List suppliers with pagination
 router.get('/', async (req, res) => {
-    const {
-        page = 1,
-        pageSize = 20,
-        search = ''
-    } = req.query
-
-    const from = (page - 1) * pageSize
-    const to = from + Number(pageSize) - 1
+    const { page = 1, pageSize = 20, search = '' } = req.query
+    const offset = (page - 1) * pageSize
+    const limit = Number(pageSize)
 
     console.log(`🏭 Suppliers API: Buscando página ${page} [Search: '${search}']`)
 
     try {
-        let query = supabase
-            .from('suppliers')
-            .select('*', { count: 'exact' })
-            .order('name', { ascending: true })
-            .range(from, to)
+        let whereClause = ''
+        let params = []
+        let paramIndex = 1
 
         if (search) {
-            query = query.or(`name.ilike.%${search}%,cnpj.ilike.%${search}%,city.ilike.%${search}%`)
+            whereClause = `WHERE (name ILIKE $${paramIndex} OR cnpj ILIKE $${paramIndex} OR city ILIKE $${paramIndex})`
+            params.push(`%${search}%`)
+            paramIndex++
         }
 
-        const { data, error, count } = await query
+        const { rows } = await pool.query(`
+            SELECT COUNT(*) OVER() as total_count, *
+            FROM suppliers
+            ${whereClause}
+            ORDER BY name ASC
+            LIMIT $${paramIndex} OFFSET $${paramIndex+1}
+        `, [...params, limit, offset])
 
-        if (error) throw error
+        const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
 
         res.json({
-            items: (data || []).map(toCamelCase),
-            total: count || 0,
+            items: rows.map(toCamelCase),
+            total,
             page: Number(page),
-            pageSize: Number(pageSize),
-            totalPages: Math.ceil((count || 0) / Number(pageSize))
+            pageSize,
+            totalPages: Math.ceil(total / pageSize)
         })
-
     } catch (error) {
-        console.error("Erro na API de Fornecedores:", error)
-        res.status(500).json({ message: 'Erro interno do servidor ao buscar fornecedores' })
+        console.error("❌ Erro na API de Fornecedores:", error)
+        res.status(500).json({ message: 'Erro interno do servidor' })
     }
 })
 
-/**
- * GET /api/suppliers/:id
- * Detalhes do fornecedor
- */
+// GET /api/suppliers/:id - Get supplier details
 router.get('/:id', async (req, res) => {
     const { id } = req.params
     try {
-        const { data, error } = await supabase
-            .from('suppliers')
-            .select('*')
-            .eq('id', id)
-            .single()
-
-        if (error) throw error
-
-        res.json(toCamelCase(data))
+        const { rows } = await pool.query('SELECT * FROM suppliers WHERE id = $1', [id])
+        if (rows.length === 0) return res.status(404).json({ error: 'Fornecedor não encontrado' })
+        res.json(toCamelCase(rows[0]))
     } catch (error) {
-        console.error(`Erro ao buscar fornecedor ${id}:`, error)
+        console.error(`❌ Erro ao buscar fornecedor ${id}:`, error)
         res.status(500).json({ message: 'Erro ao buscar fornecedor' })
     }
 })

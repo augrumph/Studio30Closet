@@ -1,142 +1,281 @@
 import express from 'express'
-import { supabase } from '../supabase.js'
+import { pool, getClient } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { updateProductStock } from '../stock-utils.js'
 
 const router = express.Router()
 
-// Listagem de Vendas com Paginação e Filtros
+// GET /api/vendas - Listar vendas
 router.get('/', async (req, res) => {
     const {
         page = 1,
-        pageSize = 20,
-        search = '',
+        pageSize = 50,
         status = 'all',
+        method = 'all',
+        search = '',
+        dateFilter = 'all',
         startDate,
         endDate
     } = req.query
 
-    const from = (page - 1) * pageSize
-    const to = from + Number(pageSize) - 1
+    const offset = (page - 1) * pageSize
+    const limit = Number(pageSize)
 
-    console.log(`📦 Vendas API: Buscando página ${page} [Tamanho: ${pageSize}]`)
+    console.log(`🛍️ Vendas API: page=${page}, status=${status}, method=${method}, dateFilter=${dateFilter}, search="${search}"`)
 
     try {
-        let query = supabase
-            .from('vendas')
-            .select(`
-                *,
-                customers(id, name)
-            `, { count: 'exact' }) // Pegar o total real para paginação no front
-            .order('created_at', { ascending: false })
-            .range(from, to)
+        let whereConditions = []
+        let params = []
+        let paramIndex = 1
 
-        // Filtros
+        // Filtro de status de pagamento
         if (status !== 'all') {
-            query = query.eq('payment_status', status)
+            whereConditions.push(`v.payment_status = $${paramIndex++}`)
+            params.push(status)
         }
 
-        if (startDate) {
-            query = query.gte('created_at', startDate)
+        // Filtro de método de pagamento
+        if (method !== 'all') {
+            whereConditions.push(`v.payment_method = $${paramIndex++}`)
+            params.push(method)
         }
 
-        if (endDate) {
-            query = query.lte('created_at', endDate)
+        // Filtro de busca por cliente
+        if (search && search.trim()) {
+            whereConditions.push(`c.name ILIKE $${paramIndex++}`)
+            params.push(`%${search.trim()}%`)
         }
 
-        if (search) {
-            // No Supabase, para filtrar via join table e manter o tipo Venda,
-            // podemos usar a sintaxe de filtro em colunas relacionadas
-            query = query.or(`customer_name.ilike.%${search}%,customers.name.ilike.%${search}%`)
+        // Filtro de data rápido
+        let computedStartDate = startDate
+        let computedEndDate = endDate
+
+        if (dateFilter === 'today') {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            computedStartDate = today.toISOString()
+            computedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+        } else if (dateFilter === 'month') {
+            const now = new Date()
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+            computedStartDate = firstDay.toISOString()
+            computedEndDate = new Date().toISOString()
         }
 
-        const { data, count, error } = await query
+        if (computedStartDate) {
+            whereConditions.push(`v.created_at >= $${paramIndex++}`)
+            params.push(computedStartDate)
+        }
 
-        if (error) throw error
+        if (computedEndDate) {
+            whereConditions.push(`v.created_at <= $${paramIndex++}`)
+            params.push(computedEndDate)
+        }
 
-        // Normalização para o Frontend usando toCamelCase
-        const items = data.map(v => {
-            const camelData = toCamelCase(v)
-            // Adiciona o nome do cliente do relacionamento
-            camelData.customerName = v.customers?.name || camelData.customerName
-            return camelData
+        const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
+
+        const { rows } = await pool.query(`
+            SELECT
+                COUNT(*) OVER() as total_count,
+                v.*,
+                c.name as customer_name,
+                c.phone as customer_phone
+            FROM vendas v
+            LEFT JOIN customers c ON c.id = v.customer_id
+            ${whereClause}
+            ORDER BY v.created_at DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `, [...params, limit, offset])
+
+        const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
+
+        // Mapear e limpar dados, removendo total_count de cada registro
+        const vendas = rows.map(row => {
+            const { total_count, ...venda } = row
+            const camelVenda = toCamelCase(venda)
+
+            // Converter campos numéricos para números
+            return {
+                ...camelVenda,
+                id: parseInt(camelVenda.id) || camelVenda.id,
+                customerId: parseInt(camelVenda.customerId) || null,
+                orderId: parseInt(camelVenda.orderId) || null,
+                totalValue: parseFloat(camelVenda.totalValue) || 0,
+                costPrice: parseFloat(camelVenda.costPrice) || null,
+                feePercentage: parseFloat(camelVenda.feePercentage) || 0,
+                feeAmount: parseFloat(camelVenda.feeAmount) || 0,
+                netAmount: parseFloat(camelVenda.netAmount) || 0,
+                numInstallments: parseInt(camelVenda.numInstallments) || 1,
+                entryPayment: parseFloat(camelVenda.entryPayment) || 0,
+                discountAmount: parseFloat(camelVenda.discountAmount) || 0,
+                originalTotal: parseFloat(camelVenda.originalTotal) || 0
+            }
         })
 
         res.json({
-            items,
-            total: count,
+            vendas,
+            total,
             page: Number(page),
             pageSize: Number(pageSize),
-            totalPages: Math.ceil(count / pageSize)
+            totalPages: Math.ceil(total / pageSize)
         })
-
-    } catch (err) {
-        console.error('❌ Erro na API de Vendas:', err)
-        res.status(500).json({ error: 'Erro ao buscar vendas' })
+    } catch (error) {
+        console.error('❌ Erro ao listar vendas:', error)
+        res.status(500).json({ error: 'Erro ao listar vendas' })
     }
 })
 
-// Deletar venda
-router.delete('/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
-        const { error } = await supabase.from('vendas').delete().eq('id', id);
-        if (error) throw error;
-        res.json({ success: true });
-    } catch (error) {
-        console.error('API Error deleting venda:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+// GET /api/vendas/:id - Detalhes da venda
+router.get('/:id', async (req, res) => {
+    const { id } = req.params
 
-// Atualizar venda (MISSING ROUTE ADDED)
+    try {
+        const { rows } = await pool.query(`
+            SELECT
+                v.*,
+                c.name as customer_name,
+                c.phone as customer_phone,
+                c.email as customer_email
+            FROM vendas v
+            LEFT JOIN customers c ON c.id = v.customer_id
+            WHERE v.id = $1
+        `, [id])
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Venda não encontrada' })
+        }
+
+        res.json(toCamelCase(rows[0]))
+    } catch (error) {
+        console.error(`❌ Erro ao buscar venda ${id}:`, error)
+        res.status(500).json({ error: 'Erro ao buscar venda' })
+    }
+})
+
+// POST /api/vendas - Criar venda
+router.post('/', async (req, res) => {
+    const {
+        customerId,
+        orderId,
+        totalValue,
+        costPrice,
+        items,
+        paymentMethod,
+        cardBrand,
+        feePercentage,
+        feeAmount,
+        netAmount,
+        paymentStatus,
+        isInstallment,
+        numInstallments,
+        entryPayment,
+        installmentStartDate,
+        discountAmount,
+        originalTotal
+    } = req.body
+
+    const client = await getClient()
+
+    try {
+        await client.query('BEGIN')
+
+        // 1. Inserir Venda (dentro da transação)
+        const { rows } = await client.query(`
+            INSERT INTO vendas (
+                customer_id, order_id, total_value, cost_price, items,
+                payment_method, card_brand, fee_percentage, fee_amount, net_amount,
+                payment_status, is_installment, num_installments, entry_payment,
+                installment_start_date, discount_amount, original_total
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            RETURNING *
+        `, [
+            customerId, orderId || null, totalValue, costPrice || null,
+            items ? JSON.stringify(items) : '[]',
+            paymentMethod, cardBrand || null, feePercentage || 0, feeAmount || 0, netAmount || totalValue,
+            paymentStatus || 'pending', isInstallment || false, numInstallments || 1,
+            entryPayment || 0, installmentStartDate || null, discountAmount || 0, originalTotal || totalValue
+        ])
+
+        const novaVenda = rows[0]
+
+        // 2. Atualizar Estoque (Sempre, pois se vier de malinha, a malinha vai liberar a reserva ao mudar status)
+        if (items && items.length > 0) {
+            console.log(`📦 Venda ${novaVenda.id} - Baixando estoque de ${items.length} itens...`)
+            for (const item of items) {
+                // Tenta pegar cor/tamanho de várias propriedades possíveis para robustez
+                const color = item.selectedColor || item.colorSelected || item.color || 'Padrão'
+                const size = item.selectedSize || item.sizeSelected || item.size || 'Único'
+                const qty = item.quantity || 1
+
+                if (item.productId) {
+                    await updateProductStock(
+                        client,
+                        item.productId,
+                        qty,
+                        color,
+                        size,
+                        'reserve' // 'reserve' decrementa o estoque (saída)
+                    )
+                }
+            }
+        }
+
+        await client.query('COMMIT')
+
+        res.status(201).json(toCamelCase(novaVenda))
+    } catch (error) {
+        await client.query('ROLLBACK')
+        console.error('❌ Erro ao criar venda:', error)
+        res.status(500).json({ error: error.message || 'Erro ao criar venda' })
+    } finally {
+        client.release()
+    }
+})
+
+// PUT /api/vendas/:id - Atualizar venda
 router.put('/:id', async (req, res) => {
-    const { id } = req.params;
-    const vendaData = req.body;
-    console.log(`📦 PUT /api/vendas/${id} - Updating sale`, vendaData);
+    const { id } = req.params
+    const { paymentStatus, paymentMethod, totalValue, netAmount } = req.body
 
     try {
-        // Convert camelCase to snake_case for DB
-        const snakeData = toSnakeCase(vendaData); // Ensure toSnakeCase is imported or available helper is used
+        const { rows } = await pool.query(`
+            UPDATE vendas SET
+                payment_status = COALESCE($1, payment_status),
+                payment_method = COALESCE($2, payment_method),
+                total_value = COALESCE($3, total_value),
+                net_amount = COALESCE($4, net_amount)
+            WHERE id = $5
+            RETURNING *
+        `, [paymentStatus, paymentMethod, totalValue, netAmount, id])
 
-        // Prepare record to update
-        // We carefully construct the object to avoid undefined values overriding existing ones if not intended, 
-        // but typically a PUT replaces or updates provided fields.
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Venda não encontrada' })
+        }
 
-        // Helper to check if value is valid for update
-        const isValid = (val) => val !== undefined;
-
-        const vendaRecord = {};
-        if (isValid(snakeData.customer_id)) vendaRecord.customer_id = snakeData.customer_id;
-        if (isValid(snakeData.total_value)) vendaRecord.total_value = snakeData.total_value;
-        if (isValid(snakeData.discount_amount)) vendaRecord.discount_amount = snakeData.discount_amount;
-        if (isValid(snakeData.original_total)) vendaRecord.original_total = snakeData.original_total;
-        if (isValid(snakeData.payment_method)) vendaRecord.payment_method = snakeData.payment_method;
-        if (isValid(snakeData.payment_status)) vendaRecord.payment_status = snakeData.payment_status;
-        if (isValid(snakeData.card_brand)) vendaRecord.card_brand = snakeData.card_brand;
-        if (isValid(snakeData.fee_percentage)) vendaRecord.fee_percentage = snakeData.fee_percentage;
-        if (isValid(snakeData.fee_amount)) vendaRecord.fee_amount = snakeData.fee_amount;
-        if (isValid(snakeData.net_amount)) vendaRecord.net_amount = snakeData.net_amount;
-        if (isValid(snakeData.is_installment)) vendaRecord.is_installment = snakeData.is_installment;
-        if (isValid(snakeData.num_installments)) vendaRecord.num_installments = snakeData.num_installments;
-        if (isValid(snakeData.entry_payment)) vendaRecord.entry_payment = snakeData.entry_payment;
-        if (isValid(snakeData.installment_start_date)) vendaRecord.installment_start_date = snakeData.installment_start_date;
-        if (isValid(snakeData.items)) vendaRecord.items = snakeData.items;
-
-        const { data, error } = await supabase
-            .from('vendas')
-            .update(vendaRecord)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        console.log('✅ Sale updated:', data);
-        res.json(toCamelCase(data)); // Ensure toCamelCase is available
+        res.json(toCamelCase(rows[0]))
     } catch (error) {
-        console.error('❌ API Error updating venda:', error);
-        res.status(500).json({ error: error.message });
+        console.error(`❌ Erro ao atualizar venda ${id}:`, error)
+        res.status(500).json({ error: 'Erro ao atualizar venda' })
     }
-});
+})
+
+// DELETE /api/vendas/:id - Deletar venda
+router.delete('/:id', async (req, res) => {
+    const { id } = req.params
+
+    try {
+        const { rowCount } = await pool.query('DELETE FROM vendas WHERE id = $1', [id])
+
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Venda não encontrada' })
+        }
+
+        res.json({ message: 'Venda deletada com sucesso' })
+    } catch (error) {
+        console.error(`❌ Erro ao deletar venda ${id}:`, error)
+        res.status(500).json({ error: 'Erro ao deletar venda' })
+    }
+})
 
 export default router

@@ -5,6 +5,7 @@ import { Layout } from '@/components/layout'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { SiteImagesProvider } from '@/contexts/SiteImagesContext'
+import { Toaster } from 'sonner'
 import { LoadingBar } from '@/components/LoadingBar'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AnimatePresence } from 'framer-motion'
@@ -44,7 +45,7 @@ const queryClient = new QueryClient({
 })
 
 // Eager load critical public pages
-import { Home } from '@/pages'
+import { Home } from '@/pages/Home'
 import { lazyWithRetry } from '@/utils/lazyRetry'
 
 // Lazy load everything else
@@ -106,6 +107,21 @@ function App() {
         <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
                 <ToastProvider>
+                    <Toaster
+                        position="top-right"
+                        expand={true}
+                        richColors
+                        closeButton
+                        toastOptions={{
+                            classNames: {
+                                toast: 'group-[.toaster]:shadow-lg',
+                                title: 'group-[.toast]:font-semibold',
+                                description: 'group-[.toast]:text-sm',
+                                actionButton: 'group-[.toast]:bg-[#C75D3B] group-[.toast]:text-white',
+                                cancelButton: 'group-[.toast]:bg-gray-100',
+                            },
+                        }}
+                    />
                     <SiteImagesProvider>
                         <BrowserRouter>
                             <LoadingBar />

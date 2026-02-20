@@ -168,10 +168,11 @@ export function CustomersForm() {
                             </div>
 
                             <div>
-                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">CPF (Opcional)</label>
+                                <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">CPF</label>
                                 <div className="relative">
                                     <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <input
+                                        required
                                         type="text"
                                         name="cpf"
                                         value={formData.cpf || ''}

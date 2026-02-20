@@ -5,6 +5,8 @@ import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import { fileURLToPath } from 'url'
 import path from 'path'
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
+import { pool } from './db.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -19,8 +21,8 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             connectSrc: [
                 "'self'",
-                "https://wvghryqufnjmdfnjypbu.supabase.co",
-                "wss://wvghryqufnjmdfnjypbu.supabase.co",
+                "https://t3.storageapi.dev",
+                "https://maglev.proxy.rlwy.net",
                 "https://www.googletagmanager.com",
                 "https://www.google-analytics.com",
                 "https://www.google.com",
@@ -95,6 +97,13 @@ import analyticsRouter from './routes/analytics.js'
 import stockRouter from './routes/stock.js'
 import imagesRouter from './routes/images.js'
 import ordersRouter from './routes/orders.js'
+import adminToolsRouter from './routes/admin-tools.js'
+import authRouter from './routes/auth.js'
+import collectionsRouter from './routes/collections.js'
+import materialsRouter from './routes/materials.js'
+import paymentFeesRouter from './routes/payment-fees.js'
+import settingsRouter from './routes/settings.js'
+
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api/vendas', vendasRouter)
 app.use('/api/products', productsRouter)
@@ -108,11 +117,43 @@ app.use('/api/expenses', expensesRouter)
 app.use('/api/analytics', analyticsRouter)
 app.use('/api/stock', stockRouter)
 app.use('/api/images', imagesRouter)
-app.use('/api/orders', ordersRouter) // Nova rota para orders + email
+app.use('/api/orders', ordersRouter)
+app.use('/api/admin-tools', adminToolsRouter)
+app.use('/api/auth', authRouter)
+app.use('/api/collections', collectionsRouter)
+app.use('/api/materials', materialsRouter)
+app.use('/api/payment-fees', paymentFeesRouter)
+app.use('/api/settings', settingsRouter)
 
-// Health Check
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() })
+// Health Check with detailed status
+app.get('/health', async (req, res) => {
+    try {
+        // Check database connection
+        const dbStart = Date.now()
+        await pool.query('SELECT 1')
+        const dbLatency = Date.now() - dbStart
+
+        res.json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            environment: process.env.NODE_ENV || 'development',
+            database: {
+                status: 'connected',
+                latency: `${dbLatency}ms`
+            },
+            memory: {
+                used: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+                total: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`
+            }
+        })
+    } catch (error) {
+        res.status(503).json({
+            status: 'error',
+            timestamp: new Date().toISOString(),
+            error: error.message
+        })
+    }
 })
 
 // ==================== PRODUÇÃO: Servir Frontend Estático ====================
@@ -135,10 +176,30 @@ if (process.env.NODE_ENV === 'production') {
     console.log(`📦 Servindo frontend estático de: ${distPath}`)
 }
 
+// Handle favicon.ico to prevent 404s
+app.get('/favicon.ico', (req, res) => res.status(204).end())
+
 // Simulação de delay para teste de loader (opcional)
 // app.use((req, res, next) => setTimeout(next, 500))
 
-app.listen(PORT, () => {
+// Root route for development (API info)
+if (process.env.NODE_ENV !== 'production') {
+    app.get('/', (req, res) => {
+        res.send('🚀 Studio30 Admin API is running in Development Mode')
+    })
+}
+
+// ==================== ERROR HANDLING ====================
+// 404 handler - must be after all routes
+app.use(notFoundHandler)
+
+// Global error handler - must be last middleware
+app.use(errorHandler)
+
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Studio30 Admin BFF rodando em http://localhost:${PORT}`)
     console.log(`📍 Modo: ${process.env.NODE_ENV || 'development'}`)
+    console.log(`🛡️  Error Handling: Centralized`)
+    console.log(`✅ Async Handler: Available in utils.js`)
+    // console.log(`🔌 Network: http://${require('ip').address()}:${PORT}`)
 })

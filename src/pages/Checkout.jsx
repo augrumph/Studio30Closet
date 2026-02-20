@@ -67,8 +67,9 @@ export function Checkout() {
     const groupedItems = useMemo(() => {
         const itemSummary = items.reduce((acc, item) => {
             const product = productsMap[item.productId] || {}
-            // Agrupar por Nome + Tamanho
-            const key = `${product.name || 'Produto'}-${item.selectedSize}`
+
+            // Agrupar por Nome + Tamanho + Cor (para não mesclar cores diferentes)
+            const key = `${product.name || 'Produto'}-${item.selectedSize}-${item.selectedColor || 'default'}`
 
             if (acc[key]) {
                 acc[key].count += 1
@@ -79,7 +80,25 @@ export function Checkout() {
                     itemId: item.itemId,
                     name: product.name || 'Produto indisponível',
                     price: product.price || 0,
-                    image: product.images?.[0] || 'https://via.placeholder.com/300x400?text=Produto',
+                    // Tentar encontrar a imagem da variante selecionada (Case Insensitive & Robust)
+                    image: (() => {
+                        // 1. Tentar usar a imagem salva no momento da adição (Mais preciso)
+                        if (item.image) return item.image
+
+                        // 2. Fallback: Tentar encontrar via lógica de cores (para itens antigos)
+                        const targetColor = item.selectedColor?.toLowerCase().trim()
+                        if (targetColor && product.variants && Array.isArray(product.variants)) {
+                            // Tenta encontrar cor correspondente (suporta camelCase e snake_case)
+                            const variant = product.variants.find(v => {
+                                const vColor = (v.colorName || v.color_name || '').toLowerCase().trim()
+                                return vColor === targetColor
+                            })
+                            // Se achou variante e tem imagem, usa ela
+                            if (variant?.images?.length > 0) return variant.images[0]
+                        }
+                        // 3. Fallback final: Imagem principal do produto
+                        return product.images?.[0] || 'https://via.placeholder.com/300x400?text=Produto'
+                    })(),
                     selectedSize: item.selectedSize,
                     selectedColor: item.selectedColor,
                     count: 1,

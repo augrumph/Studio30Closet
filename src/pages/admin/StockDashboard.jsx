@@ -28,6 +28,7 @@ import {
 } from '@/lib/api/stock'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip'
 import { StockDashboardSkeleton } from '@/components/admin/PageSkeleton'
@@ -65,7 +66,7 @@ function KPICard({ title, value, subtext, icon: Icon, tooltip, colorCls, iconCls
 }
 
 // Componente de Lista Rankeada
-function RankingList({ title, icon: Icon, items, valueKey = 'qty', valueSuffix = 'un', colorCls, tooltip }) {
+function RankingList({ title, icon: Icon, items, nameKey = 'name', valueKey = 'quantity', valueSuffix = 'un', colorCls, tooltip }) {
     return (
         <Card className={cn("border shadow-sm", colorCls)}>
             <CardHeader className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
@@ -105,10 +106,10 @@ function RankingList({ title, icon: Icon, items, valueKey = 'qty', valueSuffix =
                                     )}>
                                         {i + 1}
                                     </span>
-                                    <span className="text-sm font-medium text-[#4A3B32] capitalize">{item.name}</span>
+                                    <span className="text-sm font-medium text-[#4A3B32] capitalize">{item[nameKey]}</span>
                                 </div>
                                 <span className="text-sm font-bold text-[#C75D3B]">
-                                    {valueKey === 'margin' ? `R$ ${item[valueKey]?.toFixed(0)}` : `${item[valueKey]} ${valueSuffix}`}
+                                    {valueKey === 'profit' ? `R$ ${item[valueKey]?.toFixed(0)}` : `${item[valueKey]} ${valueSuffix}`}
                                 </span>
                             </div>
                         ))}
@@ -327,7 +328,8 @@ export function StockDashboard() {
                         title="Por Categoria"
                         icon={Tag}
                         items={topSellers?.byCategory}
-                        valueKey="qty"
+                        nameKey="category"
+                        valueKey="quantity"
                         valueSuffix="un"
                         tooltip="Quais TIPOS de roupa vendem mais? Ex: Blusas, Calças, Vestidos. Ajuda a decidir o que comprar mais."
                     />
@@ -335,7 +337,8 @@ export function StockDashboard() {
                         title="Por Cor"
                         icon={Palette}
                         items={topSellers?.byColor}
-                        valueKey="qty"
+                        nameKey="color"
+                        valueKey="quantity"
                         valueSuffix="un"
                         tooltip="Quais CORES as clientes preferem? Se Marrom vende muito, talvez valha investir em mais tons terrosos."
                     />
@@ -343,7 +346,8 @@ export function StockDashboard() {
                         title="Por Tamanho"
                         icon={Ruler}
                         items={topSellers?.bySize}
-                        valueKey="qty"
+                        nameKey="size"
+                        valueKey="quantity"
                         valueSuffix="un"
                         tooltip="Quais TAMANHOS são mais pedidos? Se M vende muito mais que P, ajuste suas compras."
                     />
@@ -351,7 +355,8 @@ export function StockDashboard() {
                         title="Mais Lucrativos"
                         icon={DollarSign}
                         items={topSellers?.byProfit}
-                        valueKey="margin"
+                        nameKey="name"
+                        valueKey="profit"
                         valueSuffix=""
                         tooltip="Lucro TOTAL acumulado por peça. Ex: Se vendeu 3 unidades de um produto com R$100 de lucro cada, mostra R$300. Quanto maior, mais esse item te deixou rica!"
                     />
@@ -394,7 +399,7 @@ export function StockDashboard() {
                                         <div key={i} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50/50">
                                             <span className="text-xs font-bold text-gray-400 w-5">#{i + 1}</span>
                                             <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                                                <img src={item.images?.[0]} className="w-full h-full object-cover" alt="" />
+                                                <img src={getOptimizedImageUrl(item.images?.[0], 100)} className="w-full h-full object-cover" alt="" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-[#4A3B32] truncate">{item.name}</p>

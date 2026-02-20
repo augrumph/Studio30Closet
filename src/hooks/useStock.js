@@ -15,7 +15,7 @@ export function useStock(items) {
             // Busca apenas o estoque atual dos produtos na malinha
             const { data, error } = await supabase
                 .from('products')
-                .select('id, stock, name, images, price, cost_price')
+                .select('id, stock, name, images, price, cost_price, variants')
                 .in('id', productIds)
 
             if (error) throw error

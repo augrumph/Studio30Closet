@@ -25,6 +25,7 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { useAdminDashboardData } from '@/hooks/useAdminDashboardData.js'
 import { CollectionsManagerModal } from '@/components/admin/CollectionsManagerModal'
 import { getActiveCollections } from '@/lib/api/collections'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 console.log("🚀 ProductsList component loaded - v2 [DEBUG]")
 // ...
@@ -488,7 +489,7 @@ export function ProductsList() {
                                                 <div className="flex items-center gap-3 md:gap-4">
                                                     <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
                                                         <img
-                                                            src={product.images?.[0] || '/placeholder.png'}
+                                                            src={getOptimizedImageUrl(product.images?.[0], 100) || '/placeholder.png'}
                                                             alt={product.name}
                                                             loading="lazy"
                                                             className="w-full h-full object-cover"

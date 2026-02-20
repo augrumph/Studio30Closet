@@ -1,279 +1,326 @@
 import express from 'express'
-import { supabase } from '../supabase.js'
+import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { cacheMiddleware } from '../cache.js'
 
 const router = express.Router()
 
 /**
- * GET /api/installments
- * Lista de vendas com crediário/parcelamento
- * Cache: 2 minutes
+ * Helper: Calcular campos derivados de uma venda com crediário
  */
-router.get('/', cacheMiddleware(120), async (req, res) => {
-    const {
-        page = 1,
-        pageSize = 20,
-        status = 'pendentes' // 'pendentes', 'pagas', 'todas'
-    } = req.query
+async function calculateInstallmentFields(venda) {
+    const vendaId = venda.id
+    const totalValue = parseFloat(venda.total_value) || 0
+    const entryPayment = parseFloat(venda.entry_payment) || 0
 
-    console.log(`💳 Installments API: Buscando página ${page} [Status: ${status}]`)
+    // Buscar todas as parcelas e seus pagamentos
+    const { rows: installments } = await pool.query(`
+        SELECT
+            i.*,
+            COALESCE(SUM(ip.payment_amount), 0) as total_paid_via_payments
+        FROM installments i
+        LEFT JOIN installment_payments ip ON ip.installment_id = i.id
+        WHERE i.venda_id = $1
+        GROUP BY i.id
+        ORDER BY i.installment_number ASC
+    `, [vendaId])
+
+    // Calcular totais
+    let paidAmount = entryPayment
+    let remainingAmount = 0
+    let overdueCount = 0
+    const today = new Date().toISOString().split('T')[0]
+
+    installments.forEach(inst => {
+        const instPaid = parseFloat(inst.paid_amount) || parseFloat(inst.total_paid_via_payments) || 0
+        const instRemaining = parseFloat(inst.remaining_amount) || (parseFloat(inst.original_amount) - instPaid)
+
+        paidAmount += instPaid
+        remainingAmount += instRemaining
+
+        if (inst.status === 'overdue' || (inst.due_date < today && instRemaining > 0)) {
+            overdueCount++
+        }
+    })
+
+    // Se não há parcelas, calcular manualmente
+    if (installments.length === 0) {
+        remainingAmount = totalValue - entryPayment
+        paidAmount = entryPayment
+    }
+
+    return {
+        dueAmount: Math.max(0, remainingAmount),
+        paidAmount: paidAmount,
+        overdueCount: overdueCount,
+        hasInstallments: installments.length > 0
+    }
+}
+
+/**
+ * GET /api/installments - Listar vendas com crediário (BFF)
+ * Query params: page, pageSize, status (pendentes, pagas, todas)
+ */
+router.get('/', async (req, res) => {
+    const { page = 1, pageSize = 20, status = 'pendentes' } = req.query
+    const offset = (page - 1) * pageSize
+    const limit = Number(pageSize)
+
+    console.log(`💳 Installments API: page=${page}, status=${status}`)
 
     try {
-        const from = (page - 1) * pageSize
-        const to = from + Number(pageSize) - 1
-
-        let query = supabase
-            .from('vendas')
-            .select('id, customer_id, total_value, entry_payment, num_installments, is_installment, payment_method, payment_status, created_at, customers(id, name, phone)', { count: 'exact' })
-            .in('payment_method', ['fiado', 'fiado_parcelado'])
-            .order('created_at', { ascending: false })
-
-        if (status === 'pagas') {
-            query = query.eq('payment_status', 'paid')
-        } else if (status === 'pendentes') {
-            query = query.neq('payment_status', 'paid')
+        // Filtro de status
+        let statusCondition = ''
+        if (status === 'pendentes') {
+            statusCondition = "AND v.payment_status != 'paid'"
+        } else if (status === 'pagas') {
+            statusCondition = "AND v.payment_status = 'paid'"
         }
 
-        query = query.range(from, to)
+        const { rows } = await pool.query(`
+            SELECT
+                COUNT(*) OVER() as total_count,
+                v.*,
+                c.name as customer_name,
+                c.phone as customer_phone
+            FROM vendas v
+            LEFT JOIN customers c ON c.id = v.customer_id
+            WHERE v.payment_method IN ('fiado', 'fiado_parcelado')
+            ${statusCondition}
+            ORDER BY v.created_at DESC
+            LIMIT $1 OFFSET $2
+        `, [limit, offset])
 
-        const { data: vendas, error, count } = await query
+        const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
 
-        if (error) throw error
-
-        // OPTIMIZATION: Fetch all installments and payments in ONE query instead of N+1
-        const vendaIds = vendas.map(v => v.id)
-
-        // Batch fetch all installments with payments for all vendas
-        const { data: allInstallments, error: instError } = await supabase
-            .from('installments')
-            .select('*, payments:installment_payments(*)')
-            .in('venda_id', vendaIds)
-
-        if (instError) {
-            console.error('Error fetching installments:', instError)
-        }
-
-        // Group installments by venda_id for fast lookup
-        const installmentsByVenda = {}
-        if (allInstallments) {
-            allInstallments.forEach(inst => {
-                if (!installmentsByVenda[inst.venda_id]) {
-                    installmentsByVenda[inst.venda_id] = []
-                }
-                installmentsByVenda[inst.venda_id].push(inst)
-            })
-        }
-
-        // Process all vendas (now synchronous, no more N queries!)
-        const items = vendas.map(venda => {
-            const installments = installmentsByVenda[venda.id] || []
-
-            // Calculate summary from installments
-            let summary = null
-            if (installments.length > 0) {
-                let totalValue = 0
-                let paidAmount = 0
-                let numInstallments = installments.length
-                let paidInstallments = 0
-                let overdueAmount = 0
-                let lastPaymentDate = null
-
-                installments.forEach(inst => {
-                    const originalAmount = parseFloat(inst.original_amount || 0)
-                    totalValue += originalAmount
-
-                    const payments = inst.payments || []
-                    const instPaid = payments.reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0)
-                    paidAmount += instPaid
-
-                    const remaining = originalAmount - instPaid
-                    if (remaining <= 0.01) {
-                        paidInstallments++
-                    } else if (new Date(inst.due_date) < new Date()) {
-                        overdueAmount += remaining
-                    }
-
-                    // Track last payment date
-                    payments.forEach(p => {
-                        const payDate = new Date(p.payment_date)
-                        if (!lastPaymentDate || payDate > new Date(lastPaymentDate)) {
-                            lastPaymentDate = p.payment_date
-                        }
-                    })
-                })
-
-                const entryPayment = parseFloat(venda.entry_payment || 0)
-                const remainingValue = Math.max(0, totalValue - paidAmount)
-
-                summary = {
-                    totalValue,
-                    entryPayment,
-                    remainingValue,
-                    numInstallments,
-                    paidInstallments,
-                    pendingInstallments: numInstallments - paidInstallments,
-                    overdueAmount,
-                    lastPaymentDate
-                }
-            }
-
-            // Calculate status
+        // Processar cada venda para calcular campos derivados
+        const items = await Promise.all(rows.map(async (row) => {
+            const { total_count, ...venda } = row
+            const calculated = await calculateInstallmentFields(venda)
             const camelVenda = toCamelCase(venda)
-            const dueAmount = summary
-                ? summary.remainingValue
-                : Math.max(0, (camelVenda.totalValue || 0) - (camelVenda.entryPayment || 0))
-
-            const isPaid = dueAmount <= 0.01
 
             return {
                 ...camelVenda,
-                customerName: venda.customers?.name || 'Cliente desconhecido',
-                customers: venda.customers ? toCamelCase(venda.customers) : null,
-                dueAmount,
-                overdueCount: summary?.overdueAmount > 0 ? 1 : 0,
-                isPaid,
-                summary
+                id: parseInt(camelVenda.id),
+                customerId: parseInt(camelVenda.customerId) || null,
+                orderId: parseInt(camelVenda.orderId) || null,
+                totalValue: parseFloat(camelVenda.totalValue) || 0,
+                entryPayment: parseFloat(camelVenda.entryPayment) || 0,
+                numInstallments: parseInt(camelVenda.numInstallments) || 1,
+                feePercentage: parseFloat(camelVenda.feePercentage) || 0,
+                feeAmount: parseFloat(camelVenda.feeAmount) || 0,
+                netAmount: parseFloat(camelVenda.netAmount) || 0,
+                discountAmount: parseFloat(camelVenda.discountAmount) || 0,
+                originalTotal: parseFloat(camelVenda.originalTotal) || 0,
+                costPrice: parseFloat(camelVenda.costPrice) || null,
+                dueAmount: calculated.dueAmount,
+                paidAmount: calculated.paidAmount,
+                overdueCount: calculated.overdueCount
             }
-        })
+        }))
 
         res.json({
             items,
-            total: count || 0,
+            total,
             page: Number(page),
             pageSize: Number(pageSize),
-            totalPages: Math.ceil((count || 0) / Number(pageSize))
+            totalPages: Math.ceil(total / pageSize)
         })
-
     } catch (error) {
-        console.error("Erro na API de Crediário:", error)
-        res.status(500).json({ message: 'Erro interno do servidor ao buscar crediário' })
+        console.error("❌ Erro na API de Crediário:", error)
+        res.status(500).json({ error: 'Erro ao buscar vendas com crediário' })
     }
 })
 
 /**
- * GET /api/installments/metrics
- * Métricas gerais (filtradas por status)
- * Cache: 5 minutes
+ * GET /api/installments/metrics - Métricas agregadas de crediário
+ * Query params: status (pendentes, pagas, todas)
  */
-router.get('/metrics', cacheMiddleware(300), async (req, res) => {
+router.get('/metrics', async (req, res) => {
     const { status = 'pendentes' } = req.query
 
-    try {
-        let query = supabase
-            .from('vendas')
-            .select('id, total_value, entry_payment, payment_method, payment_status, created_at')
-            .in('payment_method', ['fiado', 'fiado_parcelado'])
+    console.log(`📊 Installments Metrics API: status=${status}`)
 
-        if (status === 'pagas') {
-            query = query.eq('payment_status', 'paid')
-        } else if (status === 'pendentes') {
-            query = query.neq('payment_status', 'paid')
+    try {
+        // Filtro de status
+        let statusCondition = ''
+        if (status === 'pendentes') {
+            statusCondition = "AND v.payment_status != 'paid'"
+        } else if (status === 'pagas') {
+            statusCondition = "AND v.payment_status = 'paid'"
         }
 
-        const { data, error } = await query
+        // Buscar todas as vendas com crediário
+        const { rows: vendas } = await pool.query(`
+            SELECT
+                v.id,
+                v.total_value,
+                v.entry_payment,
+                v.payment_status
+            FROM vendas v
+            WHERE v.payment_method IN ('fiado', 'fiado_parcelado')
+            ${statusCondition}
+        `)
 
-        if (error) throw error
-
-        const totalCount = data.length
         let totalDueEstimative = 0
         let totalOverdueEstimative = 0
         let overdueCount = 0
+        let count = vendas.length
 
-        // Fetch all installments for these vendas to calculate overdue
-        const vendaIds = data.map(v => v.id)
+        // Calcular métricas para cada venda
+        for (const venda of vendas) {
+            const calculated = await calculateInstallmentFields(venda)
+            totalDueEstimative += calculated.dueAmount
 
-        if (vendaIds.length > 0) {
-            const { data: allInstallments, error: instError } = await supabase
-                .from('installments')
-                .select('venda_id, original_amount, due_date, payments:installment_payments(payment_amount)')
-                .in('venda_id', vendaIds)
-
-            if (!instError && allInstallments) {
-                const now = new Date()
-
-                allInstallments.forEach(inst => {
-                    const originalAmount = parseFloat(inst.original_amount || 0)
-                    const payments = inst.payments || []
-                    const paidAmount = payments.reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0)
-                    const remainingAmount = originalAmount - paidAmount
-
-                    // Check if overdue (past due date and still has remaining amount)
-                    if (remainingAmount > 0.01 && new Date(inst.due_date) < now) {
-                        totalOverdueEstimative += remainingAmount
-                        overdueCount++
-                    }
-                })
+            if (calculated.overdueCount > 0) {
+                overdueCount++
+                totalOverdueEstimative += calculated.dueAmount
             }
         }
 
-        data.forEach(v => {
-            const due = (v.total_value || 0) - (v.entry_payment || 0)
-            totalDueEstimative += Math.max(0, due)
-        })
-
         res.json({
-            count: totalCount || 0,
+            count,
             totalDueEstimative,
             totalOverdueEstimative,
             overdueCount
         })
-
     } catch (error) {
-        console.error("Erro na API de Métricas de Crediário:", error)
-        res.status(500).json({ message: 'Erro ao buscar métricas' })
+        console.error("❌ Erro ao calcular métricas de crediário:", error)
+        res.status(500).json({ error: 'Erro ao calcular métricas' })
     }
 })
 
 /**
- * GET /api/installments/:vendaId/details
- * Detalhes das parcelas de uma venda
+ * GET /api/installments/:vendaId/details - Detalhes de parcelas de uma venda
  */
 router.get('/:vendaId/details', async (req, res) => {
     const { vendaId } = req.params
 
+    console.log(`🔍 Installments Details API: vendaId=${vendaId}`)
+
     try {
-        // Fetch installments with payments
-        const { data, error } = await supabase
-            .from('installments')
-            .select('*, payments:installment_payments(*)')
-            .eq('venda_id', vendaId)
-            .order('installment_number', { ascending: true })
+        // Buscar parcelas com seus pagamentos
+        const { rows: installments } = await pool.query(`
+            SELECT
+                i.*,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', ip.id,
+                            'installment_id', ip.installment_id,
+                            'payment_amount', ip.payment_amount,
+                            'payment_date', ip.payment_date,
+                            'payment_method', ip.payment_method,
+                            'notes', ip.notes,
+                            'created_at', ip.created_at,
+                            'created_by', ip.created_by
+                        ) ORDER BY ip.payment_date DESC
+                    ) FILTER (WHERE ip.id IS NOT NULL),
+                    '[]'
+                ) as payments
+            FROM installments i
+            LEFT JOIN installment_payments ip ON ip.installment_id = i.id
+            WHERE i.venda_id = $1
+            GROUP BY i.id
+            ORDER BY i.installment_number ASC
+        `, [vendaId])
 
-        if (error) throw error
+        // Converter e calcular totais
+        const installmentsData = installments.map(inst => {
+            const camelInst = toCamelCase(inst)
 
-        const installments = data.map(inst => {
-            const payments = (inst.payments || []).map(toCamelCase)
-            const paidAmount = payments.reduce((sum, p) => sum + p.paymentAmount, 0)
-            const originalAmount = parseFloat(inst.original_amount)
-            const remainingAmount = Math.max(0, originalAmount - paidAmount)
+            // Converter pagamentos de string JSON para array se necessário
+            let payments = camelInst.payments
+            if (typeof payments === 'string') {
+                try {
+                    payments = JSON.parse(payments)
+                } catch (e) {
+                    payments = []
+                }
+            }
 
             return {
-                ...toCamelCase(inst),
-                payments, // Nested payments
-                paidAmount,
-                remainingAmount,
-                status: remainingAmount <= 0.01 ? 'paid' : (new Date(inst.due_date) < new Date() ? 'overdue' : 'pending')
+                ...camelInst,
+                id: parseInt(camelInst.id),
+                vendaId: parseInt(camelInst.vendaId),
+                installmentNumber: parseInt(camelInst.installmentNumber),
+                originalAmount: parseFloat(camelInst.originalAmount) || 0,
+                paidAmount: parseFloat(camelInst.paidAmount) || 0,
+                remainingAmount: parseFloat(camelInst.remainingAmount) || 0,
+                payments: payments.map(p => ({
+                    ...p,
+                    id: parseInt(p.id) || p.id,
+                    installmentId: parseInt(p.installmentId) || p.installment_id,
+                    paymentAmount: parseFloat(p.paymentAmount || p.payment_amount) || 0
+                }))
             }
         })
 
-        // Summary
-        const totalValue = installments.reduce((sum, i) => sum + i.originalAmount, 0)
-        const totalPaid = installments.reduce((sum, i) => sum + i.paidAmount, 0)
-        const totalRemaining = totalValue - totalPaid
+        // Calcular resumo
+        const totalValue = installmentsData.reduce((sum, inst) => sum + inst.originalAmount, 0)
+        const paidAmount = installmentsData.reduce((sum, inst) => sum + inst.paidAmount, 0)
+        const remainingAmount = totalValue - paidAmount
+        const paidPercentage = totalValue > 0 ? Math.round((paidAmount / totalValue) * 100) : 0
 
         res.json({
-            installments,
-            summary: {
-                totalValue,
-                totalPaid,
-                totalRemaining
-            }
+            installments: installmentsData,
+            totalValue,
+            paidAmount,
+            remainingAmount,
+            paidPercentage
         })
-
     } catch (error) {
-        console.error(`Erro ao buscar detalhes da venda ${vendaId}:`, error)
-        res.status(500).json({ message: 'Erro ao buscar detalhes' })
+        console.error(`❌ Erro ao buscar detalhes da venda ${vendaId}:`, error)
+        res.status(500).json({ error: 'Erro ao buscar detalhes' })
+    }
+})
+
+/**
+ * POST /api/installments/:installmentId/payment - Registrar pagamento de parcela
+ * Body: { amount, date, method, notes }
+ */
+router.post('/:installmentId/payment', async (req, res) => {
+    const { installmentId } = req.params
+    const { amount, date, method = 'dinheiro', notes = null } = req.body
+
+    console.log(`💰 Registrando pagamento: R$ ${amount} na parcela ${installmentId}`)
+
+    try {
+        // Verificar duplicatas (idempotência)
+        const recentWindow = new Date(Date.now() - 30000).toISOString()
+        const { rows: duplicates } = await pool.query(`
+            SELECT id FROM installment_payments
+            WHERE installment_id = $1
+            AND payment_amount = $2
+            AND payment_date = $3
+            AND created_at >= $4
+            LIMIT 1
+        `, [installmentId, amount, date, recentWindow])
+
+        if (duplicates.length > 0) {
+            console.warn('🛑 Pagamento duplicado detectado')
+            // Retornar dados atualizados sem inserir
+            const { rows } = await pool.query('SELECT * FROM installments WHERE id = $1', [installmentId])
+            return res.json(toCamelCase(rows[0]))
+        }
+
+        // Inserir pagamento (trigger do banco atualizará a parcela)
+        const { rows } = await pool.query(`
+            INSERT INTO installment_payments (
+                installment_id, payment_amount, payment_date, payment_method, notes, created_by
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        `, [installmentId, amount, date, method, notes, 'admin'])
+
+        // Buscar parcela atualizada
+        const { rows: updatedInst } = await pool.query('SELECT * FROM installments WHERE id = $1', [installmentId])
+
+        console.log('✅ Pagamento registrado com sucesso')
+        res.json(toCamelCase(updatedInst[0]))
+    } catch (error) {
+        console.error(`❌ Erro ao registrar pagamento:`, error)
+        res.status(500).json({ error: 'Erro ao registrar pagamento' })
     }
 })
 

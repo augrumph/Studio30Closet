@@ -1,8 +1,42 @@
 import express from 'express'
-import { supabase } from '../supabase.js'
+import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 
 const router = express.Router()
+
+// Import S3 storage
+import { uploadBase64Image, deleteImage } from '../storage.js'
+
+// Helper para processar array de imagens (Base64 -> S3 URL)
+async function processImages(images) {
+    if (!images || !Array.isArray(images) || images.length === 0) return []
+
+    const processedImages = await Promise.all(images.map(async (img) => {
+        // Se for Base64, faz upload e retorna URL. Se for URL, retorna ela mesma.
+        return await uploadBase64Image(img, 'products')
+    }))
+
+    // Filtrar nulos em caso de erro
+    return processedImages.filter(img => img !== null)
+}
+
+// Helper para processar variants e converter imagens base64 para S3 URLs
+async function processVariants(variants) {
+    if (!variants || !Array.isArray(variants) || variants.length === 0) return []
+
+    const processedVariants = await Promise.all(variants.map(async (variant) => {
+        if (!variant) return variant
+
+        // Se o variant tem imagens, processar elas
+        if (variant.images && Array.isArray(variant.images)) {
+            variant.images = await processImages(variant.images)
+        }
+
+        return variant
+    }))
+
+    return processedVariants
+}
 
 // Listagem de Produtos com Paginação e Busca
 router.get('/', async (req, res) => {
@@ -11,83 +45,92 @@ router.get('/', async (req, res) => {
         pageSize = 20,
         search = '',
         category = 'all',
-        active = 'all'
+        active = 'all',
+        featured
     } = req.query
 
-    const from = (page - 1) * pageSize
-    const to = from + Number(pageSize) - 1
+    const offset = (page - 1) * pageSize
+    const limit = Number(pageSize)
 
     console.log(`🔍 Products API: Página ${page} [Search: "${search}"]`)
 
     try {
         const isFull = req.query.full === 'true'
 
-        // Lite columns: Exclui apenas variants e description (pesados)
-        // images é incluído porque são necessárias para exibição
-        const selectColumns = isFull
-            ? '*'
-            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id, images'
+        // Construir WHERE clause dinamicamente
+        let whereConditions = []
+        let params = []
+        let paramIndex = 1
 
-        let query = supabase
-            .from('products')
-            .select(selectColumns, { count: 'exact' })
-
-        // Aplicar filtros primeiro (mais eficiente)
         if (category !== 'all') {
-            query = query.eq('category', category)
+            whereConditions.push(`category = $${paramIndex++}`)
+            params.push(category)
         }
 
         if (active !== 'all') {
-            query = query.eq('active', active === 'true')
+            whereConditions.push(`active = $${paramIndex++}`)
+            params.push(active === 'true')
         }
 
-        // Busca otimizada: suporta busca por nome, ID e categoria
+        if (featured === 'true') {
+            whereConditions.push(`is_featured = true`)
+        }
+
         if (search) {
             const searchLower = search.toLowerCase().trim()
-            // Se for número, busca por ID também
             if (!isNaN(searchLower)) {
-                query = query.or(`name.ilike.%${searchLower}%,id.eq.${searchLower},category.ilike.%${searchLower}%`)
+                whereConditions.push(`(name ILIKE $${paramIndex} OR id = $${paramIndex + 1} OR category ILIKE $${paramIndex})`)
+                params.push(`%${searchLower}%`, parseInt(searchLower))
+                paramIndex += 2
             } else {
-                // Busca por nome e categoria
-                query = query.or(`name.ilike.%${searchLower}%,category.ilike.%${searchLower}%`)
+                whereConditions.push(`(name ILIKE $${paramIndex} OR category ILIKE $${paramIndex})`)
+                params.push(`%${searchLower}%`)
+                paramIndex++
             }
         }
 
-        // Ordenação e paginação por último
-        query = query
-            .order('name', { ascending: true })
-            .range(from, to)
+        const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
 
-        const { data, count, error } = await query
+        // Lite columns: exclui variants e description (pesados)
+        const selectColumns = isFull
+            ? '*'
+            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id, images, is_featured, is_new, is_catalog_featured, is_best_seller'
 
-        if (error) throw error
+        const { rows } = await pool.query(`
+            SELECT COUNT(*) OVER() as total_count, ${selectColumns}
+            FROM products
+            ${whereClause}
+            ORDER BY is_catalog_featured DESC NULLS LAST, name ASC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `, [...params, limit, offset])
+
+        const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
 
         // Otimização: No modo lite, retornar apenas a primeira imagem
         const items = isFull
-            ? toCamelCase(data)
-            : toCamelCase(data).map(item => ({
+            ? toCamelCase(rows)
+            : toCamelCase(rows).map(item => ({
                 ...item,
-                images: item.images ? [item.images[0]] : [] // Apenas primeira imagem
+                images: item.images ? [item.images[0]] : []
             }))
 
         res.json({
             items,
-            total: count,
+            total,
             page: Number(page),
-            pageSize: Number(pageSize),
-            totalPages: Math.ceil(count / pageSize)
+            pageSize,
+            totalPages: Math.ceil(total / pageSize)
         })
 
     } catch (err) {
         console.error('❌ Erro na API de Produtos:', err)
-        res.status(500).json({ error: 'Erro ao buscar produtos' })
+        res.status(500).json({ error: `Erro ao buscar produtos: ${err.message}` })
     }
 })
 
 // Sell-Through Rate (STR) - Capacidade de Venda
-// FÓRMULA AJUSTADA: Meta de Venda = Faturamento Estimado Total × 30%
 router.get('/metrics/sell-through', async (req, res) => {
-    console.log('📊 Calculando Sell-Through Rate (Fórmula Ajustada)...')
+    console.log('📊 Calculando Sell-Through Rate...')
 
     try {
         const now = new Date()
@@ -95,24 +138,20 @@ router.get('/metrics/sell-through', async (req, res) => {
         const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
 
         // 1. FATURAMENTO ESTIMADO TOTAL (Valor de venda do estoque TOTAL)
-        const { data: products, error: pError } = await supabase
-            .from('products')
-            .select('price, stock, active')
-
-        if (pError) throw pError
+        const { rows: products } = await pool.query(
+            'SELECT price, stock, active FROM products'
+        )
 
         const faturamentoEstimadoTotal = (products || [])
             .filter(p => p.active)
             .reduce((sum, p) => sum + ((p.price || 0) * (p.stock || 0)), 0)
 
         // 2. VENDAS DO MÊS (Faturamento Real)
-        const { data: vendas, error: vError } = await supabase
-            .from('vendas')
-            .select('total_value, payment_status')
-            .gte('created_at', firstDayOfMonth)
-            .lte('created_at', lastDayOfMonth)
-
-        if (vError) throw vError
+        const { rows: vendas } = await pool.query(`
+            SELECT total_value, payment_status
+            FROM vendas
+            WHERE created_at >= $1 AND created_at <= $2
+        `, [firstDayOfMonth, lastDayOfMonth])
 
         const vendasMes = (vendas || [])
             .filter(v => ['paid', 'pending'].includes(v.payment_status?.toLowerCase()))
@@ -169,17 +208,172 @@ router.get('/metrics/sell-through', async (req, res) => {
 router.get('/:id', async (req, res) => {
     const { id } = req.params
     try {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .eq('id', id)
-            .single()
+        const { rows } = await pool.query(
+            'SELECT * FROM products WHERE id = $1',
+            [id]
+        )
 
-        if (error) throw error
-        res.json(toCamelCase(data))
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Produto não encontrado' })
+        }
+
+        res.json(toCamelCase(rows[0]))
     } catch (err) {
         console.error(`❌ Erro ao buscar produto ${id}:`, err)
         res.status(500).json({ error: 'Erro ao buscar produto' })
+    }
+})
+
+// Criar Produto
+router.post('/', async (req, res) => {
+    try {
+        console.log('📝 Creating new product...')
+        const data = req.body
+
+        // Validar campos obrigatórios
+        if (!data.name || !data.price) {
+            return res.status(400).json({ error: 'Name and Price are required' })
+        }
+
+        // 🖼️ Processar Imagens (Upload S3)
+        const imageUrls = await processImages(data.images)
+
+        // 🎨 Processar Variants (incluindo suas imagens)
+        const processedVariants = await processVariants(data.variants)
+
+        // Inserir no banco
+        const { rows } = await pool.query(`
+            INSERT INTO products (
+                name, price, cost_price, original_price, description,
+                stock, category, active, is_featured, is_new,
+                is_catalog_featured, is_best_seller, supplier_id,
+                color, variants, sizes, images, collection_ids,
+                updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5,
+                $6, $7, $8, $9, $10,
+                $11, $12, $13,
+                $14, $15, $16, $17, $18,
+                NOW()
+            ) RETURNING *
+        `, [
+            data.name,
+            data.price,
+            data.cost_price || 0,
+            data.original_price,
+            data.description,
+            data.stock || 0,
+            data.category,
+            data.active ?? true,
+            data.is_featured ?? data.isFeatured ?? false,
+            data.is_new ?? data.isNew ?? true,
+            data.is_catalog_featured ?? data.isCatalogFeatured ?? false,
+            data.is_best_seller ?? data.isBestSeller ?? false,
+            data.supplier_id ?? data.supplierId,
+            data.color,
+            processedVariants ? JSON.stringify(processedVariants) : null,
+            data.sizes ? JSON.stringify(data.sizes) : null,
+            imageUrls,
+            data.collection_ids,
+        ])
+
+        console.log(`✅ Product created with ID: ${rows[0].id}`)
+        res.status(201).json(toCamelCase(rows[0]))
+
+    } catch (err) {
+        console.error('❌ Error creating product:', err)
+        res.status(500).json({ error: err.message })
+    }
+})
+
+// Atualizar Produto
+router.put('/:id', async (req, res) => {
+    const { id } = req.params
+    try {
+        console.log(`📝 Updating product ${id}...`)
+        const data = req.body
+
+        // 🖼️ Processar Imagens (Upload S3)
+        const imageUrls = data.images ? await processImages(data.images) : null
+
+        // 🎨 Processar Variants (incluindo suas imagens)
+        const processedVariants = data.variants ? await processVariants(data.variants) : null
+
+        const params = [
+            data.name,
+            data.price,
+            data.cost_price ?? data.costPrice,
+            data.original_price ?? data.originalPrice,
+            data.description,
+            data.stock,
+            data.category,
+            data.active,
+            data.is_featured ?? data.isFeatured,
+            data.is_new ?? data.isNew,
+            data.is_catalog_featured ?? data.isCatalogFeatured,
+            data.is_best_seller ?? data.isBestSeller,
+            data.supplier_id ?? data.supplierId,
+            data.color,
+            processedVariants ? JSON.stringify(processedVariants) : null,
+            data.sizes ? JSON.stringify(data.sizes) : null,
+            imageUrls,
+            data.collection_ids,
+            id
+        ]
+
+        const { rows } = await pool.query(`
+            UPDATE products SET
+                name = COALESCE($1, name),
+                price = COALESCE($2, price),
+                cost_price = COALESCE($3, cost_price),
+                original_price = COALESCE($4, original_price),
+                description = COALESCE($5, description),
+                stock = COALESCE($6, stock),
+                category = COALESCE($7, category),
+                active = COALESCE($8, active),
+                is_featured = COALESCE($9, is_featured),
+                is_new = COALESCE($10, is_new),
+                is_catalog_featured = COALESCE($11, is_catalog_featured),
+                is_best_seller = COALESCE($12, is_best_seller),
+                supplier_id = COALESCE($13, supplier_id),
+                color = COALESCE($14, color),
+                variants = $15,
+                sizes = $16,
+                images = COALESCE($17, images),
+                collection_ids = COALESCE($18, collection_ids),
+                updated_at = NOW()
+            WHERE id = $19
+            RETURNING *
+        `, params)
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Product not found' })
+        }
+
+        console.log(`✅ Product ${id} updated`)
+        res.json(toCamelCase(rows[0]))
+
+    } catch (err) {
+        console.error(`❌ Error updating product ${id}:`, err)
+        res.status(500).json({ error: err.message })
+    }
+})
+
+// Deletar Produto
+router.delete('/:id', async (req, res) => {
+    const { id } = req.params
+    try {
+        const { rowCount } = await pool.query('DELETE FROM products WHERE id = $1', [id])
+
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Product not found' })
+        }
+
+        console.log(`✅ Product ${id} deleted`)
+        res.json({ success: true })
+    } catch (err) {
+        console.error(`❌ Error deleting product ${id}:`, err)
+        res.status(500).json({ error: err.message })
     }
 })
 

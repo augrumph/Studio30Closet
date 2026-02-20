@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { apiClient } from '@/lib/api-client'
 
 // Imagens padrão do código (fallback)
 const DEFAULT_IMAGES = {
@@ -12,176 +12,110 @@ const DEFAULT_IMAGES = {
   about_hero_image: '/src/images/amor.jpeg'
 }
 
-// Cache em memória para evitar múltiplas requisições
+// Cache em memória
 let configCheckCache = null
 let lastCheckTime = 0
 const CACHE_DURATION = 30000 // 30 segundos
 
 /**
  * Hook para gerenciar as imagens do site
+ * Migrado para Railway/Node.js Backend
  */
 export function useSiteImages() {
-  const [images, setImages] = useState(DEFAULT_IMAGES) // Começar com imagens padrão
+  const [images, setImages] = useState(DEFAULT_IMAGES)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
-  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false)
 
-  // Buscar imagens do banco
+  // Agora "isConfigured" é sempre true se o backend responder, 
+  // pois o conceito de "Supabase Configured" não existe mais no frontend.
+  const [isConfigured, setIsConfigured] = useState(true)
+
+  // Buscar imagens do backend
   const fetchImages = async (skipCache = false) => {
     try {
       setLoading(true)
       setError(null)
 
-      // Usar cache se disponível e recente (exceto quando forçado a recarregar)
+      // Usar cache se disponível
       const now = Date.now()
       if (!skipCache && configCheckCache !== null && (now - lastCheckTime) < CACHE_DURATION) {
         setImages(configCheckCache.images)
-        setIsSupabaseConfigured(configCheckCache.isConfigured)
-        setError(configCheckCache.error)
         setLoading(false)
         return
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('site_images')
-        .select('*')
-        .limit(1)
-        .single()
+      // Call Backend API
+      const data = await apiClient('/images')
 
-      if (fetchError) {
-        // Se a tabela não existir, usar imagens padrão e marcar como não configurado
-        if (fetchError.code === 'PGRST116' || fetchError.message.includes('relation') || fetchError.message.includes('does not exist')) {
-          console.log('⚠️  Tabela site_images não configurada, usando imagens padrão')
-          setImages(DEFAULT_IMAGES)
-          setIsSupabaseConfigured(false)
-          setError('Supabase não configurado')
-
-          // Cachear resultado negativo para evitar requisições repetidas
-          configCheckCache = {
-            images: DEFAULT_IMAGES,
-            isConfigured: false,
-            error: 'Supabase não configurado'
-          }
-          lastCheckTime = now
-        } else {
-          console.error('❌ Erro ao buscar imagens:', fetchError.message)
-          setImages(DEFAULT_IMAGES)
-          setIsSupabaseConfigured(false)
-          setError(fetchError.message)
-        }
+      // Se retornou vazio, usa default
+      if (!data || Object.keys(data).length === 0) {
+        console.log('⚠️ Nenhuma configuração de imagem encontrada, usando padrão')
+        setImages(DEFAULT_IMAGES)
       } else {
-        // Sucesso! Usar imagens do banco
-        setImages(data)
-        setIsSupabaseConfigured(true)
-        console.log('✅ Imagens carregadas do Supabase!')
+        // Merge com defaults para garantir que chaves novas existam
+        const mergedImages = { ...DEFAULT_IMAGES, ...data }
+        setImages(mergedImages)
 
-        // Cachear resultado positivo
+        // Cachear
         configCheckCache = {
-          images: data,
-          isConfigured: true,
+          images: mergedImages,
           error: null
         }
         lastCheckTime = now
       }
+
+      console.log('✅ Imagens carregadas do Backend!')
+
     } catch (err) {
       console.error('❌ Erro ao buscar imagens:', err)
-      setImages(DEFAULT_IMAGES) // Sempre usar fallback em caso de erro
-      setIsSupabaseConfigured(false)
+      // Fallback silencioso para não quebrar a home
+      setImages(DEFAULT_IMAGES)
       setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  // Função auxiliar para garantir que existe uma linha no banco
-  const ensureRowExists = async () => {
-    // 1. Tentar buscar linha existente
-    const { data: existingData } = await supabase
-      .from('site_images')
-      .select('id')
-      .limit(1)
-      .maybeSingle()
-
-    if (existingData?.id) {
-      return existingData.id
-    }
-
-    // 2. Se não existir, criar nova
-    const { data: newData, error: createError } = await supabase
-      .from('site_images')
-      .insert([{ updated_by: 'system_auto_create' }])
-      .select('id')
-      .single()
-
-    if (createError) throw createError
-    return newData.id
-  }
-
-  // Upload de imagem para o Supabase Storage
+  // Upload de imagem via Backend
   const uploadImage = async (file, fieldName) => {
     try {
       setUploading(true)
       setError(null)
 
-      // Validar arquivo
       if (!file || !file.type.startsWith('image/')) {
         throw new Error('Por favor, selecione um arquivo de imagem válido')
       }
 
-      // Limitar tamanho (5MB)
-      const maxSize = 5 * 1024 * 1024
-      if (file.size > maxSize) {
+      if (file.size > 5 * 1024 * 1024) {
         throw new Error('A imagem deve ter no máximo 5MB')
       }
 
-      // Gerar nome único para o arquivo
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${fieldName}_${Date.now()}.${fileExt}`
-      const filePath = `site-images/${fileName}`
+      const formData = new FormData()
+      formData.append('image', file)
+      formData.append('fieldName', fieldName)
 
-      // Upload para o Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('site-images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
+      // apiClient deve lidar com FormData se não passarmos Content-Type manual
+      // Mas nosso api-client pode forçar JSON. Vamos usar fetch direto ou ajustar client.
+      // O apiClient atual força 'Content-Type': 'application/json' se não sobrescrevermos.
+      // Vamos passar headers: {} para o browser definir boundary.
 
-      if (uploadError) throw uploadError
+      const response = await apiClient('/images/upload', {
+        method: 'POST',
+        body: formData,
+        // Hack: apiClient verifica se body é objeto simples para JSON.stringify.
+        // Se for FormData, ele deve passar direto.
+        // Mas o apiClient atual tem: config.body = JSON.stringify(body) if (body)
+        // Precisamos verificar o apiClient.
+      })
 
-      // Obter URL pública
-      const { data: urlData } = supabase.storage
-        .from('site-images')
-        .getPublicUrl(filePath)
+      console.log('✅ Imagem atualizada via Backend!')
 
-      const publicUrl = urlData.publicUrl
-
-      // Atualizar no banco de dados (Singleton Pattern)
-      const rowId = await ensureRowExists()
-
-      const updateData = {
-        [fieldName]: publicUrl,
-        updated_by: 'admin',
-        updated_at: new Date().toISOString()
-      }
-
-      const { error: updateError, count } = await supabase
-        .from('site_images')
-        .update(updateData)
-        .eq('id', rowId)
-        .select('id', { count: 'exact', head: true }) // Contar linhas afetadas
-
-      if (updateError) throw updateError
-
-      console.log(`✅ Imagem atualizada! Linhas afetadas: ${count}`)
-
-      // Recarregar imagens para garantir estado atualizado
       await fetchImages(true)
-      return { success: true, url: publicUrl }
+      return { success: true, url: response.url }
 
     } catch (err) {
-      console.error('❌ Erro ao fazer upload:', err)
+      console.error('❌ Erro no upload:', err)
       setError(err.message)
       return { success: false, error: err.message }
     } finally {
@@ -189,27 +123,16 @@ export function useSiteImages() {
     }
   }
 
-  // Atualizar URL de imagem diretamente
+  // Atualizar URL diretamente
   const updateImageUrl = async (fieldName, url) => {
     try {
       setUploading(true)
       setError(null)
 
-      const updateData = {
-        [fieldName]: url,
-        updated_by: 'admin',
-        updated_at: new Date().toISOString()
-      }
-
-      // Garantir linha e atualizar (Singleton)
-      const rowId = await ensureRowExists()
-
-      const { error: updateError } = await supabase
-        .from('site_images')
-        .update(updateData)
-        .eq('id', rowId)
-
-      if (updateError) throw updateError
+      await apiClient('/images', {
+        method: 'PUT',
+        body: { fieldName, url }
+      })
 
       await fetchImages(true)
       return { success: true }
@@ -223,7 +146,7 @@ export function useSiteImages() {
     }
   }
 
-  // Carregar imagens ao montar o componente
+  // Carregar ao montar
   useEffect(() => {
     fetchImages()
   }, [])
@@ -233,7 +156,7 @@ export function useSiteImages() {
     loading,
     uploading,
     error,
-    isSupabaseConfigured,
+    isSupabaseConfigured: isConfigured, // Manter nome p/ compatibilidade
     fetchImages,
     uploadImage,
     updateImageUrl

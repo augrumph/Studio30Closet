@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0', // Force IPv4 binding explicitly
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

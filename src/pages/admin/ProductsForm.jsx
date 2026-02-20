@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 
-import { getActiveCollections } from '@/lib/api/collections'
+import { useActiveCollections } from '@/hooks/useCollections'
 
 export function ProductsForm() {
     const { id } = useParams()
@@ -22,13 +22,7 @@ export function ProductsForm() {
     const { createProduct, updateProduct, isCreating, isUpdating } = useAdminProducts()
     const { data: product, isLoading: isLoadingProduct } = useAdminProduct(id)
     const { suppliers, isLoading: isLoadingSuppliers } = useAdminSuppliers({ pageSize: 100 }) // ✅ Migrado para React Query
-
-    const [activeCollections, setActiveCollections] = useState([]) // New State
-
-    // Load Collections
-    useEffect(() => {
-        getActiveCollections().then(setActiveCollections).catch(() => { })
-    }, [])
+    const { data: activeCollections = [], isLoading: isLoadingCollections } = useActiveCollections() // ✅ Collections via React Query
 
     const [initialData, setInitialData] = useState(null)
     const [formData, setFormData] = useState({

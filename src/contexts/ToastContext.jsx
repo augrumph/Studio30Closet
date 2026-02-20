@@ -1,32 +1,69 @@
-import { createContext, useContext, useState, useCallback } from 'react'
-import { ToastContainer } from '@/components/ui/Toast'
+import { createContext, useContext } from 'react'
+import { toast as sonnerToast } from 'sonner'
+
+/**
+ * Toast Context using Sonner
+ * Beautiful, accessible toast notifications
+ * Docs: https://sonner.emilkowal.ski/
+ */
 
 const ToastContext = createContext(null)
 
-export function ToastProvider({ children }) {
-  const [toasts, setToasts] = useState([])
+// Enhanced toast API with Sonner
+const toast = {
+  success: (message, options = {}) => {
+    return sonnerToast.success(message, {
+      duration: options.duration || 4000,
+      ...options
+    })
+  },
 
-  const addToast = useCallback((message, type = 'info', duration = 5000) => {
-    const id = Date.now() + Math.random()
-    setToasts((prev) => [...prev, { id, message, type, duration }])
-    return id
-  }, [])
+  error: (message, options = {}) => {
+    return sonnerToast.error(message, {
+      duration: options.duration || 5000,
+      ...options
+    })
+  },
 
-  const removeToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id))
-  }, [])
+  warning: (message, options = {}) => {
+    return sonnerToast.warning(message, {
+      duration: options.duration || 4000,
+      ...options
+    })
+  },
 
-  const toast = {
-    success: (message, duration) => addToast(message, 'success', duration),
-    error: (message, duration) => addToast(message, 'error', duration),
-    warning: (message, duration) => addToast(message, 'warning', duration),
-    info: (message, duration) => addToast(message, 'info', duration),
+  info: (message, options = {}) => {
+    return sonnerToast.info(message, {
+      duration: options.duration || 4000,
+      ...options
+    })
+  },
+
+  // Loading state
+  loading: (message, options = {}) => {
+    return sonnerToast.loading(message, options)
+  },
+
+  // Promise toast - shows loading, then success/error
+  promise: (promise, messages) => {
+    return sonnerToast.promise(promise, messages)
+  },
+
+  // Custom toast with action button
+  custom: (message, options = {}) => {
+    return sonnerToast(message, options)
+  },
+
+  // Dismiss specific toast
+  dismiss: (id) => {
+    sonnerToast.dismiss(id)
   }
+}
 
+export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <ToastContainer toasts={toasts} onClose={removeToast} />
     </ToastContext.Provider>
   )
 }

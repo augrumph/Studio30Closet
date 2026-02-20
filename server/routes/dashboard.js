@@ -1,5 +1,5 @@
 import express from 'express'
-import { supabase } from '../supabase.js'
+import { pool } from '../db.js'
 import { cacheMiddleware } from '../cache.js'
 
 const router = express.Router()
@@ -28,39 +28,75 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             endDate = endDate.toISOString()
         }
 
+        console.log(`📊 Dashboard Query Params: Period=${period}, Start=${startDate}, End=${endDate}`)
+
         // 2. BUSCA OTIMIZADA (Paralela)
         const [
-            { data: vendas, error: vError },
-            { data: expenses, error: eError },
-            { data: installments, error: iError },
-            { data: purchases, error: pError },
-            { data: orders, error: oError },
-            { data: products, error: prodError }
+            vendasResult,
+            expensesResult,
+            installmentsResult,
+            purchasesResult,
+            ordersResult,
+            productsResult
         ] = await Promise.all([
-            // Vendas do período (com itens para CPV)
+            // Vendas do período (com customer name via JOIN)
             startDate
-                ? supabase.from('vendas').select('*, customers(name)').gte('created_at', startDate).lte('created_at', endDate || now.toISOString())
-                : supabase.from('vendas').select('*, customers(name)'),
+                ? pool.query(`
+                    SELECT v.*, c.name as customer_name
+                    FROM vendas v
+                    LEFT JOIN customers c ON c.id = v.customer_id
+                    WHERE v.created_at >= $1 AND v.created_at <= $2
+                    ORDER BY v.created_at DESC
+                `, [startDate, endDate || now.toISOString()])
+                : pool.query(`
+                    SELECT v.*, c.name as customer_name
+                    FROM vendas v
+                    LEFT JOIN customers c ON c.id = v.customer_id
+                    ORDER BY v.created_at DESC
+                `),
 
             // Despesas fixas
-            supabase.from('fixed_expenses').select('*'),
+            pool.query('SELECT * FROM fixed_expenses'),
 
-            // Parcelas (para fluxo de caixa e inadimplência)
-            supabase.from('installments').select('*, installment_payments(*)'),
+            // Parcelas com payments (nested)
+            pool.query(`
+                SELECT
+                    i.*,
+                    json_agg(
+                        json_build_object(
+                            'id', ip.id,
+                            'installment_id', ip.installment_id,
+                            'payment_date', ip.payment_date,
+                            'amount_paid', ip.payment_amount, -- ✅ Corrigido de amount_paid
+                            'payment_method', ip.payment_method,
+                            'created_at', ip.created_at
+                        )
+                    ) FILTER (WHERE ip.id IS NOT NULL) as installment_payments
+                FROM installments i
+                LEFT JOIN installment_payments ip ON ip.installment_id = i.id
+                GROUP BY i.id
+            `),
 
-            // Compras
-            supabase.from('purchases').select('*, suppliers(name)'),
+            // Compras com supplier name via JOIN
+            pool.query(`
+                SELECT p.*, s.name as supplier_name
+                FROM purchases p
+                LEFT JOIN suppliers s ON s.id = p.supplier_id
+            `),
 
-            // Pedidos (para taxa de retenção da malinha)
-            supabase.from('orders').select('id'),
+            // Pedidos (só precisa de count)
+            pool.query('SELECT id FROM orders'),
 
-            // Produtos (para inventário ATUAL)
-            supabase.from('products').select('id, price, cost_price, stock, active')
+            // Produtos para inventário
+            pool.query('SELECT id, price, cost_price, stock, active FROM products')
         ])
 
-        if (vError || eError || iError || pError || oError || prodError) {
-            throw vError || eError || iError || pError || oError || prodError
-        }
+        const vendas = vendasResult.rows
+        const expenses = expensesResult.rows
+        const installments = installmentsResult.rows
+        const purchases = purchasesResult.rows
+        const orders = ordersResult.rows
+        const products = productsResult.rows
 
         // 3. PROCESSAMENTO FINANCEIRO (Baseado na lógica do useDashboardMetrics.js)
         console.log('✅ Dados carregados:', {
@@ -98,21 +134,52 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             return status !== 'cancelled' && status !== 'refuted' && status !== 'returned'
         })
 
+        // 3.1. FIDELITY & NEW CUSTOMERS (RETAIL KPIs)
+        // Precisamos olhar para TODAS as vendas (não só do período) para saber quem é recorrente
+        const customerFirstPurchase = new Map()
+        // Ordenar todas as vendas do banco por data (precisamos buscar todas ou confiar no normalizedVendas se for 'all')
+        // Como o normalizedVendas pode ser filtrado por período, precisamos da lista completa para fidelização real.
+
+        // Vamos buscar a data da primeira venda de cada cliente globalmente
+        const { rows: firstPurchases } = await pool.query(`
+            SELECT customer_id, MIN(created_at) as first_sale
+            FROM vendas
+            WHERE payment_status NOT IN ('cancelled', 'refuted', 'returned')
+            GROUP BY customer_id
+        `)
+        firstPurchases.forEach(fp => customerFirstPurchase.set(fp.customer_id, new Date(fp.first_sale).getTime()))
+
         let grossRevenue = 0
         let totalDiscounts = 0
         let totalCPV = 0
         let costWarnings = 0
         let totalItemsSold = 0
         let totalFees = 0
+        let recurringRevenue = 0
+        let newCustomersCount = 0
+        const countedAsNewInPeriod = new Set()
 
         salesToProcess.forEach(v => {
             const discount = Number(v.discountAmount || 0)
             const finalValue = Number(v.totalValue || 0)
             const originalTotal = finalValue + discount
+            const saleTime = new Date(v.createdAt).getTime()
+            const cid = v.customer_id
 
             grossRevenue += originalTotal
             totalDiscounts += discount
             totalFees += Number(v.feeAmount || 0)
+
+            // Recorrência
+            if (cid && customerFirstPurchase.has(cid)) {
+                const firstTime = customerFirstPurchase.get(cid)
+                if (saleTime > firstTime + 1000) { // Margem de 1s
+                    recurringRevenue += finalValue
+                } else if (!countedAsNewInPeriod.has(cid)) {
+                    newCustomersCount++
+                    countedAsNewInPeriod.add(cid)
+                }
+            }
 
             v.items.forEach(item => {
                 let cost = item.costPrice
@@ -121,7 +188,7 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
 
                 if (!cost || cost <= 0) {
                     costWarnings += quantity
-                    cost = 0 // Don't estimate, use 0 if not provided
+                    cost = 0
                 }
                 totalCPV += (cost * quantity)
             })
@@ -129,8 +196,11 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
 
         const netRevenue = grossRevenue - totalDiscounts
         const grossProfit = netRevenue - totalCPV
+        const fidelityRate = grossRevenue > 0 ? (recurringRevenue / grossRevenue) * 100 : 0
+        const averageUnitRetail = totalItemsSold > 0 ? netRevenue / totalItemsSold : 0
 
-        // Despesas (Lógica simplificada para o MVP do backend)
+
+        // Despesas
         let monthlyExpenses = 0
         let dasExpense = 0
         let loanInterest = 0
@@ -151,7 +221,7 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             else monthlyExpenses += val
         })
 
-        // Proporção do período (dias)
+        // Proporção do período
         const periodDays = startDate ? Math.ceil((new Date(now.toISOString()).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) : 30
         const factor = periodDays / 30
 
@@ -162,32 +232,114 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         const operatingProfit = grossProfit - appliedExpenses - appliedDas - totalFees
         const netProfit = operatingProfit - appliedInterest
 
-        // Fluxo de Caixa (Refinado)
+        // Fluxo de Caixa (Detonado - inflows/outflows)
         let receivedAmount = 0
         let pendingCrediario = 0
         let totalDevedores = 0
         let valorDevedores = 0
-        // Define todaySalesCount properly
         const todayStr = new Date().toISOString().split('T')[0]
         let todaySalesCount = 0
 
+        const inflows = []
+        const outflows = []
+
         salesToProcess.forEach(v => {
-            if (v.createdAt && v.createdAt.startsWith(todayStr)) {
+            // Garantir que createdAt é tratado como string para o .startsWith
+            const vDateStr = v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt)
+            if (v.createdAt && vDateStr.startsWith(todayStr)) {
                 todaySalesCount++
             }
+
+            const isCrediario = (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado' || v.paymentMethod === 'crediario')
+            const net = Number(v.netAmount || (v.totalValue - v.feeAmount))
+
             if (v.paymentStatus === 'paid') {
-                receivedAmount += Number(v.netAmount || (v.totalValue - v.feeAmount))
+                if (!v.isInstallment || !isCrediario) {
+                    receivedAmount += net
+                    inflows.push({
+                        id: `sale-${v.id}`,
+                        date: v.createdAt,
+                        description: `Venda #${v.id} - ${v.customer_name || 'Cliente'}`,
+                        value: net,
+                        type: 'Venda'
+                    })
+                }
             } else if (v.paymentStatus === 'pending') {
                 totalDevedores++
                 valorDevedores += Number(v.totalValue || 0)
 
-                if (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado') {
+                if (isCrediario) {
                     pendingCrediario += Number(v.totalValue || 0)
+                }
+
+                if (v.entryPayment > 0) {
+                    receivedAmount += Number(v.entryPayment)
+                    inflows.push({
+                        id: `entry-${v.id}`,
+                        date: v.createdAt,
+                        description: `Entrada Venda #${v.id} - ${v.customer_name || 'Cliente'}`,
+                        value: Number(v.entryPayment),
+                        type: 'Venda'
+                    })
                 }
             }
         })
 
-        // Inventário: Calcular com base nos produtos em estoque (REAL)
+        // Pagamentos de parcelas no período
+        installments.forEach(inst => {
+            (inst.installment_payments || []).forEach(pay => {
+                const payDate = new Date(pay.payment_date || pay.created_at)
+                // Filtrar se o pagamento está no período selecionado
+                const isInPeriod = (!startDate || payDate >= new Date(startDate)) && (!endDate || payDate <= new Date(endDate))
+
+                if (isInPeriod) {
+                    const amt = Number(pay.amount_paid || 0)
+                    receivedAmount += amt
+                    inflows.push({
+                        id: `pay-${pay.id}`,
+                        date: pay.payment_date || pay.created_at,
+                        description: `Parcela #${pay.installment_id}`,
+                        value: amt,
+                        type: 'Parcela'
+                    })
+                }
+            })
+        })
+
+        // Compras e Despesas no Outflow
+        purchases.forEach(p => {
+            const pDate = new Date(p.date || p.created_at)
+            const isInPeriod = (!startDate || pDate >= new Date(startDate)) && (!endDate || pDate <= new Date(endDate))
+            if (isInPeriod) {
+                outflows.push({
+                    id: `purch-${p.id}`,
+                    date: p.date || p.created_at,
+                    description: `Compra: ${p.supplier_name || 'Fornecedor'}`,
+                    value: Number(p.value || 0),
+                    type: 'Compra'
+                })
+            }
+        })
+
+        if (appliedExpenses > 0) outflows.push({ id: 'exp-op', date: now, description: 'Despesas Operacionais (Rateio)', value: appliedExpenses, type: 'Despesa' })
+        if (appliedDas > 0) outflows.push({ id: 'exp-das', date: now, description: 'Imposto DAS (Estimado)', value: appliedDas, type: 'Imposto' })
+        if (appliedInterest > 0) outflows.push({ id: 'exp-loan', date: now, description: 'Juros Empréstimo (Rateio)', value: appliedInterest, type: 'Empréstimo' })
+
+        // Ordenar fluxos
+        inflows.sort((a, b) => new Date(b.date) - new Date(a.date))
+        outflows.sort((a, b) => new Date(b.date) - new Date(a.date))
+
+        // Retenção de Malinha
+        const malinhaSales = salesToProcess.filter(v => v.orderId)
+        let totalItemsSentInMalinhas = 0
+        let totalItemsSoldInMalinhas = 0
+        // Para retenção real, precisaríamos dos itens originais dos orders, 
+        // mas vamos simplificar se não tivermos a tabela order_items aqui.
+        // Como o Dashboard do front já calculava de forma limitada, vamos manter um placeholder realista
+        const retentionRate = 0 // Placeholder ou cálculo se ordersResult tiver items_count
+
+
+        // Inventário
         const activeProducts = (products || []).filter(p => p.active !== false)
 
         let inventoryTotalValue = 0
@@ -215,7 +367,10 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                 operatingProfit,
                 netProfit,
                 netMarginPercent: netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0,
-                todaySalesCount
+                todaySalesCount,
+                fidelityRate,
+                newCustomersCount,
+                averageUnitRetail
             },
             inventory: {
                 totalEstimatedValue: inventoryTotalValue,
@@ -228,17 +383,23 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                 totalSalesCount: salesToProcess.length,
                 totalItemsSold,
                 averageTicket: salesToProcess.length > 0 ? netRevenue / salesToProcess.length : 0,
+                itemsPerSale: salesToProcess.length > 0 ? totalItemsSold / salesToProcess.length : 0,
                 totalDevedores,
                 costWarnings,
-                isCPVEstimated: (costWarnings / (totalItemsSold || 1)) > 0.05
+                isCPVEstimated: (costWarnings / (totalItemsSold || 1)) > 0.05,
+                estimatedPercent: (costWarnings / (totalItemsSold || 1)) * 100,
+                retentionRate
             },
             cashFlow: {
                 receivedAmount,
                 pendingCrediario,
                 valorDevedores,
-                totalFees
+                totalFees,
+                cashFlowDetails: {
+                    inflows,
+                    outflows
+                }
             },
-            // Dados brutos para cálculo preciso no frontend (useDashboardMetrics)
             expenses: expenses || [],
             installments: installments || []
         })

@@ -25,10 +25,9 @@ import {
     deleteCustomer,
     updateOrder,
     getOrderById as getOrderByIdFromApi,
-    reserveStockForMalinha,
-    releaseStockForMalinha,
-    getCustomerPreferences,
-    updateCustomerPreferences
+
+        getCustomerPreferences,
+        updateCustomerPreferences
 } from '@/lib/api'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { useOperationalCostsStore } from './operational-costs-store'
@@ -245,18 +244,8 @@ export const useAdminStore = create(
                 set({ ordersLoading: true, ordersError: null })
                 try {
                     // 1. Criar a malinha no banco
+                    // O Backend agora lida com reserva de estoque automaticamente na criação
                     const newOrder = await createOrder(orderData)
-
-                    // 2. 🔒 Reservar estoque imediatamente
-                    // Usamos os itens enviados no orderData pois o newOrder pode demorar para sincronizar
-                    if (orderData.items && orderData.items.length > 0) {
-                        console.log('🔒 Reservando estoque automaticamente para nova malinha...');
-                        const reserveResult = await reserveStockForMalinha(orderData.items);
-                        if (!reserveResult.success) {
-                            // Se falhar a reserva, podemos opcionalmente deletar a order ou apenas avisar
-                            console.error('⚠️ Falha ao reservar estoque para nova malinha:', reserveResult.error);
-                        }
-                    }
 
                     set(state => ({
                         orders: [newOrder, ...state.orders],
@@ -278,8 +267,6 @@ export const useAdminStore = create(
                 set({ ordersLoading: true, ordersError: null })
                 try {
                     // A lógica de transação (Release Old -> Reserve New) agora está no Backend (PUT /api/orders/:id)
-                    // O frontend apenas envia os dados e recebe a order atualizada.
-
                     const updatedOrder = await updateOrder(id, orderData)
 
                     set(state => ({
@@ -290,7 +277,6 @@ export const useAdminStore = create(
                     }))
 
                     // Recarregar produtos para garantir que a UI mostre o estoque correto
-                    // (pois o backend alterou o estoque)
                     get().loadProducts();
 
                     return { success: true, order: updatedOrder }
@@ -304,79 +290,31 @@ export const useAdminStore = create(
             updateStatus: async (id, status) => {
                 set({ ordersLoading: true, ordersError: null })
                 try {
-                    // Obter o pedido atual para verificar o status anterior
-                    const currentOrder = get().orders.find(o => o.id === parseInt(id));
-                    const previousStatus = currentOrder?.status;
-
-                    // Status que LIBERAM estoque (malinha finalizada/cancelada)
-                    const statusesThatReleaseStock = ['completed', 'cancelled', 'delivered'];
-                    // Status que MANTÊM estoque reservado (malinha ativa)
-                    const statusesThatReserveStock = ['pending', 'shipped', 'active'];
-
-                    // 🔓 MALINHA: Liberar estoque se mudar para status final (completed, cancelled, delivered)
-                    if (statusesThatReleaseStock.includes(status) && !statusesThatReleaseStock.includes(previousStatus)) {
-                        console.log(`🔓 Malinha mudando para "${status}" - liberando estoque...`);
-                        const items = currentOrder?.items || [];
-                        if (items.length > 0) {
-                            const releaseResult = await releaseStockForMalinha(items);
-                            if (!releaseResult.success) {
-                                console.warn('⚠️ Aviso: Erro ao liberar estoque:', releaseResult.error);
-                            } else {
-                                console.log('✅ Estoque liberado');
-                            }
-                        }
-                    }
-
-                    // 🔒 MALINHA: Reservar estoque se voltar de status final para status ativo
-                    // (exemplo: cancelamento desfeito)
-                    if (statusesThatReserveStock.includes(status) && statusesThatReleaseStock.includes(previousStatus)) {
-                        console.log(`🔒 Malinha voltando para "${status}" - reservando estoque novamente...`);
-                        const items = currentOrder?.items || [];
-                        if (items.length > 0) {
-                            const reserveResult = await reserveStockForMalinha(items);
-                            if (!reserveResult.success) {
-                                throw new Error(`Erro ao reservar estoque: ${reserveResult.error}`);
-                            }
-                            console.log('✅ Estoque reservado para malinha');
-                        }
-                    }
+                    // Status change handles stock automatically in backend (PUT /api/orders/:id)
+                    // If moving to 'completed'/'cancelled', backend releases stock.
+                    // If moving back to 'active', backend reserves stock.
 
                     const updatedOrder = await updateOrderStatus(id, status)
 
-                    // Adicionar histórico de status se não existir
-                    const now = new Date().toISOString();
-                    const statusHistory = currentOrder?.statusHistory || [];
-                    statusHistory.push({
-                        status,
-                        timestamp: now,
-                        source: 'admin-panel'
-                    });
-
-                    // Atualizar o pedido com o histórico de status
-                    const orderWithHistory = { ...updatedOrder, statusHistory };
+                    // Adicionar histórico de status se não existir (apenas para atualizar UI local se backend nao retornou)
+                    // Mas updatedOrder deve vir completo do backend
 
                     set(state => ({
                         orders: state.orders.map(o =>
-                            o.id === parseInt(id) ? orderWithHistory : o
+                            o.id === parseInt(id) ? updatedOrder : o
                         ),
                         ordersLoading: false
                     }))
 
-                    // Recarregar produtos para atualizar estoque na UI se houve mudança de estoque
-                    if (
-                        (statusesThatReleaseStock.includes(status) && !statusesThatReleaseStock.includes(previousStatus)) ||
-                        (statusesThatReserveStock.includes(status) && statusesThatReleaseStock.includes(previousStatus))
-                    ) {
-                        get().loadProducts();
-                    }
+                    // Sempre recarregar produtos pois status muda estoque
+                    get().loadProducts();
 
                     // Enviar notificação para a cliente se o status for entregue
-                    if (status === 'delivered' && currentOrder?.customer?.phone) {
-                        // Aqui você pode adicionar uma função para enviar notificação
-                        console.log(`Notificação de entrega enviada para cliente: ${currentOrder.customer.phone}`);
+                    if (status === 'delivered' && updatedOrder?.customer?.phone) {
+                        console.log(`Notificação de entrega enviada para cliente: ${updatedOrder.customer.phone}`);
                     }
 
-                    return { success: true, order: orderWithHistory }
+                    return { success: true, order: updatedOrder }
                 } catch (error) {
                     const userFriendlyError = formatUserFriendlyError(error);
                     set({ ordersError: userFriendlyError, ordersLoading: false })
@@ -411,67 +349,40 @@ export const useAdminStore = create(
                         throw new Error('Malinha não encontrada')
                     }
 
-                    // 2. Garantir que temos customerId - CRÍTICO PARA ASSOCIAÇÃO
                     if (!order.customerId) {
                         console.error('❌ ERRO: Malinha sem cliente associado:', order);
-                        throw new Error(
-                            'Esta malinha não tem cliente associado. ' +
-                            'Malinhas devem ser criadas pelo cliente no site com suas informações. ' +
-                            'Verifique se a malinha foi criada corretamente.'
-                        )
+                        throw new Error('Esta malinha não tem cliente associado.')
                     }
 
-                    console.log('✅ Malinha tem customerId:', order.customerId)
-
-                    // 3. 🔓 RESTAURAR ESTOQUE DOS ITENS DEVOLVIDOS (não vendidos)
-                    // Os itens que NÃO estão em keptItemsIndexes são devolvidos
-                    const allItems = order.items || [];
-                    const returnedItems = allItems.filter((_, idx) => !keptItemsIndexes.includes(idx));
-
-                    if (returnedItems.length > 0) {
-                        console.log(`🔓 Restaurando estoque de ${returnedItems.length} itens devolvidos...`);
-                        const releaseResult = await releaseStockForMalinha(returnedItems);
-                        if (!releaseResult.success) {
-                            console.warn('⚠️ Aviso: Erro ao restaurar estoque:', releaseResult.error);
-                        } else {
-                            console.log('✅ Estoque restaurado para itens devolvidos');
-                        }
-                    }
-
-                    // 4. Preparar dados da venda com customerId OBRIGATÓRIO
+                    // 2. Preparar dados da venda
                     const vendaDataWithCustomer = {
                         ...vendaData,
-                        customerId: order.customerId,  // Cliente vem da malinha (criado no site)
+                        customerId: order.customerId,
                         orderId: order.id
                     }
 
-                    console.log('📝 Criando venda com dados:', vendaDataWithCustomer)
-
-                    // 5. Criar a venda (isso NÃO deve baixar estoque novamente pois já estava reservado)
-                    // A venda terá apenas os itens vendidos, que já tiveram estoque reservado
+                    // 3. Criar a venda
+                    // Backend Vendas agora SEMPRE baixa estoque dos itens vendidos
                     const newVenda = await createVenda(vendaDataWithCustomer)
 
-                    // 6. Atualizar a order para marcar como converted_to_sale
+                    // 4. Atualizar a order para marcar como completed
+                    // Backend Orders vai LIBERAR o estoque da malinha (o que estava reservado volta)
+                    // Saldo: +ReservaVolta (Orders) -VendaSai (Vendas) = Correto.
                     const updatedOrder = await updateOrder(id, {
                         status: 'completed',
                         convertedToSale: true
                     })
 
-                    // 7. Atualizar estado local
                     set(state => ({
                         orders: state.orders.map(o => o.id === parseInt(id) ? updatedOrder : o),
                         vendas: [newVenda, ...state.vendas],
                         ordersLoading: false
                     }))
 
-                    // 8. Sincronizar estoque (apenas estoque, clientes não mudam)
                     get().loadProducts()
 
-                    // 9. Consumir embalagem
                     const { consumePackaging } = useOperationalCostsStore.getState()
                     consumePackaging()
-
-                    console.log('✅ Venda finalizada com sucesso! Customer ID:', order.customerId)
 
                     return { success: true, order: updatedOrder, venda: newVenda }
                 } catch (error) {
@@ -485,32 +396,7 @@ export const useAdminStore = create(
             removeOrder: async (id) => {
                 set({ ordersLoading: true, ordersError: null })
                 try {
-                    // Status que LIBERAM estoque (malinha finalizada/cancelada)
-                    const statusesThatReleaseStock = ['completed', 'cancelled', 'delivered'];
-
-                    // 1. Buscar order para estornar estoque
-                    const order = get().orders.find(o => o.id === parseInt(id)) || await getOrderByIdFromApi(id);
-
-                    // 2. 🔓 Estornar estoque se necessário (se estava reservado)
-                    if (order && order.items && !statusesThatReleaseStock.includes(order.status)) {
-                        console.log('🔓 Estornando estoque por exclusão de malinha...');
-                        const releaseResult = await releaseStockForMalinha(order.items);
-
-                        if (releaseResult.success) {
-                            if (releaseResult.released && releaseResult.released.length > 0) {
-                                toast.success(`Estoque estornado: ${releaseResult.released.length} itens devolvidos.`);
-                            } else {
-                                toast.info('Nenhum item precisou ter estoque estornado.');
-                            }
-                        } else {
-                            toast.error(`Atenção: Falha ao estornar estoque! ${releaseResult.error}`);
-                            console.error('Falha no estorno:', releaseResult);
-                        }
-                    } else {
-                        console.log('ℹ️ Malinha já estava finalizada/cancelada ou sem itens, não estorna estoque.');
-                    }
-
-                    // 3. Deletar
+                    // Backend DELETE deve liberar estoque se estava reservado
                     await deleteOrder(id)
 
                     set(state => ({
@@ -518,7 +404,6 @@ export const useAdminStore = create(
                         ordersLoading: false
                     }))
 
-                    // Recarregar produtos
                     get().loadProducts();
 
                     return { success: true }
@@ -526,7 +411,6 @@ export const useAdminStore = create(
                     console.error('Erro ao deletar malinha:', error);
                     const userFriendlyError = formatUserFriendlyError(error);
                     set({ ordersError: userFriendlyError, ordersLoading: false })
-                    toast.error(`Erro ao deletar: ${userFriendlyError}`);
                     return { success: false, error: userFriendlyError }
                 }
             },

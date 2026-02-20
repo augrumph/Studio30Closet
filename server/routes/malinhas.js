@@ -1,5 +1,5 @@
 import express from 'express'
-import { supabase } from '../supabase.js'
+import { pool } from '../db.js'
 
 const router = express.Router()
 
@@ -16,59 +16,65 @@ router.get('/', async (req, res) => {
         dateFilter = 'all'
     } = req.query
 
-    const from = (page - 1) * pageSize
-    const to = from + Number(pageSize) - 1
+    const offset = (page - 1) * pageSize
+    const limit = Number(pageSize)
 
-    console.log(`📦 Malinhas API: Bucando página ${page} [Filtros: ${status}, ${dateFilter}]`)
+    console.log(`📦 Malinhas API: Buscando página ${page} [Filtros: ${status}, ${dateFilter}]`)
 
     try {
-        let query = supabase
-            .from('orders')
-            .select(`
-                *,
-                customer:customers(id, name, phone)
-            `, { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range(from, to)
+        let whereConditions = []
+        let params = []
+        let paramIndex = 1
 
         // Filtro de Status
         if (status !== 'all') {
-            query = query.eq('status', status)
+            whereConditions.push(`o.status = $${paramIndex++}`)
+            params.push(status)
         }
 
         // Filtro de Data
         if (dateFilter === 'today') {
             const today = new Date().toISOString().split('T')[0]
-            query = query.gte('created_at', `${today}T00:00:00`)
+            whereConditions.push(`o.created_at >= $${paramIndex++}`)
+            params.push(`${today}T00:00:00`)
         } else if (dateFilter === 'month') {
             const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-            query = query.gte('created_at', `${firstDay}T00:00:00`)
+            whereConditions.push(`o.created_at >= $${paramIndex++}`)
+            params.push(`${firstDay}T00:00:00`)
         }
 
-        const { data, error, count } = await query
-
-        if (error) throw error
-
-        // Filtro de Busca (Cliente ou Número do Pedido) - Feito em JS se necessário, 
-        // mas melhor tentar via query se possível. Como temos o join, o Supabase 
-        // limita a busca no join. Vamos processar o search no Supabase se for número,
-        // ou aceitar que o search de nome de cliente em tabelas relacionadas no Supabase é limitado sem RPC.
-
-        let filteredData = data || []
+        // Filtro de Busca (cliente ou número do pedido)
         if (search) {
             const searchLower = search.toLowerCase()
-            filteredData = filteredData.filter(order => {
-                const orderNum = `#${String(order.id).padStart(6, '0')}`
-                const customerName = order.customer?.name?.toLowerCase() || ''
-                return orderNum.includes(searchLower) || customerName.includes(searchLower)
-            })
+            whereConditions.push(`(c.name ILIKE $${paramIndex} OR CAST(o.id AS TEXT) ILIKE $${paramIndex})`)
+            params.push(`%${searchLower}%`)
+            paramIndex++
         }
 
-        // Mapeamento para CamelCase e formatações
-        const items = filteredData.map(order => ({
+        const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
+
+        const { rows } = await pool.query(`
+            SELECT
+                COUNT(*) OVER() as total_count,
+                o.*,
+                json_build_object(
+                    'id', c.id,
+                    'name', c.name,
+                    'phone', c.phone
+                ) as customer
+            FROM orders o
+            LEFT JOIN customers c ON c.id = o.customer_id
+            ${whereClause}
+            ORDER BY o.created_at DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex+1}
+        `, [...params, limit, offset])
+
+        const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
+
+        // Mapear para camelCase
+        const items = rows.map(order => ({
             ...order,
             orderNumber: `#${String(order.id).padStart(6, '0')}`,
-            // Garantir camelCase para o frontend que espera customerId etc
             customerId: order.customer_id,
             totalValue: order.total_value,
             deliveryDate: order.delivery_date,
@@ -79,14 +85,14 @@ router.get('/', async (req, res) => {
 
         res.json({
             items,
-            total: count || items.length,
+            total,
             page: Number(page),
             pageSize: Number(pageSize),
-            totalPages: Math.ceil((count || items.length) / pageSize)
+            totalPages: Math.ceil(total / pageSize)
         })
 
     } catch (error) {
-        console.error("Erro na API de Malinhas:", error)
+        console.error("❌ Erro na API de Malinhas:", error)
         return res.status(500).json({ message: 'Erro interno do servidor' })
     }
 })

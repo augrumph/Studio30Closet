@@ -12,6 +12,7 @@ import { usePrefetchProducts } from '@/hooks/usePrefetchProducts'
 import { useSiteImagesContext } from '@/contexts/SiteImagesContext'
 import { getFeaturedProducts } from '@/lib/api/products'
 import { SEO } from '@/components/SEO'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 export function Home() {
     const { products, loadProducts, productsLoading } = useAdminStore()
@@ -105,9 +106,9 @@ export function Home() {
     // Textura de papel
     const paperTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E")`
 
-    // URLs das imagens do banco ou fallback
-    const heroLogo = images?.hero_logo || '/marcacompleta.webp'
-    const howItWorksSectionImage = images?.how_it_works_section_image || 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=600&auto=format&fit=crop'
+    // URLs das imagens do banco com proxy/otimização
+    const heroLogo = images?.hero_logo ? getOptimizedImageUrl(images.hero_logo, 600) : '/marcacompleta.webp'
+    const howItWorksSectionImage = images?.how_it_works_section_image ? getOptimizedImageUrl(images.how_it_works_section_image, 600) : 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=600&auto=format&fit=crop'
 
     return (
         // BASE: Fundo Creme Claro Global
@@ -193,7 +194,7 @@ export function Home() {
                                     className="relative rounded-xl overflow-hidden bg-[#F5F0EB] cursor-pointer active:scale-[0.98] transition-transform aspect-[3/4]"
                                 >
                                     <img
-                                        src={product.images?.[0] || '/placeholder.jpg'}
+                                        src={getOptimizedImageUrl(product.images?.[0], 400) || '/placeholder.jpg'}
                                         alt={product.name}
                                         className="w-full h-full object-cover"
                                         loading="eager"

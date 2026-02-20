@@ -48,6 +48,7 @@ export const useMalinhaStore = create(
                     productId: product.id,  // ID do produto
                     selectedSize: size,     // Tamanho selecionado
                     selectedColor: color,   // ✅ Cor selecionada (IMPORTANTÍSSIMO PARA ESTOQUE)
+                    image: product.images?.[0], // ✅ Salvar a imagem exata que o usuário viu (Variação)
                     addedAt: new Date().toISOString(),
                 }
 

@@ -67,7 +67,7 @@ export function VendasList() {
     }, [searchTerm, filterType, filterPaymentStatus, dateFilter])
 
     // Mapeamento de dados da API
-    const paginatedVendas = vendasData?.items || []
+    const paginatedVendas = vendasData?.vendas || []
     const totalItems = vendasData?.total || 0
     const totalPages = vendasData?.totalPages || 0
 

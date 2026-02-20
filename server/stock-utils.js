@@ -41,13 +41,19 @@ export async function updateProductStock(client, productId, quantity, color, siz
     // Find Color Variant
     let variantIndex = variants.findIndex(v => normalize(v.colorName) === colorNorm)
 
-    // Fallback 1: If there's only one variant total, assume it's the intended one
+    // Fallback 1: If color is "Padrão" or empty, use the first variant
+    if (variantIndex === -1 && (colorNorm === 'padrão' || colorNorm === 'padrao' || colorNorm === '')) {
+        variantIndex = 0;
+        console.warn(`[STOCK WARNING] Color "${color}" is generic. Using first variant: "${variants[0].colorName}" for Product ${product.id} ("${product.name}").`)
+    }
+
+    // Fallback 2: If there's only one variant total, assume it's the intended one
     if (variantIndex === -1 && variants.length === 1) {
         variantIndex = 0;
         console.warn(`[STOCK WARNING] Strict color match failed for "${color}" on Product ${product.id} ("${product.name}"). Defaulting to its only variant: "${variants[0].colorName}".`)
     }
 
-    // Fallback 2: Try to match by the product's default color field
+    // Fallback 3: Try to match by the product's default color field
     if (variantIndex === -1) {
         variantIndex = variants.findIndex(v => normalize(v.colorName) === normalize(product.color))
         if (variantIndex !== -1) {
@@ -56,7 +62,7 @@ export async function updateProductStock(client, productId, quantity, color, siz
     }
 
     if (variantIndex === -1) {
-        throw new Error(`Color "${color}" not found in product ${product.id} ("${product.name}")`)
+        throw new Error(`Color "${color}" not found in product ${product.id} ("${product.name}"). Available colors: ${variants.map(v => v.colorName).join(', ')}`)
     }
     const variant = variants[variantIndex]
 

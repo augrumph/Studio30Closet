@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import dotenv from 'dotenv'
 
 import path from 'path'
@@ -38,16 +39,14 @@ export async function uploadFile(file, folder = 'uploads') {
         Bucket: BUCKET_NAME,
         Key: fileName,
         Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read' // Check if your provider supports ACLs, otherwise remove
+        ContentType: file.mimetype
+        // ACL removed - Railway S3 doesn't support ACLs
     })
 
     try {
         await s3Client.send(command)
-        // Construct public URL. Adjust format based on your S3 provider (e.g., R2, DigitalOcean, MinIO)
-        // For standard S3-compatible: endpoint/bucket/key
-        // If endpoint includes bucket, then just endpoint/key.
-        // Assuming Railway/generic S3 provider style:
+        // Return the key/path instead of full URL
+        // Frontend will request signed URLs as needed
         const url = `${process.env.S3_ENDPOINT}/${BUCKET_NAME}/${fileName}`
         return url
     } catch (error) {
@@ -57,18 +56,50 @@ export async function uploadFile(file, folder = 'uploads') {
 }
 
 /**
+ * Generate a presigned URL for an S3 object (valid for 1 hour)
+ * @param {String} key - S3 object key (file path in bucket)
+ * @returns {String} - Presigned URL
+ */
+export async function getPresignedUrl(key) {
+    try {
+        const command = new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key
+        })
+        const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 }) // 1 hour
+        return url
+    } catch (error) {
+        console.error('❌ Error generating presigned URL:', error)
+        return null
+    }
+}
+
+/**
+ * Extract S3 key from full URL
+ * @param {String} fileUrl - Full URL of the file
+ * @returns {String} - S3 key
+ */
+export function extractKeyFromUrl(fileUrl) {
+    try {
+        const urlObj = new URL(fileUrl)
+        const pathParts = urlObj.pathname.split(`/${BUCKET_NAME}/`)
+        if (pathParts.length >= 2) return pathParts[1]
+        // Fallback: just use the pathname without leading slash
+        return urlObj.pathname.substring(1)
+    } catch (error) {
+        console.error('⚠️ Error extracting key from URL:', error)
+        return null
+    }
+}
+
+/**
  * Delete a file from S3
  * @param {String} fileUrl - Full URL of the file
  */
 export async function deleteFile(fileUrl) {
     try {
-        const urlObj = new URL(fileUrl)
-        // Extract key from URL. This depends heavily on URL structure.
-        // Assumes: .../bucketName/key
-        const pathParts = urlObj.pathname.split(`/${BUCKET_NAME}/`)
-        if (pathParts.length < 2) return // Invalid URL format for this bucket
-
-        const key = pathParts[1]
+        const key = extractKeyFromUrl(fileUrl)
+        if (!key) return
 
         const command = new DeleteObjectCommand({
             Bucket: BUCKET_NAME,

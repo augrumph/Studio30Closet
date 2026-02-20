@@ -2,6 +2,7 @@ import express from 'express'
 import { pool, getClient } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { updateProductStock } from '../stock-utils.js'
+import { extractKeyFromUrl, getPresignedUrl } from '../lib/s3.js'
 
 const router = express.Router()
 
@@ -147,10 +148,30 @@ router.get('/:id', async (req, res) => {
         // Enrich items if needed, or ensure array
         if (!order.items) order.items = []
 
-        // Formatar image principal para frontend
-        order.items = order.items.map(item => ({
-            ...item,
-            image: item.images && item.images.length > 0 ? item.images[0] : 'https://via.placeholder.com/150'
+        // Convert S3 URLs to presigned URLs and format images
+        order.items = await Promise.all(order.items.map(async (item) => {
+            let imageUrl = 'https://via.placeholder.com/150'
+
+            if (item.images && item.images.length > 0) {
+                const firstImage = item.images[0]
+                // Check if it's an S3 URL that needs signing
+                if (firstImage && firstImage.includes(process.env.S3_ENDPOINT)) {
+                    const key = extractKeyFromUrl(firstImage)
+                    if (key) {
+                        const signedUrl = await getPresignedUrl(key)
+                        imageUrl = signedUrl || firstImage
+                    } else {
+                        imageUrl = firstImage
+                    }
+                } else {
+                    imageUrl = firstImage
+                }
+            }
+
+            return {
+                ...item,
+                image: imageUrl
+            }
         }))
 
         res.json(order)

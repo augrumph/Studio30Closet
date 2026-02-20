@@ -5,7 +5,6 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
-import { supabase } from '@/lib/supabase'
 import { getCollections } from '@/lib/api/collections'
 import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
@@ -29,14 +28,13 @@ export function CollectionDetail() {
             const col = collections.find(c => c.id === parseInt(collectionId))
             setCollection(col)
 
-            // Carregar todos os produtos
-            const { data: products } = await supabase
-                .from('products')
-                .select('id, name, images, price, cost_price, stock, collection_ids, category')
-                .eq('active', true)
-                .order('name')
+            // Carregar todos os produtos (via BFF)
+            const response = await fetch('/api/products?pageSize=1000')
+            if (!response.ok) throw new Error('Falha ao buscar produtos')
+            const data = await response.json()
 
-            setAllProducts(products || [])
+            // Garantir que temos os itens ativados e o schema esperado
+            setAllProducts(data.items || [])
         } catch (err) {
             toast.error('Erro ao carregar dados')
             console.error(err)
@@ -50,7 +48,7 @@ export function CollectionDetail() {
     // Produtos na coleção (Filtrados)
     const productsInCollection = useMemo(() => {
         return allProducts.filter(p =>
-            p.collection_ids?.includes(parseInt(collectionId)) &&
+            p.collectionIds?.includes(parseInt(collectionId)) &&
             p.name.toLowerCase().includes(searchTerm.toLowerCase())
         )
     }, [allProducts, collectionId, searchTerm])
@@ -58,19 +56,18 @@ export function CollectionDetail() {
     // Produtos disponíveis para adicionar (Filtrados)
     const availableProducts = useMemo(() => {
         return allProducts.filter(p =>
-            !p.collection_ids?.includes(parseInt(collectionId)) &&
+            !p.collectionIds?.includes(parseInt(collectionId)) &&
             p.name.toLowerCase().includes(searchTerm.toLowerCase())
         )
     }, [allProducts, collectionId, searchTerm])
 
-    // KPIs da coleção (Baseado no total, não no filtro de busca)
+    // KPIs da coleção
     const metrics = useMemo(() => {
-        // Usa a lista completa da coleção para KPIs
-        const products = allProducts.filter(p => p.collection_ids?.includes(parseInt(collectionId)))
+        const products = allProducts.filter(p => p.collectionIds?.includes(parseInt(collectionId)))
 
         const totalPieces = products.reduce((acc, p) => acc + (p.stock || 0), 0)
         const totalValue = products.reduce((acc, p) => acc + ((p.price || 0) * (p.stock || 0)), 0)
-        const totalCost = products.reduce((acc, p) => acc + ((p.cost_price || 0) * (p.stock || 0)), 0)
+        const totalCost = products.reduce((acc, p) => acc + ((p.costPrice || p.cost_price || 0) * (p.stock || 0)), 0)
         const potentialProfit = totalValue - totalCost
 
         return {
@@ -87,21 +84,20 @@ export function CollectionDetail() {
         setSaving(true)
 
         try {
-            // Arrays atuais
-            const currentCollections = product.collection_ids || []
+            const currentCollections = product.collectionIds || []
             const newCollections = [...new Set([...currentCollections, parseInt(collectionId)])]
 
-            const { error } = await supabase
-                .from('products')
-                .update({ collection_ids: newCollections })
-                .eq('id', product.id)
+            const response = await fetch(`/api/products/${product.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collection_ids: newCollections })
+            })
 
-            if (error) throw error
+            if (!response.ok) throw new Error('Erro ao atualizar produto')
 
-            // Atualiza estado local
             setAllProducts(prev => prev.map(p =>
                 p.id === product.id
-                    ? { ...p, collection_ids: newCollections }
+                    ? { ...p, collectionIds: newCollections }
                     : p
             ))
 
@@ -120,20 +116,20 @@ export function CollectionDetail() {
         setSaving(true)
 
         try {
-            const currentCollections = product.collection_ids || []
+            const currentCollections = product.collectionIds || []
             const newCollections = currentCollections.filter(id => id !== parseInt(collectionId))
 
-            const { error } = await supabase
-                .from('products')
-                .update({ collection_ids: newCollections })
-                .eq('id', product.id)
+            const response = await fetch(`/api/products/${product.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collection_ids: newCollections })
+            })
 
-            if (error) throw error
+            if (!response.ok) throw new Error('Erro ao atualizar produto')
 
-            // Atualiza estado local
             setAllProducts(prev => prev.map(p =>
                 p.id === product.id
-                    ? { ...p, collection_ids: newCollections }
+                    ? { ...p, collectionIds: newCollections }
                     : p
             ))
 
@@ -414,17 +410,19 @@ function KPICard({ icon: Icon, iconColor, bgColor, title, value, tooltip }) {
                         <div className={`p-3 ${bgColor} rounded-2xl`}>
                             <Icon className={`w-6 h-6 ${iconColor}`} />
                         </div>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className="p-2 hover:bg-gray-50 rounded-full cursor-help transition-colors">
-                                    <span className="sr-only">Info</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs bg-gray-900 text-white p-3 text-sm rounded-xl">
-                                {tooltip}
-                            </TooltipContent>
-                        </Tooltip>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="p-2 hover:bg-gray-50 rounded-full cursor-help transition-colors">
+                                        <span className="sr-only">Info</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="max-w-xs bg-gray-900 text-white p-3 text-sm rounded-xl">
+                                    {tooltip}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                     <div>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{title}</p>

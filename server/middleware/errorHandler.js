@@ -38,13 +38,14 @@ export function errorHandler(err, req, res, next) {
     const statusCode = err.statusCode || err.status || 500
     const message = err.message || 'Internal Server Error'
 
-    // Don't leak error details in production
+    // Temporarily allow error details in production for debugging 500 errors
     const response = {
         error: message,
-        ...(process.env.NODE_ENV === 'development' && {
-            stack: err.stack,
-            details: err.details
-        })
+        stack: err.stack,
+        details: err.details,
+        path: req.url,
+        method: req.method,
+        code: err.code || err.name
     }
 
     res.status(statusCode).json(response)

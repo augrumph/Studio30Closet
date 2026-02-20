@@ -23,8 +23,13 @@ export const pool = new Pool({
 })
 
 pool.on('error', (err) => {
-  console.error('❌ Erro inesperado no pool PostgreSQL:', err)
-  process.exit(-1)
+  console.error('❌ Erro inesperado no pool PostgreSQL:', {
+    message: err.message,
+    stack: err.stack,
+    code: err.code
+  })
+  // Em produção, não queremos crashar o servidor em caso de erro de conexão temporário
+  // mas devemos logar com prioridade.
 })
 
 pool.on('connect', () => {

@@ -128,10 +128,16 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             }))
         }))
 
-        // Lógica de DRE
+        // Lógica de DRE - Excluir vendas do cliente "Amor" (vendas promocionais a preço de custo)
         const salesToProcess = normalizedVendas.filter(v => {
             const status = (v.paymentStatus || '').toLowerCase()
-            return status !== 'cancelled' && status !== 'refuted' && status !== 'returned'
+            const customerName = (v.customer_name || '').toLowerCase().trim()
+
+            // Excluir vendas canceladas/refutadas/devolvidas E vendas para "Amor"
+            const isValidStatus = status !== 'cancelled' && status !== 'refuted' && status !== 'returned'
+            const isNotPromotional = customerName !== 'amor'
+
+            return isValidStatus && isNotPromotional
         })
 
         // 3.1. FIDELITY & NEW CUSTOMERS (RETAIL KPIs)
@@ -141,11 +147,14 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         // Como o normalizedVendas pode ser filtrado por período, precisamos da lista completa para fidelização real.
 
         // Vamos buscar a data da primeira venda de cada cliente globalmente
+        // Excluir cliente "Amor" (vendas promocionais)
         const { rows: firstPurchases } = await pool.query(`
-            SELECT customer_id, MIN(created_at) as first_sale
-            FROM vendas
-            WHERE payment_status NOT IN ('cancelled', 'refuted', 'returned')
-            GROUP BY customer_id
+            SELECT v.customer_id, MIN(v.created_at) as first_sale
+            FROM vendas v
+            LEFT JOIN customers c ON c.id = v.customer_id
+            WHERE v.payment_status NOT IN ('cancelled', 'refuted', 'returned')
+              AND LOWER(TRIM(c.name)) != 'amor'
+            GROUP BY v.customer_id
         `)
         firstPurchases.forEach(fp => customerFirstPurchase.set(fp.customer_id, new Date(fp.first_sale).getTime()))
 
@@ -246,9 +255,14 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         salesToProcess.forEach(v => {
             // Garantir que createdAt é tratado como string para o .startsWith
             const vDateStr = v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt)
+            const customerName = (v.customer_name || '').toLowerCase().trim()
+
             if (v.createdAt && vDateStr.startsWith(todayStr)) {
                 todaySalesCount++
             }
+
+            // Pular vendas do cliente "Amor" no fluxo de caixa também
+            if (customerName === 'amor') return
 
             const isCrediario = (v.paymentMethod === 'fiado' || v.paymentMethod === 'fiado_parcelado' || v.paymentMethod === 'crediario')
             const net = Number(v.netAmount || (v.totalValue - v.feeAmount))

@@ -17,7 +17,7 @@ import {
     Eye, ShoppingCart, MousePointer, TrendingUp,
     Users, Package, AlertTriangle, BarChart3,
     ArrowUpRight, ArrowDownRight, RefreshCw, Info, X,
-    Globe, Smartphone, Monitor
+    Globe, Smartphone, Monitor, Trash2
 } from 'lucide-react'
 
 import {
@@ -112,6 +112,29 @@ export function SiteAnalytics() {
         queryClient.invalidateQueries({ queryKey: ['analytics'] })
     }
 
+    // Reset Metrics
+    const handleReset = async () => {
+        if (!window.confirm('⚠️ ATENÇÃO: Isso irá apagar PERMANENTEMENTE todos os dados de observabilidade (visualizações, sessões e carrinhos abandonados). Deseja continuar?')) {
+            return
+        }
+
+        try {
+            const response = await fetch('/api/analytics/reset', { method: 'DELETE' })
+            if (!response.ok) throw new Error('Erro ao resetar dados')
+
+            import('sonner').then(({ toast }) => {
+                toast.success('Métricas resetadas com sucesso!')
+            })
+
+            queryClient.invalidateQueries({ queryKey: ['analytics'] })
+        } catch (error) {
+            console.error(error)
+            import('sonner').then(({ toast }) => {
+                toast.error('Erro ao resetar métricas')
+            })
+        }
+    }
+
     // Format number with K suffix
     const formatNumber = (num) => {
         if (num >= 1000) {
@@ -176,6 +199,13 @@ export function SiteAnalytics() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleReset}
+                        className="p-3 bg-red-50 hover:bg-red-100 rounded-xl shadow-sm transition-all border border-red-100 text-red-600"
+                        title="Resetar métricas (Limpar tudo)"
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
                     <button
                         onClick={handleRefresh}
                         className="p-3 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200"

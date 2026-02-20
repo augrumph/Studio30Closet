@@ -159,4 +159,19 @@ router.post('/abandoned-carts', async (req, res) => {
     }
 })
 
+// DELETE /api/analytics/reset - Clear all analytics data
+router.delete('/reset', async (req, res) => {
+    try {
+        console.log('🧹 Reseting analytics data...')
+
+        // Use TRUNCATE for performance if possible, or DELETE
+        await pool.query('TRUNCATE TABLE analytics_events, analytics_sessions, abandoned_carts CASCADE')
+
+        res.json({ success: true, message: 'Analytics data cleared successfully' })
+    } catch (error) {
+        console.error("❌ Erro ao resetar analytics:", error)
+        res.status(500).json({ error: 'Erro ao resetar dados de analytics' })
+    }
+})
+
 export default router

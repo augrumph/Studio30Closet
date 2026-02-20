@@ -314,10 +314,10 @@ router.put('/:id', async (req, res) => {
             data.is_best_seller ?? data.isBestSeller,
             data.supplier_id ?? data.supplierId,
             data.color,
-            processedVariants ? JSON.stringify(processedVariants) : null,
-            data.sizes ? JSON.stringify(data.sizes) : null,
-            imageUrls,
-            data.collection_ids,
+            processedVariants && processedVariants.length > 0 ? JSON.stringify(processedVariants) : null,
+            data.sizes && data.sizes.length > 0 ? JSON.stringify(data.sizes) : null,
+            imageUrls && imageUrls.length > 0 ? imageUrls : null,
+            data.collection_ids ?? data.collectionIds,
             id
         ]
 
@@ -337,8 +337,8 @@ router.put('/:id', async (req, res) => {
                 is_best_seller = COALESCE($12, is_best_seller),
                 supplier_id = COALESCE($13, supplier_id),
                 color = COALESCE($14, color),
-                variants = $15,
-                sizes = $16,
+                variants = COALESCE($15, variants),
+                sizes = COALESCE($16, sizes),
                 images = COALESCE($17, images),
                 collection_ids = COALESCE($18, collection_ids),
                 updated_at = NOW()

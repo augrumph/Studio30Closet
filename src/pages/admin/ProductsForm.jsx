@@ -150,7 +150,7 @@ export function ProductsForm() {
                 originalPrice: product.originalPrice ? product.originalPrice.toString() : '',
                 stock: product.stock || 0,
                 costPrice: product.costPrice ? product.costPrice.toString() : '',
-                collection_ids: product.collection_ids || [], // Map collections
+                collection_ids: product.collectionIds || product.collection_ids || [], // Map collections
                 active: product.active !== false // Se undefined ou null, considera ativo
             }
             setFormData(data)

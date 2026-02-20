@@ -17,15 +17,31 @@ if (import.meta.env.PROD) {
     console.debug = () => { }
 }
 
-// 🗑️ CLEANUP: Forçar remoção de qualquer Service Worker antigo (cache persistente)
+// 🗑️ NUCLEAR CLEANUP: Forçar remoção de qualquer Service Worker e limpar CACHES (cache persistente)
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(function (registrations) {
         for (let registration of registrations) {
-            registration.unregister()
-            // logger.info só funciona se não estivermos em prod (ou se o logger usar console original salvo, mas aqui é seguro remover)
+            registration.unregister().then(() => {
+                console.log('✅ Service Worker removido com sucesso');
+            });
         }
-    })
+    });
 }
+
+// Limpar todos os caches do navegador (Cache Storage API)
+if ('caches' in window) {
+    caches.keys().then(function (names) {
+        for (let name of names) {
+            caches.delete(name).then(() => {
+                console.log('🗑️ Cache Storage "' + name + '" deletado');
+            });
+        }
+    });
+}
+
+// Forçar limpeza de localStorage se houver versão corrompida (opcional, mas seguro)
+// localStorage.clear(); // Não fazer isso pois apaga login, mas podemos apagar flags específicas
+window.sessionStorage.removeItem('studio30_page_refreshed');
 
 
 // ⚡ PREFETCH IMEDIATO: Carregar produtos em destaque ANTES de renderizar

@@ -7,8 +7,10 @@ import crypto from 'crypto'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Carregar .env
-dotenv.config({ path: path.resolve(__dirname, '../.env') })
+// Only load .env file in development (Railway injects env vars directly)
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.resolve(__dirname, '../.env') })
+}
 
 // Configuração do Cliente S3 (Railway / R2 / AWS)
 const s3Client = new S3Client({

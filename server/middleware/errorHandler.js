@@ -5,19 +5,27 @@
 
 import winston from 'winston'
 
-// Configure logger
+// Configure logger - only use file in development
+const transports = [
+    new winston.transports.Console({
+        format: winston.format.simple()
+    })
+]
+
+// Only write to file in development (Railway filesystem is ephemeral)
+if (process.env.NODE_ENV !== 'production') {
+    transports.push(
+        new winston.transports.File({ filename: 'error.log', level: 'error' })
+    )
+}
+
 const logger = winston.createLogger({
     level: 'error',
     format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.json()
     ),
-    transports: [
-        new winston.transports.File({ filename: 'error.log', level: 'error' }),
-        new winston.transports.Console({
-            format: winston.format.simple()
-        })
-    ]
+    transports
 })
 
 /**

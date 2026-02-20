@@ -6,8 +6,10 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Carregar .env da raiz do projeto
-dotenv.config({ path: path.resolve(__dirname, '../.env') })
+// Only load .env file in development (Railway injects env vars directly)
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.resolve(__dirname, '../.env') })
+}
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY

@@ -270,7 +270,9 @@ router.post('/', async (req, res) => {
             customerName: customer.name || 'Cliente',
             customerEmail: customer.email || '',
             itemsCount: items ? items.length : 0,
-            orderId: newOrder[0].id
+            orderId: newOrder[0].id,
+            items: items || [],
+            totalValue: orderFields.totalValue || 0
         }).catch(e => console.error("Falha no email em background:", e))
 
         res.json({ success: true, order: toCamelCase(newOrder[0]) })

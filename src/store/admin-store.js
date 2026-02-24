@@ -26,8 +26,8 @@ import {
     updateOrder,
     getOrderById as getOrderByIdFromApi,
 
-        getCustomerPreferences,
-        updateCustomerPreferences
+    getCustomerPreferences,
+    updateCustomerPreferences
 } from '@/lib/api'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { useOperationalCostsStore } from './operational-costs-store'
@@ -244,18 +244,20 @@ export const useAdminStore = create(
                 set({ ordersLoading: true, ordersError: null })
                 try {
                     // 1. Criar a malinha no banco
-                    // O Backend agora lida com reserva de estoque automaticamente na criação
-                    const newOrder = await createOrder(orderData)
+                    const result = await createOrder(orderData)
+
+                    // Retorno da nova API é { success: true, order: {...} }
+                    const orderToSave = result.order || result
 
                     set(state => ({
-                        orders: [newOrder, ...state.orders],
+                        orders: [orderToSave, ...state.orders],
                         ordersLoading: false
                     }))
 
                     // Recarregar produtos para atualizar estoque na UI
                     get().loadProducts();
 
-                    return { success: true, order: newOrder }
+                    return { success: true, order: orderToSave }
                 } catch (error) {
                     const userFriendlyError = formatUserFriendlyError(error);
                     set({ ordersError: userFriendlyError, ordersLoading: false })

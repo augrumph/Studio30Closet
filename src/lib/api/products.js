@@ -31,7 +31,7 @@ export async function getProducts(page = 1, pageSize = 20, filters = {}) {
  * Carregar produtos em destaque (Hero)
  */
 export async function getFeaturedProducts() {
-    const data = await apiClient('/products?featured=true&limit=4')
+    const data = await apiClient('/products?featured=true&limit=4&inStock=true')
     return data.items || [] // Backend returns { items: [], ... }
 }
 
@@ -99,7 +99,7 @@ export async function getProductsPaginated(offset = 0, limit = 6, filters = {}) 
     const page = Math.floor(offset / limit) + 1
 
     // Mapear filtros especiais se necessário
-    const apiFilters = { ...filters, active: true }
+    const apiFilters = { ...filters, active: true, inStock: true }
     if (filters.collection) apiFilters.collection = filters.collection
     if (filters.sizes && Array.isArray(filters.sizes)) apiFilters.sizes = filters.sizes.join(',') // Backend espera string ou array? Vamos mandar string csv no query param
 

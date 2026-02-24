@@ -48,7 +48,8 @@ router.get('/', async (req, res) => {
         active = 'all',
         featured,
         sizes,       // CSV string: 'P,M,G'
-        collection   // ID da coleção
+        collection,   // ID da coleção
+        inStock      // 'true' para filtrar apenas items com stock > 0
     } = req.query
 
     const offset = (page - 1) * pageSize
@@ -76,6 +77,10 @@ router.get('/', async (req, res) => {
 
         if (featured === 'true') {
             whereConditions.push(`is_featured = true`)
+        }
+
+        if (inStock === 'true') {
+            whereConditions.push(`stock > 0`)
         }
 
         if (search) {

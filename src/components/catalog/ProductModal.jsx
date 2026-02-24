@@ -180,7 +180,7 @@ export function ProductModal({ product: initialProduct, isOpen, onClose }) {
     // Verificar se a variante+tamanho selecionados tem estoque disponível
     const currentVariantHasStock = (() => {
         if (!selectedSize) return false
-        if (!currentVariant.sizeStock || currentVariant.sizeStock.length === 0) return true // Sem dados de variante, assume disponível
+        if (!currentVariant.sizeStock || currentVariant.sizeStock.length === 0) return false // BUG CORRIGIDO: Assume sem estoque quando dados de variant estão ausentes
         const sizeEntry = currentVariant.sizeStock.find(s =>
             (s.size || '').toLowerCase().trim() === (selectedSize || '').toLowerCase().trim()
         )

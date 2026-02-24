@@ -9,7 +9,6 @@ import { useToast } from '@/contexts/ToastContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { triggerFireworks } from '@/components/magicui/confetti'
 import { getBlurPlaceholder, getOptimizedImageUrl } from '@/lib/image-optimizer'
-import { sendNewMalinhaEmail } from '@/lib/email-service'
 import { useStock } from '@/hooks/useStock'
 import { trackCheckoutStarted, trackCheckoutCompleted, markCartCheckoutStarted, markCartConverted, saveCustomerDataToCart } from '@/lib/api/analytics'
 import { SEO } from '@/components/SEO'
@@ -247,22 +246,22 @@ export function Checkout() {
 
             triggerFireworks()
 
-            // 📧 Envio de email de notificação para o administrador
+            // 📧 Envio de email de notificação para o administrador via backend
             console.log('📧 Enviando email de notificação para studio30closet@gmail.com...')
-            sendNewMalinhaEmail({
-                customerName: customerData.name,
-                customerEmail: customerData.email,
-                itemsCount: groupedItems.length,
-                orderId: result.order?.id
-            }).then(res => {
-                console.log('✅ Email enviado com sucesso!', res)
-            }).catch(err => {
-                console.error('❌ ERRO ao enviar email de notificação:', err)
-                console.error('⚠️ Detalhes do erro:', {
-                    message: err.message || 'Erro desconhecido',
-                    status: err.status,
-                    text: err.text
+            fetch('/api/email/malinha', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customerName: customerData.name,
+                    customerEmail: customerData.email,
+                    itemsCount: groupedItems.length,
+                    orderId: result.order?.id
                 })
+            }).then(r => r.json()).then(res => {
+                if (res.success) console.log('✅ Email enviado com sucesso!')
+                else console.warn('⚠️ Email falhou:', res.error)
+            }).catch(err => {
+                console.error('❌ Erro ao enviar email:', err)
             })
 
             const msg = formatMalinhaMessage(groupedItems, customerData)

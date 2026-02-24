@@ -103,6 +103,7 @@ import collectionsRouter from './routes/collections.js'
 import materialsRouter from './routes/materials.js'
 import paymentFeesRouter from './routes/payment-fees.js'
 import settingsRouter from './routes/settings.js'
+import emailRouter from './routes/email.js'
 
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api/vendas', vendasRouter)
@@ -124,6 +125,7 @@ app.use('/api/collections', collectionsRouter)
 app.use('/api/materials', materialsRouter)
 app.use('/api/payment-fees', paymentFeesRouter)
 app.use('/api/settings', settingsRouter)
+app.use('/api/email', emailRouter)
 
 // Health Check with detailed status
 app.get('/health', async (req, res) => {
@@ -161,15 +163,32 @@ app.get('/health', async (req, res) => {
 if (process.env.NODE_ENV === 'production') {
     const distPath = path.join(__dirname, '..', 'dist')
 
-    // Servir arquivos estáticos (CSS, JS, imagens)
+    // Servir version.json SEM cache — garante que o VersionCheck sempre leia a versão atual
+    app.get('/version.json', (req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+        res.setHeader('Pragma', 'no-cache')
+        res.setHeader('Expires', '0')
+        res.sendFile(path.join(distPath, 'version.json'))
+    })
+
+    // Servir assets com hash (JS, CSS, imagens) com cache longo — safe pois o hash muda a cada build
     app.use(express.static(distPath, {
-        maxAge: '1y', // Cache de 1 ano para assets com hash
+        maxAge: '1y',
         etag: true,
-        lastModified: true
+        lastModified: true,
+        setHeaders: (res, filePath) => {
+            // index.html NUNCA deve ser cacheado — é o ponto de entrada que carrega os assets com hash
+            if (filePath.endsWith('index.html')) {
+                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+                res.setHeader('Pragma', 'no-cache')
+                res.setHeader('Expires', '0')
+            }
+        }
     }))
 
-    // SPA Fallback: Todas as rotas não-API retornam index.html
+    // SPA Fallback: Todas as rotas não-API retornam index.html (sem cache)
     app.get('*', (req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
         res.sendFile(path.join(distPath, 'index.html'))
     })
 

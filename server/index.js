@@ -31,12 +31,15 @@ app.use(helmet({
             scriptSrc: [
                 "'self'",
                 "'unsafe-inline'",
+                "'unsafe-eval'",
+                "blob:",
                 "https://www.googletagmanager.com",
                 "https://www.google-analytics.com",
                 "https://googleads.g.doubleclick.net",
                 "https://www.googleadservices.com"
             ],
             scriptSrcAttr: ["'unsafe-inline'"],
+            workerSrc: ["'self'", "blob:"],
             styleSrc: [
                 "'self'",
                 "'unsafe-inline'",

@@ -23,6 +23,7 @@ app.use(helmet({
                 "'self'",
                 "https://t3.storageapi.dev",
                 "https://maglev.proxy.rlwy.net",
+                "https://api.emailjs.com",
                 "https://www.googletagmanager.com",
                 "https://www.google-analytics.com",
                 "https://www.google.com",

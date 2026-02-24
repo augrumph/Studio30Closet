@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/contexts/ToastContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { triggerFireworks } from '@/components/magicui/confetti'
-import { getBlurPlaceholder, getOptimizedImageUrl } from '@/lib/image-optimizer'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
+import { sendNewMalinhaEmail } from '@/lib/email-service'
 import { useStock } from '@/hooks/useStock'
 import { trackCheckoutStarted, trackCheckoutCompleted, markCartCheckoutStarted, markCartConverted, saveCustomerDataToCart } from '@/lib/api/analytics'
 import { SEO } from '@/components/SEO'
@@ -246,19 +247,15 @@ export function Checkout() {
 
             triggerFireworks()
 
-            // 📧 Envio de email de notificação para o administrador via backend
+            // 📧 Envio de email de notificação para o administrador (Via EmailJS)
             console.log('📧 Enviando email de notificação para studio30closet@gmail.com...')
-            fetch('/api/email/malinha', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    customerName: customerData.name,
-                    customerEmail: customerData.email,
-                    itemsCount: groupedItems.length,
-                    orderId: result.order?.id
-                })
-            }).then(r => r.json()).then(res => {
-                if (res.success) console.log('✅ Email enviado com sucesso!')
+            sendNewMalinhaEmail({
+                customerName: customerData.name,
+                customerEmail: customerData.email,
+                itemsCount: groupedItems.length,
+                orderId: result.order?.id
+            }).then(res => {
+                if (res.success) console.log('✅ Email enviado com sucesso via EmailJS!')
                 else console.warn('⚠️ Email falhou:', res.error)
             }).catch(err => {
                 console.error('❌ Erro ao enviar email:', err)

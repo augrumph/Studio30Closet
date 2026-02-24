@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Calendar, Phone, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react'
 import { getUpcomingInstallments } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
+
 
 /**
  * Modal de Parcelinhas - Visual Estático Amber/Orange com Portal

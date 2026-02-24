@@ -46,7 +46,9 @@ router.get('/', async (req, res) => {
         search = '',
         category = 'all',
         active = 'all',
-        featured
+        featured,
+        sizes,       // CSV string: 'P,M,G'
+        collection   // ID da coleção
     } = req.query
 
     const offset = (page - 1) * pageSize
@@ -78,15 +80,40 @@ router.get('/', async (req, res) => {
 
         if (search) {
             const searchLower = search.toLowerCase().trim()
-            if (!isNaN(searchLower)) {
+            if (!isNaN(searchLower) && searchLower !== '') {
                 whereConditions.push(`(name ILIKE $${paramIndex} OR id = $${paramIndex + 1} OR category ILIKE $${paramIndex})`)
                 params.push(`%${searchLower}%`, parseInt(searchLower))
                 paramIndex += 2
             } else {
-                whereConditions.push(`(name ILIKE $${paramIndex} OR category ILIKE $${paramIndex})`)
-                params.push(`%${searchLower}%`)
-                paramIndex++
+                // Busca com ILIKE — normalizar acentos no lado JS para maior compatibilidade
+                // (evita dependência de unaccent extension no PostgreSQL)
+                const normalized = searchLower
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '') // remove diacríticos
+                whereConditions.push(`(
+                    name ILIKE $${paramIndex}
+                    OR category ILIKE $${paramIndex}
+                    OR name ILIKE $${paramIndex + 1}
+                    OR category ILIKE $${paramIndex + 1}
+                )`)
+                params.push(`%${searchLower}%`, `%${normalized}%`)
+                paramIndex += 2
             }
+        }
+
+        // Filtro por tamanhos: produto precisa ter ao menos um dos tamanhos selecionados
+        if (sizes) {
+            const sizesArray = sizes.split(',').map(s => s.trim()).filter(Boolean)
+            if (sizesArray.length > 0) {
+                whereConditions.push(`sizes && $${paramIndex++}::text[]`)
+                params.push(sizesArray)
+            }
+        }
+
+        // Filtro por coleção: produto precisa pertencer à coleção
+        if (collection) {
+            whereConditions.push(`$${paramIndex++}::text = ANY(collection_ids)`)
+            params.push(String(collection))
         }
 
         const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''

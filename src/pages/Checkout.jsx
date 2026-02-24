@@ -55,11 +55,27 @@ export function Checkout() {
         return productsData.reduce((acc, p) => ({ ...acc, [p.id]: p }), {})
     }, [productsData])
 
-    // Detectar itens sem estoque
+    // Detectar itens sem estoque (verifica variante específica cor+tamanho)
     const outOfStockItems = useMemo(() => {
         return items.filter(item => {
             const product = productsMap[item.productId]
-            return product && product.stock <= 0
+            if (!product) return false
+
+            // Verificar estoque da variante específica (cor + tamanho)
+            if (product.variants?.length > 0 && item.selectedColor && item.selectedSize) {
+                const variant = product.variants.find(v =>
+                    (v.colorName || '').toLowerCase().trim() === (item.selectedColor || '').toLowerCase().trim()
+                )
+                if (variant?.sizeStock) {
+                    const sizeEntry = variant.sizeStock.find(s =>
+                        (s.size || '').toLowerCase().trim() === (item.selectedSize || '').toLowerCase().trim()
+                    )
+                    return !sizeEntry || sizeEntry.quantity <= 0
+                }
+            }
+
+            // Fallback: checar stock total do produto
+            return product.stock <= 0
         })
     }, [items, productsMap])
 
@@ -192,7 +208,7 @@ export function Checkout() {
         if (!addr.street?.trim()) errors.street = 'Obrigatório'
         if (!addr.number?.trim()) errors.number = 'Obrigatório'
         if (!addr.neighborhood?.trim()) errors.neighborhood = 'Obrigatório'
-        if (!addr.complement?.trim()) errors.complement = 'Obrigatório'
+        // Complemento é opcional — não validar como obrigatório
         if (!addr.city?.trim()) errors.city = 'Obrigatório'
         if (!addr.state?.trim()) errors.state = 'Obrigatório'
 
@@ -211,8 +227,10 @@ export function Checkout() {
 
         setIsSubmitting(true)
         try {
+            const totalValue = groupedItems.reduce((sum, item) => sum + ((item.price || 0) * item.count), 0)
             const orderPayload = {
                 customer: customerData,
+                totalValue,
                 items: groupedItems.map(item => ({
                     productId: item.id,
                     quantity: item.count,
@@ -229,14 +247,23 @@ export function Checkout() {
 
             triggerFireworks()
 
-            // Email silencioso
+            // 📧 Envio de email de notificação para o administrador
+            console.log('📧 Enviando email de notificação para studio30closet@gmail.com...')
             sendNewMalinhaEmail({
                 customerName: customerData.name,
                 customerEmail: customerData.email,
                 itemsCount: groupedItems.length,
                 orderId: result.order?.id
-            }).then(res => console.log('Email send result:', res))
-                .catch(err => console.error('Email send error:', err))
+            }).then(res => {
+                console.log('✅ Email enviado com sucesso!', res)
+            }).catch(err => {
+                console.error('❌ ERRO ao enviar email de notificação:', err)
+                console.error('⚠️ Detalhes do erro:', {
+                    message: err.message || 'Erro desconhecido',
+                    status: err.status,
+                    text: err.text
+                })
+            })
 
             const msg = formatMalinhaMessage(groupedItems, customerData)
             const whatsappLink = generateWhatsAppLink('+5541996863879', msg)
@@ -249,7 +276,6 @@ export function Checkout() {
             })
 
             // 📊 Analytics: Rastrear checkout completado
-            const totalValue = groupedItems.reduce((sum, item) => sum + (item.price * item.count), 0)
             trackCheckoutCompleted(result.order?.id, items, totalValue)
             markCartConverted()
 
@@ -259,7 +285,11 @@ export function Checkout() {
             setStep(3)
         } catch (err) {
             console.error(err)
-            toast.error('Erro ao processar pedido.')
+            if (err.message?.includes('Insufficient stock') || err.message?.includes('stock')) {
+                toast.error('Uma peça da sua malinha acabou de esgotar. Remova-a e tente novamente.')
+            } else {
+                toast.error('Erro ao processar pedido. Tente novamente.')
+            }
         } finally {
             setIsSubmitting(false)
         }

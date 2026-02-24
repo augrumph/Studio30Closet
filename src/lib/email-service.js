@@ -28,6 +28,14 @@ export const sendNewMalinhaEmail = async ({ customerName, customerEmail, itemsCo
             return { success: false, error: 'EmailJS keys missing' }
         }
 
+        console.log('📧 Preparando envio de email com os seguintes dados:', {
+            para: templateParams.to_email,
+            assunto: templateParams.subject,
+            cliente: customerName,
+            pecas: itemsCount,
+            orderId: orderId
+        })
+
         const response = await emailjs.send(
             SERVICE_ID,
             TEMPLATE_ID,
@@ -35,9 +43,16 @@ export const sendNewMalinhaEmail = async ({ customerName, customerEmail, itemsCo
             PUBLIC_KEY
         )
 
+        console.log('✅ EmailJS respondeu com sucesso:', response)
         return { success: true, response }
     } catch (error) {
         console.error('❌ Erro ao enviar email:', error)
+        console.error('❌ Detalhes completos do erro:', {
+            name: error.name,
+            message: error.message,
+            status: error.status,
+            text: error.text
+        })
         return { success: false, error }
     }
 }

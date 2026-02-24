@@ -1,254 +1,147 @@
-import { supabase } from '../supabase'
-
 /**
- * snake_case -> camelCase
+ * API do Dashboard — via Express BFF (Railway PostgreSQL)
+ * Todas as funções usam GET /api/dashboard/stats como fonte única.
  */
-function toCamelCase(obj) {
-    if (!obj || typeof obj !== 'object') return obj
-    if (Array.isArray(obj)) return obj.map(toCamelCase)
 
-    return Object.entries(obj).reduce((acc, [key, value]) => {
-        acc[key.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] =
-            typeof value === 'object' ? toCamelCase(value) : value
-        return acc
-    }, {})
+let _statsCache = null
+let _statsCacheTime = 0
+const CACHE_TTL = 60 * 1000 // 1 min local
+
+async function fetchStats(period = 'all', startDate, endDate) {
+    const now = Date.now()
+    if (_statsCache && now - _statsCacheTime < CACHE_TTL) return _statsCache
+
+    const params = new URLSearchParams({ period })
+    if (startDate) params.set('start', startDate)
+    if (endDate) params.set('end', endDate)
+
+    const response = await fetch(`/api/dashboard/stats?${params.toString()}`)
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || `Erro ${response.status}`)
+    }
+    const data = await response.json()
+    _statsCache = data
+    _statsCacheTime = now
+    return data
 }
 
 /**
- * Obter métricas financeiras completas para DRE gerencial
- * @returns {Object} Métricas de receita, custos, despesas, lucro
+ * Obter dados agregados do dashboard (expenses + installments + purchases)
  */
 export async function getDashboardMetrics() {
-    console.log('📊 API: Buscando métricas do dashboard...');
-
     try {
-        // 1. DESPESAS FIXAS
-        const { data: expensesData, error: expensesError } = await supabase
-            .from('fixed_expenses')
-            .select('*');
-
-        if (expensesError) throw expensesError;
-
-        // 2. CUPONS APLICADOS
-        const { data: couponsData, error: couponsError } = await supabase
-            .from('coupons')
-            .select('*')
-            .eq('is_active', true);
-
-        if (couponsError) throw couponsError;
-
-        // 3. INSTALLMENTS (para análise de fluxo de caixa)
-        const { data: installmentsData, error: installmentsError } = await supabase
-            .from('installments')
-            .select('*, installment_payments(*), vendas(id, order_id)');
-
-        if (installmentsError) throw installmentsError;
-
-        // 4. COMPRAS (para análise de custo de estoque)
-        const { data: purchasesData, error: purchasesError } = await supabase
-            .from('purchases')
-            .select('*, suppliers(id, name)');
-
-        if (purchasesError) throw purchasesError;
-
-        const camelExpenses = expensesData.map(toCamelCase);
-        const camelCoupons = couponsData.map(toCamelCase);
-        const camelInstallments = installmentsData.map(toCamelCase);
-        const camelPurchases = purchasesData.map(toCamelCase);
-
+        const stats = await fetchStats()
         return {
-            expenses: camelExpenses,
-            coupons: camelCoupons,
-            installments: camelInstallments,
-            purchases: camelPurchases
-        };
+            expenses: stats.expenses || [],
+            coupons: [],
+            installments: stats.installments || [],
+            purchases: stats.purchases || []
+        }
     } catch (err) {
-        console.error('❌ Erro ao buscar métricas do dashboard:', err);
-        throw err;
+        console.error('❌ Erro ao buscar métricas do dashboard:', err)
+        throw err
     }
 }
 
 export const dashboardService = {
-    /**
-     * ============================
-     * KPI PRINCIPAL (DRE SIMPLIFICADO)
-     * ============================
-     */
     async getKPIs(startDate, endDate) {
-        const { data, error } = await supabase
-            .from('dashboard_kpis_period')
-            .select('*')
-            .gte('day', startDate)
-            .lte('day', endDate)
+        try {
+            // Detectar período baseado nas datas
+            const today = new Date()
+            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
 
-        if (error) throw error
+            let period = 'custom'
+            if (!startDate) period = 'all'
+            else if (startDate === monthStart) period = 'currentMonth'
 
-        // Calcular somatórios do período
-        const summary = data.reduce(
-            (acc, row) => {
-                acc.totalSales += Number(row.total_sales || 0)
-                acc.grossRevenue += Number(row.gross_revenue || 0)
-                acc.netRevenue += Number(row.net_revenue || 0)
-                acc.cashIn += Number(row.cash_in || 0)
-                acc.cashOut += Number(row.cash_out || 0)
-                return acc
-            },
-            {
-                totalSales: 0,
-                grossRevenue: 0,
-                netRevenue: 0,
-                cashIn: 0,
-                cashOut: 0
+            const stats = await fetchStats(period, startDate, endDate)
+            return {
+                totalSales: stats.salesCount || 0,
+                grossRevenue: stats.grossRevenue || 0,
+                netRevenue: stats.netRevenue || 0,
+                cashIn: stats.receivedAmount || 0,
+                cashOut: stats.totalExpenses || 0,
+                cashBalance: (stats.receivedAmount || 0) - (stats.totalExpenses || 0),
+                averageTicket: stats.averageTicket || 0,
+                netProfit: stats.netProfit || 0,
+                netMarginPercent: stats.netMarginPercent || 0
             }
-        )
-
-        // ✅ Caixa (cashBalance) deve ser o saldo acumulado no último dia do período
-        // Caso não haja dados no período, buscamos o saldo mais recente antes do período
-        let finalCashBalance = 0
-        if (data.length > 0) {
-            // Pegar o cash_balance da linha mais recente do período
-            const lastRow = [...data].sort((a, b) => b.day.localeCompare(a.day))[0]
-            finalCashBalance = Number(lastRow.cash_balance || 0)
-        } else {
-            // Se o período selecionado não tem movimentação, busca o último saldo global
-            const { data: lastBalance } = await supabase
-                .from('dashboard_kpis_period')
-                .select('cash_balance')
-                .lte('day', endDate)
-                .order('day', { ascending: false })
-                .limit(1)
-
-            if (lastBalance?.[0]) {
-                finalCashBalance = Number(lastBalance[0].cash_balance || 0)
-            }
-        }
-
-        return {
-            ...summary,
-            cashBalance: finalCashBalance,
-            averageTicket:
-                summary.totalSales > 0
-                    ? summary.netRevenue / summary.totalSales
-                    : 0,
-            netProfit: summary.cashIn - summary.cashOut,
-            netMarginPercent: summary.cashIn > 0
-                ? ((summary.cashIn - summary.cashOut) / summary.cashIn) * 100
-                : 0
+        } catch {
+            return { totalSales: 0, grossRevenue: 0, netRevenue: 0, cashIn: 0, cashOut: 0, cashBalance: 0, averageTicket: 0, netProfit: 0, netMarginPercent: 0 }
         }
     },
 
-    /**
-     * ============================
-     * TENDÊNCIA DE VENDAS (GRÁFICO)
-     * ============================
-     */
     async getSalesTrend(startDate, endDate) {
-        const { data, error } = await supabase
-            .from('dashboard_sales_timeseries_daily')
-            .select('day, net_revenue')
-            .gte('day', startDate)
-            .lte('day', endDate)
-            .order('day')
-
-        if (error) throw error
-        return toCamelCase(data)
-    },
-
-    /**
-     * ============================
-     * AÇÕES DE ESTOQUE (INTELIGÊNCIA)
-     * ============================
-     */
-    async getInventoryActions() {
-        const { data, error } = await supabase
-            .from('dashboard_inventory_actions')
-            .select('*')
-
-        if (error) throw error
-
-        return toCamelCase(
-            data.sort((a, b) => {
-                const p = { repor_agora: 1, queimar_agora: 2, proteger_margem: 3 }
-                return (p[a.action] || 9) - (p[b.action] || 9)
+        try {
+            const stats = await fetchStats('custom', startDate, endDate)
+            // Se o backend não retornar trend, gerar a partir das vendas
+            if (stats.salesTrend) return stats.salesTrend
+            // Fallback: agrupar vendas por dia
+            const vendas = stats.vendas || []
+            const byDay = {}
+            vendas.forEach(v => {
+                const day = (v.createdAt || v.created_at || '').slice(0, 10)
+                if (day) byDay[day] = (byDay[day] || 0) + (v.totalValue || v.total_value || 0)
             })
-        )
+            return Object.entries(byDay)
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([day, netRevenue]) => ({ day, netRevenue }))
+        } catch {
+            return []
+        }
     },
 
-    /**
-     * ============================
-     * TOP CLIENTES (RPC)
-     * ============================
-     */
+    async getInventoryActions() {
+        try {
+            const response = await fetch('/api/stock/alerts')
+            if (!response.ok) return []
+            return response.json()
+        } catch {
+            return []
+        }
+    },
+
     async getTopCustomers(startDate, endDate) {
-        const { data, error } = await supabase.rpc('get_top_customers', {
-            start_date: startDate,
-            end_date: endDate
-        })
-
-        if (error) return []
-        return toCamelCase(data)
+        try {
+            const params = new URLSearchParams({ limit: 10 })
+            if (startDate) params.set('startDate', startDate)
+            if (endDate) params.set('endDate', endDate)
+            const response = await fetch(`/api/customers/top?${params.toString()}`)
+            if (!response.ok) return []
+            return response.json()
+        } catch {
+            return []
+        }
     },
 
-    /**
-     * ============================
-     * ATIVIDADE RECENTE
-     * ============================
-     */
     async getRecentSales() {
-        const { data, error } = await supabase
-            .from('vendas')
-            .select(
-                `id, created_at, net_amount, payment_method, payment_status,
-         customers ( name )`
-            )
-            .order('created_at', { ascending: false })
-            .limit(10)
-
-        if (error) throw error
-
-        return data.map(v => ({
-            id: v.id,
-            date: v.created_at,
-            amount: v.net_amount,
-            method: v.payment_method,
-            status: v.payment_status,
-            customer: v.customers?.name || 'Cliente'
-        }))
+        try {
+            const response = await fetch('/api/vendas?page=1&pageSize=10')
+            if (!response.ok) return []
+            const data = await response.json()
+            return (data.items || []).map(v => ({
+                id: v.id,
+                date: v.createdAt,
+                amount: v.netAmount || v.totalValue,
+                method: v.paymentMethod,
+                status: v.paymentStatus,
+                customer: v.customerName || 'Cliente'
+            }))
+        } catch {
+            return []
+        }
     },
 
-    /**
-     * ============================
-     * FINANCEIRO — A RECEBER / INADIMPLÊNCIA
-     * ============================
-     */
     async getCashFlowIndicators() {
-        console.log('📊 Dashboard: Buscando indicadores de fluxo de caixa (A Receber/Inadimplência)');
-
-        const { data, error } = await supabase
-            .from('installments')
-            .select('remaining_amount, due_date, status')
-            .neq('status', 'paid') // Pega 'pending' e 'partially_paid'
-
-        if (error) {
-            console.error('❌ Erro ao buscar indicadores de caixa:', error);
+        try {
+            const stats = await fetchStats()
+            return {
+                toReceive: stats.toReceiveAmount || 0,
+                overdue: stats.overdueAmount || 0
+            }
+        } catch {
             return { toReceive: 0, overdue: 0 }
         }
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayIso = today.toISOString().split('T')[0];
-
-        return data.reduce(
-            (acc, i) => {
-                const v = Number(i.remaining_amount || 0)
-                acc.toReceive += v
-                // Inadimplência: Se a data de vencimento for ANTERIOR a hoje
-                if (i.due_date < todayIso) {
-                    acc.overdue += v
-                }
-                return acc
-            },
-            { toReceive: 0, overdue: 0 }
-        )
     }
 }

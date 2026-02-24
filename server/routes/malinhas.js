@@ -35,12 +35,14 @@ router.get('/', async (req, res) => {
         // Filtro de Data
         if (dateFilter === 'today') {
             const today = new Date().toISOString().split('T')[0]
-            whereConditions.push(`o.created_at >= $${paramIndex++}`)
-            params.push(`${today}T00:00:00`)
+            whereConditions.push(`o.created_at >= $${paramIndex++} AND o.created_at < $${paramIndex++}`)
+            params.push(`${today}T00:00:00`, `${today}T23:59:59`)
         } else if (dateFilter === 'month') {
-            const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-            whereConditions.push(`o.created_at >= $${paramIndex++}`)
-            params.push(`${firstDay}T00:00:00`)
+            const now = new Date()
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+            whereConditions.push(`o.created_at >= $${paramIndex++} AND o.created_at <= $${paramIndex++}`)
+            params.push(`${firstDay}T00:00:00`, `${lastDay}T23:59:59`)
         }
 
         // Filtro de Busca (cliente ou número do pedido)
@@ -66,7 +68,7 @@ router.get('/', async (req, res) => {
             LEFT JOIN customers c ON c.id = o.customer_id
             ${whereClause}
             ORDER BY o.created_at DESC
-            LIMIT $${paramIndex} OFFSET $${paramIndex+1}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `, [...params, limit, offset])
 
         const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0

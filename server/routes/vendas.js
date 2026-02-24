@@ -260,12 +260,50 @@ router.put('/:id', async (req, res) => {
     }
 })
 
-// DELETE /api/vendas/:id - Deletar venda
+// DELETE /api/vendas/:id - Deletar venda (com restauração de estoque)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params
+    const client = await getClient()
 
     try {
-        const { rowCount } = await pool.query('DELETE FROM vendas WHERE id = $1', [id])
+        await client.query('BEGIN')
+
+        // Buscar venda antes de deletar para pegar os itens
+        const { rows: [venda] } = await client.query('SELECT items FROM vendas WHERE id = $1', [id])
+
+        if (!venda) {
+            await client.query('ROLLBACK')
+            return res.status(404).json({ error: 'Venda não encontrada' })
+        }
+
+        // Restaurar estoque de cada item
+        const items = typeof venda.items === 'string'
+            ? JSON.parse(venda.items || '[]')
+            : (venda.items || [])
+
+        if (items.length > 0) {
+            console.log(`🔓 Restaurando estoque de ${items.length} itens da venda #${id}...`)
+            for (const item of items) {
+                if (item.productId && item.selectedSize) {
+                    try {
+                        await updateProductStock(
+                            client,
+                            item.productId,
+                            item.quantity || 1,
+                            item.selectedColor || 'Padrão',
+                            item.selectedSize,
+                            'restore'
+                        )
+                    } catch (stockErr) {
+                        // Log mas não bloqueia a deleção se o produto não existir mais
+                        console.warn(`⚠️ Não foi possível restaurar estoque do produto ${item.productId}:`, stockErr.message)
+                    }
+                }
+            }
+        }
+
+        const { rowCount } = await client.query('DELETE FROM vendas WHERE id = $1', [id])
+        await client.query('COMMIT')
 
         if (rowCount === 0) {
             return res.status(404).json({ error: 'Venda não encontrada' })
@@ -273,8 +311,11 @@ router.delete('/:id', async (req, res) => {
 
         res.json({ message: 'Venda deletada com sucesso' })
     } catch (error) {
+        await client.query('ROLLBACK')
         console.error(`❌ Erro ao deletar venda ${id}:`, error)
         res.status(500).json({ error: 'Erro ao deletar venda' })
+    } finally {
+        client.release()
     }
 })
 

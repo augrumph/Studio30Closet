@@ -77,9 +77,9 @@ export function VendasList() {
 
         return {
             totalRevenue: backendMetrics.summary.grossRevenue || 0,
-            pendingCrediario: backendMetrics.cashFlow?.receivedAmount || 0, // Ajustar conforme campos reais
-            totalDevedores: backendMetrics.operational?.costWarnings || 0,
-            valorDevedores: backendMetrics.summary.netRevenue - (backendMetrics.cashFlow?.receivedAmount || 0),
+            pendingCrediario: backendMetrics.cashFlow?.pendingCrediario || 0,
+            totalDevedores: backendMetrics.operational?.totalDevedores || 0,
+            valorDevedores: backendMetrics.cashFlow?.valorDevedores || 0,
             averageTicket: backendMetrics.operational?.averageTicket || 0
         }
     }, [backendMetrics])
@@ -523,28 +523,28 @@ export function VendasList() {
                                     />
                                 </PaginationItem>
 
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                                    // Lógica básica para não mostrar todas as páginas se forem muitas
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                                    // Lógica para não mostrar todas as páginas se forem muitas
                                     if (
-                                        page === 1 ||
-                                        page === totalPages ||
-                                        (page >= page - 1 && page <= page + 1)
+                                        pageNum === 1 ||
+                                        pageNum === totalPages ||
+                                        (pageNum >= page - 1 && pageNum <= page + 1)
                                     ) {
                                         return (
-                                            <PaginationItem key={page}>
+                                            <PaginationItem key={pageNum}>
                                                 <PaginationLink
-                                                    onClick={() => setPage(page)}
-                                                    isActive={page === page}
+                                                    onClick={() => setPage(pageNum)}
+                                                    isActive={pageNum === page}
                                                 >
-                                                    {page}
+                                                    {pageNum}
                                                 </PaginationLink>
                                             </PaginationItem>
                                         )
                                     } else if (
-                                        page === page - 2 ||
-                                        page === page + 2
+                                        pageNum === page - 2 ||
+                                        pageNum === page + 2
                                     ) {
-                                        return <PaginationEllipsis key={page} />
+                                        return <PaginationEllipsis key={pageNum} />
                                     }
                                     return null
                                 })}

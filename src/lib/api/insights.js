@@ -1,80 +1,61 @@
 /**
- * API de Insights da Midi
- * Sistema de insights proativos
+ * API de Insights — via Express BFF (Railway PostgreSQL)
+ * As funções de insights eram via RPC Supabase; agora delegam ao Express.
  */
 
-import { supabase } from '../supabase'
 import { toCamelCase } from './helpers'
 
-/**
- * Get active insights
- */
+async function apiFetch(url, options = {}) {
+    const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options,
+        body: options.body ? JSON.stringify(options.body) : undefined
+    })
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: response.statusText }))
+        throw new Error(err.error || `Erro ${response.status}`)
+    }
+    return response.json()
+}
+
 export async function getActiveInsights(limit = 10, category = null) {
-    console.log(`🔍 API: Getting active insights (limit: ${limit}, category: ${category})...`)
-
-    const { data, error } = await supabase.rpc('get_active_insights', {
-        limit_count: limit,
-        category_filter: category
-    })
-
-    if (error) {
-        console.error('❌ API Error getting insights:', error)
-        throw error
+    try {
+        const params = new URLSearchParams({ limit })
+        if (category) params.set('category', category)
+        const data = await apiFetch(`/api/insights?${params.toString()}`)
+        return Array.isArray(data) ? data.map(toCamelCase) : []
+    } catch (err) {
+        console.error('❌ Erro ao buscar insights:', err)
+        return []
     }
-
-    console.log(`✅ API: Got ${data?.length || 0} insights`)
-    return data.map(toCamelCase)
 }
 
-/**
- * Dismiss an insight
- */
 export async function dismissInsight(insightId, dismissedBy = 'user') {
-    console.log(`🗑️ API: Dismissing insight ${insightId}...`)
-
-    const { error } = await supabase.rpc('dismiss_insight', {
-        insight_id: insightId,
-        dismissed_by_user: dismissedBy
-    })
-
-    if (error) {
-        console.error('❌ API Error dismissing insight:', error)
-        throw error
+    try {
+        await apiFetch(`/api/insights/${insightId}/dismiss`, { method: 'POST', body: { dismissedBy } })
+        return true
+    } catch (err) {
+        console.error('❌ Erro ao dispensar insight:', err)
+        return false
     }
-
-    console.log(`✅ API: Insight ${insightId} dismissed`)
-    return true
 }
 
-/**
- * Mark insight as read
- */
 export async function markInsightRead(insightId) {
-    const { error } = await supabase.rpc('mark_insight_read', {
-        insight_id: insightId
-    })
-
-    if (error) {
-        console.error('❌ API Error marking insight as read:', error)
-        throw error
+    try {
+        await apiFetch(`/api/insights/${insightId}/read`, { method: 'POST' })
+        return true
+    } catch (err) {
+        console.error('❌ Erro ao marcar insight como lido:', err)
+        return false
     }
-
-    return true
 }
 
-/**
- * Generate new insights (admin only)
- */
 export async function generateInsights() {
-    console.log(`🤖 API: Generating new insights...`)
-
-    const { data, error } = await supabase.rpc('generate_insights')
-
-    if (error) {
-        console.error('❌ API Error generating insights:', error)
-        throw error
+    try {
+        const data = await apiFetch('/api/insights/generate', { method: 'POST' })
+        return Array.isArray(data) ? data.map(toCamelCase) : []
+    } catch (err) {
+        console.error('❌ Erro ao gerar insights:', err)
+        return []
     }
-
-    console.log(`✅ API: Generated ${data?.length || 0} insight types`)
-    return data.map(toCamelCase)
 }

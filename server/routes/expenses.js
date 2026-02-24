@@ -26,13 +26,13 @@ router.get('/', async (req, res) => {
             FROM fixed_expenses
             ${whereClause}
             ORDER BY created_at DESC
-            LIMIT $${paramIndex} OFFSET $${paramIndex+1}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `, [...params, limit, offset])
 
         const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
 
         res.json({
-            items: rows.map(toCamelCase),
+            items: rows.map(r => { const { total_count, ...row } = r; return toCamelCase(row) }),
             total,
             page: Number(page),
             pageSize,
@@ -81,6 +81,69 @@ router.get('/:id', async (req, res) => {
     } catch (error) {
         console.error("❌ Erro ao buscar despesa:", error)
         res.status(500).json({ message: 'Erro ao buscar despesa' })
+    }
+})
+
+// POST /api/expenses - Create expense
+router.post('/', async (req, res) => {
+    const { name, category, value, recurrence, dueDay, notes } = req.body
+
+    if (!name || value === undefined) {
+        return res.status(400).json({ error: 'name e value são obrigatórios' })
+    }
+
+    try {
+        const { rows } = await pool.query(`
+            INSERT INTO fixed_expenses (name, category, value, recurrence, due_day, notes)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        `, [name, category || null, parseFloat(value), recurrence || 'monthly', dueDay || null, notes || null])
+
+        res.status(201).json(toCamelCase(rows[0]))
+    } catch (error) {
+        console.error("❌ Erro ao criar despesa:", error)
+        res.status(500).json({ error: 'Erro ao criar despesa' })
+    }
+})
+
+// PUT /api/expenses/:id - Update expense
+router.put('/:id', async (req, res) => {
+    const { id } = req.params
+    const { name, category, value, recurrence, dueDay, paid, notes } = req.body
+
+    try {
+        const { rows } = await pool.query(`
+            UPDATE fixed_expenses SET
+                name = COALESCE($1, name),
+                category = COALESCE($2, category),
+                value = COALESCE($3, value),
+                recurrence = COALESCE($4, recurrence),
+                due_day = COALESCE($5, due_day),
+                paid = COALESCE($6, paid),
+                notes = COALESCE($7, notes),
+                updated_at = NOW()
+            WHERE id = $8
+            RETURNING *
+        `, [name, category, value !== undefined ? parseFloat(value) : null, recurrence, dueDay, paid, notes, id])
+
+        if (rows.length === 0) return res.status(404).json({ error: 'Despesa não encontrada' })
+        res.json(toCamelCase(rows[0]))
+    } catch (error) {
+        console.error(`❌ Erro ao atualizar despesa ${id}:`, error)
+        res.status(500).json({ error: 'Erro ao atualizar despesa' })
+    }
+})
+
+// DELETE /api/expenses/:id - Delete expense
+router.delete('/:id', async (req, res) => {
+    const { id } = req.params
+    try {
+        const { rowCount } = await pool.query('DELETE FROM fixed_expenses WHERE id = $1', [id])
+        if (rowCount === 0) return res.status(404).json({ error: 'Despesa não encontrada' })
+        res.json({ success: true })
+    } catch (error) {
+        console.error(`❌ Erro ao deletar despesa ${id}:`, error)
+        res.status(500).json({ error: 'Erro ao deletar despesa' })
     }
 })
 

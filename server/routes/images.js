@@ -104,6 +104,16 @@ router.post('/upload',
             return res.status(400).json({ error: 'Imagem e nome do campo são obrigatórios' })
         }
 
+        // 🔒 Allowlist de campos válidos para evitar SQL injection
+        const ALLOWED_FIELDS = [
+            'hero_image', 'hero_image_mobile', 'logo', 'favicon',
+            'banner_1', 'banner_2', 'banner_3', 'about_image',
+            'instagram_bg', 'og_image'
+        ]
+        if (!ALLOWED_FIELDS.includes(fieldName)) {
+            return res.status(400).json({ error: `Campo inválido: ${fieldName}` })
+        }
+
         try {
             // Use sanitized filename
             file.originalname = file.sanitizedName
@@ -143,6 +153,16 @@ router.put('/', async (req, res) => {
 
     if (!fieldName || !url) {
         return res.status(400).json({ error: 'Campos obrigatórios faltando' })
+    }
+
+    // 🔒 Allowlist de campos válidos para evitar SQL injection
+    const ALLOWED_FIELDS = [
+        'hero_image', 'hero_image_mobile', 'logo', 'favicon',
+        'banner_1', 'banner_2', 'banner_3', 'about_image',
+        'instagram_bg', 'og_image'
+    ]
+    if (!ALLOWED_FIELDS.includes(fieldName)) {
+        return res.status(400).json({ error: `Campo inválido: ${fieldName}` })
     }
 
     try {

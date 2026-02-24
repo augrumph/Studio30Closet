@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
-import { getEntregas, getEntregaById, getEntregasMetrics, createEntrega, updateEntrega, deleteEntrega } from '@/lib/api/entregas'
+import { getEntregas, getEntregaById, getEntregasMetrics, createEntrega, updateEntrega, deleteEntrega, entregas } from '@/lib/api/entregas'
 import { toast } from 'sonner'
 
 const ENTREGAS_KEY = 'entregas'

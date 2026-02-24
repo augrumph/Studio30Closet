@@ -6,7 +6,12 @@ import { pool } from '../db.js'
 
 const router = express.Router()
 
-const JWT_SECRET = process.env.JWT_SECRET || 'studio30-secret-key-change-it'
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+    console.error('\n❌❌❌ SEGURANÇA: JWT_SECRET não definido nas variáveis de ambiente!')
+    console.error('   Defina JWT_SECRET no seu .env para proteger o painel admin.\n')
+    // Em produção use: process.exit(1)
+}
 
 // Login
 router.post('/login', async (req, res) => {

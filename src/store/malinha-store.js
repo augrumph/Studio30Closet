@@ -42,13 +42,13 @@ export const useMalinhaStore = create(
                 }
 
                 const itemId = `${product.id}-${size}-${Date.now()}`
-                // ULTRA OTIMIZADO: Salvar APENAS productId + metadados leves
                 const newItem = {
-                    itemId,           // ID único do item na malinha
-                    productId: product.id,  // ID do produto
-                    selectedSize: size,     // Tamanho selecionado
-                    selectedColor: color,   // ✅ Cor selecionada (IMPORTANTÍSSIMO PARA ESTOQUE)
-                    image: product.images?.[0], // ✅ Salvar a imagem exata que o usuário viu (Variação)
+                    itemId,                         // ID único do item na malinha
+                    productId: product.id,          // ID do produto
+                    selectedSize: size,             // Tamanho selecionado
+                    selectedColor: color,           // ✅ Cor selecionada (IMPORTANTÍSSIMO PARA ESTOQUE)
+                    price: product.price || 0,      // ✅ Preço no momento da adição (para getTotalPrice)
+                    image: product.images?.[0],     // ✅ Salvar a imagem exata que o usuário viu (Variação)
                     addedAt: new Date().toISOString(),
                 }
 

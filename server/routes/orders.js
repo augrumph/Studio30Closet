@@ -6,11 +6,6 @@ import { extractKeyFromUrl, getPresignedUrl } from '../lib/s3.js'
 
 const router = express.Router()
 
-// EmailJS Configuration
-const SERVICE_ID = 'service_3h2tyup'
-const TEMPLATE_ID = 'template_wghvxdb'
-const PUBLIC_KEY = 'DkaN2O0h-27lkoW94'
-
 // Helper: Convert to snake_case
 function toSnakeCase(obj) {
     if (typeof obj !== 'object' || obj === null) return obj
@@ -251,13 +246,13 @@ router.post('/', async (req, res) => {
                     ]
                 )
 
-                // Reserve stock for each item
-                if (item.selectedColor && item.selectedSize) {
+                // Reserve stock for each item (usa 'Padrão' como fallback de cor)
+                if (item.selectedSize) {
                     await updateProductStock(
                         client,
                         item.productId,
                         item.quantity,
-                        item.selectedColor,
+                        item.selectedColor || 'Padrão',
                         item.selectedSize,
                         'reserve'
                     )
@@ -266,8 +261,6 @@ router.post('/', async (req, res) => {
         }
 
         await client.query('COMMIT')
-
-
 
         res.json({ success: true, order: toCamelCase(newOrder[0]) })
 
@@ -321,12 +314,12 @@ router.put('/:id', async (req, res) => {
         if (isHoldingStock && currentOrder.order_items?.length) {
             console.log(`🔓 Restoring stock for ${currentOrder.order_items.length} old items...`)
             for (const item of currentOrder.order_items) {
-                if (item.color_selected && item.size_selected) {
+                if (item.size_selected) {
                     await updateProductStock(
                         client,
                         item.product_id,
                         item.quantity,
-                        item.color_selected,
+                        item.color_selected || 'Padrão',
                         item.size_selected,
                         'restore'
                     )
@@ -392,12 +385,12 @@ router.put('/:id', async (req, res) => {
             if (willHoldStock && items.length > 0) {
                 console.log(`🔒 Reserving stock for ${items.length} new items...`)
                 for (const item of items) {
-                    if (item.selectedColor && item.selectedSize) {
+                    if (item.selectedSize) {
                         await updateProductStock(
                             client,
                             item.productId,
                             item.quantity,
-                            item.selectedColor,
+                            item.selectedColor || 'Padrão',
                             item.selectedSize,
                             'reserve'
                         )
@@ -465,12 +458,12 @@ router.delete('/:id', async (req, res) => {
         if (isHoldingStock && order.order_items && order.order_items.length > 0) {
             console.log(`🔓 Restoring stock for deleted order ${id}...`)
             for (const item of order.order_items) {
-                if (item.color_selected && item.size_selected) {
+                if (item.size_selected) {
                     await updateProductStock(
                         client,
                         item.product_id,
                         item.quantity,
-                        item.color_selected,
+                        item.color_selected || 'Padrão',
                         item.size_selected,
                         'restore'
                     )

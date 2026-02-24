@@ -1,34 +1,172 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-    <title>EmailJS Test</title>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <script type="text/javascript">
-        (function() {
-            emailjs.init("DkaN2O0h-27lkoW94");
-        })();
-    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Email - Studio30</title>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #4caf50;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
 </head>
 <body>
-    <h1>Test EmailJS</h1>
-    <button id="send">Send Email</button>
-    <pre id="output"></pre>
-    <script type="text/javascript">
-        document.getElementById('send').addEventListener('click', function() {
-            document.getElementById('output').innerText = 'Sending...';
-            emailjs.send("service_3h2tyup", "template_wghvxdb", {
-                subject: "Teste de malinha v2",
-                customer_name: "Augusto Teste",
-                items_count: 5,
-                order_link: "https://studio30closet.com.br/admin/malinhas",
-                order_id: "777",
-                to_email: "studio30closet@gmail.com"
-            }).then(function(res) {
-                document.getElementById('output').innerText = 'Success: ' + JSON.stringify(res);
-            }).catch(function(err) {
-                document.getElementById('output').innerText = 'Error: ' + JSON.stringify(err);
-            });
-        });
+    <div class="container">
+        <h1>🧪 Teste de Email - Studio30</h1>
+
+        <div class="info">
+            <strong>📧 Destino:</strong> studio30closet@gmail.com<br>
+            <strong>⚙️ Método:</strong> EmailJS<br>
+            <strong>🔑 Service ID:</strong> service_3h2tyup
+        </div>
+
+        <button id="testBtn" onclick="testEmail()">
+            📧 Enviar Email de Teste
+        </button>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        const SERVICE_ID = 'service_3h2tyup'
+        const TEMPLATE_ID = 'template_wghvxdb'
+        const PUBLIC_KEY = 'DkaN2O0h-27lkoW94'
+
+        function log(message, isError = false) {
+            const logDiv = document.getElementById('log')
+            const timestamp = new Date().toLocaleTimeString('pt-BR')
+            const className = isError ? 'error' : 'success'
+            logDiv.innerHTML += \`<span class="\${className}">[\ ${timestamp}] \${message}</span>\n\`
+            logDiv.scrollTop = logDiv.scrollHeight
+        }
+
+        async function testEmail() {
+            const btn = document.getElementById('testBtn')
+            btn.disabled = true
+            btn.textContent = '📤 Enviando...'
+
+            document.getElementById('log').innerHTML = ''
+            log('🚀 Iniciando teste de envio de email...')
+
+            const templateParams = {
+                subject: \`🧪 TESTE - Nova malinha para Cliente Teste [3 peças]\`,
+                customer_name: 'Cliente Teste',
+                customer_email: 'teste@example.com',
+                items_count: 3,
+                order_link: 'https://studio30closet.com.br/admin/malinhas',
+                order_id: 999,
+                to_email: 'studio30closet@gmail.com'
+            }
+
+            log('📋 Dados do email:')
+            log(\`   Para: \${templateParams.to_email}\`)
+            log(\`   Cliente: \${templateParams.customer_name}\`)
+            log(\`   Peças: \${templateParams.items_count}\`)
+            log(\`   Order ID: \${templateParams.order_id}\`)
+            log('')
+
+            try {
+                log('📧 Enviando email via EmailJS...')
+
+                const response = await emailjs.send(
+                    SERVICE_ID,
+                    TEMPLATE_ID,
+                    templateParams,
+                    PUBLIC_KEY
+                )
+
+                log('')
+                log('✅ EMAIL ENVIADO COM SUCESSO!')
+                log(\`   Status: \${response.status}\`)
+                log(\`   Texto: \${response.text}\`)
+                log('')
+                log('📬 Verifique o email: studio30closet@gmail.com')
+                log('   (Pode levar alguns segundos para chegar)')
+
+                btn.textContent = '✅ Email Enviado!'
+                btn.style.background = '#4caf50'
+
+            } catch (error) {
+                log('')
+                log('❌ ERRO AO ENVIAR EMAIL!', true)
+                log(\`   Nome: \${error.name}\`, true)
+                log(\`   Mensagem: \${error.message}\`, true)
+                if (error.text) log(\`   Texto: \${error.text}\`, true)
+                log('')
+                log('🔍 Possíveis causas:', true)
+                log('   - Chaves do EmailJS incorretas', true)
+                log('   - Template não configurado', true)
+                log('   - Problema de conexão', true)
+
+                btn.textContent = '❌ Erro - Tentar Novamente'
+                btn.style.background = '#f44336'
+                btn.disabled = false
+            }
+        }
+
+        log('⚙️ Inicializando EmailJS...')
+        log(\`   Public Key: \${PUBLIC_KEY}\`)
+        log('')
+        log('✅ Pronto para testar!')
+        log('   Clique no botão acima para enviar um email de teste.')
+        log('')
     </script>
 </body>
 </html>

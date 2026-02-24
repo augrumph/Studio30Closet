@@ -1,112 +1,38 @@
-import { supabase } from '../supabase'
-import { toSnakeCase, toCamelCase } from './helpers'
-
 /**
- * Get all purchases
- * @returns {Promise<Array>} Array of purchases
+ * API de Compras — via Express BFF (Railway PostgreSQL)
  */
+
+async function apiFetch(url, options = {}) {
+    const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options,
+        body: options.body ? JSON.stringify(options.body) : undefined
+    })
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: response.statusText }))
+        throw new Error(err.error || `Erro ${response.status}`)
+    }
+    return response.json()
+}
+
 export async function getPurchases() {
-    const { data, error } = await supabase.from('purchases').select('*').order('date', { ascending: false });
-    if (error) throw error;
-    return data.map(toCamelCase);
+    const data = await apiFetch('/api/purchases')
+    return data.items || []
 }
 
-/**
- * Get purchase by ID
- * @param {string} id - Purchase ID
- * @returns {Promise<Object>} Purchase object
- */
 export async function getPurchaseById(id) {
-    const { data, error } = await supabase.from('purchases').select('*').eq('id', id).single();
-    if (error) throw error;
-    return toCamelCase(data);
+    return apiFetch(`/api/purchases/${id}`)
 }
 
-/**
- * Create a new purchase
- * @param {Object} purchaseData - Purchase data
- * @returns {Promise<Object>} Created purchase
- */
 export async function createPurchase(purchaseData) {
-    console.log('API: Creating purchase with data:', purchaseData);
-    const snakeData = toSnakeCase(purchaseData);
-    console.log('API: Converted to snake_case:', snakeData);
-
-    // Criar objeto com campos explícitos para evitar problemas
-    const purchaseRecord = {
-        supplier_id: snakeData.supplierId || snakeData.supplier_id,
-        payment_method: snakeData.paymentMethod || snakeData.payment_method,
-        value: snakeData.value,
-        date: snakeData.date,
-        pieces: snakeData.pieces || null,
-        parcelas: snakeData.parcelas || null,
-        notes: snakeData.notes || null,
-        spent_by: snakeData.spentBy || snakeData.spent_by || 'loja'
-    };
-
-    console.log('API: Prepared record for insert:', purchaseRecord);
-
-    const { data, error } = await supabase
-        .from('purchases')
-        .insert([purchaseRecord])
-        .select()
-        .single();
-
-    if (error) {
-        console.error('API Error creating purchase:', error);
-        throw error;
-    }
-    console.log('API: Created purchase:', data);
-    return toCamelCase(data);
+    return apiFetch('/api/purchases', { method: 'POST', body: purchaseData })
 }
 
-/**
- * Update a purchase
- * @param {string} id - Purchase ID
- * @param {Object} purchaseData - Purchase data to update
- * @returns {Promise<Object>} Updated purchase
- */
 export async function updatePurchase(id, purchaseData) {
-    console.log('API: Updating purchase with id:', id, 'and data:', purchaseData);
-    const snakeData = toSnakeCase(purchaseData);
-    console.log('API: Converted to snake_case:', snakeData);
-
-    // Criar objeto com campos explícitos para evitar problemas
-    const purchaseRecord = {
-        supplier_id: snakeData.supplierId || snakeData.supplier_id,
-        payment_method: snakeData.paymentMethod || snakeData.payment_method,
-        value: snakeData.value,
-        date: snakeData.date,
-        pieces: snakeData.pieces || null,
-        parcelas: snakeData.parcelas || null,
-        notes: snakeData.notes || null,
-        spent_by: snakeData.spentBy || snakeData.spent_by || 'loja'
-    };
-
-    console.log('API: Prepared record for update:', purchaseRecord);
-
-    const { data, error } = await supabase
-        .from('purchases')
-        .update(purchaseRecord)
-        .eq('id', id)
-        .select()
-        .single();
-
-    if (error) {
-        console.error('API Error updating purchase:', error);
-        throw error;
-    }
-    console.log('API: Updated purchase:', data);
-    return toCamelCase(data);
+    return apiFetch(`/api/purchases/${id}`, { method: 'PUT', body: purchaseData })
 }
 
-/**
- * Delete a purchase
- * @param {string} id - Purchase ID
- * @returns {Promise<boolean>} True if successful
- */
 export async function deletePurchase(id) {
-    const { error } = await supabase.from('purchases').delete().eq('id', id);
-    if (error) throw error;
-    return true;
+    await apiFetch(`/api/purchases/${id}`, { method: 'DELETE' })
+    return true
 }

@@ -67,24 +67,32 @@ export async function updateProductStock(client, productId, quantity, color, siz
     const variant = variants[variantIndex]
 
     // Find Size in Variant
-    let sizeIndex = variant.sizeStock?.findIndex(s => normalize(s.size) === sizeNorm)
+    // Se não tem sizeStock, pular atualização de estoque
+    if (!variant.sizeStock || variant.sizeStock.length === 0) {
+        console.warn(`[STOCK WARNING] Product ${product.id} ("${product.name}") color "${variant.colorName}" has no sizeStock. Skipping stock update.`)
+        return true
+    }
+
+    let sizeIndex = variant.sizeStock.findIndex(s => normalize(s.size) === sizeNorm)
 
     // Size Fallback logic: e.g., 'u' vs 'único'
     if (sizeIndex === -1 && (sizeNorm === 'u' || sizeNorm === 'unico' || sizeNorm === 'único')) {
-        sizeIndex = variant.sizeStock?.findIndex(s => {
+        sizeIndex = variant.sizeStock.findIndex(s => {
             const sn = normalize(s.size)
             return sn === 'u' || sn === 'unico' || sn === 'único'
         })
     }
 
     // Fallback 1: If the matched color variant only has one size, assume it's the intended one
-    if (sizeIndex === -1 && variant.sizeStock?.length === 1) {
+    if (sizeIndex === -1 && variant.sizeStock.length === 1) {
         sizeIndex = 0;
         console.warn(`[STOCK WARNING] Strict size match failed for "${size}" on Product ${product.id} ("${product.name}", color: "${variant.colorName}"). Defaulting to its only size: "${variant.sizeStock[0].size}".`)
     }
 
+    // Se ainda não encontrou o tamanho, apenas avisar mas não falhar
     if (sizeIndex === undefined || sizeIndex === -1) {
-        throw new Error(`Size "${size}" not found in color "${variant.colorName}" for product ${product.id} ("${product.name}")`)
+        console.warn(`[STOCK WARNING] Size "${size}" not found in color "${variant.colorName}" for product ${product.id} ("${product.name}"). Available sizes: ${variant.sizeStock.map(s => s.size).join(', ')}. Skipping stock update.`)
+        return true
     }
 
     // 3. Check / Update Stock

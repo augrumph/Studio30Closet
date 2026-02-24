@@ -1,15 +1,19 @@
-
-import { supabase } from '@/lib/supabase'
+/**
+ * API de IA — via Express BFF
+ * A chamada à Edge Function do Supabase foi substituída pelo endpoint BFF.
+ */
 
 export async function perguntarIA(pergunta) {
-    const { data, error } = await supabase.functions.invoke('openai', {
-        body: { question: pergunta }
+    const response = await fetch('/api/ai/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: pergunta })
     })
 
-    if (error) {
-        console.error('Supabase Function Error:', error)
-        throw new Error("Erro ao consultar a IA")
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: response.statusText }))
+        throw new Error(err.error || 'Erro ao consultar a IA')
     }
 
-    return data
+    return response.json()
 }

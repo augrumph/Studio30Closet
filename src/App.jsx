@@ -85,9 +85,6 @@ const CollectionDetail = lazyWithRetry(() => import('@/pages/admin/CollectionDet
 
 
 
-// Test Components
-const SupabaseTester = lazyWithRetry(() => import('@/components/SupabaseTester'))
-const SupabaseMigrationTester = lazyWithRetry(() => import('@/components/SupabaseMigrationTester'))
 
 // Loading Component
 function PageLoader() {
@@ -125,8 +122,6 @@ function App() {
                                             <Route path="malinha" element={<Checkout />} />
                                             <Route path="politica-de-privacidade" element={<PrivacyPolicy />} />
                                             <Route path="termos-de-servico" element={<TermsOfService />} />
-                                            <Route path="test-supabase" element={<SupabaseTester />} />
-                                            <Route path="test-migration" element={<SupabaseMigrationTester />} />
                                         </Route>
 
                                         {/* Admin Login (pública) */}

@@ -177,8 +177,18 @@ export function ProductModal({ product: initialProduct, isOpen, onClose }) {
         setTouchEndX(0)
     }
 
+    // Verificar se a variante+tamanho selecionados tem estoque disponível
+    const currentVariantHasStock = (() => {
+        if (!selectedSize) return false
+        if (!currentVariant.sizeStock || currentVariant.sizeStock.length === 0) return true // Sem dados de variante, assume disponível
+        const sizeEntry = currentVariant.sizeStock.find(s =>
+            (s.size || '').toLowerCase().trim() === (selectedSize || '').toLowerCase().trim()
+        )
+        return sizeEntry ? sizeEntry.quantity > 0 : false
+    })()
+
     const handleAddToMalinha = () => {
-        if (!selectedSize || isLimitReached()) return
+        if (!selectedSize || isLimitReached() || !currentVariantHasStock) return
 
         setIsAdding(true)
         // Passamos a cor selecionada também para o checkout
@@ -195,11 +205,16 @@ export function ProductModal({ product: initialProduct, isOpen, onClose }) {
             setIsAdding(false)
             setIsAdded(true)
             // Trigger confetti when product is added to malinha
-            triggerConfetti({ particleCount: 50, spread: 60 })
+            triggerConfetti({
+                particleCount: 150,
+                spread: 100,
+                origin: { y: 0.5 },
+                ticks: 200
+            })
             setTimeout(() => {
                 setIsAdded(false)
                 onClose()
-            }, 1500)
+            }, 2000) // Aumentado para 2s para dar tempo de ver os confetes
         }, 300)
     }
 
@@ -423,9 +438,22 @@ export function ProductModal({ product: initialProduct, isOpen, onClose }) {
                                     ?.filter(s => s.quantity > 0)
                                     ?.map(s => s.size) || [];
 
-                                const sizesToShow = availableSizes.length > 0
-                                    ? availableSizes
-                                    : (product.sizes || []);
+                                // Enquanto carrega dados completos, não usar fallback com tamanhos potencialmente esgotados
+                                const sizesToShow = isLoadingDetails
+                                    ? []
+                                    : availableSizes.length > 0
+                                        ? availableSizes
+                                        : (product.sizes || []);
+
+                                if (isLoadingDetails) {
+                                    return (
+                                        <div className="flex gap-2">
+                                            {[1, 2, 3].map(i => (
+                                                <div key={i} className="w-12 h-12 rounded-2xl bg-white/10 animate-pulse" />
+                                            ))}
+                                        </div>
+                                    );
+                                }
 
                                 return sortSizes(sizesToShow).map((size) => (
                                     <button
@@ -483,18 +511,20 @@ export function ProductModal({ product: initialProduct, isOpen, onClose }) {
                                 {/* Add Button */}
                                 <button
                                     onClick={handleAddToMalinha}
-                                    disabled={!selectedSize || isAdding || isLimitReached()}
+                                    disabled={!selectedSize || isAdding || isLimitReached() || (!isLoadingDetails && !currentVariantHasStock)}
                                     className={cn(
                                         'flex-1 py-3 px-5 rounded-[1.25rem] text-[15px] font-bold flex items-center justify-center transition-all duration-300 shadow-md tracking-wide',
                                         isAdded
                                             ? 'bg-green-500 text-white animate-bounce-once'
-                                            : itemInMalinha
-                                                ? 'bg-white/20 text-white backdrop-blur-md'
-                                                : 'bg-brand-peach hover:bg-[#FDF0ED] text-brand-brown active:scale-95',
-                                        (!selectedSize || isLimitReached()) && 'opacity-60 cursor-not-allowed active:scale-100'
+                                            : (!isLoadingDetails && !currentVariantHasStock)
+                                                ? 'bg-gray-500/50 text-white/50 cursor-not-allowed'
+                                                : itemInMalinha
+                                                    ? 'bg-white/20 text-white backdrop-blur-md'
+                                                    : 'bg-brand-peach hover:bg-[#FDF0ED] text-brand-brown active:scale-95',
+                                        (!selectedSize || isLimitReached() || (!isLoadingDetails && !currentVariantHasStock)) && 'opacity-60 cursor-not-allowed active:scale-100'
                                     )}
                                 >
-                                    {isAdding ? 'Aguarde...' : isAdded ? 'Feito!' : itemInMalinha ? 'Na Malinha' : isLimitReached() ? 'Cheia' : 'Adicionar'}
+                                    {isAdding ? 'Aguarde...' : isAdded ? 'Feito!' : (!isLoadingDetails && !currentVariantHasStock && selectedSize) ? 'Esgotado' : itemInMalinha ? 'Na Malinha' : isLimitReached() ? 'Cheia' : 'Adicionar'}
                                 </button>
                             </div>
                         </div>
@@ -518,18 +548,20 @@ export function ProductModal({ product: initialProduct, isOpen, onClose }) {
                             {/* Add Button */}
                             <button
                                 onClick={handleAddToMalinha}
-                                disabled={!selectedSize || isAdding || isLimitReached()}
+                                disabled={!selectedSize || isAdding || isLimitReached() || (!isLoadingDetails && !currentVariantHasStock)}
                                 className={cn(
                                     'flex-1 py-4 rounded-3xl text-[15px] font-bold flex items-center justify-center transition-all duration-300 shadow-md tracking-wide',
                                     isAdded
                                         ? 'bg-green-500 text-white animate-bounce-once'
-                                        : itemInMalinha
-                                            ? 'bg-white/20 text-white backdrop-blur-md'
-                                            : 'bg-brand-peach hover:bg-[#FDF0ED] text-brand-brown active:scale-95',
-                                    (!selectedSize || isLimitReached()) && 'opacity-60 cursor-not-allowed active:scale-100'
+                                        : (!isLoadingDetails && !currentVariantHasStock)
+                                            ? 'bg-gray-500/50 text-white/50 cursor-not-allowed'
+                                            : itemInMalinha
+                                                ? 'bg-white/20 text-white backdrop-blur-md'
+                                                : 'bg-brand-peach hover:bg-[#FDF0ED] text-brand-brown active:scale-95',
+                                    (!selectedSize || isLimitReached() || (!isLoadingDetails && !currentVariantHasStock)) && 'opacity-60 cursor-not-allowed active:scale-100'
                                 )}
                             >
-                                {isAdding ? 'Aguarde...' : isAdded ? 'Feito!' : itemInMalinha ? 'Já adicionado' : isLimitReached() ? 'Cheia' : 'Adicionar à Malinha'}
+                                {isAdding ? 'Aguarde...' : isAdded ? 'Feito!' : (!isLoadingDetails && !currentVariantHasStock && selectedSize) ? 'Esgotado' : itemInMalinha ? 'Já adicionado' : isLimitReached() ? 'Cheia' : 'Adicionar à Malinha'}
                             </button>
                         </div>
                     </div>

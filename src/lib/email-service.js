@@ -10,11 +10,12 @@ const SERVICE_ID = 'service_3h2tyup'
 const TEMPLATE_ID = 'template_wghvxdb'
 const PUBLIC_KEY = 'DkaN2O0h-27lkoW94'
 
-export const sendNewMalinhaEmail = async ({ customerName, itemsCount, orderId }) => {
+export const sendNewMalinhaEmail = async ({ customerName, customerEmail, itemsCount, orderId }) => {
     try {
         const templateParams = {
             subject: `Nova malinha para ${customerName} [${itemsCount} peças]`,
             customer_name: customerName,
+            customer_email: customerEmail,
             items_count: itemsCount,
             order_link: `https://studio30closet.com.br/admin/malinhas`,
             order_id: orderId,

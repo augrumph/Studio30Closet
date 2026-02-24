@@ -25,6 +25,8 @@ import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { getOptimizedImageUrl } from '@/lib/image-optimizer'
+import { triggerConfetti, triggerFireworks } from '@/components/magicui/confetti'
+import { sendNewMalinhaEmail } from '@/lib/email-service'
 
 export function MalinhasForm() {
     const { id } = useParams()
@@ -118,6 +120,9 @@ export function MalinhasForm() {
             description: `${formData.items.length + 1} itens na malinha`,
             duration: 2000
         })
+
+        // Trigger small confetti for delight
+        triggerConfetti({ particleCount: 40, spread: 50 })
     }
 
     const initiateAddProduct = (product, preSelectedSize = null) => {
@@ -267,6 +272,17 @@ export function MalinhasForm() {
             loading: isEdit ? 'Atualizando malinha...' : 'Criando malinha...',
             success: (result) => {
                 if (result.success) {
+                    // Celebration time for successfully submitting the malinha
+                    triggerFireworks()
+
+                    // Dispara email de notificação para a admin
+                    sendNewMalinhaEmail({
+                        customerName: formData.customerName,
+                        customerEmail: null,
+                        itemsCount: formData.items.length,
+                        orderId: result.order?.id || (isEdit ? parseInt(id) : null)
+                    }).catch(console.error)
+
                     navigate('/admin/malinhas')
                     return isEdit ? 'Malinha atualizada!' : 'Malinha criada com sucesso!'
                 }

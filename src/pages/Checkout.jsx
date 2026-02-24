@@ -232,9 +232,11 @@ export function Checkout() {
             // Email silencioso
             sendNewMalinhaEmail({
                 customerName: customerData.name,
+                customerEmail: customerData.email,
                 itemsCount: groupedItems.length,
                 orderId: result.order?.id
-            }).catch(console.error)
+            }).then(res => console.log('Email send result:', res))
+                .catch(err => console.error('Email send error:', err))
 
             const msg = formatMalinhaMessage(groupedItems, customerData)
             const whatsappLink = generateWhatsAppLink('+5541996863879', msg)

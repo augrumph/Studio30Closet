@@ -46,7 +46,7 @@ export const triggerSideConfetti = () => {
 export const triggerFireworks = () => {
   const duration = 3 * 1000
   const animationEnd = Date.now() + duration
-  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 }
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 999999 }
 
   const randomInRange = (min, max) => Math.random() * (max - min) + min
 

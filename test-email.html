@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EmailJS Test</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function() {
+            emailjs.init("DkaN2O0h-27lkoW94");
+        })();
+    </script>
+</head>
+<body>
+    <h1>Test EmailJS</h1>
+    <button id="send">Send Email</button>
+    <pre id="output"></pre>
+    <script type="text/javascript">
+        document.getElementById('send').addEventListener('click', function() {
+            document.getElementById('output').innerText = 'Sending...';
+            emailjs.send("service_3h2tyup", "template_wghvxdb", {
+                subject: "Teste de malinha v2",
+                customer_name: "Augusto Teste",
+                items_count: 5,
+                order_link: "https://studio30closet.com.br/admin/malinhas",
+                order_id: "777",
+                to_email: "studio30closet@gmail.com"
+            }).then(function(res) {
+                document.getElementById('output').innerText = 'Success: ' + JSON.stringify(res);
+            }).catch(function(err) {
+                document.getElementById('output').innerText = 'Error: ' + JSON.stringify(err);
+            });
+        });
+    </script>
+</body>
+</html>

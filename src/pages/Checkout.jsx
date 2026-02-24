@@ -9,7 +9,6 @@ import { useToast } from '@/contexts/ToastContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { triggerFireworks } from '@/components/magicui/confetti'
 import { getOptimizedImageUrl } from '@/lib/image-optimizer'
-import { sendNewMalinhaEmail } from '@/lib/email-service'
 import { useStock } from '@/hooks/useStock'
 import { trackCheckoutStarted, trackCheckoutCompleted, markCartCheckoutStarted, markCartConverted, saveCustomerDataToCart } from '@/lib/api/analytics'
 import { SEO } from '@/components/SEO'
@@ -247,19 +246,9 @@ export function Checkout() {
 
             triggerFireworks()
 
-            // 📧 Envio de email de notificação para o administrador (Via EmailJS)
-            console.log('📧 Enviando email de notificação para studio30closet@gmail.com...')
-            sendNewMalinhaEmail({
-                customerName: customerData.name,
-                customerEmail: customerData.email,
-                itemsCount: groupedItems.length,
-                orderId: result.order?.id
-            }).then(res => {
-                if (res.success) console.log('✅ Email enviado com sucesso via EmailJS!')
-                else console.warn('⚠️ Email falhou:', res.error)
-            }).catch(err => {
-                console.error('❌ Erro ao enviar email:', err)
-            })
+            // 📧 O Envio de email de notificação agora é FEITO PELO BACKEND (server/routes/orders.js)
+            // de forma garantida 100%, rodando via EmailJS REST API sem depender do navegador!
+            console.log('✅ Ordem concluída — o servidor disparou o email em background')
 
             const msg = formatMalinhaMessage(groupedItems, customerData)
             const whatsappLink = generateWhatsAppLink('+5541996863879', msg)

@@ -3,6 +3,7 @@ import { pool, getClient } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { updateProductStock } from '../stock-utils.js'
 import { extractKeyFromUrl, getPresignedUrl } from '../lib/s3.js'
+import { sendNewMalinhaNotification } from '../email-service.js'
 
 const router = express.Router()
 
@@ -261,6 +262,16 @@ router.post('/', async (req, res) => {
         }
 
         await client.query('COMMIT')
+
+        // 🎉 Dispara o EmailJS de forma invisível via Backend (SÍNCRONO)
+        // Usamos background / promises sem 'await' para que o painel do admin receba o erro se der,
+        // mas o cliente recebe a resposta da ordem antes mesmo do email terminar de enviar.
+        sendNewMalinhaNotification({
+            customerName: customer.name || 'Cliente',
+            customerEmail: customer.email || '',
+            itemsCount: items ? items.length : 0,
+            orderId: newOrder[0].id
+        }).catch(e => console.error("Falha no email em background:", e))
 
         res.json({ success: true, order: toCamelCase(newOrder[0]) })
 

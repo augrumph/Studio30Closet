@@ -30,12 +30,21 @@ import { useAdminVendas } from '@/hooks/useAdminVendas'
 export function VendasList() {
     // Estado de filtros
     const [searchTerm, setSearchTerm] = useState('')
+    const [localSearch, setLocalSearch] = useState('')
     const [filterType, setFilterType] = useState('all')
     const [filterPaymentStatus, setFilterPaymentStatus] = useState('all')
     const [page, setPage] = useState(1)
     const [itemsPerPage] = useState(20)
     const [dateFilter, setDateFilter] = useState('all')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, vendaId: null, customerName: '' })
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearchTerm(localSearch)
+        }, 500) // 500ms debounce
+        return () => clearTimeout(timer)
+    }, [localSearch])
 
     // ⚡ BFF DATA: Hooks
     // 1. Dados para métricas (Dashboard Stats - BFF)
@@ -294,8 +303,8 @@ export function VendasList() {
                                 type="text"
                                 placeholder="Procurar por cliente..."
                                 className="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-sm font-medium transition-all"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                value={localSearch}
+                                onChange={(e) => setLocalSearch(e.target.value)}
                             />
                         </div>
                     </div>
@@ -405,8 +414,17 @@ export function VendasList() {
                                             />
                                         </td>
                                     </tr>
-                                ) : isLoadingVendas ? (
-                                    <tr><td colSpan="7" className="py-24 text-center text-gray-300 italic font-medium">Sincronizando registros da Studio 30...</td></tr>
+                                ) : (isLoadingVendas && paginatedVendas.length === 0) || (localSearch !== searchTerm) ? (
+                                    <tr>
+                                        <td colSpan="7" className="py-24">
+                                            <div className="flex flex-col items-center justify-center gap-4">
+                                                <div className="w-8 h-8 rounded-full border-2 border-[#C75D3B] border-t-transparent animate-spin" />
+                                                <span className="text-gray-400 italic font-medium text-sm">
+                                                    {localSearch !== searchTerm ? "Buscando..." : "Sincronizando registros da Studio 30..."}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ) : paginatedVendas.length > 0 ? (
                                     paginatedVendas.map((venda, idx) => (
                                         <motion.tr

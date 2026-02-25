@@ -73,14 +73,17 @@ export function VendasList() {
 
     // Usar as métricas calculadas no servidor
     const metrics = useMemo(() => {
-        if (!backendMetrics?.summary) return { totalRevenue: 0, pendingCrediario: 0, totalDevedores: 0, valorDevedores: 0, averageTicket: 0 }
+        const raw = backendMetrics || {}
+        const summary = raw.summary || {}
+        const operational = raw.operational || {}
+        const cashFlow = raw.cashFlow || {}
 
         return {
-            totalRevenue: backendMetrics.summary.grossRevenue || 0,
-            pendingCrediario: backendMetrics.cashFlow?.pendingCrediario || 0,
-            totalDevedores: backendMetrics.operational?.totalDevedores || 0,
-            valorDevedores: backendMetrics.cashFlow?.valorDevedores || 0,
-            averageTicket: backendMetrics.operational?.averageTicket || 0
+            totalRevenue: Number(summary.grossRevenue || 0),
+            pendingCrediario: Number(cashFlow.pendingCrediario || 0),
+            totalDevedores: Number(operational.totalDevedores || 0),
+            valorDevedores: Number(cashFlow.valorDevedores || 0),
+            averageTicket: Number(operational.averageTicket || 0)
         }
     }, [backendMetrics])
 

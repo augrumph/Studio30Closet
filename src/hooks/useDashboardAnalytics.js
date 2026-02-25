@@ -76,7 +76,8 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
     const topProducts = useMemo(() => {
         const productSales = {}
         vendas.forEach(v => {
-            v.items?.forEach(item => {
+            const items = Array.isArray(v.items) ? v.items : (typeof v.items === 'string' ? JSON.parse(v.items || '[]') : [])
+            items.forEach(item => {
                 const id = item.productId
                 if (!productSales[id]) {
                     productSales[id] = {
@@ -88,7 +89,7 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
                     }
                 }
                 productSales[id].quantity += (item.quantity || 1)
-                productSales[id].revenue += (item.price * (item.quantity || 1))
+                productSales[id].revenue += ((item.price || 0) * (item.quantity || 1))
             })
         })
 

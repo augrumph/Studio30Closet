@@ -108,25 +108,29 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         })
 
         // Mapeamento snake_case para camelCase
-        const normalizedVendas = vendas.map(v => ({
-            ...v,
-            totalValue: v.total_value,
-            paymentStatus: v.payment_status,
-            paymentMethod: v.payment_method,
-            createdAt: v.created_at,
-            discountAmount: v.discount_amount || v.discount || 0,
-            feeAmount: v.fee_amount || 0,
-            netAmount: v.net_amount || 0,
-            entryPayment: v.entry_payment || 0,
-            isInstallment: v.is_installment,
-            orderId: v.order_id,
-            items: (v.items || []).map(item => ({
-                ...item,
-                costPrice: item.costPrice || item.cost_price || item.costPriceAtTime || item.cost_price_at_time || 0,
-                price: item.price || 0,
-                quantity: item.quantity || item.qty || 1
-            }))
-        }))
+        const normalizedVendas = vendas.map(v => {
+            const parsedItems = typeof v.items === 'string' ? JSON.parse(v.items || '[]') : (v.items || [])
+            
+            return {
+                ...v,
+                totalValue: v.total_value,
+                paymentStatus: v.payment_status,
+                paymentMethod: v.payment_method,
+                createdAt: v.created_at,
+                discountAmount: v.discount_amount || v.discount || 0,
+                feeAmount: v.fee_amount || 0,
+                netAmount: v.net_amount || 0,
+                entryPayment: v.entry_payment || 0,
+                isInstallment: v.is_installment,
+                orderId: v.order_id,
+                items: parsedItems.map(item => ({
+                    ...item,
+                    costPrice: item.costPrice || item.cost_price || item.costPriceAtTime || item.cost_price_at_time || 0,
+                    price: item.price || 0,
+                    quantity: item.quantity || item.qty || 1
+                }))
+            }
+        })
 
         // Lógica de DRE - Excluir vendas do cliente "Amor" (vendas promocionais a preço de custo)
         const salesToProcess = normalizedVendas.filter(v => {

@@ -94,7 +94,7 @@ router.get('/', async (req, res) => {
             const { total_count, ...venda } = row
             const camelVenda = toCamelCase(venda)
 
-            // Converter campos numéricos para números
+            // Converter campos numéricos para números e parsear itens
             return {
                 ...camelVenda,
                 id: parseInt(camelVenda.id) || camelVenda.id,
@@ -108,7 +108,8 @@ router.get('/', async (req, res) => {
                 numInstallments: parseInt(camelVenda.numInstallments) || 1,
                 entryPayment: parseFloat(camelVenda.entryPayment) || 0,
                 discountAmount: parseFloat(camelVenda.discountAmount) || 0,
-                originalTotal: parseFloat(camelVenda.originalTotal) || 0
+                originalTotal: parseFloat(camelVenda.originalTotal) || 0,
+                items: typeof camelVenda.items === 'string' ? JSON.parse(camelVenda.items || '[]') : (camelVenda.items || [])
             }
         })
 
@@ -145,7 +146,12 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Venda não encontrada' })
         }
 
-        res.json(toCamelCase(rows[0]))
+        const venda = toCamelCase(rows[0])
+        if (typeof venda.items === 'string') {
+            venda.items = JSON.parse(venda.items || '[]')
+        }
+
+        res.json(venda)
     } catch (error) {
         console.error(`❌ Erro ao buscar venda ${id}:`, error)
         res.status(500).json({ error: 'Erro ao buscar venda' })

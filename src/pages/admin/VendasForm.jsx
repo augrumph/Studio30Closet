@@ -215,13 +215,14 @@ export function VendasForm() {
     // const filteredCustomers = ... (REMOVED)
 
     // Valores calculados
-    const subtotal = formData.totalValue
-    const discount = formData.discountAmount
-    const finalValue = subtotal - discount
-    const netValue = feeInfo.netValue || finalValue
+    const subtotal = parseFloat(formData.totalValue) || 0
+    const discount = parseFloat(formData.discountAmount) || 0
+    const finalValue = Number(subtotal - discount) || 0
+    const netValue = Number(feeInfo?.netValue || finalValue) || 0
+    const feeValue = Number(feeInfo?.feeValue || 0) || 0
     const isParcelado = ['credito_parcelado', 'fiado_parcelado'].includes(formData.paymentMethod)
     const needsCardBrand = ['debit', 'card_machine', 'credito_parcelado'].includes(formData.paymentMethod)
-    const parcelaValue = isParcelado ? ((finalValue - entryPayment) / parcelas) : 0
+    const parcelaValue = isParcelado && parcelas > 0 ? ((finalValue - (parseFloat(entryPayment) || 0)) / parcelas) : 0
 
     // Handlers
     const handlePaymentMethodChange = (methodId) => {
@@ -837,7 +838,7 @@ export function VendasForm() {
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="text-xs font-medium text-[#4A3B32] truncate">{product.name}</p>
-                                                            <p className="text-xs font-bold text-[#C75D3B]">R$ {product.price?.toFixed(2)}</p>
+                                                            <p className="text-xs font-bold text-[#C75D3B]">R$ {Number(product.price || 0).toFixed(2)}</p>
                                                         </div>
                                                         <Plus className="w-4 h-4 text-[#C75D3B] flex-shrink-0" />
                                                     </button>
@@ -883,7 +884,7 @@ export function VendasForm() {
                                                         </div>
                                                     </div>
                                                     <p className="text-sm font-bold text-[#4A3B32]">
-                                                        R$ {(item.price * item.quantity).toFixed(2)}
+                                                        R$ {Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}
                                                     </p>
                                                     <button
                                                         type="button"
@@ -989,10 +990,10 @@ export function VendasForm() {
                                 <span>-R$ {discount.toFixed(2)}</span>
                             </div>
                         )}
-                        {feeInfo.feeValue > 0 && (
+                        {feeValue > 0 && (
                             <div className="flex justify-between text-sm text-red-400">
                                 <span>Taxa ({feeInfo.feePercentage}%)</span>
-                                <span>-R$ {feeInfo.feeValue.toFixed(2)}</span>
+                                <span>-R$ {feeValue.toFixed(2)}</span>
                             </div>
                         )}
                     </div>
@@ -1000,9 +1001,9 @@ export function VendasForm() {
                     <div className="flex items-end justify-between pt-3 border-t border-white/10">
                         <div>
                             <p className="text-xs text-white/40 mb-0.5">
-                                {feeInfo.feeValue > 0 ? 'Valor Líquido' : 'Total'}
+                                {feeValue > 0 ? 'Valor Líquido' : 'Total'}
                             </p>
-                            <p className="text-3xl font-bold">R$ {(feeInfo.feeValue > 0 ? netValue : finalValue).toFixed(2)}</p>
+                            <p className="text-3xl font-bold">R$ {(feeValue > 0 ? netValue : finalValue).toFixed(2)}</p>
                         </div>
                         {isParcelado && (
                             <div className="text-right">
@@ -1060,7 +1061,7 @@ export function VendasForm() {
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-[#4A3B32]">{variantModal.product.name}</h3>
-                                        <p className="text-sm text-[#C75D3B] font-bold">R$ {variantModal.product.price?.toFixed(2)}</p>
+                                        <p className="text-sm text-[#C75D3B] font-bold">R$ {Number(variantModal.product.price || 0).toFixed(2)}</p>
                                     </div>
                                 </div>
                                 <button

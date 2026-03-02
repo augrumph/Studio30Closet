@@ -10,10 +10,8 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Only load .env file in development (Railway injects env vars directly)
-if (process.env.NODE_ENV !== 'production') {
-  dotenv.config({ path: path.resolve(__dirname, '../.env') })
-}
+// Load environment variables
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 const { Pool } = pg
 

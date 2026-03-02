@@ -19,16 +19,24 @@ router.post('/login', async (req, res) => {
 
     try {
         // 1. Buscar usuário
-        const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email])
+        const { rows } = await pool.query('SELECT * FROM admins WHERE username = $1', [email])
         const user = rows[0]
+
+        console.log('User search result:', user ? { id: user.id, username: user.username } : 'Not found')
 
         if (!user) {
             return res.status(401).json({ error: 'Email ou senha inválidos' })
         }
 
         // 2. Verificar senha
-        const validPassword = await bcrypt.compare(password, user.password_hash)
-        if (!validPassword) {
+        console.log('Comparing passwords...');
+        const isPlainMatch = user.password === password;
+        const isHashMatch = await bcrypt.compare(password, user.password).catch(() => false);
+
+        console.log('Plain match:', isPlainMatch);
+        console.log('Hash match:', isHashMatch);
+
+        if (!isPlainMatch && !isHashMatch) {
             return res.status(401).json({ error: 'Email ou senha inválidos' })
         }
 
@@ -45,7 +53,7 @@ router.post('/login', async (req, res) => {
         )
 
         // 4. Retornar dados (sem senha)
-        delete user.password_hash
+        delete user.password
 
         res.json({
             token,
@@ -68,7 +76,7 @@ router.get('/me', async (req, res) => {
     try {
         const decoded = jwt.verify(token, JWT_SECRET)
         // Opcional: Buscar dados atualizados do banco
-        const { rows } = await pool.query('SELECT id, email, name, role FROM users WHERE id = $1', [decoded.id])
+        const { rows } = await pool.query('SELECT id, username as email, name FROM admins WHERE id = $1', [decoded.id])
 
         if (rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' })
 

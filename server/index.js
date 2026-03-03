@@ -60,13 +60,15 @@ app.use(helmet({
 }))
 
 // CORS — restrict origins to prevent unauthorized cross-site requests
+// Only apply CORS to API routes, not static assets
 const allowedOrigins = [
     process.env.FRONTEND_URL,
+    'https://studio30closet.com.br',
     'http://localhost:5173',
     'http://localhost:3000'
 ].filter(Boolean)
 
-app.use(cors({
+const corsMiddleware = cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (same-origin, mobile apps, Postman)
         if (!origin || allowedOrigins.includes(origin)) {
@@ -76,7 +78,10 @@ app.use(cors({
         }
     },
     credentials: true
-}))
+})
+
+// Apply CORS only to API routes (not static assets in production)
+app.use('/api/', corsMiddleware)
 
 // Compression - reduces response size by 70-90%
 app.use(compression({

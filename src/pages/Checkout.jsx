@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Truck, AlertTriangle, User, Phone, Mail, Hash, Calendar, MapPin } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatMalinhaMessage, generateWhatsAppLink, cn } from '@/lib/utils'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { useAdminStore } from '@/store/admin-store'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/contexts/ToastContext'
@@ -270,11 +271,7 @@ export function Checkout() {
             setStep(3)
         } catch (err) {
             console.error(err)
-            if (err.message?.includes('Insufficient stock') || err.message?.includes('stock')) {
-                toast.error('Uma peça da sua malinha acabou de esgotar. Remova-a e tente novamente.')
-            } else {
-                toast.error('Erro ao processar pedido. Tente novamente.')
-            }
+            toast.error(formatUserFriendlyError(err))
         } finally {
             setIsSubmitting(false)
         }

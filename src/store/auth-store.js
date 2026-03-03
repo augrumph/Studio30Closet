@@ -2,6 +2,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { apiClient } from '@/lib/api-client'
+import { formatUserFriendlyError } from '@/lib/errorHandler'
 
 export const useAuthStore = create(
     persist(
@@ -39,7 +40,7 @@ export const useAuthStore = create(
 
                 } catch (error) {
                     console.error('Erro no login:', error)
-                    const errorMessage = error.message || 'Erro ao fazer login. Tente novamente.'
+                    const errorMessage = formatUserFriendlyError(error)
 
                     set({
                         isAuthenticated: false,

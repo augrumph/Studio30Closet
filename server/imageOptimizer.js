@@ -1,4 +1,16 @@
-import sharp from 'sharp'
+// sharp is loaded lazily to prevent server crashes if native binaries fail on the deploy host
+let sharpLib = null
+async function getSharp() {
+  if (sharpLib) return sharpLib
+  try {
+    const mod = await import('sharp')
+    sharpLib = mod.default
+    return sharpLib
+  } catch (err) {
+    console.warn('⚠️  sharp not available, image optimization disabled:', err.message)
+    return null
+  }
+}
 
 /**
  * Optimizes images for web delivery
@@ -8,6 +20,9 @@ import sharp from 'sharp'
  */
 export async function optimizeImage(base64String, options = {}) {
   try {
+    const sharp = await getSharp()
+    if (!sharp) return base64String // graceful degradation if sharp unavailable
+
     const {
       format = 'webp',
       quality = 80,
@@ -58,6 +73,8 @@ export async function optimizeImages(images, options = {}) {
  */
 export async function getImageMetadata(base64String) {
   try {
+    const sharp = await getSharp()
+    if (!sharp) return null
     const base64Data = base64String.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Data, 'base64')
     const metadata = await sharp(buffer).metadata()
@@ -105,7 +122,7 @@ export function imageOptimizationMiddleware(options = {}) {
   return async (req, res, next) => {
     const originalJson = res.json.bind(res)
 
-    res.json = async function(data) {
+    res.json = async function (data) {
       // Check if response contains images (base64)
       const hasImages = JSON.stringify(data).includes('data:image')
 

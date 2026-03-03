@@ -19,7 +19,7 @@ import {
     PaginationPrevious,
 } from "@/components/ui/Pagination"
 import { MalinhasListSkeleton } from '@/components/admin/PageSkeleton'
-import { useAdminMalinhas, useAdminMalinhasMutations } from '@/hooks/useAdminMalinhas'
+import { useAdminMalinhas, useAdminMalinhasMutations, useAdminMalinhasKPIs } from '@/hooks/useAdminMalinhas'
 
 export function MalinhasList() {
     const [searchTerm, setSearchTerm] = useState('')
@@ -45,6 +45,9 @@ export function MalinhasList() {
         dateFilter: dateFilter
     })
 
+    // ⚡ KPIS GLOBAIS (Não paginados, precisos)
+    const { data: kpisData, isLoading: kpisLoading } = useAdminMalinhasKPIs()
+
     const { deleteMalinha: deleteOrder } = useAdminMalinhasMutations()
     const [deleteAlert, setDeleteAlert] = useState({ isOpen: false, orderId: null })
 
@@ -53,21 +56,8 @@ export function MalinhasList() {
         setCurrentPage(1)
     }, [searchTerm, statusFilter, dateFilter])
 
-    // Metrics Calculation - Ideally from Dashboard API, but using query data for now
-    const metrics = useMemo(() => {
-        if (!paginatedOrders) return { totalActive: 0, pending: 0, completedMonth: 0, totalItems: 0 }
-
-        return {
-            totalActive: totalItems, // Approximation or we can use more precise backend field
-            pending: paginatedOrders.filter(o => o.status === 'pending').length, // Limited to current page
-            completedMonth: paginatedOrders.filter(o => {
-                const date = new Date(o.createdAt)
-                const now = new Date()
-                return o.status === 'completed' && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
-            }).length,
-            totalItems: paginatedOrders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + (o.itemsCount || 0), 0)
-        }
-    }, [paginatedOrders, totalItems])
+    // Metrics from Backend KPIs (precise, global counts)
+    const metrics = kpisData || { totalActive: 0, pending: 0, completedMonth: 0, totalItems: 0 }
 
     // Handlers
     const handleDelete = (id, e) => {

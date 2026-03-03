@@ -63,7 +63,12 @@ router.get('/', async (req, res) => {
                     'id', c.id,
                     'name', c.name,
                     'phone', c.phone
-                ) as customer
+                ) as customer,
+                (
+                    SELECT COUNT(*)
+                    FROM order_items oi
+                    WHERE oi.order_id = o.id
+                ) as items_count
             FROM orders o
             LEFT JOIN customers c ON c.id = o.customer_id
             ${whereClause}
@@ -82,7 +87,8 @@ router.get('/', async (req, res) => {
             deliveryDate: order.delivery_date,
             pickupDate: order.pickup_date,
             convertedToSale: order.converted_to_sale,
-            createdAt: order.created_at
+            createdAt: order.created_at,
+            itemsCount: parseInt(order.items_count) || 0
         }))
 
         res.json({
@@ -96,6 +102,44 @@ router.get('/', async (req, res) => {
     } catch (error) {
         console.error("❌ Erro na API de Malinhas:", error)
         return res.status(500).json({ message: 'Erro interno do servidor' })
+    }
+})
+
+/**
+ * GET /api/malinhas/kpis
+ * Retorna KPIs globais de malinhas (não paginados)
+ */
+router.get('/kpis', async (req, res) => {
+    console.log('📊 Malinhas API: Calculando KPIs globais...')
+
+    try {
+        const now = new Date()
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+
+        // Query otimizada para pegar todos os KPIs em uma única consulta
+        const { rows } = await pool.query(`
+            SELECT
+                COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) as total_active,
+                COUNT(*) FILTER (WHERE status = 'pending') as total_pending,
+                COUNT(*) FILTER (WHERE status = 'completed' AND created_at >= $1) as completed_this_month,
+                COALESCE(SUM(
+                    (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id)
+                ) FILTER (WHERE status NOT IN ('cancelled')), 0) as total_items_in_circulation
+            FROM orders o
+        `, [firstDayOfMonth])
+
+        const kpis = rows[0]
+
+        res.json({
+            totalActive: parseInt(kpis.total_active) || 0,
+            pending: parseInt(kpis.total_pending) || 0,
+            completedMonth: parseInt(kpis.completed_this_month) || 0,
+            totalItems: parseInt(kpis.total_items_in_circulation) || 0
+        })
+
+    } catch (error) {
+        console.error("❌ Erro ao calcular KPIs de Malinhas:", error)
+        return res.status(500).json({ message: 'Erro ao calcular KPIs' })
     }
 })
 

@@ -49,6 +49,21 @@ export function useAdminMalinha(id) {
 }
 
 /**
+ * Hook to fetch global KPIs for malinhas (not paginated)
+ */
+export function useAdminMalinhasKPIs() {
+    return useQuery({
+        queryKey: ['admin', 'malinhas', 'kpis'],
+        queryFn: async () => {
+            const response = await fetch('/api/malinhas/kpis')
+            if (!response.ok) throw new Error('Falha ao buscar KPIs de malinhas')
+            return response.json()
+        },
+        staleTime: 1000 * 60 * 2, // 2 minutes
+    })
+}
+
+/**
  * Hook for Malinha mutations
  */
 export function useAdminMalinhasMutations() {
@@ -58,6 +73,7 @@ export function useAdminMalinhasMutations() {
         mutationFn: createOrder,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas', 'kpis'] })
             toast.success('Malinha criada com sucesso!')
         },
         onError: (error) => {
@@ -69,6 +85,7 @@ export function useAdminMalinhasMutations() {
         mutationFn: ({ id, data }) => updateOrder(id, data),
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas', 'kpis'] })
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinha', variables.id] })
             toast.success('Malinha atualizada com sucesso!')
         },
@@ -81,6 +98,7 @@ export function useAdminMalinhasMutations() {
         mutationFn: ({ id, status }) => updateOrderStatus(id, status),
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas', 'kpis'] })
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinha', variables.id] })
             toast.success('Status atualizado com sucesso!')
         },
@@ -93,6 +111,7 @@ export function useAdminMalinhasMutations() {
         mutationFn: deleteOrder,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas'] })
+            queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas', 'kpis'] })
             toast.success('Malinha removida com sucesso!')
         },
         onError: (error) => {

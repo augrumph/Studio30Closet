@@ -1,85 +1,72 @@
 /**
- * Centralized Error Handling Middleware
- * Catches all errors and returns consistent JSON responses
+ * ERROR HANDLER MIDDLEWARE - Tratamento centralizado de erros
  */
 
-import winston from 'winston'
-
-// Configure logger - only use file in development
-const transports = [
-    new winston.transports.Console({
-        format: winston.format.simple()
-    })
-]
-
-// Only write to file in development (Railway filesystem is ephemeral)
-if (process.env.NODE_ENV !== 'production') {
-    transports.push(
-        new winston.transports.File({ filename: 'error.log', level: 'error' })
-    )
+export class AppError extends Error {
+    constructor(message, statusCode = 500, details = null) {
+        super(message)
+        this.statusCode = statusCode
+        this.details = details
+        this.isOperational = true
+        Error.captureStackTrace(this, this.constructor)
+    }
 }
 
-const logger = winston.createLogger({
-    level: 'error',
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json()
-    ),
-    transports
-})
+export class NotFoundError extends AppError {
+    constructor(resource = 'Recurso') {
+        super(`${resource} não encontrado`, 404)
+    }
+}
 
-/**
- * Error handler middleware
- * Must be added AFTER all routes
- */
+export class ValidationError extends AppError {
+    constructor(details) {
+        super('Dados inválidos', 400, details)
+    }
+}
+
 export function errorHandler(err, req, res, next) {
-    // Log error details
-    logger.error({
+    console.error('🔥 ERRO:', {
         message: err.message,
-        stack: err.stack,
-        url: req.url,
+        path: req.path,
         method: req.method,
-        ip: req.ip
+        timestamp: new Date().toISOString()
     })
 
-    // Default error response
-    const statusCode = err.statusCode || err.status || 500
-    const message = err.message || 'Internal Server Error'
+    const statusCode = err.statusCode || 500
 
-    const isProduction = process.env.NODE_ENV === 'production'
-
-    const response = {
-        error: message,
-        // In production, never expose internal details to API consumers
-        ...(isProduction ? {} : {
-            stack: err.stack,
-            details: err.details,
-            path: req.url,
-            method: req.method,
-            code: err.code || err.name
-        })
+    // Tratar erros do PostgreSQL
+    if (err.code === '23505') {
+        return res.status(409).json({ error: 'Dado duplicado' })
+    }
+    if (err.code === '23503') {
+        return res.status(409).json({ error: 'Operação bloqueada - registro em uso' })
+    }
+    if (err.code === '23502') {
+        return res.status(400).json({ error: 'Campo obrigatório faltando' })
+    }
+    if (err.code === '23514') {
+        return res.status(400).json({ error: 'Dados inválidos' })
     }
 
-    res.status(statusCode).json(response)
+    res.status(statusCode).json({
+        error: err.message || 'Erro interno',
+        timestamp: new Date().toISOString()
+    })
 }
 
-/**
- * 404 Not Found handler
- * Must be added BEFORE error handler
- */
-export function notFoundHandler(req, res, next) {
-    const error = new Error(`Not Found - ${req.originalUrl}`)
-    error.statusCode = 404
-    next(error)
-}
-
-/**
- * Async route wrapper
- * Automatically catches errors in async route handlers
- * Usage: router.get('/path', asyncHandler(async (req, res) => { ... }))
- */
 export function asyncHandler(fn) {
     return (req, res, next) => {
         Promise.resolve(fn(req, res, next)).catch(next)
     }
+}
+
+export function setupProcessErrorHandlers() {
+    process.on('unhandledRejection', (reason) => {
+        console.error('💣 PROMISE REJECTION:', reason)
+    })
+
+    process.on('uncaughtException', (error) => {
+        console.error('💥 EXCEÇÃO NÃO CAPTURADA:', error)
+        process.exit(1)
+    })
 }

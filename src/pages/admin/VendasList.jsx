@@ -26,6 +26,8 @@ import {
 import { useAdminSalesMutations } from '@/hooks/useAdminSales'
 import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
 import { useAdminVendas } from '@/hooks/useAdminVendas'
+import { DiscountsModal } from '@/components/admin/vendas/DiscountsModal'
+import { useQuery } from '@tanstack/react-query'
 
 export function VendasList() {
     // Estado de filtros
@@ -37,6 +39,7 @@ export function VendasList() {
     const [itemsPerPage] = useState(20)
     const [dateFilter, setDateFilter] = useState('all')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, vendaId: null, customerName: '' })
+    const [showDiscountsModal, setShowDiscountsModal] = useState(false)
 
     // Debounce search
     useEffect(() => {
@@ -69,6 +72,18 @@ export function VendasList() {
     })
 
     const { deleteSale } = useAdminSalesMutations()
+
+    // Query para buscar TODAS as vendas (para o modal de descontos)
+    const { data: allVendasData } = useQuery({
+        queryKey: ['admin', 'all-vendas-for-discounts'],
+        queryFn: async () => {
+            const response = await fetch('/api/vendas?pageSize=10000')
+            if (!response.ok) throw new Error('Erro ao buscar vendas')
+            const data = await response.json()
+            return data.vendas || []
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+    })
 
     // Reset page quando filtros mudam
     useEffect(() => {
@@ -165,21 +180,27 @@ export function VendasList() {
             <TooltipProvider delayDuration={200}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                        <Card className="border-emerald-50 bg-white group overflow-hidden relative">
+                        <Card
+                            onClick={() => setShowDiscountsModal(true)}
+                            className="border-emerald-50 bg-white group overflow-hidden relative cursor-pointer hover:shadow-xl hover:border-emerald-200 transition-all duration-300"
+                        >
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-emerald-50 rounded-xl"><DollarSign className="w-5 h-5 text-emerald-600" /></div>
+                                        <div className="p-2 bg-emerald-50 rounded-xl group-hover:bg-emerald-100 transition-colors"><DollarSign className="w-5 h-5 text-emerald-600" /></div>
                                         <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Faturamento</span>
                                     </div>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                            <button
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                                            >
                                                 <Info className="w-4 h-4 text-gray-300" />
                                             </button>
                                         </TooltipTrigger>
                                         <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Receita líquida de todas as vendas (total vendido menos descontos aplicados). É o valor que realmente entrou nas vendas.</p>
+                                            <p>Receita líquida de todas as vendas (total vendido menos descontos aplicados). Clique para ver detalhes dos descontos.</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </div>
@@ -188,7 +209,10 @@ export function VendasList() {
                                 <div className="text-3xl font-display font-bold text-[#4A3B32]">
                                     R$ {(metrics.totalRevenue || 0).toLocaleString('pt-BR')}
                                 </div>
-                                <p className="text-xs text-emerald-600 font-medium mt-1">Receita líquida (após descontos)</p>
+                                <p className="text-xs text-emerald-600 font-medium mt-1 flex items-center gap-1">
+                                    Receita líquida (após descontos)
+                                    <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </p>
                             </CardContent>
                         </Card>
                     </motion.div>
@@ -595,6 +619,14 @@ export function VendasList() {
                 confirmText="Excluir Registro"
                 cancelText="Cancelar"
                 variant="danger"
+            />
+
+            {/* Modal de Descontos */}
+            <DiscountsModal
+                isOpen={showDiscountsModal}
+                onClose={() => setShowDiscountsModal(false)}
+                vendas={allVendasData || []}
+                metrics={metrics}
             />
         </div>
     )

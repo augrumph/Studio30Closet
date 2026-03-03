@@ -65,6 +65,100 @@ function normalizeSize(size) {
     return sizeMap[normalized] || size
 }
 
+// =====================================================================
+// OPTIMIZED COMBINED ENDPOINT FOR OVERVIEW TAB
+// =====================================================================
+
+// GET /api/stock/overview - Combined KPIs + Low Stock + Dead Stock (1 query instead of 3)
+router.get('/overview', cacheMiddleware(300), async (req, res) => {
+    try {
+        console.log('🚀 Fetching optimized stock overview...')
+
+        // Single query to get all products with supplier info
+        const { rows: products } = await pool.query(`
+            SELECT p.id, p.name, p.stock, p.price, p.cost_price, p.images, p.created_at,
+                   s.name as supplier_name
+            FROM products p
+            LEFT JOIN suppliers s ON s.id = p.supplier_id
+            WHERE p.active = true
+        `)
+
+        // Calculate everything in one pass
+        let totalValue = 0, totalCost = 0, totalItems = 0, lowStockCount = 0
+        const lowStockItems = []
+        const deadStockItems = []
+
+        const now = new Date()
+        const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+
+        products.forEach(p => {
+            const stock = Number(p.stock) || 0
+            const price = Number(p.price) || 0
+            const cost = Number(p.cost_price) || 0
+
+            totalItems += stock
+            totalValue += price * stock
+            totalCost += cost * stock
+
+            // Low stock check
+            if (stock <= 2) {
+                lowStockCount++
+                if (lowStockItems.length < 10) {
+                    lowStockItems.push({
+                        id: p.id,
+                        name: p.name,
+                        stock: stock,
+                        images: p.images,
+                        price: price,
+                        costPrice: cost,
+                        suppliers: { name: p.supplier_name }
+                    })
+                }
+            }
+
+            // Dead stock check (products older than 60 days with stock)
+            if (stock > 0 && new Date(p.created_at) < sixtyDaysAgo) {
+                const daysInStock = Math.floor((now - new Date(p.created_at)) / (1000 * 60 * 60 * 24))
+                deadStockItems.push({
+                    id: p.id,
+                    name: p.name,
+                    stock: stock,
+                    costPrice: cost,
+                    daysInStock: daysInStock
+                })
+            }
+        })
+
+        // Sort low stock by stock level (lowest first)
+        lowStockItems.sort((a, b) => a.stock - b.stock)
+
+        // Calculate dead stock summary
+        const deadStockTotalValue = deadStockItems.reduce((sum, p) => sum + p.costPrice * p.stock, 0)
+
+        const overview = {
+            kpis: {
+                totalValue,
+                totalCost,
+                totalItems,
+                productsCount: products.length,
+                lowStockCount,
+                averageMarkup: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
+            },
+            lowStock: lowStockItems,
+            deadStock: {
+                count: deadStockItems.length,
+                totalValue: deadStockTotalValue
+            }
+        }
+
+        console.log(`✅ Overview calculated: ${products.length} products, ${lowStockCount} low stock, ${deadStockItems.length} dead stock`)
+        res.json(overview)
+    } catch (error) {
+        console.error("❌ Erro em Stock Overview:", error)
+        res.status(500).json({ message: 'Erro ao buscar overview de estoque' })
+    }
+})
+
 // GET /api/stock/kpis - Stock KPIs (Basic)
 router.get('/kpis', cacheMiddleware(300), async (req, res) => {
     try {

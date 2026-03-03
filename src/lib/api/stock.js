@@ -7,6 +7,13 @@ import { apiClient } from '../api-client'
 import { toCamelCase } from './helpers'
 
 /**
+ * OPTIMIZED: Buscar Overview Completo (KPIs + Low Stock + Dead Stock em 1 requisição)
+ */
+export async function getStockOverview() {
+    return apiClient('/stock/overview')
+}
+
+/**
  * Buscar KPIs Básicos (Header)
  */
 export async function getStockHeadlineKPIs() {

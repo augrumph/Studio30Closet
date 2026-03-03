@@ -24,9 +24,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-    getStockHeadlineKPIs,
-    getLowStockAlerts,
-    getDeadStockSummary,
+    getStockOverview,
     getSalesRankingByCategory,
 } from '@/lib/api/stock'
 import { toast } from 'sonner'
@@ -164,17 +162,16 @@ function OverviewTab() {
                 endDate = new Date().toISOString()
             }
 
-            const [kpisData, salesRanking, lowStockData, deadStockData] = await Promise.all([
-                getStockHeadlineKPIs(),
-                getSalesRankingByCategory(startDate, endDate, periodFilter),
-                getLowStockAlerts(10),
-                getDeadStockSummary()
+            // OPTIMIZED: 2 requests instead of 4 (overview + rankings)
+            const [overview, salesRanking] = await Promise.all([
+                getStockOverview(),
+                getSalesRankingByCategory(startDate, endDate, periodFilter)
             ])
 
-            setKpis(kpisData)
+            setKpis(overview.kpis || { totalValue: 0, totalCost: 0, totalItems: 0, productsCount: 0, lowStockCount: 0 })
+            setLowStock(overview.lowStock || [])
+            setDeadStock(overview.deadStock || { count: 0, totalValue: 0 })
             setTopSellers(salesRanking || { byCategory: [], byColor: [], bySize: [], byProduct: [], byProfit: [] })
-            setLowStock(lowStockData || [])
-            setDeadStock(deadStockData || { count: 0, totalValue: 0 })
         } catch (error) {
             console.error('❌ Erro ao carregar dashboard de estoque:', error)
             toast.error('Erro ao atualizar informações')

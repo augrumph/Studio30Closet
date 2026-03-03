@@ -338,6 +338,17 @@ function OverviewTab() {
 // MAIN DASHBOARD WITH TABS
 // ========================
 export function StockDashboard() {
+    const [activeTab, setActiveTab] = useState('overview')
+    const [loadedTabs, setLoadedTabs] = useState(new Set(['overview'])) // Only overview loads initially
+
+    const handleTabChange = (value) => {
+        setActiveTab(value)
+        // Mark tab as loaded so it renders its content
+        if (!loadedTabs.has(value)) {
+            setLoadedTabs(new Set([...loadedTabs, value]))
+        }
+    }
+
     return (
         <div className="space-y-6 pb-20 max-w-[1600px] mx-auto">
             {/* Header */}
@@ -359,7 +370,7 @@ export function StockDashboard() {
             </div>
 
             {/* Tabs */}
-            <Tabs defaultValue="overview">
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsList className="bg-gray-100/80 backdrop-blur">
                     <TabsTrigger value="overview">
                         <Activity className="w-4 h-4" />
@@ -388,15 +399,15 @@ export function StockDashboard() {
                 </TabsContent>
 
                 <TabsContent value="forecast">
-                    <StockForecastTab />
+                    {loadedTabs.has('forecast') ? <StockForecastTab /> : null}
                 </TabsContent>
 
                 <TabsContent value="analysis">
-                    <StockAnalysisTab />
+                    {loadedTabs.has('analysis') ? <StockAnalysisTab /> : null}
                 </TabsContent>
 
                 <TabsContent value="purchase">
-                    <StockPurchasePlanTab />
+                    {loadedTabs.has('purchase') ? <StockPurchasePlanTab /> : null}
                 </TabsContent>
             </Tabs>
         </div>

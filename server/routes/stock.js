@@ -507,7 +507,7 @@ router.get('/advanced', cacheMiddleware(600), async (req, res) => {
 // =====================================================================
 
 // GET /api/stock/forecast - Velocity, Weeks of Supply, Stockout Prediction
-router.get('/forecast', async (req, res) => {
+router.get('/forecast', cacheMiddleware(300), async (req, res) => {
     try {
         console.log('🧠 Computing Stock Forecast...')
 
@@ -689,7 +689,7 @@ router.get('/forecast', async (req, res) => {
 })
 
 // GET /api/stock/purchase-plan - Supplier-grouped Purchase Suggestions
-router.get('/purchase-plan', async (req, res) => {
+router.get('/purchase-plan', cacheMiddleware(300), async (req, res) => {
     try {
         console.log('🛒 Computing Purchase Plan...')
 
@@ -813,7 +813,7 @@ router.get('/purchase-plan', async (req, res) => {
 })
 
 // GET /api/stock/inventory-analysis - ABC, GMROI, Margin, Aging Analysis
-router.get('/inventory-analysis', async (req, res) => {
+router.get('/inventory-analysis', cacheMiddleware(600), async (req, res) => {
     try {
         const { category, abcClass } = req.query
         console.log('📊 Computing Inventory Analysis...')

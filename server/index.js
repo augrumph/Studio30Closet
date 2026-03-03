@@ -39,7 +39,8 @@ app.use(helmet({
                 "https://www.googletagmanager.com",
                 "https://www.google-analytics.com",
                 "https://googleads.g.doubleclick.net",
-                "https://www.googleadservices.com"
+                "https://www.googleadservices.com",
+                "https://www.instagram.com"
             ],
             scriptSrcAttr: ["'unsafe-inline'"],
             workerSrc: ["'self'", "blob:"],

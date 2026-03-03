@@ -246,7 +246,13 @@ function OverviewTab() {
     }, [periodFilter])
 
     const loadDashboard = async () => {
-        setLoading(true)
+        // Show loading only on initial load, show refreshing for filter changes
+        if (!kpis) {
+            setLoading(true)
+        } else {
+            setRefreshing(true)
+        }
+
         try {
             let startDate = null
             let endDate = null
@@ -412,47 +418,66 @@ function OverviewTab() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <RankingCard
-                        title="Por Categoria"
-                        icon={Tag}
-                        items={topSellers?.byCategory}
-                        nameKey="category"
-                        valueKey="quantity"
-                        valueSuffix="un"
-                        tooltip="Ranking das categorias de roupa que mais vendem. Use para identificar quais tipos de produtos são mais populares e priorizar compras."
-                        delay={0}
-                    />
-                    <RankingCard
-                        title="Por Cor"
-                        icon={Palette}
-                        items={topSellers?.byColor}
-                        nameKey="color"
-                        valueKey="quantity"
-                        valueSuffix="un"
-                        tooltip="Cores que suas clientes mais compram. Ajuda a escolher as cores certas na hora de fazer pedidos aos fornecedores."
-                        delay={0.1}
-                    />
-                    <RankingCard
-                        title="Por Tamanho"
-                        icon={Ruler}
-                        items={topSellers?.bySize}
-                        nameKey="size"
-                        valueKey="quantity"
-                        valueSuffix="un"
-                        tooltip="Tamanhos mais vendidos. Fundamental para equilibrar o estoque e não ficar sem os tamanhos que mais saem."
-                        delay={0.2}
-                    />
-                    <RankingCard
-                        title="Mais Lucrativos"
-                        icon={DollarSign}
-                        items={topSellers?.byProfit}
-                        nameKey="name"
-                        valueKey="profit"
-                        valueSuffix=""
-                        tooltip="Produtos que geram mais lucro total acumulado. Nem sempre o que mais vende é o que mais lucra!"
-                        delay={0.3}
-                    />
+                <div className="relative">
+                    {/* Loading Overlay */}
+                    <AnimatePresence>
+                        {refreshing && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 rounded-2xl flex items-center justify-center"
+                            >
+                                <div className="flex flex-col items-center gap-3">
+                                    <RefreshCw className="w-8 h-8 text-[#C75D3B] animate-spin" />
+                                    <p className="text-sm font-black text-[#4A3B32]">Atualizando rankings...</p>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <RankingCard
+                            title="Por Categoria"
+                            icon={Tag}
+                            items={topSellers?.byCategory}
+                            nameKey="category"
+                            valueKey="quantity"
+                            valueSuffix="un"
+                            tooltip="Ranking das categorias de roupa que mais vendem. Use para identificar quais tipos de produtos são mais populares e priorizar compras."
+                            delay={0}
+                        />
+                        <RankingCard
+                            title="Por Cor"
+                            icon={Palette}
+                            items={topSellers?.byColor}
+                            nameKey="color"
+                            valueKey="quantity"
+                            valueSuffix="un"
+                            tooltip="Cores que suas clientes mais compram. Ajuda a escolher as cores certas na hora de fazer pedidos aos fornecedores."
+                            delay={0.1}
+                        />
+                        <RankingCard
+                            title="Por Tamanho"
+                            icon={Ruler}
+                            items={topSellers?.bySize}
+                            nameKey="size"
+                            valueKey="quantity"
+                            valueSuffix="un"
+                            tooltip="Tamanhos mais vendidos. Fundamental para equilibrar o estoque e não ficar sem os tamanhos que mais saem."
+                            delay={0.2}
+                        />
+                        <RankingCard
+                            title="Mais Lucrativos"
+                            icon={DollarSign}
+                            items={topSellers?.byProfit}
+                            nameKey="name"
+                            valueKey="profit"
+                            valueSuffix=""
+                            tooltip="Produtos que geram mais lucro total acumulado. Nem sempre o que mais vende é o que mais lucra!"
+                            delay={0.3}
+                        />
+                    </div>
                 </div>
             </motion.div>
 

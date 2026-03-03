@@ -34,6 +34,7 @@ import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { InstallmentDetails } from './InstallmentsList'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
@@ -100,6 +101,7 @@ export function VendasForm() {
     const [parcelas, setParcelas] = useState(1)
     const [entryPayment, setEntryPayment] = useState(0)
     const [installmentStartDate, setInstallmentStartDate] = useState('')
+    const [originalParcelasConfig, setOriginalParcelasConfig] = useState(null)
     // feeInfo is now provided by usePaymentCalculation hook below
 
     // Desconto manual
@@ -140,6 +142,12 @@ export function VendasForm() {
                 setParcelas(venda.numInstallments || 2)
                 setEntryPayment(venda.entryPayment || 0)
                 setInstallmentStartDate(venda.installmentStartDate || '')
+                setOriginalParcelasConfig({
+                    parcelas: venda.numInstallments || 2,
+                    entryPayment: venda.entryPayment || 0,
+                    installmentStartDate: venda.installmentStartDate || '',
+                    paymentMethod: adjustedPaymentMethod
+                })
             } else {
                 setParcelas(1)
                 setEntryPayment(0)
@@ -358,11 +366,20 @@ export function VendasForm() {
                 if (result.success || result.id) { // create/update usually return object with id
                     const vendaId = result.id || result.data?.id
                     if (isParcelado && vendaId) {
-                        try {
-                            await createInstallments(vendaId, parcelas, entryPayment, installmentStartDate)
-                        } catch (e) {
-                            console.error("Erro ao sincronizar parcelas", e)
-                            toast.error("Venda salva, mas erro ao atualizar parcelas.")
+                        const configChanged = !isEdit ||
+                            !originalParcelasConfig ||
+                            originalParcelasConfig.parcelas !== parcelas ||
+                            originalParcelasConfig.entryPayment !== entryPayment ||
+                            originalParcelasConfig.installmentStartDate !== installmentStartDate ||
+                            originalParcelasConfig.paymentMethod !== formData.paymentMethod
+
+                        if (configChanged) {
+                            try {
+                                await createInstallments(vendaId, parcelas, entryPayment, installmentStartDate)
+                            } catch (e) {
+                                console.error("Erro ao sincronizar parcelas", e)
+                                toast.error("Venda salva, mas erro ao atualizar parcelas. Elas podem já ter pagamentos.")
+                            }
                         }
                     }
                     navigate('/admin/vendas')
@@ -603,6 +620,48 @@ export function VendasForm() {
                         )}
                     </AnimatePresence>
                 </section>
+
+                {/* === SEÇÃO: PARCELAS (Somente Edição) === */}
+                {isEdit && isParcelado && (
+                    <section className="bg-white rounded-2xl shadow-sm border border-[#4A3B32]/5 overflow-hidden">
+                        <button
+                            type="button"
+                            onClick={() => setActiveSection(activeSection === 'installments' ? '' : 'installments')}
+                            className="w-full p-4 flex items-center justify-between"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                                    <Calendar className="w-5 h-5 text-orange-600" />
+                                </div>
+                                <div className="text-left">
+                                    <h2 className="font-semibold text-[#4A3B32]">Gestão de Parcelas</h2>
+                                    <p className="text-xs text-[#4A3B32]/50">
+                                        Dar baixa e acompanhar pagamentos
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronDown className={cn(
+                                "w-5 h-5 text-[#4A3B32]/30 transition-transform",
+                                activeSection === 'installments' && "rotate-180"
+                            )} />
+                        </button>
+
+                        <AnimatePresence>
+                            {activeSection === 'installments' && (
+                                <motion.div
+                                    initial={{ height: 0 }}
+                                    animate={{ height: 'auto' }}
+                                    exit={{ height: 0 }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="px-4 pb-4">
+                                        <InstallmentDetails vendaId={id} />
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </section>
+                )}
 
                 {/* === SEÇÃO: CLIENTE === */}
                 <section className="bg-white rounded-2xl shadow-sm border border-[#4A3B32]/5 overflow-hidden">

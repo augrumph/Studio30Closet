@@ -8,7 +8,7 @@ import { TableSkeleton } from '@/components/admin/PageSkeleton'
 import { useAdminInstallmentSales, useAdminInstallmentDetails, useAdminInstallmentsMutations, useAdminInstallmentsMetrics } from '@/hooks/useAdminInstallments'
 
 // Sub-component for Details
-function InstallmentDetails({ vendaId }) {
+export function InstallmentDetails({ vendaId }) {
     const { data: detailsData, isLoading } = useAdminInstallmentDetails(vendaId)
     const { registerPayment, isRegistering, payFullSale, isPayingFull } = useAdminInstallmentsMutations()
     const [selectedInstallment, setSelectedInstallment] = useState(null)

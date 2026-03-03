@@ -60,6 +60,10 @@ export function asyncHandler(fn) {
     }
 }
 
+export function notFoundHandler(req, res, next) {
+    res.status(404).json({ error: 'Endpoint não encontrado' })
+}
+
 export function setupProcessErrorHandlers() {
     process.on('unhandledRejection', (reason) => {
         console.error('💣 PROMISE REJECTION:', reason)

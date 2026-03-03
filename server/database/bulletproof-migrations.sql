@@ -1,9 +1,8 @@
--- ============================================================================
--- BULLETPROOF MIGRATIONS - Sistema à prova de balas
--- ============================================================================
--- Este arquivo contém todas as proteções de banco de dados para garantir
--- integridade absoluta dos dados
--- ============================================================================
+-- 0. GARANTIR COLUNAS DE TIMESTAMP (SEM APAGAR DADOS)
+-- ----------------------------------------------------------------------------
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE vendas ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
 
 -- ----------------------------------------------------------------------------
 -- 1. TRIGGERS AUTOMÁTICOS - updated_at sempre atualizado

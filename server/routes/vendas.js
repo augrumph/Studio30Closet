@@ -2,11 +2,12 @@ import express from 'express'
 import { pool, getClient } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { updateProductStock } from '../stock-utils.js'
+import { asyncHandler, AppError, ValidationError } from '../middleware/errorHandler.js'
 
 const router = express.Router()
 
 // GET /api/vendas - Listar vendas
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
     const {
         page = 1,
         pageSize = 50,
@@ -21,60 +22,65 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * pageSize
     const limit = Number(pageSize)
 
-    console.log(`🛍️ Vendas API: page=${page}, status=${status}, method=${method}, dateFilter=${dateFilter}, search="${search}"`)
+    let whereConditions = []
+    let params = []
+    let paramIndex = 1
 
-    try {
-        let whereConditions = []
-        let params = []
-        let paramIndex = 1
-
-        // Filtro de status de pagamento
-        if (status !== 'all') {
-            whereConditions.push(`v.payment_status = $${paramIndex++}`)
-            params.push(status)
+    // Filtro de status de pagamento
+    if (status !== 'all') {
+        const validStatuses = ['pending', 'paid', 'cancelled', 'refunded']
+        if (!validStatuses.includes(status)) {
+            throw new ValidationError({ message: 'Status de pagamento inválido', status })
         }
+        whereConditions.push(`v.payment_status = $${paramIndex++}`)
+        params.push(status)
+    }
 
-        // Filtro de método de pagamento
-        if (method !== 'all') {
-            whereConditions.push(`v.payment_method = $${paramIndex++}`)
-            params.push(method)
+    // Filtro de método de pagamento
+    if (method !== 'all') {
+        const validMethods = ['pix', 'debit', 'card_machine', 'credito_parcelado', 'fiado', 'fiado_parcelado', 'cash', 'card']
+        if (!validMethods.includes(method)) {
+            throw new ValidationError({ message: 'Método de pagamento inválido', method })
         }
+        whereConditions.push(`v.payment_method = $${paramIndex++}`)
+        params.push(method)
+    }
 
-        // Filtro de busca por cliente
-        if (search && search.trim()) {
-            whereConditions.push(`c.name ILIKE $${paramIndex++}`)
-            params.push(`%${search.trim()}%`)
-        }
+    // Filtro de busca por cliente
+    if (search && search.trim()) {
+        whereConditions.push(`c.name ILIKE $${paramIndex++}`)
+        params.push(`%${search.trim()}%`)
+    }
 
-        // Filtro de data rápido
-        let computedStartDate = startDate
-        let computedEndDate = endDate
+    // Filtro de data rápido
+    let computedStartDate = startDate
+    let computedEndDate = endDate
 
-        if (dateFilter === 'today') {
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            computedStartDate = today.toISOString()
-            computedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
-        } else if (dateFilter === 'month') {
-            const now = new Date()
-            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-            computedStartDate = firstDay.toISOString()
-            computedEndDate = new Date().toISOString()
-        }
+    if (dateFilter === 'today') {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        computedStartDate = today.toISOString()
+        computedEndDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+    } else if (dateFilter === 'month') {
+        const now = new Date()
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+        computedStartDate = firstDay.toISOString()
+        computedEndDate = new Date().toISOString()
+    }
 
-        if (computedStartDate) {
-            whereConditions.push(`v.created_at >= $${paramIndex++}`)
-            params.push(computedStartDate)
-        }
+    if (computedStartDate) {
+        whereConditions.push(`v.created_at >= $${paramIndex++}`)
+        params.push(computedStartDate)
+    }
 
-        if (computedEndDate) {
-            whereConditions.push(`v.created_at <= $${paramIndex++}`)
-            params.push(computedEndDate)
-        }
+    if (computedEndDate) {
+        whereConditions.push(`v.created_at <= $${paramIndex++}`)
+        params.push(computedEndDate)
+    }
 
-        const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
+    const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
 
-        const { rows } = await pool.query(`
+    const { rows } = await pool.query(`
             SELECT
                 COUNT(*) OVER() as total_count,
                 v.*,
@@ -87,43 +93,43 @@ router.get('/', async (req, res) => {
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `, [...params, limit, offset])
 
-        const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
+    const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
 
-        // Mapear e limpar dados, removendo total_count de cada registro
-        const vendas = rows.map(row => {
-            const { total_count, ...venda } = row
-            const camelVenda = toCamelCase(venda)
+    // Mapear e limpar dados, removendo total_count de cada registro
+    const vendas = rows.map(row => {
+        const { total_count, ...venda } = row
+        const camelVenda = toCamelCase(venda)
 
-            // Converter campos numéricos para números e parsear itens
-            return {
-                ...camelVenda,
-                id: parseInt(camelVenda.id) || camelVenda.id,
-                customerId: parseInt(camelVenda.customerId) || null,
-                orderId: parseInt(camelVenda.orderId) || null,
-                totalValue: parseFloat(camelVenda.totalValue) || 0,
-                costPrice: parseFloat(camelVenda.costPrice) || null,
-                feePercentage: parseFloat(camelVenda.feePercentage) || 0,
-                feeAmount: parseFloat(camelVenda.feeAmount) || 0,
-                netAmount: parseFloat(camelVenda.netAmount) || 0,
-                numInstallments: parseInt(camelVenda.numInstallments) || 1,
-                entryPayment: parseFloat(camelVenda.entryPayment) || 0,
-                discountAmount: parseFloat(camelVenda.discountAmount) || 0,
-                originalTotal: parseFloat(camelVenda.originalTotal) || 0,
-                items: typeof camelVenda.items === 'string' ? JSON.parse(camelVenda.items || '[]') : (camelVenda.items || [])
-            }
-        })
+        // Converter campos numéricos para números e parsear itens
+        return {
+            ...camelVenda,
+            id: parseInt(camelVenda.id) || camelVenda.id,
+            customerId: parseInt(camelVenda.customerId) || null,
+            orderId: parseInt(camelVenda.orderId) || null,
+            totalValue: parseFloat(camelVenda.totalValue) || 0,
+            costPrice: parseFloat(camelVenda.costPrice) || null,
+            feePercentage: parseFloat(camelVenda.feePercentage) || 0,
+            feeAmount: parseFloat(camelVenda.feeAmount) || 0,
+            netAmount: parseFloat(camelVenda.netAmount) || 0,
+            numInstallments: parseInt(camelVenda.numInstallments) || 1,
+            entryPayment: parseFloat(camelVenda.entryPayment) || 0,
+            discountAmount: parseFloat(camelVenda.discountAmount) || 0,
+            originalTotal: parseFloat(camelVenda.originalTotal) || 0,
+            items: typeof camelVenda.items === 'string' ? JSON.parse(camelVenda.items || '[]') : (camelVenda.items || [])
+        }
+    })
 
-        res.json({
-            vendas,
-            total,
-            page: Number(page),
-            pageSize: Number(pageSize),
-            totalPages: Math.ceil(total / pageSize)
-        })
-    } catch (error) {
-        console.error('❌ Erro ao listar vendas:', error)
-        res.status(500).json({ error: 'Erro ao listar vendas' })
-    }
+    res.json({
+        vendas,
+        total,
+        page: Number(page),
+        pageSize: Number(pageSize),
+        totalPages: Math.ceil(total / pageSize)
+    })
+} catch (error) {
+    console.error('❌ Erro ao listar vendas:', error)
+    res.status(500).json({ error: 'Erro ao listar vendas' })
+}
 })
 
 // GET /api/vendas/:id - Detalhes da venda

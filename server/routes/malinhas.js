@@ -101,11 +101,7 @@ router.get('/', asyncHandler(async (req, res) => {
         totalPages: Math.ceil(total / pageSize)
     })
 
-} catch (error) {
-    console.error("❌ Erro na API de Malinhas:", error)
-    return res.status(500).json({ message: 'Erro interno do servidor' })
-}
-})
+}))
 
 /**
  * GET /api/malinhas/kpis

@@ -126,11 +126,7 @@ router.get('/', asyncHandler(async (req, res) => {
         pageSize: Number(pageSize),
         totalPages: Math.ceil(total / pageSize)
     })
-} catch (error) {
-    console.error('❌ Erro ao listar vendas:', error)
-    res.status(500).json({ error: 'Erro ao listar vendas' })
-}
-})
+}))
 
 // GET /api/vendas/:id - Detalhes da venda
 router.get('/:id', async (req, res) => {

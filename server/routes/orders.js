@@ -359,6 +359,8 @@ router.put('/:id', async (req, res) => {
         })
 
         if (updateParts.length > 0) {
+            // FIXED: Always update updated_at when modifying order
+            updateParts.push(`updated_at = NOW()`)
             updateValues.push(id)
             await client.query(
                 `UPDATE orders SET ${updateParts.join(', ')} WHERE id = $${paramIndex}`,

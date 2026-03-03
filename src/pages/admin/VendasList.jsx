@@ -88,7 +88,10 @@ export function VendasList() {
         const cashFlow = raw.cashFlow || {}
 
         return {
-            totalRevenue: Number(summary.grossRevenue || 0),
+            // FIXED: Changed from grossRevenue to netRevenue for consistency with Dashboard
+            // Faturamento should show net revenue (after discounts), not gross revenue
+            totalRevenue: Number(summary.netRevenue || 0),
+            totalDiscounts: Number(summary.totalDiscounts || 0), // Added for transparency
             pendingCrediario: Number(cashFlow.pendingCrediario || 0),
             totalDevedores: Number(operational.totalDevedores || 0),
             valorDevedores: Number(cashFlow.valorDevedores || 0),
@@ -176,7 +179,7 @@ export function VendasList() {
                                             </button>
                                         </TooltipTrigger>
                                         <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Soma total de todas as vendas registradas (Pagas e Pendentes).</p>
+                                            <p>Receita líquida de todas as vendas (total vendido menos descontos aplicados). É o valor que realmente entrou nas vendas.</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </div>
@@ -185,7 +188,7 @@ export function VendasList() {
                                 <div className="text-3xl font-display font-bold text-[#4A3B32]">
                                     R$ {(metrics.totalRevenue || 0).toLocaleString('pt-BR')}
                                 </div>
-                                <p className="text-xs text-emerald-600 font-medium mt-1">Total bruto acumulado</p>
+                                <p className="text-xs text-emerald-600 font-medium mt-1">Receita líquida (após descontos)</p>
                             </CardContent>
                         </Card>
                     </motion.div>

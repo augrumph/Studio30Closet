@@ -239,27 +239,81 @@ router.post('/', async (req, res) => {
     }
 })
 
-// PUT /api/vendas/:id - Atualizar venda
+// PUT /api/vendas/:id - Atualizar venda (atualização completa)
 router.put('/:id', async (req, res) => {
     const { id } = req.params
-    const { paymentStatus, paymentMethod, totalValue, netAmount } = req.body
+    const {
+        customerId,
+        paymentStatus,
+        paymentMethod,
+        cardBrand,
+        totalValue,
+        originalTotal,
+        discountAmount,
+        costPrice,
+        feePercentage,
+        feeAmount,
+        netAmount,
+        isInstallment,
+        numInstallments,
+        entryPayment,
+        installmentStartDate,
+        items
+    } = req.body
 
     try {
         const { rows } = await pool.query(`
             UPDATE vendas SET
-                payment_status = COALESCE($1, payment_status),
-                payment_method = COALESCE($2, payment_method),
-                total_value = COALESCE($3, total_value),
-                net_amount = COALESCE($4, net_amount)
-            WHERE id = $5
+                customer_id = COALESCE($1, customer_id),
+                payment_status = COALESCE($2, payment_status),
+                payment_method = COALESCE($3, payment_method),
+                card_brand = COALESCE($4, card_brand),
+                total_value = COALESCE($5, total_value),
+                original_total = COALESCE($6, original_total),
+                discount_amount = COALESCE($7, discount_amount),
+                cost_price = COALESCE($8, cost_price),
+                fee_percentage = COALESCE($9, fee_percentage),
+                fee_amount = COALESCE($10, fee_amount),
+                net_amount = COALESCE($11, net_amount),
+                is_installment = COALESCE($12, is_installment),
+                num_installments = COALESCE($13, num_installments),
+                entry_payment = COALESCE($14, entry_payment),
+                installment_start_date = COALESCE($15, installment_start_date),
+                items = COALESCE($16, items),
+                updated_at = NOW()
+            WHERE id = $17
             RETURNING *
-        `, [paymentStatus, paymentMethod, totalValue, netAmount, id])
+        `, [
+            customerId || null,
+            paymentStatus || null,
+            paymentMethod || null,
+            cardBrand || null,
+            totalValue !== undefined ? totalValue : null,
+            originalTotal !== undefined ? originalTotal : null,
+            discountAmount !== undefined ? discountAmount : null,
+            costPrice !== undefined ? costPrice : null,
+            feePercentage !== undefined ? feePercentage : null,
+            feeAmount !== undefined ? feeAmount : null,
+            netAmount !== undefined ? netAmount : null,
+            isInstallment !== undefined ? isInstallment : null,
+            numInstallments !== undefined ? numInstallments : null,
+            entryPayment !== undefined ? entryPayment : null,
+            installmentStartDate || null,
+            items !== undefined ? JSON.stringify(items) : null,
+            id
+        ])
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Venda não encontrada' })
         }
 
-        res.json(toCamelCase(rows[0]))
+        const updated = toCamelCase(rows[0])
+        if (typeof updated.items === 'string') {
+            updated.items = JSON.parse(updated.items || '[]')
+        }
+
+        console.log(`✅ Venda #${id} atualizada com sucesso`)
+        res.json(updated)
     } catch (error) {
         console.error(`❌ Erro ao atualizar venda ${id}:`, error)
         res.status(500).json({ error: 'Erro ao atualizar venda' })
@@ -290,14 +344,17 @@ router.delete('/:id', async (req, res) => {
         if (items.length > 0) {
             console.log(`🔓 Restaurando estoque de ${items.length} itens da venda #${id}...`)
             for (const item of items) {
-                if (item.productId && item.selectedSize) {
+                if (item.productId) {
                     try {
+                        const color = item.selectedColor || 'Padrão'
+                        const size = item.selectedSize || 'Único'
+
                         await updateProductStock(
                             client,
                             item.productId,
                             item.quantity || 1,
-                            item.selectedColor || 'Padrão',
-                            item.selectedSize,
+                            color,
+                            size,
                             'restore'
                         )
                     } catch (stockErr) {

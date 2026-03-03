@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useAdminSalesMutations, useAdminSale } from '@/hooks/useAdminSales'
+import { usePaymentCalculation } from '@/hooks/usePaymentCalculation'
 import { useCustomerSearch } from '@/hooks/useAdminCustomers'
 import { useAdminProducts } from '@/hooks/useAdminProducts' // Usar hook de produtos já existente
 import { getPaymentFee, createInstallments } from '@/lib/api'
@@ -92,7 +93,6 @@ export function VendasForm() {
         cardBrand: 'visa',
         paymentStatus: 'paid',
         items: [],
-        totalValue: 0,
         couponCode: '',
         discountAmount: 0
     })
@@ -100,7 +100,7 @@ export function VendasForm() {
     const [parcelas, setParcelas] = useState(1)
     const [entryPayment, setEntryPayment] = useState(0)
     const [installmentStartDate, setInstallmentStartDate] = useState('')
-    const [feeInfo, setFeeInfo] = useState({ feePercentage: 0, feeValue: 0, netValue: 0 })
+    // feeInfo is now provided by usePaymentCalculation hook below
 
     // Desconto manual
     const [manualDiscount, setManualDiscount] = useState({ type: 'percent', value: '' })
@@ -133,7 +133,6 @@ export function VendasForm() {
                 cardBrand: venda.cardBrand || 'visa',
                 paymentStatus: venda.paymentStatus,
                 items: parsedItems,
-                totalValue: venda.originalTotal || venda.totalValue,
                 couponCode: venda.couponCode || '',
                 discountAmount: venda.discountAmount || 0
             })
@@ -149,59 +148,7 @@ export function VendasForm() {
         }
     }, [isEdit, vendaData])
 
-    // Calcular desconto manual
-    useEffect(() => {
-        if (formData.couponCode) return
-        let discount = 0
-        const val = parseFloat(manualDiscount.value) || 0
-        if (val > 0) {
-            discount = manualDiscount.type === 'percent'
-                ? (formData.totalValue * val) / 100
-                : val
-        }
-        setFormData(prev => ({ ...prev, discountAmount: discount }))
-    }, [manualDiscount.type, manualDiscount.value, formData.totalValue, formData.couponCode])
-
-    // Calcular taxas
-    useEffect(() => {
-        const calculateFee = async () => {
-            const finalValue = formData.totalValue - formData.discountAmount
-            if (!formData.paymentMethod || finalValue <= 0) {
-                setFeeInfo({ feePercentage: 0, feeValue: 0, netValue: finalValue })
-                return
-            }
-
-            // Métodos sem taxa
-            if (['fiado', 'fiado_parcelado', 'cash', 'pix'].includes(formData.paymentMethod)) {
-                setFeeInfo({ feePercentage: 0, feeValue: 0, netValue: finalValue })
-                return
-            }
-
-            try {
-                let method = formData.paymentMethod === 'debit' ? 'debito' : 'credito'
-                let installments = formData.paymentMethod === 'credito_parcelado' ? parcelas : 1
-
-                const feeData = await getPaymentFee(method, formData.cardBrand, installments)
-                if (feeData) {
-                    const shouldCharge = installments > 3
-                    const effectiveFee = shouldCharge ? feeData.feePercentage : 0
-                    const feeValue = (finalValue * effectiveFee) / 100
-                    setFeeInfo({
-                        feePercentage: effectiveFee,
-                        feeValue,
-                        netValue: finalValue - feeValue,
-                        originalFee: feeData.feePercentage,
-                        absorbed: !shouldCharge && feeData.feePercentage > 0
-                    })
-                } else {
-                    setFeeInfo({ feePercentage: 0, feeValue: 0, netValue: finalValue })
-                }
-            } catch {
-                setFeeInfo({ feePercentage: 0, feeValue: 0, netValue: finalValue })
-            }
-        }
-        calculateFee()
-    }, [formData.paymentMethod, formData.cardBrand, formData.totalValue, formData.discountAmount, parcelas])
+    // (feeInfo calculated below, after subtotal is defined)
 
     // Produtos filtrados (Agora vem pronto do backend via React Query)
     const filteredProducts = useMemo(() => {
@@ -215,10 +162,35 @@ export function VendasForm() {
     // const filteredCustomers = ... (REMOVED)
 
     // Valores calculados
-    const subtotal = parseFloat(formData.totalValue) || 0
+    const subtotal = useMemo(() => {
+        return formData.items.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity || 1)), 0)
+    }, [formData.items])
+
+    // FeeInfo: calculated AFTER subtotal so the hook receives the correct value
+    const feeInfo = usePaymentCalculation({
+        paymentMethod: formData.paymentMethod,
+        cardBrand: formData.cardBrand,
+        installments: parcelas,
+        totalValue: subtotal - (parseFloat(formData.discountAmount) || 0),
+        paymentStatus: formData.paymentStatus
+    })
+
+    // Calcular desconto manual
+    useEffect(() => {
+        if (formData.couponCode) return
+        let discount = 0
+        const val = parseFloat(manualDiscount.value) || 0
+        if (val > 0) {
+            discount = manualDiscount.type === 'percent'
+                ? (subtotal * val) / 100
+                : val
+        }
+        setFormData(prev => ({ ...prev, discountAmount: discount }))
+    }, [manualDiscount.type, manualDiscount.value, subtotal, formData.couponCode])
+
     const discount = parseFloat(formData.discountAmount) || 0
-    const finalValue = Number(subtotal - discount) || 0
-    const netValue = Number(feeInfo?.netValue || finalValue) || 0
+    const finalValue = Math.max(0, Number(subtotal - discount))
+    const netValue = Math.max(0, Number(feeInfo?.netValue || finalValue))
     const feeValue = Number(feeInfo?.feeValue || 0) || 0
     const isParcelado = ['credito_parcelado', 'fiado_parcelado'].includes(formData.paymentMethod)
     const needsCardBrand = ['debit', 'card_machine', 'credito_parcelado'].includes(formData.paymentMethod)
@@ -319,8 +291,7 @@ export function VendasForm() {
 
         setFormData(prev => ({
             ...prev,
-            items: [...prev.items, newItem],
-            totalValue: prev.totalValue + product.price
+            items: [...prev.items, newItem]
         }))
 
         setProductSearch('')
@@ -331,8 +302,7 @@ export function VendasForm() {
         const item = formData.items[index]
         setFormData(prev => ({
             ...prev,
-            items: prev.items.filter((_, i) => i !== index),
-            totalValue: prev.totalValue - (item.price * item.quantity)
+            items: prev.items.filter((_, i) => i !== index)
         }))
     }
 

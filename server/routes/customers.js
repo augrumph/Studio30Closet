@@ -143,18 +143,29 @@ router.put('/:id', async (req, res) => {
         const { rows } = await pool.query(`
             UPDATE customers SET
                 name = COALESCE($1, name),
-                phone = $2,
-                email = $3,
-                cpf = $4,
-                address = $5,
-                complement = $6,
-                instagram = $7,
-                addresses = $8,
-                birth_date = $9
+                phone = COALESCE($2, phone),
+                email = COALESCE($3, email),
+                cpf = COALESCE($4, cpf),
+                address = COALESCE($5, address),
+                complement = COALESCE($6, complement),
+                instagram = COALESCE($7, instagram),
+                addresses = COALESCE($8, addresses),
+                birth_date = COALESCE($9, birth_date),
+                updated_at = NOW()
             WHERE id = $10
             RETURNING *
-        `, [name, phone, email, cpf, address, complement, instagram,
-            addresses ? JSON.stringify(addresses) : null, birthDate, id])
+        `, [
+            name,
+            phone,
+            email,
+            cpf,
+            address,
+            complement,
+            instagram,
+            addresses ? JSON.stringify(addresses) : null,
+            birthDate,
+            id
+        ])
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Cliente não encontrado' })

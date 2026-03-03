@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
         })
     } catch (error) {
         console.error("❌ Erro na API de Despesas:", error)
-        res.status(500).json({ message: 'Erro interno do servidor' })
+        res.status(500).json({ error: 'Erro interno do servidor' })
     }
 })
 
@@ -68,7 +68,7 @@ router.get('/metrics', async (req, res) => {
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error("❌ Erro ao buscar métricas de despesas:", error)
-        res.status(500).json({ message: 'Erro ao buscar métricas' })
+        res.status(500).json({ error: 'Erro ao buscar métricas' })
     }
 })
 
@@ -80,7 +80,7 @@ router.get('/:id', async (req, res) => {
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error("❌ Erro ao buscar despesa:", error)
-        res.status(500).json({ message: 'Erro ao buscar despesa' })
+        res.status(500).json({ error: 'Erro ao buscar despesa' })
     }
 })
 

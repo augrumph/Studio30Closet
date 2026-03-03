@@ -10,17 +10,19 @@ import { toSnakeCase } from './helpers'
 /**
  * Listar vendas paginadas
  */
-export async function getVendas(page = 1, limit = 30) {
-    console.log(`🔍 API: Getting vendas (page ${page}, limit ${limit})...`)
-    // Backend API filters: page, pageSize, status, startDate, endDate
-    const data = await apiClient(`/vendas?page=${page}&pageSize=${limit}`)
-    // Backend returns structure matching frontend expectations?
-    // Backend returns: { vendas, total, page, pageSize, totalPages }
-    // Frontend expects: { vendas: [...], total, page, limit }
-    // Need mapping inside here? 
-    // Backend vendas already include customer info.
+export async function getVendas(page = 1, limit = 30, filters = {}) {
+    console.log(`🔍 API: Getting vendas (page ${page}, limit ${limit}, filters:`, filters, ")...")
 
-    // O retorno ja deve estar em toCamelCase via backend utility
+    // Build query string
+    let url = `/vendas?page=${page}&pageSize=${limit}`
+    if (filters.status && filters.status !== 'all') url += `&status=${filters.status}`
+    if (filters.search) url += `&search=${encodeURIComponent(filters.search)}`
+    if (filters.dateFilter && filters.dateFilter !== 'all') url += `&dateFilter=${filters.dateFilter}`
+    if (filters.startDate) url += `&startDate=${filters.startDate}`
+    if (filters.endDate) url += `&endDate=${filters.endDate}`
+
+    const data = await apiClient(url)
+
     return {
         vendas: (data.vendas || []).map(v => ({
             ...v,

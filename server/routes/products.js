@@ -421,20 +421,6 @@ router.post('/stock-check', async (req, res) => {
             'SELECT id, stock, name, images, price, cost_price, variants FROM products WHERE id = ANY($1)',
             [ids]
         )
-        // Convert to camelCase (manually if helper not available, but toCamelCase is used elsewhere in this file)
-        const toCamelCase = (data) => {
-            if (Array.isArray(data)) {
-                return data.map(item => toCamelCase(item))
-            }
-            if (data !== null && typeof data === 'object') {
-                return Object.entries(data).reduce((acc, [key, value]) => {
-                    const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase())
-                    acc[camelKey] = toCamelCase(value)
-                    return acc
-                }, {})
-            }
-            return data
-        }
         res.json(toCamelCase(rows))
     } catch (err) {
         console.error('❌ Erro no stock-check:', err)

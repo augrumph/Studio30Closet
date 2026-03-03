@@ -7,16 +7,11 @@ export function useAdminSales(filters = {}) {
     // Query principal de listagem
     const query = useQuery({
         queryKey: ['admin', 'sales', { page, limit, searchTerm, paymentStatus, type, dateFilter }],
-        queryFn: async () => {
-            // Nota: Se a API getVendas não suportar todos os filtros no servidor,
-            // podemos fazer o filtro aqui ou ajustar a API depois.
-            // Por enquanto, assumindo que getVendas retorna paginado e filtramos no cliente se necessário,
-            // ou que passamos parametros. A getVendas atual aceita apenas page/limit.
-            // Para otimização máxima, deveríamos passar filtros para API.
-            // No momento, vamos manter compatibilidade e pegar a pagina.
-            const result = await getVendas(page, limit)
-            return result
-        },
+        queryFn: () => getVendas(page, limit, {
+            search: searchTerm,
+            status: paymentStatus,
+            dateFilter: dateFilter
+        }),
         staleTime: 1000 * 60 * 5, // 5 minutos
         placeholderData: (previousData) => previousData // Keep previous data while fetching new page
     })

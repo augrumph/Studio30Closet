@@ -493,6 +493,7 @@ router.delete('/payments/:paymentId', async (req, res) => {
  */
 router.put('/:vendaId/pay-full', async (req, res) => {
     const { vendaId } = req.params
+    const { paymentMethod = 'dinheiro' } = req.body
 
     try {
         // Atualizar status da venda para paid
@@ -509,12 +510,12 @@ router.put('/:vendaId/pay-full', async (req, res) => {
             for (const inst of pendingInstallments) {
                 await pool.query(`
                     INSERT INTO installment_payments (installment_id, payment_amount, payment_date, payment_method, notes, created_by)
-                    VALUES ($1, $2, $3, 'dinheiro', 'Quitação total da venda', 'admin')
-                `, [inst.id, inst.original_amount, today])
+                    VALUES ($1, $2, $3, $4, 'Quitação total da venda', 'admin')
+                `, [inst.id, inst.original_amount, today, paymentMethod])
             }
         }
 
-        console.log(`✅ Venda #${vendaId} quitada totalmente`)
+        console.log(`✅ Venda #${vendaId} quitada totalmente via ${paymentMethod}`)
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao quitar venda ${vendaId}:`, error)

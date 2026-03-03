@@ -110,7 +110,7 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         // Mapeamento snake_case para camelCase
         const normalizedVendas = vendas.map(v => {
             const parsedItems = typeof v.items === 'string' ? JSON.parse(v.items || '[]') : (v.items || [])
-            
+
             return {
                 ...v,
                 totalValue: v.total_value,
@@ -235,7 +235,16 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         })
 
         // Proporção do período
-        const periodDays = startDate ? Math.ceil((new Date(now.toISOString()).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) : 30
+        let periodDays = 30
+        if (period === 'all') {
+            // Se 'all', calcular dias desde a primeira venda
+            const { rows: firstSaleRow } = await pool.query('SELECT MIN(created_at) as first_date FROM vendas')
+            const firstDate = firstSaleRow[0]?.first_date ? new Date(firstSaleRow[0].first_date) : now
+            periodDays = Math.max(1, Math.ceil((now.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)))
+        } else {
+            periodDays = startDate ? Math.ceil((new Date(now.toISOString()).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) : 30
+        }
+
         const factor = periodDays / 30
 
         const appliedExpenses = monthlyExpenses * factor
@@ -284,7 +293,8 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                 }
             } else if (v.paymentStatus === 'pending') {
                 totalDevedores++
-                valorDevedores += Number(v.totalValue || 0)
+                // BUG-10 FIX: Use net amount for debt to match receivedAmount logic
+                valorDevedores += net
 
                 if (isCrediario) {
                     pendingCrediario += Number(v.totalValue || 0)

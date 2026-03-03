@@ -208,11 +208,18 @@ if (process.env.NODE_ENV === 'production') {
         }
     }))
 
-    // SPA Fallback: Todas as rotas não-API retornam index.html (sem cache)
+    // Explicit 404 for /assets/* — prevents stale hashed filenames from being served as index.html
+    // This happens when a user has old index.html cached but the server deployed new hashed assets.
+    app.get('/assets/*', (req, res) => {
+        res.status(404).json({ error: 'Asset not found. Please hard-refresh the page (Ctrl+Shift+R).' })
+    })
+
+    // SPA Fallback: All non-API, non-asset routes return index.html (no cache)
     app.get('*', (req, res) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
         res.sendFile(path.join(distPath, 'index.html'))
     })
+
 
     console.log(`📦 Servindo frontend estático de: ${distPath}`)
 }

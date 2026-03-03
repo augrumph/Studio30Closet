@@ -105,3 +105,32 @@ export async function getAllBrands() {
 export async function getAllCategories() {
     return []
 }
+
+/**
+ * 🧠 STOCK INTELLIGENCE API
+ */
+
+/**
+ * Forecast: Velocity, Weeks of Supply, Stockout Prediction
+ */
+export async function getStockForecast() {
+    return apiClient('/stock/forecast')
+}
+
+/**
+ * Purchase Plan: Supplier-grouped reorder suggestions
+ */
+export async function getPurchasePlan() {
+    return apiClient('/stock/purchase-plan')
+}
+
+/**
+ * Inventory Analysis: ABC, GMROI, Margin, Aging
+ */
+export async function getInventoryAnalysis(filters = {}) {
+    const params = new URLSearchParams()
+    if (filters.category) params.append('category', filters.category)
+    if (filters.abcClass) params.append('abcClass', filters.abcClass)
+    const qs = params.toString()
+    return apiClient(`/stock/inventory-analysis${qs ? '?' + qs : ''}`)
+}

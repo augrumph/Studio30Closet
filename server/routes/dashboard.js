@@ -297,7 +297,8 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                 valorDevedores += net
 
                 if (isCrediario) {
-                    pendingCrediario += Number(v.totalValue || 0)
+                    // FIXED BUG #1: Use net amount for consistency with receivedAmount/valorDevedores
+                    pendingCrediario += net
                 }
 
                 if (v.entryPayment > 0) {
@@ -361,10 +362,38 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         const malinhaSales = salesToProcess.filter(v => v.orderId)
         let totalItemsSentInMalinhas = 0
         let totalItemsSoldInMalinhas = 0
-        // Para retenção real, precisaríamos dos itens originais dos orders, 
-        // mas vamos simplificar se não tivermos a tabela order_items aqui.
-        // Como o Dashboard do front já calculava de forma limitada, vamos manter um placeholder realista
-        const retentionRate = 0 // Placeholder ou cálculo se ordersResult tiver items_count
+        let retentionRate = 0
+
+        // FIXED BUG #3: Calculate real retention rate from order_items
+        if (malinhaSales.length > 0) {
+            // Get unique order IDs from sales
+            const orderIds = [...new Set(malinhaSales.map(v => v.orderId).filter(Boolean))]
+
+            if (orderIds.length > 0) {
+                try {
+                    // Count total items sent in malinhas
+                    const { rows: itemsCount } = await pool.query(`
+                        SELECT COUNT(*) as total
+                        FROM order_items
+                        WHERE order_id = ANY($1)
+                    `, [orderIds])
+                    totalItemsSentInMalinhas = parseInt(itemsCount[0]?.total || 0)
+
+                    // Count items actually sold (from vendas.items)
+                    malinhaSales.forEach(v => {
+                        const items = v.items || []
+                        totalItemsSoldInMalinhas += items.length
+                    })
+
+                    retentionRate = totalItemsSentInMalinhas > 0
+                        ? (totalItemsSoldInMalinhas / totalItemsSentInMalinhas) * 100
+                        : 0
+                } catch (err) {
+                    console.warn('⚠️ Erro ao calcular taxa de retenção:', err.message)
+                    retentionRate = 0
+                }
+            }
+        }
 
 
         // Inventário

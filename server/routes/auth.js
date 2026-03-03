@@ -10,7 +10,10 @@ const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) {
     console.error('\n❌❌❌ SEGURANÇA: JWT_SECRET não definido nas variáveis de ambiente!')
     console.error('   Defina JWT_SECRET no seu .env para proteger o painel admin.\n')
-    // Em produção use: process.exit(1)
+    if (process.env.NODE_ENV === 'production') {
+        console.error('   FATAL: Servidor não pode iniciar sem JWT_SECRET em produção.')
+        process.exit(1)
+    }
 }
 
 // Login
@@ -22,19 +25,13 @@ router.post('/login', async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM admins WHERE username = $1', [email])
         const user = rows[0]
 
-        console.log('User search result:', user ? { id: user.id, username: user.username } : 'Not found')
-
         if (!user) {
             return res.status(401).json({ error: 'Email ou senha inválidos' })
         }
 
-        // 2. Verificar senha
-        console.log('Comparing passwords...');
+        // 2. Verificar senha (suporta hash bcrypt e texto plano durante migração)
         const isPlainMatch = user.password === password;
         const isHashMatch = await bcrypt.compare(password, user.password).catch(() => false);
-
-        console.log('Plain match:', isPlainMatch);
-        console.log('Hash match:', isHashMatch);
 
         if (!isPlainMatch && !isHashMatch) {
             return res.status(401).json({ error: 'Email ou senha inválidos' })

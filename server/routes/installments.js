@@ -495,31 +495,55 @@ router.put('/:vendaId/pay-full', async (req, res) => {
     const { vendaId } = req.params
     const { paymentMethod = 'dinheiro' } = req.body
 
-    try {
-        // Atualizar status da venda para paid
-        await pool.query("UPDATE vendas SET payment_status = 'paid' WHERE id = $1", [vendaId])
+    // Use a transaction to ensure atomicity — if any insert fails,
+    // the venda status update also rolls back, preventing phantom 'paid' state.
+    const client = await pool.connect()
 
-        // Buscar parcelas pendentes
-        const { rows: pendingInstallments } = await pool.query(
-            "SELECT id, original_amount FROM installments WHERE venda_id = $1 AND status != 'paid'",
+    try {
+        await client.query('BEGIN')
+
+        // 1. Buscar parcelas pendentes DENTRO da transação com lock
+        const { rows: pendingInstallments } = await client.query(
+            "SELECT id, original_amount, remaining_amount FROM installments WHERE venda_id = $1 AND status != 'paid' FOR UPDATE",
             [vendaId]
         )
 
+        const today = new Date().toISOString().split('T')[0]
+
         if (pendingInstallments.length > 0) {
-            const today = new Date().toISOString().split('T')[0]
             for (const inst of pendingInstallments) {
-                await pool.query(`
+                // Use remaining_amount when available, otherwise fall back to original_amount
+                const amountToPay = parseFloat(inst.remaining_amount) > 0
+                    ? parseFloat(inst.remaining_amount)
+                    : parseFloat(inst.original_amount)
+
+                await client.query(`
                     INSERT INTO installment_payments (installment_id, payment_amount, payment_date, payment_method, notes, created_by)
                     VALUES ($1, $2, $3, $4, 'Quitação total da venda', 'admin')
-                `, [inst.id, inst.original_amount, today, paymentMethod])
+                `, [inst.id, amountToPay, today, paymentMethod])
+
+                // Explicitly mark installment as paid and zero out remaining amount
+                await client.query(`
+                    UPDATE installments
+                    SET status = 'paid', paid_amount = original_amount, remaining_amount = 0, updated_at = NOW()
+                    WHERE id = $1
+                `, [inst.id])
             }
         }
+
+        // 2. Atualizar status da venda para paid — only after all payments succeeded
+        await client.query("UPDATE vendas SET payment_status = 'paid', updated_at = NOW() WHERE id = $1", [vendaId])
+
+        await client.query('COMMIT')
 
         console.log(`✅ Venda #${vendaId} quitada totalmente via ${paymentMethod}`)
         res.json({ success: true })
     } catch (error) {
+        await client.query('ROLLBACK')
         console.error(`❌ Erro ao quitar venda ${vendaId}:`, error)
         res.status(500).json({ error: 'Erro ao quitar venda' })
+    } finally {
+        client.release()
     }
 })
 

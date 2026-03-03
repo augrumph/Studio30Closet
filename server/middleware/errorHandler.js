@@ -46,14 +46,18 @@ export function errorHandler(err, req, res, next) {
     const statusCode = err.statusCode || err.status || 500
     const message = err.message || 'Internal Server Error'
 
-    // Temporarily allow error details in production for debugging 500 errors
+    const isProduction = process.env.NODE_ENV === 'production'
+
     const response = {
         error: message,
-        stack: err.stack,
-        details: err.details,
-        path: req.url,
-        method: req.method,
-        code: err.code || err.name
+        // In production, never expose internal details to API consumers
+        ...(isProduction ? {} : {
+            stack: err.stack,
+            details: err.details,
+            path: req.url,
+            method: req.method,
+            code: err.code || err.name
+        })
     }
 
     res.status(statusCode).json(response)

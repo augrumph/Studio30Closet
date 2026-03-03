@@ -457,7 +457,7 @@ export function VendasForm() {
                             >
                                 <div className="px-4 pb-4 space-y-4">
                                     {/* Métodos de Pagamento */}
-                                    <div className="grid grid-cols-4 gap-2">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                                         {PAYMENT_METHODS.map((method) => {
                                             const Icon = method.icon
                                             const isActive = formData.paymentMethod === method.id
@@ -517,7 +517,7 @@ export function VendasForm() {
                                                 <span className="text-lg font-bold text-[#C75D3B]">{parcelas}x</span>
                                             </div>
 
-                                            <div className="grid grid-cols-6 gap-1.5">
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
                                                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
                                                     <button
                                                         key={n}
@@ -535,7 +535,7 @@ export function VendasForm() {
                                                 ))}
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div>
                                                     <label className="text-xs text-[#4A3B32]/60 mb-1 block">Entrada</label>
                                                     <div className="relative">

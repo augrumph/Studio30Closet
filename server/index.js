@@ -59,8 +59,24 @@ app.use(helmet({
     }
 }))
 
-// CORS
-app.use(cors())
+// CORS — restrict origins to prevent unauthorized cross-site requests
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:5173',
+    'http://localhost:3000'
+].filter(Boolean)
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (same-origin, mobile apps, Postman)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true)
+        } else {
+            callback(new Error(`CORS: Origin not allowed: ${origin}`))
+        }
+    },
+    credentials: true
+}))
 
 // Compression - reduces response size by 70-90%
 app.use(compression({

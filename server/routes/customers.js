@@ -144,26 +144,26 @@ router.put('/:id', async (req, res) => {
             UPDATE customers SET
                 name = COALESCE($1, name),
                 phone = COALESCE($2, phone),
-                email = COALESCE($3, email),
-                cpf = COALESCE($4, cpf),
-                address = COALESCE($5, address),
-                complement = COALESCE($6, complement),
-                instagram = COALESCE($7, instagram),
+                email = $3,
+                cpf = $4,
+                address = $5,
+                complement = $6,
+                instagram = $7,
                 addresses = COALESCE($8, addresses),
-                birth_date = COALESCE($9, birth_date),
+                birth_date = $9,
                 updated_at = NOW()
             WHERE id = $10
             RETURNING *
         `, [
-            name,
-            phone,
-            email,
-            cpf,
-            address,
-            complement,
-            instagram,
+            name || null,
+            phone || null,
+            email !== undefined ? email : null,
+            cpf !== undefined ? cpf : null,
+            address !== undefined ? address : null,
+            complement !== undefined ? complement : null,
+            instagram !== undefined ? instagram : null,
             addresses ? JSON.stringify(addresses) : null,
-            birthDate,
+            birthDate !== undefined ? birthDate : null,
             id
         ])
 

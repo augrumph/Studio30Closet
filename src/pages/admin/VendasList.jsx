@@ -160,7 +160,7 @@ export function VendasList() {
 
             {/* Quick Insights - Bento Style Cards */}
             <TooltipProvider delayDuration={200}>
-                <div className="grid md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                         <Card className="border-emerald-50 bg-white group overflow-hidden relative">
                             <CardHeader className="pb-2">
@@ -393,13 +393,13 @@ export function VendasList() {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-[#FAF8F5]/50 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em]">
-                                <th className="px-8 py-5">Data / Horário</th>
-                                <th className="px-8 py-5">Cliente</th>
-                                <th className="px-8 py-5">Método</th>
-                                <th className="px-8 py-5 text-right">Lcr Bruto</th>
-                                <th className="px-8 py-5 text-right">Valor Final</th>
-                                <th className="px-8 py-5">Status</th>
-                                <th className="px-8 py-5 text-center">Ações</th>
+                                <th className="px-4 md:px-8 py-5">Data / Horário</th>
+                                <th className="px-4 md:px-8 py-5">Cliente</th>
+                                <th className="px-4 md:px-8 py-5 hidden sm:table-cell">Método</th>
+                                <th className="px-4 md:px-8 py-5 text-right hidden lg:table-cell">Lcr Bruto</th>
+                                <th className="px-4 md:px-8 py-5 text-right">Valor Final</th>
+                                <th className="px-4 md:px-8 py-5">Status</th>
+                                <th className="px-4 md:px-8 py-5 text-center">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -434,34 +434,34 @@ export function VendasList() {
                                             transition={{ duration: 0.3 }}
                                             className="hover:bg-[#FDFBF7]/40 transition-colors group cursor-default"
                                         >
-                                            <td className="px-8 py-6">
+                                            <td className="px-4 md:px-8 py-6">
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-[#4A3B32]">
+                                                    <span className="text-sm font-bold text-[#4A3B32] whitespace-nowrap">
                                                         {new Date(venda.createdAt).toLocaleDateString('pt-BR')}
                                                     </span>
                                                     <span className="text-[10px] text-gray-400 font-medium">Ref: #{venda.id}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6">
+                                            <td className="px-4 md:px-8 py-6">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-[#FAF3F0] flex items-center justify-center text-[#C75D3B] font-bold text-xs">
+                                                    <div className="w-8 h-8 rounded-full bg-[#FAF3F0] flex items-center justify-center text-[#C75D3B] font-bold text-xs shrink-0">
                                                         {(venda.customerName || 'C')[0]}
                                                     </div>
-                                                    <p className="font-bold text-[#4A3B32] text-sm">{venda.customerName || 'Cliente não identificado'}</p>
+                                                    <p className="font-bold text-[#4A3B32] text-sm truncate max-w-[120px] md:max-w-none">{venda.customerName || 'Cliente não identificado'}</p>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6">
+                                            <td className="px-4 md:px-8 py-6 hidden sm:table-cell">
                                                 <span className={cn(
-                                                    "px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                                                    "px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider whitespace-nowrap",
                                                     paymentMethods[venda.paymentMethod]?.color || "bg-gray-100 text-gray-600"
                                                 )}>
                                                     {paymentMethods[venda.paymentMethod]?.label}
                                                 </span>
                                             </td>
-                                            <td className="px-8 py-6 text-right">
+                                            <td className="px-4 md:px-8 py-6 text-right hidden lg:table-cell">
                                                 <div className="flex flex-col items-end">
                                                     <span className={cn(
-                                                        "text-sm font-bold",
+                                                        "text-sm font-bold whitespace-nowrap",
                                                         (venda.totalValue - (venda.costPrice || 0)) > 0 ? "text-emerald-600" : "text-gray-400"
                                                     )}>
                                                         R$ {(venda.totalValue - (venda.costPrice || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -473,37 +473,37 @@ export function VendasList() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-right">
-                                                <span className="font-bold text-[#4A3B32] text-sm">
+                                            <td className="px-4 md:px-8 py-6 text-right">
+                                                <span className="font-bold text-[#4A3B32] text-sm whitespace-nowrap">
                                                     R$ {(venda.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </span>
                                             </td>
-                                            <td className="px-8 py-6 text-center md:text-left">
+                                            <td className="px-4 md:px-8 py-6 text-center md:text-left">
                                                 <div className="flex items-center gap-2">
                                                     <div className={cn(
-                                                        "w-1.5 h-1.5 rounded-full",
+                                                        "w-1.5 h-1.5 rounded-full shrink-0",
                                                         venda.paymentStatus === 'paid' ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
                                                     )} />
                                                     <span className={cn(
-                                                        "text-[10px] uppercase font-bold tracking-widest",
+                                                        "text-[10px] uppercase font-bold tracking-widest hidden sm:inline-block whitespace-nowrap",
                                                         venda.paymentStatus === 'paid' ? "text-emerald-500" : "text-amber-500"
                                                     )}>
                                                         {venda.paymentStatus === 'paid' ? 'Liquidado' : 'Aguardando'}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
+                                            <td className="px-4 md:px-8 py-6 text-center">
                                                 <div className="flex items-center justify-center gap-2">
                                                     <Link
                                                         to={`/admin/vendas/${venda.id}`}
-                                                        className="p-2.5 bg-white border border-gray-100 text-[#4A3B32] hover:bg-[#4A3B32] hover:text-white rounded-xl transition-all shadow-sm active:scale-95"
+                                                        className="p-2.5 bg-white border border-gray-100 text-[#4A3B32] hover:bg-[#4A3B32] hover:text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
                                                         title="Editar Venda"
                                                     >
                                                         <Edit2 className="w-4 h-4" />
                                                     </Link>
                                                     <button
                                                         onClick={() => handleDelete(venda.id, venda.customerName || 'Cliente não identificado')}
-                                                        className="p-2.5 bg-white border border-gray-100 text-red-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all shadow-sm active:scale-95"
+                                                        className="p-2.5 bg-white border border-gray-100 text-red-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
                                                         title="Excluir Registro"
                                                     >
                                                         <Trash2 className="w-4 h-4" />

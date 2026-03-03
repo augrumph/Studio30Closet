@@ -56,13 +56,38 @@ function SkeletonPulse({ className }) {
 function OverviewSkeleton() {
     return (
         <div className="space-y-6">
+            {/* Period Filters Skeleton */}
+            <div className="flex flex-wrap gap-3">
+                {[1, 2, 3, 4, 5].map(i => (
+                    <SkeletonPulse key={i} className="h-10 w-32" />
+                ))}
+            </div>
+
+            {/* KPI Cards Skeleton */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[1, 2, 3, 4].map(i => (
                     <SkeletonPulse key={i} className="h-32" />
                 ))}
             </div>
-            <SkeletonPulse className="h-64" />
-            <SkeletonPulse className="h-80" />
+
+            {/* Rankings Section Skeleton */}
+            <div className="space-y-4">
+                <SkeletonPulse className="h-8 w-64" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map(i => (
+                        <SkeletonPulse key={i} className="h-64" />
+                    ))}
+                </div>
+            </div>
+
+            {/* Alerts Section Skeleton */}
+            <div className="space-y-4">
+                <SkeletonPulse className="h-8 w-64" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <SkeletonPulse className="h-80" />
+                    <SkeletonPulse className="h-80" />
+                </div>
+            </div>
         </div>
     )
 }

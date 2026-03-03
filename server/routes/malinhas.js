@@ -121,10 +121,10 @@ router.get('/kpis', async (req, res) => {
             SELECT
                 COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) as total_active,
                 COUNT(*) FILTER (WHERE status = 'pending') as total_pending,
-                COUNT(*) FILTER (WHERE status = 'completed' AND created_at >= $1) as completed_this_month,
+                COUNT(*) FILTER (WHERE status = 'completed' AND updated_at >= $1) as completed_this_month,
                 COALESCE(SUM(
                     (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id)
-                ) FILTER (WHERE status NOT IN ('cancelled')), 0) as total_items_in_circulation
+                ) FILTER (WHERE status NOT IN ('completed', 'cancelled')), 0) as total_items_in_circulation
             FROM orders o
         `, [firstDayOfMonth])
 

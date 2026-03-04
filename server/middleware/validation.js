@@ -192,6 +192,55 @@ export function validateCustomer(req, res, next) {
     next()
 }
 
+// Validação de Pagamento de Parcela
+export function validateInstallmentPayment(req, res, next) {
+    const { amount, date, method } = req.body
+    const { installmentId } = req.params
+
+    const errors = []
+
+    // InstallmentId obrigatório e válido
+    const numId = parseInt(installmentId)
+    if (!installmentId || isNaN(numId) || numId <= 0) {
+        errors.push({ field: 'installmentId', message: 'ID da parcela deve ser um número inteiro positivo' })
+    }
+
+    // Amount obrigatório e > 0
+    if (!amount) {
+        errors.push({ field: 'amount', message: 'Valor do pagamento é obrigatório' })
+    } else if (typeof amount !== 'number' || amount <= 0) {
+        errors.push({ field: 'amount', message: 'Valor do pagamento deve ser um número maior que 0' })
+    } else if (amount > 1000000) {
+        errors.push({ field: 'amount', message: 'Valor do pagamento excede o limite máximo permitido' })
+    }
+
+    // Date obrigatório e válido
+    if (!date) {
+        errors.push({ field: 'date', message: 'Data do pagamento é obrigatória' })
+    } else {
+        const parsedDate = new Date(date)
+        if (isNaN(parsedDate.getTime())) {
+            errors.push({ field: 'date', message: 'Data do pagamento inválida' })
+        }
+    }
+
+    // Method opcional mas se fornecido deve ser válido
+    const validMethods = ['dinheiro', 'pix', 'debito', 'credito', 'transferencia', 'cheque']
+    if (method && !validMethods.includes(method)) {
+        errors.push({ field: 'method', message: `Método de pagamento deve ser um de: ${validMethods.join(', ')}` })
+    }
+
+    if (errors.length > 0) {
+        console.error('❌ Validação de Pagamento de Parcela falhou:', errors)
+        return res.status(400).json({
+            error: 'Dados do pagamento inválidos',
+            details: errors
+        })
+    }
+
+    next()
+}
+
 /**
  * Validação de IDs numéricos em params
  */

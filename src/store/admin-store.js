@@ -363,16 +363,33 @@ export const useAdminStore = create(
                         orderId: order.id
                     }
 
-                    // 3. Criar a venda
-                    // Backend Vendas agora SEMPRE baixa estoque dos itens vendidos
+                    // 3. CRITICAL: Calcular items devolvidos (items que NÃO ficaram)
+                    // Estes são os items que precisam voltar ao estoque
+                    const returnedItems = order.items
+                        .map((item, idx) => ({ item, idx }))
+                        .filter(({ idx }) => !keptItemsIndexes.includes(idx))
+                        .map(({ item }) => ({
+                            productId: item.productId,
+                            quantity: item.quantity || 1,
+                            selectedSize: item.selectedSize,
+                            selectedColor: item.selectedColor || 'Padrão'
+                        }))
+
+                    console.log(`📦 Finalizando malinha: ${keptItemsIndexes.length} items vendidos, ${returnedItems.length} items devolvidos`)
+
+                    // 4. Criar a venda com os items que ficaram
+                    // Backend Vendas DECREMENTA estoque dos items vendidos
                     const newVenda = await createVenda(vendaDataWithCustomer)
 
-                    // 4. Atualizar a order para marcar como completed
-                    // Backend Orders vai LIBERAR o estoque da malinha (o que estava reservado volta)
-                    // Saldo: +ReservaVolta (Orders) -VendaSai (Vendas) = Correto.
+                    // 5. Atualizar a order para marcar como completed
+                    // Backend Orders vai RESTAURAR APENAS os items devolvidos (returnedItems)
+                    // Lógica correta:
+                    //   - Items vendidos: já foram decrementados pela venda (step 4)
+                    //   - Items devolvidos: precisam voltar ao estoque (aqui)
                     const updatedOrder = await updateOrder(id, {
                         status: 'completed',
-                        convertedToSale: true
+                        convertedToSale: true,
+                        returnedItems: returnedItems // Enviar explicitamente items a restaurar
                     })
 
                     set(state => ({

@@ -324,7 +324,14 @@ router.put('/:id', async (req, res) => {
         const statusesThatHoldStock = ['pending', 'active', 'shipped']
         const isHoldingStock = statusesThatHoldStock.includes(currentOrder.status)
 
-        if (isHoldingStock && currentOrder.order_items?.length) {
+        // CRITICAL FIX: Se order está sendo convertida em venda (convertedToSale = true),
+        // NÃO restaurar o estoque aqui. A venda já gerenciou o estoque corretamente:
+        // - Venda decrementou os items que o cliente ficou
+        // - Items devolvidos precisam ser restaurados explicitamente via returnedItems
+        const isConvertingToSale = orderData.convertedToSale === true
+        const shouldRestoreAllItems = isHoldingStock && !isConvertingToSale && currentOrder.order_items?.length
+
+        if (shouldRestoreAllItems) {
             console.log(`🔓 Restoring stock for ${currentOrder.order_items.length} old items...`)
             for (const item of currentOrder.order_items) {
                 if (item.size_selected) {
@@ -334,6 +341,24 @@ router.put('/:id', async (req, res) => {
                         item.quantity,
                         item.color_selected || 'Padrão',
                         item.size_selected,
+                        'restore'
+                    )
+                }
+            }
+        }
+
+        // Se está convertendo para venda E foram fornecidos returnedItems explicitamente,
+        // restaurar apenas os items devolvidos
+        if (isConvertingToSale && orderData.returnedItems && Array.isArray(orderData.returnedItems)) {
+            console.log(`🔙 Restoring stock for ${orderData.returnedItems.length} returned items...`)
+            for (const item of orderData.returnedItems) {
+                if (item.selectedSize) {
+                    await updateProductStock(
+                        client,
+                        item.productId,
+                        item.quantity,
+                        item.selectedColor || 'Padrão',
+                        item.selectedSize,
                         'restore'
                     )
                 }

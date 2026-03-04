@@ -2,6 +2,7 @@ import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { cacheMiddleware } from '../cache.js'
+import { validateInstallmentPayment } from '../middleware/validation.js'
 
 const router = express.Router()
 
@@ -289,14 +290,51 @@ router.get('/:vendaId/details', async (req, res) => {
  * POST /api/installments/:installmentId/payment - Registrar pagamento de parcela
  * Body: { amount, date, method, notes }
  */
-router.post('/:installmentId/payment', async (req, res) => {
+router.post('/:installmentId/payment', validateInstallmentPayment, async (req, res) => {
     const { installmentId } = req.params
     const { amount, date, method = 'dinheiro', notes = null } = req.body
 
     console.log(`💰 Registrando pagamento: R$ ${amount} na parcela ${installmentId}`)
 
     try {
-        // Verificar duplicatas (idempotência)
+        // 1. VALIDAÇÃO: Verificar se a parcela existe
+        const { rows: installmentRows } = await pool.query(
+            'SELECT * FROM installments WHERE id = $1',
+            [installmentId]
+        )
+
+        if (installmentRows.length === 0) {
+            console.error(`❌ Parcela ${installmentId} não encontrada`)
+            return res.status(404).json({
+                error: 'Parcela não encontrada',
+                message: `Não existe parcela com ID ${installmentId}`
+            })
+        }
+
+        const installment = installmentRows[0]
+
+        // 2. VALIDAÇÃO: Verificar se a parcela já está totalmente paga
+        if (installment.status === 'paid' && installment.remaining_amount <= 0) {
+            console.warn(`⚠️ Parcela ${installmentId} já está totalmente paga`)
+            return res.status(400).json({
+                error: 'Parcela já paga',
+                message: 'Esta parcela já foi totalmente paga',
+                installment: toCamelCase(installment)
+            })
+        }
+
+        // 3. VALIDAÇÃO: Verificar se o valor do pagamento não ultrapassa o saldo restante
+        const remainingAmount = parseFloat(installment.remaining_amount)
+        if (amount > remainingAmount + 0.01) { // Tolerância de 1 centavo
+            console.error(`❌ Valor do pagamento (R$ ${amount}) ultrapassa saldo restante (R$ ${remainingAmount})`)
+            return res.status(400).json({
+                error: 'Valor inválido',
+                message: `Valor do pagamento (R$ ${amount.toFixed(2)}) não pode ultrapassar o saldo restante (R$ ${remainingAmount.toFixed(2)})`,
+                remainingAmount: remainingAmount
+            })
+        }
+
+        // 4. VERIFICAR DUPLICATAS (idempotência) - evitar double-click
         const recentWindow = new Date(Date.now() - 30000).toISOString()
         const { rows: duplicates } = await pool.query(`
             SELECT id FROM installment_payments
@@ -308,14 +346,14 @@ router.post('/:installmentId/payment', async (req, res) => {
         `, [installmentId, amount, date, recentWindow])
 
         if (duplicates.length > 0) {
-            console.warn('🛑 Pagamento duplicado detectado')
+            console.warn('🛑 Pagamento duplicado detectado (idempotência)')
             // Retornar dados atualizados sem inserir
-            const { rows } = await pool.query('SELECT * FROM installments WHERE id = $1', [installmentId])
-            return res.json(toCamelCase(rows[0]))
+            const { rows: current } = await pool.query('SELECT * FROM installments WHERE id = $1', [installmentId])
+            return res.json(toCamelCase(current[0]))
         }
 
-        // Inserir pagamento (trigger do banco atualizará a parcela)
-        const { rows } = await pool.query(`
+        // 5. INSERIR PAGAMENTO - Trigger do banco atualizará automaticamente a parcela
+        const { rows: paymentRows } = await pool.query(`
             INSERT INTO installment_payments (
                 installment_id, payment_amount, payment_date, payment_method, notes, created_by
             )
@@ -323,14 +361,41 @@ router.post('/:installmentId/payment', async (req, res) => {
             RETURNING *
         `, [installmentId, amount, date, method, notes, 'admin'])
 
-        // Buscar parcela atualizada
+        console.log(`✅ Pagamento ID ${paymentRows[0].id} registrado com sucesso`)
+
+        // 6. BUSCAR PARCELA ATUALIZADA (com paid_amount e remaining_amount recalculados pelo trigger)
         const { rows: updatedInst } = await pool.query('SELECT * FROM installments WHERE id = $1', [installmentId])
 
-        console.log('✅ Pagamento registrado com sucesso')
-        res.json(toCamelCase(updatedInst[0]))
+        if (updatedInst.length === 0) {
+            throw new Error('Falha ao buscar parcela atualizada')
+        }
+
+        const updatedInstallment = updatedInst[0]
+        console.log(`📊 Parcela ${installmentId} - Status: ${updatedInstallment.status}, Restante: R$ ${updatedInstallment.remaining_amount}`)
+
+        res.json(toCamelCase(updatedInstallment))
     } catch (error) {
-        console.error(`❌ Erro ao registrar pagamento:`, error)
-        res.status(500).json({ error: 'Erro ao registrar pagamento' })
+        console.error(`❌ Erro ao registrar pagamento na parcela ${installmentId}:`, error)
+
+        // Tratar erros específicos do banco
+        if (error.code === '23503') { // Foreign key violation
+            return res.status(400).json({
+                error: 'Referência inválida',
+                message: 'A parcela especificada não existe ou foi removida'
+            })
+        }
+
+        if (error.code === '23514') { // Check constraint violation
+            return res.status(400).json({
+                error: 'Violação de constraint',
+                message: 'O valor do pagamento viola as regras de negócio do banco de dados'
+            })
+        }
+
+        res.status(500).json({
+            error: 'Erro ao registrar pagamento',
+            message: error.message || 'Erro interno do servidor'
+        })
     }
 })
 

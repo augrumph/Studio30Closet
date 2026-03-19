@@ -159,6 +159,13 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Coleção não encontrada' })
         }
 
+        // Remover o ID deletado do array collection_ids de todos os produtos que o referenciam
+        await pool.query(`
+            UPDATE products
+            SET collection_ids = array_remove(collection_ids, $1::text)
+            WHERE collection_ids @> ARRAY[$1::text]
+        `, [String(id)])
+
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao deletar coleção ${id}:`, error)

@@ -378,7 +378,7 @@ export function MalinhasList() {
                 onClose={() => setDeleteAlert({ isOpen: false, orderId: null })}
                 onConfirm={confirmDelete}
                 title="Remover Malinha?"
-                description="Tem certeza que deseja remover esta malinha? Se houver peças enviadas, o estoque reservado será perdido e não estornado automaticamente."
+                description="Tem certeza que deseja remover esta malinha? As peças enviadas voltarão ao estoque automaticamente."
                 confirmText="Sim, Remover"
                 cancelText="Manter Malinha"
                 variant="danger"

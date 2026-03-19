@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteProduct as deleteProductApi, deleteMultipleProducts as deleteMultipleProductsApi } from '@/lib/api/products'
+import { deleteProduct as deleteProductApi, deleteMultipleProducts as deleteMultipleProductsApi, getProductById } from '@/lib/api/products'
 
 /**
  * Hook para buscar produtos com paginação no servidor
@@ -79,11 +79,7 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
 export function useAdminProduct(id) {
     return useQuery({
         queryKey: ['admin', 'product', id],
-        queryFn: async () => {
-            const response = await fetch(`/api/products/${id}`)
-            if (!response.ok) throw new Error('Falha ao buscar produto')
-            return response.json()
-        },
+        queryFn: () => getProductById(id),
         enabled: !!id,
         staleTime: 0
     })

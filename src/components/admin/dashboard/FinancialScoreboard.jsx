@@ -16,7 +16,9 @@ import {
     Sparkles,
     Package,
     Truck,
-    Users
+    Users,
+    RefreshCw,
+    CalendarClock
 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
@@ -181,7 +183,7 @@ const getSimplifiedCards = (metrics) => {
         {
             label: 'Preço Médio por Peça',
             value: metrics.averageUnitRetail,
-            icon: Sparkles, // Reuse Sparkles or similar
+            icon: Sparkles,
             iconBg: logisticsBg,
             iconColor: logisticsStatus,
             descriptionIcon: null,
@@ -190,6 +192,38 @@ const getSimplifiedCards = (metrics) => {
             isCurrency: true
         },
 
+        // === LINHA 3: COMPRAS DE FORNECEDORES ===
+        {
+            label: 'Recompras Fornecedores',
+            value: metrics.supplierRepurchasesTotal,
+            icon: RefreshCw,
+            iconBg: 'bg-violet-50',
+            iconColor: 'text-violet-600',
+            descriptionIcon: null,
+            descriptionText: `${metrics.supplierRepurchasesCount || 0} pedidos • ${metrics.uniqueSuppliersReopurchased || 0} fornecedores`,
+            tooltip: 'Total investido em recompras de roupas no período, com quantidade de pedidos e fornecedores distintos.',
+            isCurrency: true
+        },
+        {
+            label: 'Ciclo de Recompra',
+            value: metrics.repurchaseCycleDays,
+            icon: CalendarClock,
+            iconBg: metrics.repurchaseCycleDays > 0 && metrics.repurchaseCycleDays <= 30
+                ? 'bg-emerald-50'
+                : metrics.repurchaseCycleDays <= 60
+                    ? 'bg-amber-50'
+                    : 'bg-red-50',
+            iconColor: metrics.repurchaseCycleDays > 0 && metrics.repurchaseCycleDays <= 30
+                ? 'text-emerald-600'
+                : metrics.repurchaseCycleDays <= 60
+                    ? 'text-amber-600'
+                    : 'text-red-600',
+            descriptionIcon: null,
+            descriptionText: metrics.repurchaseCycleDays > 0 ? 'Média histórica' : 'Sem dados suficientes',
+            tooltip: 'Intervalo médio em dias entre recompras consecutivas no mesmo fornecedor. Ideal: ≤ 30 dias para manter estoque fresco.',
+            isNumber: true,
+            valueSuffix: 'd'
+        },
     ]
 }
 
@@ -208,7 +242,8 @@ function KPICard({ stat, index }) {
             return (stat.value || 0).toFixed(1)
         }
         if (stat.isNumber) {
-            return (stat.value || 0).toLocaleString('pt-BR')
+            const formatted = (stat.value || 0).toLocaleString('pt-BR')
+            return stat.valueSuffix ? `${formatted} ${stat.valueSuffix}` : formatted
         }
         return stat.value
     }

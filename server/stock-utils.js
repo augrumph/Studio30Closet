@@ -67,10 +67,9 @@ export async function updateProductStock(client, productId, quantity, color, siz
     const variant = variants[variantIndex]
 
     // Find Size in Variant
-    // Se não tem sizeStock, pular atualização de estoque
+    // Se não tem sizeStock, o produto está com estrutura inválida — falhar explicitamente
     if (!variant.sizeStock || variant.sizeStock.length === 0) {
-        console.warn(`[STOCK WARNING] Product ${product.id} ("${product.name}") color "${variant.colorName}" has no sizeStock. Skipping stock update.`)
-        return true
+        throw new Error(`[STOCK ERROR] Product ${product.id} ("${product.name}") cor "${variant.colorName}" não tem sizeStock configurado. Verifique as variantes do produto antes de vender.`)
     }
 
     let sizeIndex = variant.sizeStock.findIndex(s => normalize(s.size) === sizeNorm)
@@ -103,12 +102,14 @@ export async function updateProductStock(client, productId, quantity, color, siz
     }
 
     // Update Quantity (immutable copy to avoid in-place mutation before DB save)
+    // GREATEST(0, ...) garante que estoque nunca fique negativo por corrida de dados ou bug externo
+    const newQty = Math.max(0, currentQty + qtyChange)
     variants = variants.map((v, vi) => {
         if (vi !== variantIndex) return v
         return {
             ...v,
             sizeStock: v.sizeStock.map((s, si) =>
-                si === sizeIndex ? { ...s, quantity: currentQty + qtyChange } : s
+                si === sizeIndex ? { ...s, quantity: newQty } : s
             )
         }
     })

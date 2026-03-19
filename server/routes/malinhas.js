@@ -114,24 +114,6 @@ router.get('/kpis', async (req, res) => {
         const now = new Date()
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-        console.log(`🔍 DEBUG: Buscando malinhas concluídas desde ${firstDayOfMonth}`)
-        console.log(`🔍 DEBUG: Mês atual: ${now.getMonth() + 1}/${now.getFullYear()}`)
-
-        // DEBUG: Buscar todas as orders completed para ver o updated_at
-        const { rows: debugRows } = await pool.query(`
-            SELECT id, status, created_at, updated_at
-            FROM orders
-            WHERE status = 'completed'
-            ORDER BY id DESC
-        `)
-
-        console.log('🔍 DEBUG: Malinhas concluídas encontradas:')
-        debugRows.forEach(row => {
-            const updatedMonth = new Date(row.updated_at).getMonth() + 1
-            const updatedYear = new Date(row.updated_at).getFullYear()
-            console.log(`  - Order #${row.id}: status=${row.status}, updated_at=${row.updated_at} (${updatedMonth}/${updatedYear})`)
-        })
-
         // Query otimizada para pegar todos os KPIs em uma única consulta
         const { rows } = await pool.query(`
             SELECT
@@ -146,13 +128,6 @@ router.get('/kpis', async (req, res) => {
 
         const kpis = rows[0]
 
-        console.log(`📊 KPIs calculados:`, {
-            totalActive: parseInt(kpis.total_active) || 0,
-            pending: parseInt(kpis.total_pending) || 0,
-            completedMonth: parseInt(kpis.completed_this_month) || 0,
-            totalItems: parseInt(kpis.total_items_in_circulation) || 0
-        })
-
         res.json({
             totalActive: parseInt(kpis.total_active) || 0,
             pending: parseInt(kpis.total_pending) || 0,
@@ -163,38 +138,6 @@ router.get('/kpis', async (req, res) => {
     } catch (error) {
         console.error("❌ Erro ao calcular KPIs de Malinhas:", error)
         return res.status(500).json({ message: 'Erro ao calcular KPIs' })
-    }
-})
-
-/**
- * POST /api/malinhas/fix-updated-at
- * TEMPORARY: Fix updated_at for completed orders (one-time migration)
- */
-router.post('/fix-updated-at', async (req, res) => {
-    console.log('🔧 MIGRATION: Corrigindo updated_at de malinhas concluídas...')
-
-    try {
-        const result = await pool.query(`
-            UPDATE orders
-            SET updated_at = NOW()
-            WHERE status = 'completed'
-            AND updated_at < (NOW() - INTERVAL '1 day')
-            RETURNING id, status, updated_at
-        `)
-
-        console.log(`✅ Atualizadas ${result.rowCount} malinhas:`)
-        result.rows.forEach(row => {
-            console.log(`  - Order #${row.id}: updated_at atualizado para ${row.updated_at}`)
-        })
-
-        res.json({
-            success: true,
-            updatedCount: result.rowCount,
-            message: `${result.rowCount} malinhas concluídas tiveram updated_at corrigido`
-        })
-    } catch (error) {
-        console.error('❌ Erro ao corrigir updated_at:', error)
-        res.status(500).json({ error: 'Erro ao executar migração' })
     }
 })
 

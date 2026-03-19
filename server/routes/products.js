@@ -266,6 +266,12 @@ router.post('/', async (req, res) => {
         if (!data.name || !data.price) {
             return res.status(400).json({ error: 'Name and Price are required' })
         }
+        if (Number(data.price) <= 0) {
+            return res.status(400).json({ error: 'Price must be greater than zero' })
+        }
+        if (data.cost_price !== undefined && Number(data.cost_price) < 0) {
+            return res.status(400).json({ error: 'Cost price cannot be negative' })
+        }
 
         // 🖼️ Processar Imagens (Upload S3)
         const imageUrls = await processImages(data.images)
@@ -395,6 +401,21 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     const { id } = req.params
     try {
+        // Bloquear deleção se o produto estiver em malinhas ativas (order_items)
+        const { rows: activeOrders } = await pool.query(`
+            SELECT o.id FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.product_id = $1
+            AND o.status NOT IN ('completed', 'cancelled')
+            LIMIT 1
+        `, [id])
+
+        if (activeOrders.length > 0) {
+            return res.status(409).json({
+                error: 'Produto está em uso em uma ou mais malinhas ativas. Conclua ou cancele as malinhas antes de excluir o produto.'
+            })
+        }
+
         const { rowCount } = await pool.query('DELETE FROM products WHERE id = $1', [id])
 
         if (rowCount === 0) {

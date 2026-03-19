@@ -65,6 +65,31 @@ function normalizeSize(size) {
     return sizeMap[normalized] || size
 }
 
+// Agrega tamanhos de todas as variantes de cores de um produto
+function getSizesSummary(variants) {
+    if (!variants || !Array.isArray(variants)) return []
+    const sizeMap = new Map()
+    variants.forEach(variant => {
+        if (variant.sizeStock && Array.isArray(variant.sizeStock)) {
+            variant.sizeStock.forEach(s => {
+                const size = normalizeSize(s.size)
+                sizeMap.set(size, (sizeMap.get(size) || 0) + (Number(s.quantity) || 0))
+            })
+        }
+    })
+    return Array.from(sizeMap.entries())
+        .map(([size, quantity]) => ({ size, quantity }))
+        .sort((a, b) => {
+            const order = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'EXG', 'Único']
+            const ai = order.indexOf(a.size)
+            const bi = order.indexOf(b.size)
+            if (ai !== -1 && bi !== -1) return ai - bi
+            if (ai !== -1) return -1
+            if (bi !== -1) return 1
+            return a.size.localeCompare(b.size)
+        })
+}
+
 // =====================================================================
 // OPTIMIZED COMBINED ENDPOINT FOR OVERVIEW TAB
 // =====================================================================
@@ -76,7 +101,7 @@ router.get('/overview', cacheMiddleware(300), async (req, res) => {
 
         // Single query to get all products with supplier info
         const { rows: products } = await pool.query(`
-            SELECT p.id, p.name, p.stock, p.price, p.cost_price, p.images, p.created_at,
+            SELECT p.id, p.name, p.stock, p.price, p.cost_price, p.images, p.variants, p.created_at,
                    s.name as supplier_name
             FROM products p
             LEFT JOIN suppliers s ON s.id = p.supplier_id
@@ -119,12 +144,16 @@ router.get('/overview', cacheMiddleware(300), async (req, res) => {
             // Dead stock check (products older than 60 days with stock)
             if (stock > 0 && new Date(p.created_at) < sixtyDaysAgo) {
                 const daysInStock = Math.floor((now - new Date(p.created_at)) / (1000 * 60 * 60 * 24))
+                let variants = p.variants || []
+                if (typeof variants === 'string') { try { variants = JSON.parse(variants) } catch { variants = [] } }
                 deadStockItems.push({
                     id: p.id,
                     name: p.name,
                     stock: stock,
+                    images: p.images,
                     costPrice: cost,
-                    daysInStock: daysInStock
+                    daysInStock: daysInStock,
+                    sizesSummary: getSizesSummary(variants)
                 })
             }
         })
@@ -147,7 +176,8 @@ router.get('/overview', cacheMiddleware(300), async (req, res) => {
             lowStock: lowStockItems,
             deadStock: {
                 count: deadStockItems.length,
-                totalValue: deadStockTotalValue
+                totalValue: deadStockTotalValue,
+                products: deadStockItems.sort((a, b) => b.daysInStock - a.daysInStock).slice(0, 30)
             }
         }
 
@@ -915,7 +945,7 @@ router.get('/inventory-analysis', cacheMiddleware(600), async (req, res) => {
         // 1. Fetch all active products
         const { rows: products } = await pool.query(`
             SELECT p.id, p.name, p.stock, p.price, p.cost_price, p.category, p.images,
-                   p.created_at, p.supplier_id, p.brand,
+                   p.created_at, p.supplier_id, p.brand, p.variants,
                    s.name as supplier_name
             FROM products p
             LEFT JOIN suppliers s ON s.id = p.supplier_id
@@ -962,6 +992,8 @@ router.get('/inventory-analysis', cacheMiddleware(600), async (req, res) => {
             const cost = Number(p.cost_price) || 0
             const price = Number(p.price) || 0
             const daysInStock = Math.floor((Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24))
+            let variants = p.variants || []
+            if (typeof variants === 'string') { try { variants = JSON.parse(variants) } catch { variants = [] } }
 
             // Margin
             const margin = price > 0 ? ((price - cost) / price) * 100 : 0
@@ -1014,6 +1046,7 @@ router.get('/inventory-analysis', cacheMiddleware(600), async (req, res) => {
                 daysInStock,
                 agingBucket,
                 weeklyVelocity: Math.round(weeklyVelocity * 10) / 10,
+                sizesSummary: getSizesSummary(variants),
 
                 // Will be set after ABC classification
                 abcClass: 'C',
@@ -1075,6 +1108,11 @@ router.get('/inventory-analysis', cacheMiddleware(600), async (req, res) => {
         const avgGmroi = analysisData.filter(p => p.gmroi > 0).length > 0
             ? analysisData.filter(p => p.gmroi > 0).reduce((s, p) => s + p.gmroi, 0) / analysisData.filter(p => p.gmroi > 0).length
             : 0
+        const avgMargin = analysisData.length > 0
+            ? analysisData.reduce((s, p) => s + p.margin, 0) / analysisData.length
+            : 0
+        const classARevenue = classA.reduce((s, p) => s + p.revenue90d, 0)
+        const classARevenuePct = totalRevenue90d > 0 ? Math.round((classARevenue / totalRevenue90d) * 100) : 0
 
         res.json({
             summary: {
@@ -1083,8 +1121,11 @@ router.get('/inventory-analysis', cacheMiddleware(600), async (req, res) => {
                 totalStockRetail: Math.round(totalStockRetail),
                 totalRevenue90d: Math.round(totalRevenue90d),
                 avgGmroi: Math.round(avgGmroi * 100) / 100,
+                avgMargin: Math.round(avgMargin * 10) / 10,
+                classA: classA.length,
+                classARevenuePct,
                 abc: {
-                    a: { count: classA.length, revenue: Math.round(classA.reduce((s, p) => s + p.revenue90d, 0)), stockCost: Math.round(classA.reduce((s, p) => s + p.stockValueCost, 0)) },
+                    a: { count: classA.length, revenue: Math.round(classARevenue), stockCost: Math.round(classA.reduce((s, p) => s + p.stockValueCost, 0)) },
                     b: { count: classB.length, revenue: Math.round(classB.reduce((s, p) => s + p.revenue90d, 0)), stockCost: Math.round(classB.reduce((s, p) => s + p.stockValueCost, 0)) },
                     c: { count: classC.length, revenue: Math.round(classC.reduce((s, p) => s + p.revenue90d, 0)), stockCost: Math.round(classC.reduce((s, p) => s + p.stockValueCost, 0)) },
                 },

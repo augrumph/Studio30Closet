@@ -68,6 +68,7 @@ const MalinhasDetail = lazyWithRetry(() => import('@/pages/admin/MalinhasDetail'
 const MalinhasForm = lazyWithRetry(() => import('@/pages/admin/MalinhasForm').then(module => ({ default: module.MalinhasForm })))
 const CustomersList = lazyWithRetry(() => import('@/pages/admin/CustomersList').then(module => ({ default: module.CustomersList })))
 const CustomersForm = lazyWithRetry(() => import('@/pages/admin/CustomersForm').then(module => ({ default: module.CustomersForm })))
+const CustomersDetail = lazyWithRetry(() => import('@/pages/admin/CustomersDetail').then(module => ({ default: module.CustomersDetail })))
 const VendasList = lazyWithRetry(() => import('@/pages/admin/VendasList').then(module => ({ default: module.VendasList })))
 const VendasForm = lazyWithRetry(() => import('@/pages/admin/VendasForm').then(module => ({ default: module.VendasForm })))
 // Estoque Inteligente
@@ -156,7 +157,8 @@ function App() {
                                             {/* Clientes */}
                                             <Route path="customers" element={<CustomersList />} />
                                             <Route path="customers/new" element={<CustomersForm />} />
-                                            <Route path="customers/:id" element={<CustomersForm />} />
+                                            <Route path="customers/:id" element={<CustomersDetail />} />
+                                            <Route path="customers/:id/edit" element={<CustomersForm />} />
 
                                             {/* Estoque Inteligente */}
                                             <Route path="stock" element={<StockDashboard />} />

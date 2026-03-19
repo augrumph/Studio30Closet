@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function AlertDialog({
@@ -10,7 +10,8 @@ export function AlertDialog({
     description,
     confirmText = "Confirmar",
     cancelText = "Cancelar",
-    variant = "danger" // danger, warning, info
+    variant = "danger", // danger, warning, info
+    isLoading = false
 }) {
     if (!isOpen) return null
 
@@ -79,20 +80,24 @@ export function AlertDialog({
                             <div className="mt-10 flex flex-col sm:flex-row gap-3">
                                 <button
                                     onClick={onClose}
-                                    className="flex-1 px-6 py-4 rounded-2xl font-bold text-[#4A3B32] border border-gray-100 hover:bg-gray-50 transition-all active:scale-95"
+                                    disabled={isLoading}
+                                    className="flex-1 px-6 py-4 rounded-2xl font-bold text-[#4A3B32] border border-gray-100 hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {cancelText}
                                 </button>
                                 <button
                                     onClick={() => {
+                                        if (isLoading) return
                                         onConfirm()
                                         onClose()
                                     }}
+                                    disabled={isLoading}
                                     className={cn(
-                                        "flex-1 px-6 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95",
+                                        "flex-1 px-6 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2",
                                         buttonClass
                                     )}
                                 >
+                                    {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                                     {confirmText}
                                 </button>
                             </div>

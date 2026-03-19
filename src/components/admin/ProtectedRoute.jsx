@@ -4,13 +4,16 @@ import { useAuthStore } from '@/store/auth-store'
 
 export function ProtectedRoute({ children }) {
     const { isAuthenticated, validateSession } = useAuthStore()
-    const [isValidating, setIsValidating] = useState(true)
+    // If already authenticated from persisted state, don't block rendering
+    const [isValidating, setIsValidating] = useState(!isAuthenticated)
 
     useEffect(() => {
+        // Always validate in background to catch expired tokens
         validateSession().finally(() => setIsValidating(false))
-    }, [validateSession])
+    }, []) // Only on mount — validateSession is a stable Zustand reference
 
-    if (isValidating) return null
+    // Block only if we have no persisted auth AND haven't validated yet
+    if (isValidating && !isAuthenticated) return null
 
     if (!isAuthenticated) {
         return <Navigate to="/admin/login" replace />

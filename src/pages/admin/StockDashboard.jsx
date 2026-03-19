@@ -280,7 +280,7 @@ function OverviewTab() {
 
             setKpis(overview.kpis || { totalValue: 0, totalCost: 0, totalItems: 0, productsCount: 0, lowStockCount: 0 })
             setLowStock(overview.lowStock || [])
-            setDeadStock(overview.deadStock || { count: 0, totalValue: 0 })
+            setDeadStock(overview.deadStock || { count: 0, totalValue: 0, products: [] })
             setTopSellers(salesRanking || { byCategory: [], byColor: [], bySize: [], byProduct: [], byProfit: [] })
         } catch (error) {
             console.error('❌ Erro ao carregar dashboard de estoque:', error)
@@ -288,7 +288,7 @@ function OverviewTab() {
             setKpis({ totalValue: 0, totalCost: 0, totalItems: 0, productsCount: 0, lowStockCount: 0 })
             setTopSellers({ byCategory: [], byColor: [], bySize: [], byProduct: [], byProfit: [] })
             setLowStock([])
-            setDeadStock({ count: 0, totalValue: 0 })
+            setDeadStock({ count: 0, totalValue: 0, products: [] })
         } finally {
             setLoading(false)
             setRefreshing(false)
@@ -556,9 +556,8 @@ function OverviewTab() {
                             <CardTitle className="text-base font-black text-[#4A3B32] flex items-center justify-between">
                                 <span className="flex items-center gap-2">
                                     <Skull className="w-5 h-5 text-red-500" />
-                                    Cemitério (Parado há +60 dias)
+                                    Cemitério — Parado há +60 dias ({deadStock?.count || 0} itens)
                                 </span>
-
                                 <TooltipProvider>
                                     <Tooltip delayDuration={0}>
                                         <TooltipTrigger asChild>
@@ -567,15 +566,15 @@ function OverviewTab() {
                                             </button>
                                         </TooltipTrigger>
                                         <TooltipContent className="max-w-xs bg-[#2A211C] text-white p-3 text-xs shadow-2xl">
-                                            Produtos que estão no estoque há mais de 60 dias. Considere promoções ou liquidações para girar esse estoque parado.
+                                            Produtos com estoque que estão cadastrados há mais de 60 dias. Considere promoções para girar esse estoque parado.
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-8">
+                        <CardContent className="p-0">
                             {deadStock?.count === 0 ? (
-                                <div className="text-center py-8">
+                                <div className="p-12 text-center">
                                     <motion.div
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
@@ -588,22 +587,47 @@ function OverviewTab() {
                                     <p className="text-xs text-gray-400 mt-1">Estoque girando perfeitamente 🎯</p>
                                 </div>
                             ) : (
-                                <motion.div
-                                    initial={{ scale: 0.9, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    className="text-center"
-                                >
-                                    <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-red-100 to-red-200 mb-4 shadow-lg">
-                                        <div className="text-5xl font-black text-red-600">{deadStock?.count || 0}</div>
-                                    </div>
-                                    <p className="text-sm font-bold text-gray-600 mb-1">produtos parados</p>
-                                    <p className="text-xs text-gray-500">≈ {money(deadStock?.totalValue)} em custo imobilizado</p>
-                                    <div className="mt-4 p-3 bg-red-50 rounded-xl border border-red-100">
+                                <>
+                                    <div className="px-5 py-2.5 bg-red-50/60 border-b border-red-100 flex items-center justify-between">
                                         <p className="text-xs text-red-700 font-medium">
-                                            💡 Dica: Considere fazer uma promoção para girar esse estoque
+                                            ≈ {money(deadStock?.totalValue)} em capital imobilizado
                                         </p>
+                                        <p className="text-xs text-red-500 font-bold">💡 Faça uma promoção para girar</p>
                                     </div>
-                                </motion.div>
+                                    <div className="max-h-[320px] overflow-y-auto custom-scrollbar divide-y divide-gray-50">
+                                        {(deadStock?.products || []).map((item, i) => (
+                                            <motion.div
+                                                key={item.id}
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: i * 0.04 }}
+                                                className="px-5 py-3 flex items-center gap-3 hover:bg-red-50/30 transition-colors group"
+                                            >
+                                                <span className="text-xs font-black text-gray-300 w-6 group-hover:text-red-400 transition-colors">#{i + 1}</span>
+                                                <div className="w-12 h-12 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 shadow-sm grayscale group-hover:grayscale-0 transition-all">
+                                                    <img src={getOptimizedImageUrl(item.images?.[0], 100)} className="w-full h-full object-cover" alt="" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold text-[#4A3B32] truncate">{item.name}</p>
+                                                    {item.sizesSummary?.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                            {item.sizesSummary.map(s => (
+                                                                <span key={s.size} className="text-[9px] px-1.5 py-0.5 bg-gray-100 rounded font-bold text-gray-500">
+                                                                    {s.size} ({s.quantity})
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="text-right flex-shrink-0">
+                                                    <span className="text-xs font-black px-2 py-1 rounded-lg bg-red-100 text-red-700">
+                                                        {item.daysInStock}d
+                                                    </span>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                </>
                             )}
                         </CardContent>
                     </Card>

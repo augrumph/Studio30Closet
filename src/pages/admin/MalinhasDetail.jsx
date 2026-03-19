@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Clock, MapPin, Phone, Mail, Package, CheckCircle, Truck, XCircle, Calendar, MessageSquare, ExternalLink, ChevronRight, User, Pencil } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
+import { createInstallments } from '@/lib/api/installments'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -16,6 +17,7 @@ export function MalinhasDetail() {
     const [order, setOrder] = useState(null)
     const [keptItems, setKeptItems] = useState([]) // Array de IDs de produtos/itens que ficaram
     const [showConfirmSale, setShowConfirmSale] = useState(false)
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const [saleConfig, setSaleConfig] = useState({
         paymentMethod: 'pix',
         numInstallments: 1,
@@ -120,6 +122,8 @@ export function MalinhasDetail() {
             toast.error('Não é possível finalizar a venda pois não há cliente associado a este pedido.');
             return;
         }
+        if (isSubmitting) return
+        setIsSubmitting(true)
 
         const itemsToSell = order.items.filter((_, idx) => keptItems.includes(idx))
         const totalKept = itemsToSell.reduce((sum, item) => sum + item.price, 0)
@@ -153,25 +157,32 @@ export function MalinhasDetail() {
             installmentStartDate: isCrediario ? saleConfig.installmentStartDate : null
         }
 
-        const result = await finalizeMalinha(order.id, keptItems, vendaData)
-        if (result.success) {
-            const vendaId = result.id || result.data?.id
-            if (isCrediario && vendaId) {
-                try {
-                    await createInstallments(
-                        vendaId,
-                        saleConfig.numInstallments,
-                        saleConfig.entryPayment,
-                        saleConfig.installmentStartDate
-                    )
-                } catch (e) {
-                    console.error("Erro ao gerar parcelas da malinha", e)
+        try {
+            const result = await finalizeMalinha(order.id, keptItems, vendaData)
+            if (result.success) {
+                const vendaId = result.venda?.id
+                if (isCrediario && vendaId) {
+                    try {
+                        await createInstallments(
+                            vendaId,
+                            saleConfig.numInstallments,
+                            saleConfig.entryPayment,
+                            saleConfig.installmentStartDate
+                        )
+                        toast.success("Venda gerada com sucesso!", { description: "A malinha foi concluída e o estoque atualizado.", icon: "✅" })
+                    } catch (e) {
+                        console.error("Erro ao gerar parcelas da malinha", e)
+                        toast.warning("Venda criada, mas parcelas não foram geradas.", { description: "A venda foi registrada, porém houve um erro ao criar as parcelas do crediário. Crie-as manualmente em Crediário.", icon: "⚠️" })
+                    }
+                } else {
+                    toast.success("Venda gerada com sucesso!", { description: "A malinha foi concluída e o estoque atualizado.", icon: "✅" })
                 }
+                navigate("/admin/vendas")
+            } else {
+                toast.error("Erro ao gerar venda", { description: result.error, icon: "❌" })
             }
-            toast.success("Venda gerada com sucesso!", { description: "A malinha foi concluída e o estoque atualizado.", icon: "✅" });
-            navigate("/admin/vendas");
-        } else {
-            toast.error("Erro ao gerar venda", { description: result.error, icon: "❌" });
+        } finally {
+            setIsSubmitting(false)
         }
     }
 
@@ -505,8 +516,9 @@ export function MalinhasDetail() {
 
             <AlertDialog
                 isOpen={showConfirmSale}
-                onClose={() => setShowConfirmSale(false)}
+                onClose={() => !isSubmitting && setShowConfirmSale(false)}
                 onConfirm={confirmFinalizeSale}
+                isLoading={isSubmitting}
                 title="Configurar Pagamento e Finalizar"
                 description={
                     <div className="space-y-4 mt-4 text-left">

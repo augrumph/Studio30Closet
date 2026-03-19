@@ -45,14 +45,22 @@ router.get('/', async (req, res) => {
                 c.cpf,
                 c.address,
                 c.addresses,
+                c.instagram,
+                c.birth_date,
                 c.created_at,
                 COALESCE(SUM(v.total_value), 0) as lifetime_value,
                 COUNT(v.id) as total_orders,
-                MAX(v.created_at) as last_purchase_date
+                MAX(v.created_at) as last_purchase_date,
+                CASE
+                    WHEN COUNT(v.id) = 0 THEN 'inactive'
+                    WHEN MAX(v.created_at) < NOW() - INTERVAL '60 days' THEN 'churned'
+                    WHEN MAX(v.created_at) < NOW() - INTERVAL '30 days' THEN 'at_risk'
+                    ELSE 'active'
+                END as segment
             FROM customers c
             LEFT JOIN vendas v ON v.customer_id = c.id AND v.payment_status != 'cancelled'
             ${whereClause}
-            GROUP BY c.id, c.name, c.phone, c.email, c.cpf, c.address, c.addresses, c.created_at
+            GROUP BY c.id, c.name, c.phone, c.email, c.cpf, c.address, c.addresses, c.instagram, c.birth_date, c.created_at
             ORDER BY c.name ASC
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `, [...params, limit, offset])
@@ -92,7 +100,13 @@ router.get('/:id', async (req, res) => {
                 c.*,
                 COALESCE(SUM(v.total_value), 0) as lifetime_value,
                 COUNT(v.id) as total_orders,
-                MAX(v.created_at) as last_purchase_date
+                MAX(v.created_at) as last_purchase_date,
+                CASE
+                    WHEN COUNT(v.id) = 0 THEN 'inactive'
+                    WHEN MAX(v.created_at) < NOW() - INTERVAL '60 days' THEN 'churned'
+                    WHEN MAX(v.created_at) < NOW() - INTERVAL '30 days' THEN 'at_risk'
+                    ELSE 'active'
+                END as segment
             FROM customers c
             LEFT JOIN vendas v ON v.customer_id = c.id AND v.payment_status != 'cancelled'
             WHERE c.id = $1
@@ -193,6 +207,39 @@ router.delete('/:id', async (req, res) => {
     } catch (error) {
         console.error(`❌ Erro ao deletar cliente ${id}:`, error)
         res.status(500).json({ error: 'Erro ao deletar cliente' })
+    }
+})
+
+// GET /api/customers/:id/vendas - Histórico de compras do cliente
+router.get('/:id/vendas', async (req, res) => {
+    const { id } = req.params
+
+    try {
+        const { rows } = await pool.query(`
+            SELECT
+                v.id, v.total_value, v.cost_price, v.payment_method, v.payment_status,
+                v.items, v.created_at, v.discount_amount, v.original_total,
+                v.is_installment, v.num_installments, v.entry_payment
+            FROM vendas v
+            WHERE v.customer_id = $1
+            ORDER BY v.created_at DESC
+        `, [id])
+
+        const vendas = rows.map(row => {
+            const camel = toCamelCase(row)
+            return {
+                ...camel,
+                totalValue: parseFloat(camel.totalValue) || 0,
+                costPrice: parseFloat(camel.costPrice) || 0,
+                discountAmount: parseFloat(camel.discountAmount) || 0,
+                items: typeof camel.items === 'string' ? JSON.parse(camel.items || '[]') : (camel.items || [])
+            }
+        })
+
+        res.json(vendas)
+    } catch (error) {
+        console.error(`❌ Erro ao buscar vendas do cliente ${id}:`, error)
+        res.status(500).json({ error: 'Erro ao buscar histórico de compras' })
     }
 })
 

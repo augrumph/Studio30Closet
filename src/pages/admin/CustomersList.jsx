@@ -14,6 +14,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
     Plus, Search, MessageCircle, ShoppingBag, TrendingUp,
     Star, AlertCircle, Phone, Mail, ExternalLink,
@@ -66,8 +67,8 @@ export function CustomersList() {
 
     const metrics = useMemo(() => {
         const vipCustomers = customers.filter(c => {
-            const avgLTV = customers.reduce((sum, cust) => sum + (cust.totalSpent || 0), 0) / customers.length
-            return (c.totalSpent || 0) > avgLTV * 1.5
+            const avgLTV = customers.reduce((sum, cust) => sum + (cust.lifetimeValue || 0), 0) / customers.length
+            return (c.lifetimeValue || 0) > avgLTV * 1.5
         })
 
         const birthdayCustomers = customers.filter(c => {
@@ -122,8 +123,8 @@ export function CustomersList() {
     }
 
     const isVIP = (customer) => {
-        const avgLTV = customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0) / customers.length
-        return (customer.totalSpent || 0) > avgLTV * 1.5
+        const avgLTV = customers.reduce((sum, c) => sum + (c.lifetimeValue || 0), 0) / customers.length
+        return (customer.lifetimeValue || 0) > avgLTV * 1.5
     }
 
     const getInitials = (name) => {
@@ -358,7 +359,7 @@ export function CustomersList() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <AnimatePresence>
                     {filteredCustomers.map((customer, index) => {
-                        const daysSinceLastPurchase = getDaysSinceLastPurchase(customer.lastOrderAt)
+                        const daysSinceLastPurchase = getDaysSinceLastPurchase(customer.lastPurchaseDate)
                         const isBdayToday = isBirthdayToday(customer.birthDate)
                         const isBdayMonth = isBirthdayThisMonth(customer.birthDate)
                         const vip = isVIP(customer)
@@ -443,7 +444,7 @@ export function CustomersList() {
                                             <div className="flex items-center justify-between">
                                                 <span className="text-sm text-gray-600">Total Gasto</span>
                                                 <span className="text-lg font-bold text-green-600">
-                                                    {formatCurrency(customer.totalSpent || 0)}
+                                                    {formatCurrency(customer.lifetimeValue || 0)}
                                                 </span>
                                             </div>
                                             <div className="flex items-center justify-between">
@@ -622,7 +623,7 @@ export function CustomersList() {
                                             <div className="text-center p-3 md:p-4 bg-orange-50 rounded-xl md:rounded-2xl border border-orange-100">
                                                 <p className="text-[10px] md:text-xs text-orange-700 font-medium mb-0.5 md:mb-1 uppercase tracking-wide">Ticket</p>
                                                 <p className="text-base md:text-xl font-bold text-orange-700 leading-tight">
-                                                    {formatCurrency(selectedCustomer.averageOrderValue || 0).replace('R$', '').trim().split(',')[0]}
+                                                    {formatCurrency(selectedCustomer.totalOrders > 0 ? (selectedCustomer.lifetimeValue / selectedCustomer.totalOrders) : 0).replace('R$', '').trim().split(',')[0]}
                                                 </p>
                                             </div>
                                         </div>

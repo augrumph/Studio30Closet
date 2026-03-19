@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { AdminSidebar } from './AdminSidebar'
 import { AdminTopbar } from './AdminTopbar'
@@ -100,7 +100,9 @@ export function AdminLayout() {
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.2 }}
                             >
-                                <Outlet />
+                                <Suspense fallback={<PageSkeleton variant={getSkeletonVariant()} />}>
+                                    <Outlet />
+                                </Suspense>
                             </motion.div>
                         )}
                     </AnimatePresence>

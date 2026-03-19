@@ -5,6 +5,7 @@ import { uploadFile, s3Client } from '../lib/s3.js'
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import sharp from 'sharp'
 import { validateFileUpload } from '../middleware/fileSanitization.js'
+import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 const upload = multer({
@@ -87,8 +88,9 @@ router.get('/', async (req, res) => {
     }
 })
 
-// POST /api/images/upload - Upload image to S3 and update DB
+// POST /api/images/upload - Upload image to S3 and update DB (admin only)
 router.post('/upload',
+    authenticateToken,
     upload.single('image'),
     validateFileUpload({
         allowedTypes: ['images'],
@@ -147,8 +149,8 @@ router.post('/upload',
         }
     })
 
-// PUT /api/images - Update image URL directly
-router.put('/', async (req, res) => {
+// PUT /api/images - Update image URL directly (admin only)
+router.put('/', authenticateToken, async (req, res) => {
     const { fieldName, url } = req.body
 
     if (!fieldName || !url) {

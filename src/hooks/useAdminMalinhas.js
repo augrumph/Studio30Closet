@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { getOrders, getOrderById, createOrder, updateOrder, deleteOrder, updateOrderStatus } from '@/lib/api/orders'
 import { toast } from 'sonner'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Hook to fetch paginated orders (malinhas)
@@ -18,9 +19,7 @@ export function useAdminMalinhas({ page = 1, pageSize = 20, status = 'all', sear
                 dateFilter
             })
 
-            const response = await fetch(`/api/malinhas?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar malinhas do backend')
-            return response.json()
+            return apiClient(`/malinhas?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 2,
     })
@@ -55,9 +54,7 @@ export function useAdminMalinhasKPIs() {
     return useQuery({
         queryKey: ['admin', 'malinhas', 'kpis'],
         queryFn: async () => {
-            const response = await fetch('/api/malinhas/kpis')
-            if (!response.ok) throw new Error('Falha ao buscar KPIs de malinhas')
-            return response.json()
+            return apiClient('/malinhas/kpis')
         },
         staleTime: 1000 * 60 * 2, // 2 minutes
     })

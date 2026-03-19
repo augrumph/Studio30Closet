@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCustomersWithMetrics, getCustomerById, createCustomer, updateCustomer, deleteCustomer } from '@/lib/api/customers'
 import { useState, useEffect } from 'react'
+import { apiClient } from '@/lib/api-client'
 
 
 // Custom hook simples de debounce se não tiver biblioteca instalada
@@ -56,9 +57,7 @@ export function useAdminCustomers(page = 1, limit = 50, searchTerm = '', segment
                 segment: segmentFilter
             })
 
-            const response = await fetch(`/api/customers?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar clientes do backend')
-            return response.json()
+            return apiClient(`/customers?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 5, // 5 min
     })

@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { getEntregas, getEntregaById, getEntregasMetrics, createEntrega, updateEntrega, deleteEntrega, entregas } from '@/lib/api/entregas'
 import { toast } from 'sonner'
+import { apiClient } from '@/lib/api-client'
 
 const ENTREGAS_KEY = 'entregas'
 
@@ -27,9 +28,7 @@ export function useEntregas({ page = 1, pageSize = 20, status = 'all', search = 
                 platform
             })
 
-            const response = await fetch(`/api/entregas?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar entregas do backend')
-            return response.json()
+            return apiClient(`/entregas?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 2, // 2 minutes
     })
@@ -52,9 +51,7 @@ export function useEntregaById(id) {
     return useQuery({
         queryKey: ['entregas', id],
         queryFn: async () => {
-            const response = await fetch(`/api/entregas/${id}`)
-            if (!response.ok) throw new Error('Falha ao buscar entrega')
-            return response.json()
+            return apiClient(`/entregas/${id}`)
         },
         enabled: !!id,
         staleTime: 1000 * 60 * 2,
@@ -68,9 +65,7 @@ export function useEntregasMetrics() {
     return useQuery({
         queryKey: ['entregas', 'metrics'],
         queryFn: async () => {
-            const response = await fetch(`/api/entregas/metrics`)
-            if (!response.ok) throw new Error('Falha ao buscar métricas de entrega')
-            return response.json()
+            return apiClient('/entregas/metrics')
         },
         staleTime: 1000 * 60 * 5, // 5 minute
     })

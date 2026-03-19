@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Hook para buscar vendas com paginação no servidor
@@ -16,9 +17,7 @@ export function useAdminVendas({ page = 1, pageSize = 20, status = 'all', search
                 dateFilter
             })
 
-            const response = await fetch(`/api/vendas?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar vendas do backend')
-            return response.json()
+            return apiClient(`/vendas?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 5, // 5 minutos de cache
     })

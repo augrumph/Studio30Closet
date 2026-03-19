@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { getPurchases, getPurchaseById, createPurchase, updatePurchase, deletePurchase } from '@/lib/api/purchases'
 import { toast } from 'sonner'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Hook to fetch all purchases (Paginated & Filtered via BFF)
@@ -20,9 +21,7 @@ export function useAdminPurchases({ page = 1, pageSize = 20, search = '', period
     const query = useQuery({
         queryKey: ['admin', 'purchases', { page, pageSize, search, period, startDate, endDate }],
         queryFn: async () => {
-            const response = await fetch(`/api/purchases?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar compras do backend')
-            return response.json()
+            return apiClient(`/purchases?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 5, // 5 min
     })
@@ -52,9 +51,7 @@ export function useAdminPurchasesMetrics({ search = '', period = 'all', startDat
     const query = useQuery({
         queryKey: ['admin', 'purchases', 'metrics', { search, period, startDate, endDate }],
         queryFn: async () => {
-            const response = await fetch(`/api/purchases/metrics?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar métricas de compras')
-            return response.json()
+            return apiClient(`/purchases/metrics?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 10,
     })

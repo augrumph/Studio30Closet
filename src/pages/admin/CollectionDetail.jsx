@@ -7,6 +7,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { getCollections } from '@/lib/api/collections'
 import { getOptimizedImageUrl } from '@/lib/image-optimizer'
+import { apiClient } from '@/lib/api-client'
 
 export function CollectionDetail() {
     const { collectionId } = useParams()
@@ -87,13 +88,10 @@ export function CollectionDetail() {
             const currentCollections = product.collectionIds || []
             const newCollections = [...new Set([...currentCollections, parseInt(collectionId)])]
 
-            const response = await fetch(`/api/products/${product.id}`, {
+            await apiClient(`/products/${product.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ collection_ids: newCollections })
+                body: { collection_ids: newCollections }
             })
-
-            if (!response.ok) throw new Error('Erro ao atualizar produto')
 
             setAllProducts(prev => prev.map(p =>
                 p.id === product.id
@@ -119,13 +117,10 @@ export function CollectionDetail() {
             const currentCollections = product.collectionIds || []
             const newCollections = currentCollections.filter(id => id !== parseInt(collectionId))
 
-            const response = await fetch(`/api/products/${product.id}`, {
+            await apiClient(`/products/${product.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ collection_ids: newCollections })
+                body: { collection_ids: newCollections }
             })
-
-            if (!response.ok) throw new Error('Erro ao atualizar produto')
 
             setAllProducts(prev => prev.map(p =>
                 p.id === product.id

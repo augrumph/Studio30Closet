@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { getSuppliers, getSupplierById, createSupplier, updateSupplier, deleteSupplier } from '@/lib/api/suppliers'
 import { toast } from 'sonner'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Hook to fetch all suppliers (Paginated)
@@ -16,9 +17,7 @@ export function useAdminSuppliers({ page = 1, pageSize = 20, search = '' } = {})
                 search
             })
 
-            const response = await fetch(`/api/suppliers?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar fornecedores do backend')
-            return response.json()
+            return apiClient(`/suppliers?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 5, // 5 min
     })

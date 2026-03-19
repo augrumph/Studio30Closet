@@ -3,6 +3,7 @@ import { getOpenInstallmentSales, getInstallmentsByVendaId, registerInstallmentP
 import { updateVenda } from '@/lib/api/vendas'
 import { toast } from 'sonner'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Hook to fetch sales with open installments (crediário) - BFF Paginated
@@ -16,9 +17,7 @@ export function useAdminInstallmentSales({ page = 1, pageSize = 20, status = 'pe
                 pageSize: pageSize.toString(),
                 status
             })
-            const response = await fetch(`/api/installments?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar crediário do backend')
-            return response.json()
+            return apiClient(`/installments?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 2, // 2 min
         keepPreviousData: true
@@ -43,9 +42,7 @@ export function useAdminInstallmentsMetrics({ status = 'pendentes' } = {}) {
         queryKey: ['admin', 'installments', 'metrics', { status }],
         queryFn: async () => {
             const queryParams = new URLSearchParams({ status })
-            const response = await fetch(`/api/installments/metrics?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar métricas')
-            return response.json()
+            return apiClient(`/installments/metrics?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 5
     })
@@ -63,9 +60,7 @@ export function useAdminInstallmentDetails(vendaId) {
     return useQuery({
         queryKey: ['admin', 'installments', vendaId],
         queryFn: async () => {
-            const response = await fetch(`/api/installments/${vendaId}/details`)
-            if (!response.ok) throw new Error('Falha ao buscar detalhes do parcelamento')
-            return response.json()
+            return apiClient(`/installments/${vendaId}/details`)
         },
         enabled: !!vendaId,
         staleTime: 0 // Always fresh

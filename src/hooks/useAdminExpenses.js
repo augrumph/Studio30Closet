@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getFixedExpenses, getFixedExpenseById, createFixedExpense, updateFixedExpense, deleteFixedExpense } from '@/lib/api/expenses'
 import { toast } from 'sonner'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Hook to fetch all expenses
@@ -17,9 +18,7 @@ export function useAdminExpenses({ page = 1, pageSize = 20, search = '' } = {}) 
                 pageSize: pageSize.toString(),
                 search
             })
-            const response = await fetch(`/api/expenses?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar despesas do backend')
-            return response.json()
+            return apiClient(`/expenses?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 60,
         placeholderData: (prev) => prev
@@ -44,9 +43,7 @@ export function useAdminExpensesMetrics({ search = '' } = {}) {
         queryKey: ['admin', 'expenses', 'metrics', { search }],
         queryFn: async () => {
             const queryParams = new URLSearchParams({ search })
-            const response = await fetch(`/api/expenses/metrics?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar métricas de despesas')
-            return response.json()
+            return apiClient(`/expenses/metrics?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 60
     })

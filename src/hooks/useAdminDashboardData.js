@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-// Helper helpers
+import { apiClient } from '@/lib/api-client'
 
 export function useAdminDashboardData(filters = {}) {
     const { period = 'all', start, end } = filters
@@ -8,9 +8,7 @@ export function useAdminDashboardData(filters = {}) {
     const vendasQuery = useQuery({
         queryKey: ['admin', 'all-vendas'],
         queryFn: async () => {
-            const res = await fetch('/api/vendas?pageSize=1000') // Buscar todas para analytics
-            if (!res.ok) throw new Error('Erro ao buscar vendas')
-            const data = await res.json()
+            const data = await apiClient('/vendas?pageSize=1000')
             return data.vendas || []
         },
         staleTime,
@@ -18,41 +16,25 @@ export function useAdminDashboardData(filters = {}) {
 
     const ordersQuery = useQuery({
         queryKey: ['admin', 'all-orders'],
-        queryFn: async () => {
-            const res = await fetch('/api/orders')
-            if (!res.ok) throw new Error('Erro ao buscar pedidos')
-            return res.json()
-        },
+        queryFn: () => apiClient('/orders'),
         staleTime,
     })
 
     const productsQuery = useQuery({
         queryKey: ['admin', 'all-products'],
-        queryFn: async () => {
-            const res = await fetch('/api/products')
-            if (!res.ok) throw new Error('Erro ao buscar produtos')
-            return res.json()
-        },
+        queryFn: () => apiClient('/products'),
         staleTime,
     })
 
     const suppliersQuery = useQuery({
         queryKey: ['admin', 'all-suppliers'],
-        queryFn: async () => {
-            const res = await fetch('/api/suppliers')
-            if (!res.ok) throw new Error('Erro ao buscar fornecedores')
-            return res.json()
-        },
+        queryFn: () => apiClient('/suppliers'),
         staleTime,
     })
 
     const purchasesQuery = useQuery({
         queryKey: ['admin', 'all-purchases'],
-        queryFn: async () => {
-            const res = await fetch('/api/purchases')
-            if (!res.ok) throw new Error('Erro ao buscar compras')
-            return res.json()
-        },
+        queryFn: () => apiClient('/purchases'),
         staleTime,
     })
 
@@ -63,10 +45,7 @@ export function useAdminDashboardData(filters = {}) {
             if (period) params.append('period', period)
             if (start) params.append('start', start)
             if (end) params.append('end', end)
-
-            const response = await fetch(`/api/dashboard/stats?${params.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar métricas do backend')
-            return response.json()
+            return apiClient(`/dashboard/stats?${params.toString()}`)
         },
         staleTime,
     })

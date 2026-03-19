@@ -3,6 +3,8 @@
  * Todas as funções usam GET /api/dashboard/stats como fonte única.
  */
 
+import { apiClient } from '../api-client'
+
 let _statsCache = null
 let _statsCacheTime = 0
 const CACHE_TTL = 60 * 1000 // 1 min local
@@ -15,12 +17,7 @@ async function fetchStats(period = 'all', startDate, endDate) {
     if (startDate) params.set('start', startDate)
     if (endDate) params.set('end', endDate)
 
-    const response = await fetch(`/api/dashboard/stats?${params.toString()}`)
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({}))
-        throw new Error(err.error || `Erro ${response.status}`)
-    }
-    const data = await response.json()
+    const data = await apiClient(`/dashboard/stats?${params.toString()}`)
     _statsCache = data
     _statsCacheTime = now
     return data
@@ -47,7 +44,6 @@ export async function getDashboardMetrics() {
 export const dashboardService = {
     async getKPIs(startDate, endDate) {
         try {
-            // Detectar período baseado nas datas
             const today = new Date()
             const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
 
@@ -75,9 +71,7 @@ export const dashboardService = {
     async getSalesTrend(startDate, endDate) {
         try {
             const stats = await fetchStats('custom', startDate, endDate)
-            // Se o backend não retornar trend, gerar a partir das vendas
             if (stats.salesTrend) return stats.salesTrend
-            // Fallback: agrupar vendas por dia
             const vendas = stats.vendas || []
             const byDay = {}
             vendas.forEach(v => {
@@ -94,9 +88,7 @@ export const dashboardService = {
 
     async getInventoryActions() {
         try {
-            const response = await fetch('/api/stock/alerts')
-            if (!response.ok) return []
-            return response.json()
+            return await apiClient('/stock/alerts')
         } catch {
             return []
         }
@@ -107,9 +99,7 @@ export const dashboardService = {
             const params = new URLSearchParams({ limit: 10 })
             if (startDate) params.set('startDate', startDate)
             if (endDate) params.set('endDate', endDate)
-            const response = await fetch(`/api/customers/top?${params.toString()}`)
-            if (!response.ok) return []
-            return response.json()
+            return await apiClient(`/customers/top?${params.toString()}`)
         } catch {
             return []
         }
@@ -117,9 +107,7 @@ export const dashboardService = {
 
     async getRecentSales() {
         try {
-            const response = await fetch('/api/vendas?page=1&pageSize=10')
-            if (!response.ok) return []
-            const data = await response.json()
+            const data = await apiClient('/vendas?page=1&pageSize=10')
             return (data.items || []).map(v => ({
                 id: v.id,
                 date: v.createdAt,

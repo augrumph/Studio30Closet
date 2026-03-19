@@ -28,6 +28,7 @@ import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
 import { useAdminVendas } from '@/hooks/useAdminVendas'
 import { DiscountsModal } from '@/components/admin/vendas/DiscountsModal'
 import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/lib/api-client'
 
 export function VendasList() {
     // Estado de filtros
@@ -77,9 +78,7 @@ export function VendasList() {
     const { data: allVendasData } = useQuery({
         queryKey: ['admin', 'all-vendas-for-discounts'],
         queryFn: async () => {
-            const response = await fetch('/api/vendas?pageSize=10000')
-            if (!response.ok) throw new Error('Erro ao buscar vendas')
-            const data = await response.json()
+            const data = await apiClient('/vendas?pageSize=10000')
             return data.vendas || []
         },
         staleTime: 1000 * 60 * 5, // 5 minutes

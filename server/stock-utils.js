@@ -102,8 +102,16 @@ export async function updateProductStock(client, productId, quantity, color, siz
         throw new Error(`Insufficient stock for ${product.name} (${variant.colorName}/${variant.sizeStock[sizeIndex].size}). Requested: ${quantity}, Available: ${currentQty}`)
     }
 
-    // Update Quantity
-    variant.sizeStock[sizeIndex].quantity = currentQty + qtyChange
+    // Update Quantity (immutable copy to avoid in-place mutation before DB save)
+    variants = variants.map((v, vi) => {
+        if (vi !== variantIndex) return v
+        return {
+            ...v,
+            sizeStock: v.sizeStock.map((s, si) =>
+                si === sizeIndex ? { ...s, quantity: currentQty + qtyChange } : s
+            )
+        }
+    })
 
     // Recalculate Total Stock (Sum of all sizes in all variants)
     const newTotalStock = variants.reduce((acc, v) =>

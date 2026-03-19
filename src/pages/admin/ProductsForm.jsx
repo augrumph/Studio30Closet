@@ -197,15 +197,21 @@ export function ProductsForm() {
     }, [formData.price, formData.costPrice])
 
     const handleVariantChange = (index, field, value) => {
-        const newVariants = [...formData.variants]
-        newVariants[index][field] = value
-        setFormData(prev => ({ ...prev, variants: newVariants }))
+        setFormData(prev => {
+            const newVariants = [...prev.variants]
+            newVariants[index] = { ...newVariants[index], [field]: value }
+            return { ...prev, variants: newVariants }
+        })
     }
 
     const handleVariantImageChange = (vIndex, iIndex, value) => {
-        const newVariants = [...formData.variants]
-        newVariants[vIndex].images[iIndex] = value
-        setFormData(prev => ({ ...prev, variants: newVariants }))
+        setFormData(prev => {
+            const newVariants = [...prev.variants]
+            const newImages = [...newVariants[vIndex].images]
+            newImages[iIndex] = value
+            newVariants[vIndex] = { ...newVariants[vIndex], images: newImages }
+            return { ...prev, variants: newVariants }
+        })
     }
 
     const addVariant = () => {
@@ -220,12 +226,16 @@ export function ProductsForm() {
 
     const removeVariant = (index) => {
         if (formData.variants.length === 1) return
-        const newVariants = formData.variants.filter((_, i) => i !== index)
-        setFormData(prev => ({ ...prev, variants: newVariants }))
+        setFormData(prev => {
+            if (prev.variants.length === 1) return prev
+            const newVariants = prev.variants.filter((_, i) => i !== index)
+            return { ...prev, variants: newVariants }
+        })
         // Ajustar a aba ativa se necessário
+        const newLength = formData.variants.length - 1
         const currentActiveIndex = parseInt(activeColorTab)
-        if (currentActiveIndex >= newVariants.length) {
-            setActiveColorTab(String(newVariants.length - 1))
+        if (currentActiveIndex >= newLength) {
+            setActiveColorTab(String(newLength - 1))
         } else if (currentActiveIndex === index && currentActiveIndex > 0) {
             setActiveColorTab(String(currentActiveIndex - 1))
         }
@@ -233,15 +243,25 @@ export function ProductsForm() {
     }
 
     const addVariantImage = (vIndex) => {
-        const newVariants = [...formData.variants]
-        newVariants[vIndex].images.push('')
-        setFormData(prev => ({ ...prev, variants: newVariants }))
+        setFormData(prev => {
+            const newVariants = [...prev.variants]
+            newVariants[vIndex] = {
+                ...newVariants[vIndex],
+                images: [...(newVariants[vIndex].images || []), '']
+            }
+            return { ...prev, variants: newVariants }
+        })
     }
 
     const removeVariantImage = (vIndex, iIndex) => {
-        const newVariants = [...formData.variants]
-        newVariants[vIndex].images = newVariants[vIndex].images.filter((_, i) => i !== iIndex)
-        setFormData(prev => ({ ...prev, variants: newVariants }))
+        setFormData(prev => {
+            const newVariants = [...prev.variants]
+            newVariants[vIndex] = {
+                ...newVariants[vIndex],
+                images: newVariants[vIndex].images.filter((_, i) => i !== iIndex)
+            }
+            return { ...prev, variants: newVariants }
+        })
     }
 
     const handleFileChange = async (e, vIndex, iIndex) => {
@@ -297,20 +317,21 @@ export function ProductsForm() {
     // Removido handleSizeToggle - tamanhos são calculados automaticamente
 
     const handleVariantSizeQuantityChange = (vIndex, size, quantity) => {
-        const newVariants = [...formData.variants]
-        const currentSizeStock = newVariants[vIndex].sizeStock || []
+        setFormData(prev => {
+            const newVariants = [...prev.variants]
+            const currentSizeStock = newVariants[vIndex].sizeStock || []
 
-        // Remove existing entry for this size if exists
-        const filteredStock = currentSizeStock.filter(s => s.size !== size)
+            // Remove existing entry for this size if exists
+            const filteredStock = currentSizeStock.filter(s => s.size !== size)
 
-        // Add new entry only if quantity > 0
-        if (quantity > 0) {
-            newVariants[vIndex].sizeStock = [...filteredStock, { size, quantity }]
-        } else {
-            newVariants[vIndex].sizeStock = filteredStock
-        }
+            // Add new entry only if quantity > 0
+            const newSizeStock = quantity > 0
+                ? [...filteredStock, { size, quantity }]
+                : filteredStock
 
-        setFormData(prev => ({ ...prev, variants: newVariants }))
+            newVariants[vIndex] = { ...newVariants[vIndex], sizeStock: newSizeStock }
+            return { ...prev, variants: newVariants }
+        })
     }
 
     const handleSubmit = async (e) => {

@@ -47,6 +47,10 @@ export async function apiClient(endpoint, { body, ...customConfig } = {}) {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}))
+            if (response.status === 401) {
+                const { useAuthStore } = await import('@/store/auth-store')
+                useAuthStore.getState().logout()
+            }
             throw new Error(errorData.error || errorData.message || `Erro na requisição: ${response.status}`)
         }
 

@@ -234,6 +234,8 @@ router.post('/', async (req, res) => {
         // 3. Insert Items
         if (items && items.length) {
             for (const item of items) {
+                if (!item.productId) throw new Error('Item sem productId')
+                if (!item.quantity || item.quantity <= 0) throw new Error('Quantidade de item deve ser maior que zero')
                 await client.query(
                     `INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time)
                      VALUES ($1, $2, $3, $4, $5, $6)`,

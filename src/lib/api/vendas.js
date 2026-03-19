@@ -27,7 +27,7 @@ export async function getVendas(page = 1, limit = 30, filters = {}) {
         vendas: (data.vendas || []).map(v => ({
             ...v,
             customerName: v.customerName || 'Cliente desconhecido',
-            items: v.items || [] // Ensure items array
+            items: typeof v.items === 'string' ? JSON.parse(v.items || '[]') : (v.items || [])
         })),
         total: data.total,
         page: data.page,
@@ -44,7 +44,7 @@ export async function getVendaById(id) {
     return {
         ...data,
         customerName: data.customerName || 'Cliente desconhecido',
-        items: data.items || []
+        items: typeof data.items === 'string' ? JSON.parse(data.items || '[]') : (data.items || [])
     }
 }
 

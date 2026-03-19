@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
+import { authenticateToken } from './middleware/auth.js'
 import { pool } from './db.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -133,27 +134,30 @@ import paymentFeesRouter from './routes/payment-fees.js'
 import settingsRouter from './routes/settings.js'
 import emailRouter from './routes/email.js'
 
-app.use('/api/dashboard', dashboardRouter)
-app.use('/api/vendas', vendasRouter)
-app.use('/api/products', productsRouter)
-app.use('/api/malinhas', malinhasRouter)
-app.use('/api/customers', customersRouter)
-app.use('/api/entregas', entregasRouter)
-app.use('/api/suppliers', suppliersRouter)
-app.use('/api/purchases', purchasesRouter)
-app.use('/api/installments', installmentsRouter)
-app.use('/api/expenses', expensesRouter)
-app.use('/api/analytics', analyticsRouter)
-app.use('/api/stock', stockRouter)
-app.use('/api/images', imagesRouter)
-app.use('/api/orders', ordersRouter)
-app.use('/api/admin-tools', adminToolsRouter)
+// Public routes (no auth required)
 app.use('/api/auth', authRouter)
-app.use('/api/collections', collectionsRouter)
-app.use('/api/materials', materialsRouter)
-app.use('/api/payment-fees', paymentFeesRouter)
-app.use('/api/settings', settingsRouter)
-app.use('/api/email', emailRouter)
+app.use('/api/orders', ordersRouter)          // checkout público
+app.use('/api/analytics', analyticsRouter)    // rastreamento público
+app.use('/api/collections', collectionsRouter) // catálogo público
+app.use('/api/email', emailRouter)            // formulário de contato
+app.use('/api/products', productsRouter)      // catálogo público (writes protegidos internamente)
+
+// Protected admin routes (JWT obrigatório)
+app.use('/api/dashboard', authenticateToken, dashboardRouter)
+app.use('/api/vendas', authenticateToken, vendasRouter)
+app.use('/api/malinhas', authenticateToken, malinhasRouter)
+app.use('/api/customers', authenticateToken, customersRouter)
+app.use('/api/entregas', authenticateToken, entregasRouter)
+app.use('/api/suppliers', authenticateToken, suppliersRouter)
+app.use('/api/purchases', authenticateToken, purchasesRouter)
+app.use('/api/installments', authenticateToken, installmentsRouter)
+app.use('/api/expenses', authenticateToken, expensesRouter)
+app.use('/api/stock', authenticateToken, stockRouter)
+app.use('/api/images', authenticateToken, imagesRouter)
+app.use('/api/admin-tools', authenticateToken, adminToolsRouter)
+app.use('/api/materials', authenticateToken, materialsRouter)
+app.use('/api/payment-fees', authenticateToken, paymentFeesRouter)
+app.use('/api/settings', authenticateToken, settingsRouter)
 
 // Health Check with detailed status
 app.get('/health', async (req, res) => {

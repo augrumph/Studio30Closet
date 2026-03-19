@@ -302,6 +302,7 @@ export function VendasForm() {
             items: [...prev.items, newItem]
         }))
 
+        setProductSearchInput('')
         setProductSearch('')
         toast.success(`${product.name} adicionado`, { duration: 1500 })
     }

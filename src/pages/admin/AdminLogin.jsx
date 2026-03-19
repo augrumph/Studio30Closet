@@ -194,8 +194,7 @@ export function AdminLogin() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.6, duration: 0.5 }}
-                    className="mt-8 text-center"
-                    class="space-y-2"
+                    className="mt-8 text-center space-y-2"
                 >
                     <p className="text-xs text-[#4A3B32]/40 font-medium">
                         🔒 Área restrita - Apenas administradores

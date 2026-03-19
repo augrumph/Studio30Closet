@@ -2,20 +2,31 @@
 import express from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import rateLimit from 'express-rate-limit'
 import { pool } from '../db.js'
 
 import crypto from 'crypto'
 
 const router = express.Router()
 
-// JWT Secret: uses env var if available, otherwise derives a stable secret from a fixed seed.
-// This ensures the server always starts without requiring manual env configuration.
 const JWT_SECRET = process.env.JWT_SECRET
     || crypto.createHash('sha256').update('studio30-admin-jwt-secret-2024').digest('hex')
 
+if (!process.env.JWT_SECRET) {
+    console.warn('⚠️  JWT_SECRET não definido no .env — usando fallback derivado. Defina JWT_SECRET em produção.')
+}
+
+// Rate limiting agressivo para login: 10 tentativas por 15 min por IP
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+})
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body
 
     try {
@@ -27,15 +38,22 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Email ou senha inválidos' })
         }
 
-        // 2. Verificar senha (suporta hash bcrypt e texto plano durante migração)
-        const isPlainMatch = user.password === password;
-        const isHashMatch = await bcrypt.compare(password, user.password).catch(() => false);
+        // 2. Verificar senha — suporta bcrypt e texto plano (migração automática)
+        const isHashMatch = await bcrypt.compare(password, user.password).catch(() => false)
+        const isPlainMatch = !isHashMatch && user.password === password
 
-        if (!isPlainMatch && !isHashMatch) {
+        if (!isHashMatch && !isPlainMatch) {
             return res.status(401).json({ error: 'Email ou senha inválidos' })
         }
 
-        // 3. Gerar Token
+        // 3. Migração automática: se estava em texto plano, salvar como bcrypt
+        if (isPlainMatch) {
+            const hashed = await bcrypt.hash(password, 12)
+            await pool.query('UPDATE admins SET password = $1 WHERE id = $2', [hashed, user.id])
+            console.log(`🔐 Senha do admin ${user.id} migrada para bcrypt automaticamente.`)
+        }
+
+        // 4. Gerar Token
         const token = jwt.sign(
             {
                 id: user.id,

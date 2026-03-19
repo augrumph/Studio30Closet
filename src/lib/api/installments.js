@@ -3,17 +3,15 @@
  * Substitui totalmente as chamadas Supabase anteriores.
  */
 
+import { apiClient } from '../api-client'
+
+// Wrapper para manter compatibilidade com chamadas que usam método explícito
 async function apiFetch(url, options = {}) {
-    const response = await fetch(url, {
-        headers: { 'Content-Type': 'application/json', ...options.headers },
-        ...options,
-        body: options.body ? JSON.stringify(options.body) : undefined
+    const path = url.replace(/^\/api/, '')
+    return apiClient(path, {
+        method: options.method,
+        body: options.body,
     })
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: response.statusText }))
-        throw new Error(err.error || `Erro ${response.status}`)
-    }
-    return response.json()
 }
 
 /**

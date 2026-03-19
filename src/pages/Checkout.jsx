@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Truck, AlertTriangle, User, Phone, Mail, Hash, Calendar, MapPin } from 'lucide-react'
+import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Truck, AlertTriangle, User, Phone, Mail, Hash, Calendar } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
 import { formatMalinhaMessage, generateWhatsAppLink, cn } from '@/lib/utils'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
@@ -26,7 +26,7 @@ function generateOrderNumber(orderId) {
 }
 
 export function Checkout() {
-    const { items, removeItem, clearItems, resetAll, customerData, setCustomerData, setAddressData, resetCustomerData } = useMalinhaStore()
+    const { items, removeItem, clearItems, resetAll, customerData, setCustomerData, resetCustomerData } = useMalinhaStore()
     const { addOrder } = useAdminStore()
     const toast = useToast()
 
@@ -161,40 +161,9 @@ export function Checkout() {
         setCustomerData({ [name]: value })
     }, [setCustomerData])
 
-    const handleAddressChange = useCallback((e) => {
-        const { name, value } = e.target
-        setAddressData({ [name]: value })
-    }, [setAddressData])
-
-    const handleCepChange = async (e) => {
-        let value = e.target.value.replace(/\D/g, '').slice(0, 8)
-        if (value.length > 5) value = value.slice(0, 5) + '-' + value.slice(5)
-        setAddressData({ zipCode: value })
-
-        if (value.replace(/\D/g, '').length === 8) {
-            try {
-                const res = await fetch(`https://viacep.com.br/ws/${value.replace(/\D/g, '')}/json/`)
-                const data = await res.json()
-                if (!data.erro) {
-                    setAddressData({
-                        street: data.logradouro,
-                        neighborhood: data.bairro,
-                        city: data.localidade,
-                        state: data.uf,
-                        complement: data.complemento,
-                        zipCode: value
-                    })
-                    toast.success('Endereço encontrado!')
-                }
-            } catch (err) {
-                console.error(err)
-            }
-        }
-    }
 
     const validateForm = () => {
         const errors = {}
-        const addr = customerData.addresses?.[0] || {}
 
         // Dados Pessoais
         if (!customerData.name?.trim()) errors.name = 'Obrigatório'
@@ -203,14 +172,6 @@ export function Checkout() {
         if (!customerData.cpf?.trim()) errors.cpf = 'Obrigatório'
         if (!customerData.birth_date?.trim()) errors.birth_date = 'Obrigatório'
 
-        // Endereço
-        if (!addr.zipCode?.trim()) errors.zipCode = 'Obrigatório'
-        if (!addr.street?.trim()) errors.street = 'Obrigatório'
-        if (!addr.number?.trim()) errors.number = 'Obrigatório'
-        if (!addr.neighborhood?.trim()) errors.neighborhood = 'Obrigatório'
-        // Complemento é opcional — não validar como obrigatório
-        if (!addr.city?.trim()) errors.city = 'Obrigatório'
-        if (!addr.state?.trim()) errors.state = 'Obrigatório'
 
         setFormErrors(errors)
         return Object.keys(errors).length === 0
@@ -659,130 +620,6 @@ export function Checkout() {
                                                             className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-gray-600 text-base"
                                                         />
                                                     </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* ENDEREÇO DE ENTREGA */}
-                                        <div className="bg-white rounded-2xl shadow-sm border border-[#4A3B32]/5 overflow-hidden">
-                                            <div className="px-6 py-4 border-b border-gray-100">
-                                                <h3 className="flex items-center gap-2 font-display text-lg font-bold text-[#4A3B32]">
-                                                    <MapPin className="w-5 h-5 text-[#C75D3B]" />
-                                                    Endereço de Entrega
-                                                </h3>
-                                            </div>
-                                            <div className="p-6 grid md:grid-cols-6 gap-6">
-                                                {/* CEP */}
-                                                <div className="md:col-span-2">
-                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
-                                                        CEP
-                                                    </label>
-                                                    <input
-                                                        required
-                                                        type="text"
-                                                        name="zipCode"
-                                                        value={customerData.addresses[0]?.zipCode || ''}
-                                                        onChange={handleCepChange}
-                                                        placeholder="00000-000"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
-                                                    />
-                                                </div>
-
-                                                {/* Rua */}
-                                                <div className="md:col-span-4">
-                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
-                                                        Logradouro / Rua
-                                                    </label>
-                                                    <input
-                                                        required
-                                                        type="text"
-                                                        name="street"
-                                                        value={customerData.addresses[0]?.street || ''}
-                                                        onChange={handleAddressChange}
-                                                        placeholder="Av. Paraná"
-                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base ${formErrors.street ? 'ring-2 ring-red-300' : ''}`}
-                                                    />
-                                                </div>
-
-                                                {/* Número */}
-                                                <div className="md:col-span-2">
-                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
-                                                        Número
-                                                    </label>
-                                                    <input
-                                                        required
-                                                        type="text"
-                                                        name="number"
-                                                        value={customerData.addresses[0]?.number || ''}
-                                                        onChange={handleAddressChange}
-                                                        placeholder="123"
-                                                        className={`w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base ${formErrors.number ? 'ring-2 ring-red-300' : ''}`}
-                                                    />
-                                                </div>
-
-                                                {/* Bairro */}
-                                                <div className="md:col-span-2">
-                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
-                                                        Bairro
-                                                    </label>
-                                                    <input
-                                                        required
-                                                        type="text"
-                                                        name="neighborhood"
-                                                        value={customerData.addresses[0]?.neighborhood || ''}
-                                                        onChange={handleAddressChange}
-                                                        placeholder="Centro"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
-                                                    />
-                                                </div>
-
-                                                {/* Complemento */}
-                                                <div className="md:col-span-2">
-                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
-                                                        Complemento
-                                                    </label>
-                                                    <input
-                                                        required
-                                                        type="text"
-                                                        name="complement"
-                                                        value={customerData.addresses[0]?.complement || ''}
-                                                        onChange={handleAddressChange}
-                                                        placeholder="Apto 42"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
-                                                    />
-                                                </div>
-
-                                                {/* Cidade */}
-                                                <div className="md:col-span-3">
-                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
-                                                        Cidade
-                                                    </label>
-                                                    <input
-                                                        required
-                                                        type="text"
-                                                        name="city"
-                                                        value={customerData.addresses[0]?.city || ''}
-                                                        onChange={handleAddressChange}
-                                                        placeholder="Curitiba"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
-                                                    />
-                                                </div>
-
-                                                {/* Estado */}
-                                                <div className="md:col-span-3">
-                                                    <label className="text-xs text-[#4A3B32]/40 uppercase font-bold tracking-widest mb-2 block">
-                                                        Estado
-                                                    </label>
-                                                    <input
-                                                        required
-                                                        type="text"
-                                                        name="state"
-                                                        value={customerData.addresses[0]?.state || ''}
-                                                        onChange={handleAddressChange}
-                                                        placeholder="PR"
-                                                        maxLength="2"
-                                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all uppercase text-base"
-                                                    />
                                                 </div>
                                             </div>
                                         </div>

@@ -26,7 +26,8 @@ import { useAdminDashboardData } from '@/hooks/useAdminDashboardData.js'
 import { CollectionsManagerModal } from '@/components/admin/CollectionsManagerModal'
 import { getActiveCollections } from '@/lib/api/collections'
 import { getOptimizedImageUrl } from '@/lib/image-optimizer'
-
+import { apiClient } from '@/lib/api-client'
+import { useNavigate } from 'react-router-dom'
 console.log("🚀 ProductsList component loaded - v2 [DEBUG]")
 // ...
 
@@ -63,6 +64,7 @@ export function ProductsList() {
         full: false // ⚡ Lite optimization
     })
 
+    const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const [selectedProducts, setSelectedProducts] = useState([])
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, productId: null, productName: '' })
@@ -73,7 +75,9 @@ export function ProductsList() {
     const [collections, setCollections] = useState([])
 
     useEffect(() => {
-        getActiveCollections().then(setCollections).catch(() => { })
+        getActiveCollections().then(setCollections).catch(err => {
+            console.error('Erro ao carregar coleções:', err)
+        })
     }, [])
 
     const requestSort = (key) => {
@@ -137,8 +141,7 @@ export function ProductsList() {
     const [isLoadingSTR, setIsLoadingSTR] = useState(true)
 
     useEffect(() => {
-        fetch('/api/products/metrics/sell-through')
-            .then(res => res.json())
+        apiClient('/products/metrics/sell-through')
             .then(data => {
                 setSellThroughData(data)
                 setIsLoadingSTR(false)
@@ -246,7 +249,7 @@ export function ProductsList() {
                         </motion.button>
                     )}
                     <ShimmerButton
-                        onClick={() => window.location.href = '/admin/products/new'}
+                        onClick={() => navigate('/admin/products/new')}
                         className="px-8 py-4 rounded-2xl font-bold shadow-2xl"
                         shimmerColor="#ffffff"
                         shimmerSize="0.15em"
@@ -668,7 +671,9 @@ export function ProductsList() {
                 onClose={() => {
                     setCollectionsModalOpen(false)
                     // Refresh collections list after closing modal
-                    getActiveCollections().then(setCollections).catch(() => { })
+                    getActiveCollections().then(setCollections).catch(err => {
+                            console.error('Erro ao recarregar coleções:', err)
+                        })
                 }}
             />
         </div>

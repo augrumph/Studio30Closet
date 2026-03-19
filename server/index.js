@@ -56,7 +56,7 @@ app.use(helmet({
                 "https://fonts.gstatic.com"
             ],
             imgSrc: ["'self'", "data:", "https:", "blob:", "https://www.google.com", "https://googleads.g.doubleclick.net"],
-            frameSrc: ["'self'", "https://www.googletagmanager.com"]
+            frameSrc: ["'self'", "https://www.googletagmanager.com", "https://www.instagram.com"]
         }
     }
 }))
@@ -153,7 +153,7 @@ app.use('/api/purchases', authenticateToken, purchasesRouter)
 app.use('/api/installments', authenticateToken, installmentsRouter)
 app.use('/api/expenses', authenticateToken, expensesRouter)
 app.use('/api/stock', authenticateToken, stockRouter)
-app.use('/api/images', authenticateToken, imagesRouter)
+app.use('/api/images', imagesRouter)                     // imagens públicas (catálogo)
 app.use('/api/admin-tools', authenticateToken, adminToolsRouter)
 app.use('/api/materials', authenticateToken, materialsRouter)
 app.use('/api/payment-fees', authenticateToken, paymentFeesRouter)

@@ -265,6 +265,15 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         const inflows = []
         const outflows = []
 
+        // Construir mapa de pagamentos de parcelas por venda (para cálculo correto do saldo devedor)
+        const paidByVenda = new Map()
+        installments.forEach(inst => {
+            const vid = String(inst.venda_id)
+            const payments = inst.installment_payments || []
+            const paid = payments.reduce((s, p) => s + (Number(p.amount_paid) || 0), 0)
+            paidByVenda.set(vid, (paidByVenda.get(vid) || 0) + paid)
+        })
+
         salesToProcess.forEach(v => {
             // Garantir que createdAt é tratado como string para o .startsWith
             const vDateStr = v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt)
@@ -290,15 +299,29 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                         value: net,
                         type: 'Venda'
                     })
+                } else if (isCrediario && Number(v.entryPayment || 0) > 0) {
+                    // Crediário parcelado pago: a entrada foi recebida no momento da venda
+                    // As parcelas em si são contadas no loop de installment_payments abaixo
+                    receivedAmount += Number(v.entryPayment)
+                    inflows.push({
+                        id: `entry-paid-${v.id}`,
+                        date: v.createdAt,
+                        description: `Entrada Venda #${v.id} - ${v.customer_name || 'Cliente'}`,
+                        value: Number(v.entryPayment),
+                        type: 'Venda'
+                    })
                 }
             } else if (v.paymentStatus === 'pending') {
                 totalDevedores++
-                // BUG-10 FIX: Use net amount for debt to match receivedAmount logic
-                valorDevedores += net
 
                 if (isCrediario) {
-                    // FIXED BUG #1: Use net amount for consistency with receivedAmount/valorDevedores
-                    pendingCrediario += net
+                    // CORRETO: saldo devedor = total - entrada - parcelas já pagas
+                    const totalPaidInstallments = paidByVenda.get(String(v.id)) || 0
+                    const actualDue = Math.max(0, (Number(v.totalValue) - Number(v.entryPayment || 0)) - totalPaidInstallments)
+                    valorDevedores += actualDue
+                    pendingCrediario += actualDue
+                } else {
+                    valorDevedores += net
                 }
 
                 if (v.entryPayment > 0) {
@@ -357,6 +380,37 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         // Ordenar fluxos
         inflows.sort((a, b) => new Date(b.date) - new Date(a.date))
         outflows.sort((a, b) => new Date(b.date) - new Date(a.date))
+
+        // Recompras de Fornecedores
+        const purchasesInPeriod = purchases.filter(p => {
+            if (!startDate) return true
+            const pDate = new Date(p.date || p.created_at)
+            return pDate >= new Date(startDate) && (!endDate || pDate <= new Date(endDate))
+        })
+
+        const supplierRepurchasesCount = purchasesInPeriod.length
+        const supplierRepurchasesTotal = purchasesInPeriod.reduce((sum, p) => sum + Number(p.value || 0), 0)
+        const uniqueSuppliersReopurchased = new Set(purchasesInPeriod.map(p => p.supplier_id).filter(Boolean)).size
+
+        // Ciclo de Recompra: média de dias entre pedidos consecutivos por fornecedor (usando todos os dados históricos)
+        const purchasesBySupplier = {}
+        purchases.forEach(p => {
+            if (!p.supplier_id) return
+            if (!purchasesBySupplier[p.supplier_id]) purchasesBySupplier[p.supplier_id] = []
+            purchasesBySupplier[p.supplier_id].push(new Date(p.date || p.created_at))
+        })
+
+        const cycleDays = []
+        Object.values(purchasesBySupplier).forEach(dates => {
+            if (dates.length < 2) return
+            dates.sort((a, b) => a - b)
+            for (let i = 1; i < dates.length; i++) {
+                cycleDays.push((dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24))
+            }
+        })
+        const repurchaseCycleDays = cycleDays.length > 0
+            ? Math.round(cycleDays.reduce((a, b) => a + b, 0) / cycleDays.length)
+            : 0
 
         // Retenção de Malinha
         const malinhaSales = salesToProcess.filter(v => v.orderId)
@@ -457,6 +511,12 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
                     outflows
                 }
             },
+            purchasing: {
+                supplierRepurchasesCount,
+                supplierRepurchasesTotal,
+                uniqueSuppliersReopurchased,
+                repurchaseCycleDays
+            },
             expenses: expenses || [],
             installments: installments || []
         })
@@ -464,6 +524,213 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
     } catch (err) {
         console.error('❌ Erro na API de Dashboard:', err)
         res.status(500).json({ error: 'Erro ao calcular métricas' })
+    }
+})
+
+router.get('/business-overview', cacheMiddleware(120), async (req, res) => {
+    try {
+        const [
+            vendasMonthlyResult,
+            purchasesMonthlyResult,
+            investmentByPersonResult,
+            newCustomersResult,
+            newProductsResult,
+            reconciliationResult,
+            installmentPaymentsResult,
+            pendingCrediarioResult,
+            cpvInventoryResult
+        ] = await Promise.all([
+            // Query A — Monthly faturamento
+            pool.query(`
+                SELECT
+                    TO_CHAR(created_at, 'YYYY-MM') as month_key,
+                    COALESCE(SUM(total_value), 0) as faturamento,
+                    COALESCE(SUM(discount_amount), 0) as descontos,
+                    COUNT(*) as vendas_count
+                FROM vendas
+                WHERE payment_status NOT IN ('cancelled','refuted','returned')
+                AND LOWER(TRIM(COALESCE((SELECT name FROM customers WHERE id = customer_id),''))) != 'amor'
+                GROUP BY 1
+                ORDER BY 1
+            `),
+
+            // Query B — Monthly purchases
+            pool.query(`
+                SELECT
+                    TO_CHAR(date, 'YYYY-MM') as month_key,
+                    COALESCE(SUM(value), 0) as compras_total,
+                    COUNT(*) as compras_count
+                FROM purchases
+                GROUP BY 1
+                ORDER BY 1
+            `),
+
+            // Query C — Investment by person
+            pool.query(`
+                SELECT spent_by, SUM(value) as total, COUNT(*) as count
+                FROM purchases
+                GROUP BY spent_by
+                ORDER BY total DESC
+            `),
+
+            // Query D — New customers per month
+            pool.query(`
+                SELECT TO_CHAR(created_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') as month_key, COUNT(*) as count
+                FROM customers
+                GROUP BY 1
+                ORDER BY 1
+            `),
+
+            // Query E — New products per month
+            pool.query(`
+                SELECT TO_CHAR(created_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') as month_key, COUNT(*) as count
+                FROM products
+                GROUP BY 1
+                ORDER BY 1
+            `),
+
+            // Query F — Reconciliation data
+            pool.query(`
+                SELECT
+                    COALESCE(SUM(total_value), 0) as faturamento_liquido,
+                    COALESCE(SUM(discount_amount), 0) as descontos,
+                    COALESCE(SUM(total_value + COALESCE(discount_amount,0)), 0) as faturamento_bruto,
+                    COALESCE(SUM(CASE WHEN payment_status='paid' AND payment_method NOT IN ('fiado','fiado_parcelado') THEN total_value ELSE 0 END), 0) as recebido_avista,
+                    COALESCE(SUM(CASE WHEN payment_method IN ('fiado','fiado_parcelado') THEN COALESCE(entry_payment,0) ELSE 0 END), 0) as entradas_crediario,
+                    COALESCE(SUM(CASE WHEN payment_status='pending' AND payment_method NOT IN ('fiado','fiado_parcelado') THEN total_value ELSE 0 END), 0) as pending_pagamentos
+                FROM vendas
+                WHERE payment_status NOT IN ('cancelled','refuted','returned')
+                AND LOWER(TRIM(COALESCE((SELECT name FROM customers WHERE id = customer_id),''))) != 'amor'
+            `),
+
+            // Query G — Installment payments received
+            pool.query(`
+                SELECT COALESCE(SUM(ip.payment_amount),0) as parcelas_recebidas
+                FROM installment_payments ip
+                JOIN installments i ON i.id = ip.installment_id
+                JOIN vendas v ON v.id = i.venda_id
+            `),
+
+            // Query H — Pending crediário (remaining)
+            pool.query(`
+                SELECT COALESCE(SUM(i.remaining_amount),0) as pending_crediario
+                FROM installments i
+                JOIN vendas v ON v.id = i.venda_id
+                WHERE i.remaining_amount > 0
+                AND LOWER(TRIM(COALESCE((SELECT name FROM customers WHERE id = v.customer_id),''))) != 'amor'
+            `),
+
+            // Query I — CPV and inventory
+            pool.query(`
+                SELECT
+                    (SELECT COALESCE(SUM((item->>'costPrice')::numeric * (item->>'quantity')::numeric),0)
+                     FROM vendas v2, jsonb_array_elements(v2.items::jsonb) AS item
+                     WHERE v2.payment_status NOT IN ('cancelled','refuted','returned')
+                     AND (item->>'costPrice')::numeric > 0
+                    ) as cpv,
+                    COALESCE(SUM(price * stock),0) as estoque_venda,
+                    COALESCE(SUM(cost_price * stock),0) as estoque_custo,
+                    SUM(stock) as estoque_unidades,
+                    COUNT(*) as estoque_produtos
+                FROM products WHERE active = true AND stock > 0
+            `)
+        ])
+
+        const monthNames = {
+            '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
+            '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago',
+            '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
+        }
+
+        const currentMonthKey = new Date().toISOString().slice(0, 7)
+
+        // Build unique months set
+        const allMonths = new Set()
+        vendasMonthlyResult.rows.forEach(r => allMonths.add(r.month_key))
+        purchasesMonthlyResult.rows.forEach(r => allMonths.add(r.month_key))
+        const sortedMonths = Array.from(allMonths).sort()
+
+        // Index data by month
+        const vendasByMonth = {}
+        vendasMonthlyResult.rows.forEach(r => { vendasByMonth[r.month_key] = r })
+        const purchasesByMonth = {}
+        purchasesMonthlyResult.rows.forEach(r => { purchasesByMonth[r.month_key] = r })
+        const newCustomersByMonth = {}
+        newCustomersResult.rows.forEach(r => { newCustomersByMonth[r.month_key] = r })
+        const newProductsByMonth = {}
+        newProductsResult.rows.forEach(r => { newProductsByMonth[r.month_key] = r })
+
+        const monthly = sortedMonths.map(monthKey => {
+            const [year, month] = monthKey.split('-')
+            const label = `${monthNames[month]}/${year}`
+            const v = vendasByMonth[monthKey] || {}
+            const p = purchasesByMonth[monthKey] || {}
+            const c = newCustomersByMonth[monthKey] || {}
+            const pr = newProductsByMonth[monthKey] || {}
+            return {
+                month_key: monthKey,
+                label,
+                isCurrent: monthKey === currentMonthKey,
+                faturamento: parseFloat(v.faturamento || 0),
+                descontos: parseFloat(v.descontos || 0),
+                vendas_count: parseInt(v.vendas_count || 0),
+                compras_total: parseFloat(p.compras_total || 0),
+                compras_count: parseInt(p.compras_count || 0),
+                novos_clientes: parseInt(c.count || 0),
+                novos_produtos: parseInt(pr.count || 0)
+            }
+        })
+
+        // Investment by person
+        const personLabels = { augusto: 'Augusto', loja: 'Loja', thais: 'Thais' }
+        const totalInvestment = investmentByPersonResult.rows.reduce((sum, r) => sum + parseFloat(r.total || 0), 0)
+        const investmentByPerson = investmentByPersonResult.rows.map(r => ({
+            spent_by: r.spent_by,
+            label: personLabels[r.spent_by] || r.spent_by,
+            total: parseFloat(r.total || 0),
+            count: parseInt(r.count || 0),
+            pct: totalInvestment > 0 ? (parseFloat(r.total || 0) / totalInvestment) * 100 : 0
+        }))
+
+        // Reconciliation
+        const rec = reconciliationResult.rows[0] || {}
+        const cpvData = cpvInventoryResult.rows[0] || {}
+        const faturamentoLiquido = parseFloat(rec.faturamento_liquido || 0)
+        const cpv = parseFloat(cpvData.cpv || 0)
+        const parcelasRecebidas = parseFloat(installmentPaymentsResult.rows[0]?.parcelas_recebidas || 0)
+        const pendingCrediario = parseFloat(pendingCrediarioResult.rows[0]?.pending_crediario || 0)
+
+        const recebidoAvista = parseFloat(rec.recebido_avista || 0)
+        const entradasCrediario = parseFloat(rec.entradas_crediario || 0)
+        const totalRecebido = recebidoAvista + entradasCrediario + parcelasRecebidas
+
+        const margemBrutaPct = faturamentoLiquido > 0
+            ? ((faturamentoLiquido - cpv) / faturamentoLiquido) * 100
+            : 0
+
+        const reconciliation = {
+            faturamento_liquido: faturamentoLiquido,
+            faturamento_bruto: parseFloat(rec.faturamento_bruto || 0),
+            descontos: parseFloat(rec.descontos || 0),
+            recebido_avista: recebidoAvista,
+            entradas_crediario: entradasCrediario,
+            parcelas_recebidas: parcelasRecebidas,
+            total_recebido: totalRecebido,
+            pending_crediario: pendingCrediario,
+            pending_pagamentos: parseFloat(rec.pending_pagamentos || 0),
+            cpv,
+            margem_bruta_pct: margemBrutaPct,
+            estoque_venda: parseFloat(cpvData.estoque_venda || 0),
+            estoque_custo: parseFloat(cpvData.estoque_custo || 0),
+            estoque_unidades: parseInt(cpvData.estoque_unidades || 0),
+            estoque_produtos: parseInt(cpvData.estoque_produtos || 0)
+        }
+
+        res.json({ monthly, investmentByPerson, reconciliation })
+
+    } catch (err) {
+        console.error('❌ Erro na API business-overview:', err)
+        res.status(500).json({ error: 'Erro ao calcular business overview' })
     }
 })
 

@@ -33,13 +33,16 @@ async function calculateInstallmentFields(venda) {
     const today = new Date().toISOString().split('T')[0]
 
     installments.forEach(inst => {
-        const instPaid = parseFloat(inst.paid_amount) || parseFloat(inst.total_paid_via_payments) || 0
-        const instRemaining = parseFloat(inst.remaining_amount) || (parseFloat(inst.original_amount) - instPaid)
+        // FIXED: Always use total_paid_via_payments (from installment_payments JOIN) as source of truth.
+        // Never rely on inst.paid_amount or inst.remaining_amount which may be stale if triggers failed.
+        const instPaid = parseFloat(inst.total_paid_via_payments) || 0
+        const instOriginal = parseFloat(inst.original_amount) || 0
+        const instRemaining = Math.max(0, instOriginal - instPaid)
 
         paidAmount += instPaid
         remainingAmount += instRemaining
 
-        if (inst.status === 'overdue' || (inst.due_date < today && instRemaining > 0)) {
+        if (inst.due_date < today && instRemaining > 0) {
             overdueCount++
         }
     })
@@ -87,6 +90,7 @@ router.get('/', async (req, res) => {
             FROM vendas v
             LEFT JOIN customers c ON c.id = v.customer_id
             WHERE v.payment_method IN ('fiado', 'fiado_parcelado')
+            AND LOWER(TRIM(COALESCE(c.name, ''))) != 'amor'
             ${statusCondition}
             ORDER BY v.created_at DESC
             LIMIT $1 OFFSET $2
@@ -184,6 +188,7 @@ router.get('/metrics', async (req, res) => {
                 GROUP BY i.venda_id
             ) overdue_check ON overdue_check.venda_id = v.id
             WHERE v.payment_method IN ('fiado', 'fiado_parcelado')
+            AND LOWER(TRIM(COALESCE((SELECT name FROM customers WHERE id = v.customer_id), ''))) != 'amor'
             ${statusCondition}
         `)
 
@@ -270,8 +275,10 @@ router.get('/:vendaId/details', async (req, res) => {
         // Calcular resumo
         const totalValue = installmentsData.reduce((sum, inst) => sum + inst.originalAmount, 0)
         const paidAmount = installmentsData.reduce((sum, inst) => sum + inst.paidAmount, 0)
-        const remainingAmount = totalValue - paidAmount
-        const paidPercentage = totalValue > 0 ? Math.round((paidAmount / totalValue) * 100) : 0
+        // Usar soma do remainingAmount por parcela (já limitado a >= 0 pelo trigger)
+        // Nunca calcular como totalValue - paidAmount pois overpagamentos tornariam negativo
+        const remainingAmount = installmentsData.reduce((sum, inst) => sum + inst.remainingAmount, 0)
+        const paidPercentage = totalValue > 0 ? Math.min(100, Math.round((paidAmount / totalValue) * 100)) : 0
 
         res.json({
             installments: installmentsData,
@@ -313,9 +320,19 @@ router.post('/:installmentId/payment', validateInstallmentPayment, async (req, r
 
         const installment = installmentRows[0]
 
-        // 2. VALIDAÇÃO: Verificar se a parcela já está totalmente paga
-        if (installment.status === 'paid' && installment.remaining_amount <= 0) {
-            console.warn(`⚠️ Parcela ${installmentId} já está totalmente paga`)
+        // 2 & 3. VALIDAÇÃO: Calcular saldo REAL a partir dos pagamentos reais (nunca usar coluna stale)
+        const { rows: realRows } = await pool.query(`
+            SELECT GREATEST(0, i.original_amount - COALESCE(SUM(ip.payment_amount), 0)) as real_remaining
+            FROM installments i
+            LEFT JOIN installment_payments ip ON ip.installment_id = i.id
+            WHERE i.id = $1
+            GROUP BY i.id
+        `, [installmentId])
+
+        const remainingAmount = parseFloat(realRows[0]?.real_remaining) || 0
+
+        if (remainingAmount <= 0.01) {
+            console.warn(`⚠️ Parcela ${installmentId} já está totalmente paga (saldo real: ${remainingAmount})`)
             return res.status(400).json({
                 error: 'Parcela já paga',
                 message: 'Esta parcela já foi totalmente paga',
@@ -323,10 +340,8 @@ router.post('/:installmentId/payment', validateInstallmentPayment, async (req, r
             })
         }
 
-        // 3. VALIDAÇÃO: Verificar se o valor do pagamento não ultrapassa o saldo restante
-        const remainingAmount = parseFloat(installment.remaining_amount)
-        if (amount > remainingAmount + 0.01) { // Tolerância de 1 centavo
-            console.error(`❌ Valor do pagamento (R$ ${amount}) ultrapassa saldo restante (R$ ${remainingAmount})`)
+        if (amount > remainingAmount + 0.01) {
+            console.error(`❌ Valor do pagamento (R$ ${amount}) ultrapassa saldo real (R$ ${remainingAmount})`)
             return res.status(400).json({
                 error: 'Valor inválido',
                 message: `Valor do pagamento (R$ ${amount.toFixed(2)}) não pode ultrapassar o saldo restante (R$ ${remainingAmount.toFixed(2)})`,
@@ -335,15 +350,14 @@ router.post('/:installmentId/payment', validateInstallmentPayment, async (req, r
         }
 
         // 4. VERIFICAR DUPLICATAS (idempotência) - evitar double-click
-        const recentWindow = new Date(Date.now() - 30000).toISOString()
+        // Bloqueia pagamentos com mesmo valor e mesma data, independentemente do horário.
         const { rows: duplicates } = await pool.query(`
             SELECT id FROM installment_payments
             WHERE installment_id = $1
             AND payment_amount = $2
             AND payment_date = $3
-            AND created_at >= $4
             LIMIT 1
-        `, [installmentId, amount, date, recentWindow])
+        `, [installmentId, amount, date])
 
         if (duplicates.length > 0) {
             console.warn('🛑 Pagamento duplicado detectado (idempotência)')
@@ -352,7 +366,7 @@ router.post('/:installmentId/payment', validateInstallmentPayment, async (req, r
             return res.json(toCamelCase(current[0]))
         }
 
-        // 5. INSERIR PAGAMENTO - Trigger do banco atualizará automaticamente a parcela
+        // 5. INSERIR PAGAMENTO
         const { rows: paymentRows } = await pool.query(`
             INSERT INTO installment_payments (
                 installment_id, payment_amount, payment_date, payment_method, notes, created_by
@@ -363,7 +377,34 @@ router.post('/:installmentId/payment', validateInstallmentPayment, async (req, r
 
         console.log(`✅ Pagamento ID ${paymentRows[0].id} registrado com sucesso`)
 
-        // 6. BUSCAR PARCELA ATUALIZADA (com paid_amount e remaining_amount recalculados pelo trigger)
+        // 6. RECALCULAR paid_amount, remaining_amount e status da parcela a partir dos pagamentos reais
+        // Não dependemos de trigger — calculamos diretamente para garantir consistência.
+        await pool.query(`
+            UPDATE installments SET
+                paid_amount = (
+                    SELECT COALESCE(SUM(payment_amount), 0)
+                    FROM installment_payments WHERE installment_id = $1
+                ),
+                remaining_amount = GREATEST(0, original_amount - (
+                    SELECT COALESCE(SUM(payment_amount), 0)
+                    FROM installment_payments WHERE installment_id = $1
+                )),
+                status = CASE
+                    WHEN original_amount - (
+                        SELECT COALESCE(SUM(payment_amount), 0)
+                        FROM installment_payments WHERE installment_id = $1
+                    ) <= 0.01 THEN 'paid'
+                    WHEN due_date < CURRENT_DATE AND original_amount - (
+                        SELECT COALESCE(SUM(payment_amount), 0)
+                        FROM installment_payments WHERE installment_id = $1
+                    ) > 0.01 THEN 'overdue'
+                    ELSE 'pending'
+                END,
+                updated_at = NOW()
+            WHERE id = $1
+        `, [installmentId])
+
+        // 7. BUSCAR PARCELA ATUALIZADA
         const { rows: updatedInst } = await pool.query('SELECT * FROM installments WHERE id = $1', [installmentId])
 
         if (updatedInst.length === 0) {
@@ -450,10 +491,11 @@ router.post('/create', async (req, res) => {
 
         // Criar N parcelas
         const insertedInstallments = []
+        const baseDate = new Date(startDate)
+        const baseDayMs = baseDate.getTime()
         for (let i = 0; i < numInstallments; i++) {
-            // Cada parcela vence 30 dias após a anterior
-            const dueDate = new Date(startDate)
-            dueDate.setMonth(dueDate.getMonth() + i)
+            // Cada parcela vence exatamente 30 dias após a anterior (sem bugs de virada de mês)
+            const dueDate = new Date(baseDayMs + i * 30 * 24 * 60 * 60 * 1000)
             const dueDateStr = dueDate.toISOString().split('T')[0]
 
             const { rows: inst } = await pool.query(`
@@ -491,7 +533,6 @@ router.put('/payments/:paymentId', async (req, res) => {
         if (oldRows.length === 0) return res.status(404).json({ error: 'Pagamento não encontrado' })
 
         const oldPayment = oldRows[0]
-        const amountDiff = parseFloat(amount) - parseFloat(oldPayment.payment_amount)
 
         // Atualizar o pagamento
         const { rows: updatedPayment } = await pool.query(`
@@ -505,13 +546,32 @@ router.put('/payments/:paymentId', async (req, res) => {
             RETURNING *
         `, [amount, date, method, notes, paymentId])
 
-        // Atualizar paid_amount da parcela
+        // Recalcular paid_amount e remaining_amount do zero (não usar aritmética em coluna stale)
+        const instId = oldPayment.installment_id
         await pool.query(`
             UPDATE installments SET
-                paid_amount = GREATEST(0, paid_amount + $1),
+                paid_amount = (
+                    SELECT COALESCE(SUM(payment_amount), 0)
+                    FROM installment_payments WHERE installment_id = $1
+                ),
+                remaining_amount = GREATEST(0, original_amount - (
+                    SELECT COALESCE(SUM(payment_amount), 0)
+                    FROM installment_payments WHERE installment_id = $1
+                )),
+                status = CASE
+                    WHEN original_amount - (
+                        SELECT COALESCE(SUM(payment_amount), 0)
+                        FROM installment_payments WHERE installment_id = $1
+                    ) <= 0.01 THEN 'paid'
+                    WHEN due_date < CURRENT_DATE AND original_amount - (
+                        SELECT COALESCE(SUM(payment_amount), 0)
+                        FROM installment_payments WHERE installment_id = $1
+                    ) > 0.01 THEN 'overdue'
+                    ELSE 'pending'
+                END,
                 updated_at = NOW()
-            WHERE id = $2
-        `, [amountDiff, oldPayment.installment_id])
+            WHERE id = $1
+        `, [instId])
 
         res.json(toCamelCase(updatedPayment[0]))
     } catch (error) {
@@ -538,13 +598,32 @@ router.delete('/payments/:paymentId', async (req, res) => {
         // Deletar pagamento
         await pool.query('DELETE FROM installment_payments WHERE id = $1', [paymentId])
 
-        // Reduzir paid_amount da parcela
+        // Recalcular paid_amount, remaining_amount e status a partir dos pagamentos reais restantes
+        const instId = payment[0].installment_id
         await pool.query(`
             UPDATE installments SET
-                paid_amount = GREATEST(0, paid_amount - $1),
+                paid_amount = (
+                    SELECT COALESCE(SUM(payment_amount), 0)
+                    FROM installment_payments WHERE installment_id = $1
+                ),
+                remaining_amount = GREATEST(0, original_amount - (
+                    SELECT COALESCE(SUM(payment_amount), 0)
+                    FROM installment_payments WHERE installment_id = $1
+                )),
+                status = CASE
+                    WHEN original_amount - (
+                        SELECT COALESCE(SUM(payment_amount), 0)
+                        FROM installment_payments WHERE installment_id = $1
+                    ) <= 0.01 THEN 'paid'
+                    WHEN due_date < CURRENT_DATE AND original_amount - (
+                        SELECT COALESCE(SUM(payment_amount), 0)
+                        FROM installment_payments WHERE installment_id = $1
+                    ) > 0.01 THEN 'overdue'
+                    ELSE 'pending'
+                END,
                 updated_at = NOW()
-            WHERE id = $2
-        `, [parseFloat(payment[0].payment_amount), payment[0].installment_id])
+            WHERE id = $1
+        `, [instId])
 
         res.json({ success: true })
     } catch (error) {
@@ -567,20 +646,34 @@ router.put('/:vendaId/pay-full', async (req, res) => {
     try {
         await client.query('BEGIN')
 
-        // 1. Buscar parcelas pendentes DENTRO da transação com lock
-        const { rows: pendingInstallments } = await client.query(
-            "SELECT id, original_amount, remaining_amount FROM installments WHERE venda_id = $1 AND status != 'paid' FOR UPDATE",
-            [vendaId]
-        )
+        // 1. Buscar parcelas pendentes DENTRO da transação com lock, calculando saldo real via payments
+        const { rows: pendingInstallments } = await client.query(`
+            SELECT i.id, i.original_amount,
+                GREATEST(0, i.original_amount - COALESCE((
+                    SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                ), 0)) as real_remaining
+            FROM installments i
+            WHERE i.venda_id = $1 AND i.status != 'paid'
+            FOR UPDATE
+        `, [vendaId])
 
         const today = new Date().toISOString().split('T')[0]
 
         if (pendingInstallments.length > 0) {
             for (const inst of pendingInstallments) {
-                // Use remaining_amount when available, otherwise fall back to original_amount
-                const amountToPay = parseFloat(inst.remaining_amount) > 0
-                    ? parseFloat(inst.remaining_amount)
-                    : parseFloat(inst.original_amount)
+                // Usar saldo REAL calculado a partir dos pagamentos, não a coluna stale
+                const amountToPay = parseFloat(inst.real_remaining) > 0.01
+                    ? parseFloat(inst.real_remaining)
+                    : 0
+
+                if (amountToPay <= 0) {
+                    // Parcela já quitada mas não marcada — apenas atualizar status
+                    await client.query(
+                        "UPDATE installments SET status = 'paid', remaining_amount = 0, paid_amount = original_amount, updated_at = NOW() WHERE id = $1",
+                        [inst.id]
+                    )
+                    continue
+                }
 
                 await client.query(`
                     INSERT INTO installment_payments (installment_id, payment_amount, payment_date, payment_method, notes, created_by)
@@ -654,6 +747,115 @@ router.get('/upcoming', async (req, res) => {
     } catch (error) {
         console.error('❌ Erro ao buscar vencimentos:', error)
         res.status(500).json({ error: 'Erro ao buscar vencimentos' })
+    }
+})
+
+/**
+ * POST /api/installments/repair-balances - Corrigir paid_amount e remaining_amount de TODAS as parcelas
+ * Recalcula a partir dos registros reais em installment_payments.
+ * Executar UMA VEZ para corrigir dados históricos corrompidos.
+ */
+router.post('/repair-balances', async (req, res) => {
+    try {
+        console.log('🔧 Iniciando reparo de saldos de parcelas...')
+
+        const { rowCount } = await pool.query(`
+            UPDATE installments i SET
+                paid_amount = COALESCE((
+                    SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                ), 0),
+                remaining_amount = GREATEST(0, i.original_amount - COALESCE((
+                    SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                ), 0)),
+                status = CASE
+                    WHEN i.original_amount - COALESCE((
+                        SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                    ), 0) <= 0.01 THEN 'paid'
+                    WHEN i.due_date < CURRENT_DATE AND i.original_amount - COALESCE((
+                        SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                    ), 0) > 0.01 THEN 'overdue'
+                    ELSE 'pending'
+                END,
+                updated_at = NOW()
+        `)
+
+        console.log(`✅ ${rowCount} parcelas recalculadas`)
+        res.json({ success: true, repairedCount: rowCount })
+    } catch (error) {
+        console.error('❌ Erro ao reparar saldos:', error)
+        res.status(500).json({ error: 'Erro ao reparar saldos' })
+    }
+})
+
+/**
+ * POST /api/installments/cleanup-duplicates - Remover pagamentos duplicados
+ * Mantém apenas o registro mais antigo (created_at mínimo) por combinação
+ * (installment_id, payment_amount, payment_date). Depois recalcula todos os saldos.
+ */
+router.post('/cleanup-duplicates', async (req, res) => {
+    const client = await pool.connect()
+    try {
+        await client.query('BEGIN')
+
+        // Identificar e deletar duplicatas — mantém o menor id por grupo
+        const { rows: deleted } = await client.query(`
+            DELETE FROM installment_payments
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM installment_payments
+                GROUP BY installment_id, payment_amount, payment_date
+            )
+            RETURNING id, installment_id, payment_amount, payment_date, created_at
+        `)
+
+        // Recalcular todos os saldos a partir dos registros restantes
+        const { rowCount: repaired } = await client.query(`
+            UPDATE installments i SET
+                paid_amount = COALESCE((
+                    SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                ), 0),
+                remaining_amount = GREATEST(0, i.original_amount - COALESCE((
+                    SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                ), 0)),
+                status = CASE
+                    WHEN i.original_amount - COALESCE((
+                        SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                    ), 0) <= 0.01 THEN 'paid'
+                    WHEN i.due_date < CURRENT_DATE AND i.original_amount - COALESCE((
+                        SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
+                    ), 0) > 0.01 THEN 'overdue'
+                    ELSE 'pending'
+                END,
+                updated_at = NOW()
+        `)
+
+        // Marcar vendas onde todas as parcelas estão pagas
+        await client.query(`
+            UPDATE vendas SET payment_status = 'paid', updated_at = NOW()
+            WHERE payment_method IN ('fiado', 'fiado_parcelado')
+            AND payment_status != 'paid'
+            AND id IN (
+                SELECT venda_id FROM installments
+                GROUP BY venda_id
+                HAVING COUNT(*) > 0 AND SUM(CASE WHEN status != 'paid' THEN 1 ELSE 0 END) = 0
+            )
+        `)
+
+        await client.query('COMMIT')
+
+        console.log(`🧹 Limpeza de duplicatas: ${deleted.length} pagamentos removidos, ${repaired} parcelas recalculadas`)
+        res.json({
+            success: true,
+            deletedCount: deleted.length,
+            repairedCount: repaired,
+            deletedPayments: deleted
+        })
+    } catch (error) {
+        await client.query('ROLLBACK')
+        console.error('❌ Erro ao limpar duplicatas:', error)
+        res.status(500).json({ error: 'Erro ao limpar duplicatas' })
+    } finally {
+        client.release()
     }
 })
 

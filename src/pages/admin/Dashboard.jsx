@@ -22,8 +22,12 @@ import { useDashboardMetrics } from '@/hooks/useDashboardMetrics'
 import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics'
 import { useAdminDashboardData } from '@/hooks/useAdminDashboardData' // ⚡ NOVO HOOK OTIMIZADO
 
+import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/lib/api-client'
+
 // Componentes
 import { FinancialScoreboard, CashFlowSection, ParcelinhasModal } from '@/components/admin/dashboard'
+import { BusinessOverview } from '@/components/admin/dashboard/BusinessOverview'
 // import { SitePulse } from '@/components/admin/dashboard/SitePulse' // Movido para página do site
 import { useAnalyticsSummary } from '@/hooks/useAnalytics'
 import { DashboardSkeleton } from '@/components/admin/PageSkeleton'
@@ -51,6 +55,12 @@ export function Dashboard() {
         period: periodFilter,
         start: customDateRange.start,
         end: customDateRange.end
+    })
+
+    const { data: businessOverviewData, isLoading: isLoadingOverview } = useQuery({
+        queryKey: ['dashboard', 'business-overview'],
+        queryFn: () => apiClient('/dashboard/business-overview'),
+        staleTime: 1000 * 120,
     })
 
     const [currentTime, setCurrentTime] = useState(new Date())
@@ -136,12 +146,13 @@ export function Dashboard() {
         const summary = raw.summary || {}
         const operational = raw.operational || {}
         const cashFlow = raw.cashFlow || {}
+        const purchasing = raw.purchasing || {}
 
         return {
             ...summary,
             ...operational,
             ...cashFlow,
-            toReceiveAmount: cashFlow.valorDevedores || 0, // Mapeamento para o componente
+            toReceiveAmount: cashFlow.valorDevedores || 0,
             toReceiveCount: operational.totalDevedores || 0,
             costWarnings: operational.costWarnings || 0,
             receivedAmount: cashFlow.receivedAmount || 0,
@@ -149,7 +160,11 @@ export function Dashboard() {
             averageTicket: operational.averageTicket || 0,
             netRevenue: summary.netRevenue || 0,
             netMarginPercent: summary.netMarginPercent || 0,
-            cashFlowDetails: cashFlow.cashFlowDetails || { inflows: [], outflows: [] }
+            cashFlowDetails: cashFlow.cashFlowDetails || { inflows: [], outflows: [] },
+            supplierRepurchasesCount: purchasing.supplierRepurchasesCount || 0,
+            supplierRepurchasesTotal: purchasing.supplierRepurchasesTotal || 0,
+            uniqueSuppliersReopurchased: purchasing.uniqueSuppliersReopurchased || 0,
+            repurchaseCycleDays: purchasing.repurchaseCycleDays || 0
         }
     }, [dashboardMetricsRaw])
 
@@ -377,6 +392,9 @@ export function Dashboard() {
 
             {/* 3. FINANCIAL SCOREBOARD - DRE GERENCIAL (Componente extraído) */}
             <FinancialScoreboard metrics={financialMetrics} isLoading={isLoading} />
+
+            {/* 3.1 BUSINESS OVERVIEW - Reconciliação, Mensal e Investimento */}
+            <BusinessOverview data={businessOverviewData} isLoading={isLoadingOverview} />
 
             {/* 3. TRENDS & TOP CUSTOMERS */}
             <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">

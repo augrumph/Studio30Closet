@@ -571,7 +571,7 @@ export function Dashboard() {
                                             </motion.div>
                                         </div>
                                         <span className="text-[7px] md:text-[9px] font-bold text-gray-300 uppercase tracking-widest font-mono">
-                                            +{idx}
+                                            {point.date ? point.date.slice(5).replace('-', '/') : `+${idx}`}
                                         </span>
                                     </div>
                                 ))}

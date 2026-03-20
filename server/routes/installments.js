@@ -155,31 +155,25 @@ router.get('/metrics', async (req, res) => {
             statusCondition = "AND v.payment_status = 'paid'"
         }
 
-        // ⚡ Query única agregada em vez de N+1 queries seriais
+        // ⚡ Query única agregada — saldo calculado por parcela com GREATEST(0) em cada uma
+        // para evitar que sobrepagamentos em uma parcela cancelem outras
         const { rows } = await pool.query(`
             SELECT
                 COUNT(DISTINCT v.id) as count,
-                COALESCE(SUM(
-                    GREATEST(0,
-                        (v.total_value - COALESCE(v.entry_payment, 0))
-                        - COALESCE(inst_totals.paid_sum, 0)
-                    )
-                ), 0) as total_due_estimative,
+                COALESCE(SUM(per_inst.inst_remaining), 0) as total_due_estimative,
                 COUNT(DISTINCT CASE WHEN overdue_check.overdue_count > 0 THEN v.id END) as overdue_vendor_count,
-                COALESCE(SUM(CASE WHEN overdue_check.overdue_count > 0
-                    THEN GREATEST(0,
-                        (v.total_value - COALESCE(v.entry_payment, 0))
-                        - COALESCE(inst_totals.paid_sum, 0)
-                    )
-                    ELSE 0 END
-                ), 0) as total_overdue_estimative
+                COALESCE(SUM(CASE WHEN overdue_check.overdue_count > 0 THEN per_inst.inst_remaining ELSE 0 END), 0) as total_overdue_estimative
             FROM vendas v
             LEFT JOIN (
-                SELECT i.venda_id, COALESCE(SUM(ip.payment_amount), 0) as paid_sum
+                SELECT i.venda_id, SUM(GREATEST(0, i.original_amount - COALESCE(ip_sums.paid, 0))) as inst_remaining
                 FROM installments i
-                LEFT JOIN installment_payments ip ON ip.installment_id = i.id
+                LEFT JOIN (
+                    SELECT installment_id, SUM(payment_amount) as paid
+                    FROM installment_payments
+                    GROUP BY installment_id
+                ) ip_sums ON ip_sums.installment_id = i.id
                 GROUP BY i.venda_id
-            ) inst_totals ON inst_totals.venda_id = v.id
+            ) per_inst ON per_inst.venda_id = v.id
             LEFT JOIN (
                 SELECT i.venda_id, COUNT(*) as overdue_count
                 FROM installments i

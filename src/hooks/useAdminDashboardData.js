@@ -38,6 +38,12 @@ export function useAdminDashboardData(filters = {}) {
         staleTime,
     })
 
+    const customersQuery = useQuery({
+        queryKey: ['admin', 'all-customers'],
+        queryFn: () => apiClient('/customers?pageSize=1000'),
+        staleTime,
+    })
+
     const dashboardMetricsQuery = useQuery({
         queryKey: ['admin', 'dashboard-metrics-api', period, start, end],
         queryFn: async () => {
@@ -56,6 +62,7 @@ export function useAdminDashboardData(filters = {}) {
         productsQuery.isLoading ||
         suppliersQuery.isLoading ||
         purchasesQuery.isLoading ||
+        customersQuery.isLoading ||
         dashboardMetricsQuery.isLoading
 
     const isInitialLoading =
@@ -68,7 +75,7 @@ export function useAdminDashboardData(filters = {}) {
         suppliers: suppliersQuery.data?.items || [],
         purchases: purchasesQuery.data?.items || [],
         dashboardMetricsRaw: dashboardMetricsQuery.data || {},
-        customers: [],
+        customers: customersQuery.data?.customers || [],
         isLoading,
         isInitialLoading,
         refetchAll: () => {

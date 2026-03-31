@@ -141,7 +141,7 @@ export function MalinhasDetail() {
                 price: item.price,
                 costPrice: item.costPrice || 0,
                 selectedSize: item.selectedSize,
-                ...(item.selectedColor && { selectedColor: item.selectedColor }),
+                selectedColor: item.selectedColor || 'Padrão',
                 quantity: 1,
                 image: item.image
             })),

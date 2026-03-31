@@ -302,7 +302,10 @@ export function VendasList() {
                     {/* Card de Devedores - DESTAQUE */}
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
                         <Card className="border-red-100 bg-gradient-to-br from-red-50 to-white cursor-pointer hover:shadow-lg transition-all group overflow-hidden relative"
-                            onClick={() => setFilterPaymentStatus('pending')}>
+                            onClick={() => {
+                                setFilterType('fiado_parcelado')
+                                setFilterPaymentStatus('pending')
+                            }}>
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center justify-between w-full">
@@ -435,6 +438,20 @@ export function VendasList() {
                                 )}
                             >
                                 ⚠ Pendentes
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setFilterType('fiado_parcelado')
+                                    setFilterPaymentStatus('pending')
+                                }}
+                                className={cn(
+                                    "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border border-transparent",
+                                    filterType === 'fiado_parcelado' && filterPaymentStatus === 'pending'
+                                        ? "bg-amber-600 text-white shadow-sm"
+                                        : "bg-amber-50 text-amber-600/60 hover:bg-amber-100"
+                                )}
+                            >
+                                💸 Devedores
                             </button>
                         </div>
                     </div>

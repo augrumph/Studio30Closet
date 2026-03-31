@@ -176,10 +176,10 @@ export function VendasForm() {
     }, [formData.items])
 
     // FeeInfo: calculated AFTER subtotal so the hook receives the correct value
-    const feeInfo = usePaymentCalculation({
+    const { feeInfo } = usePaymentCalculation({
         paymentMethod: formData.paymentMethod,
         cardBrand: formData.cardBrand,
-        installments: parcelas,
+        parcelas: parcelas,
         totalValue: subtotal - (parseFloat(formData.discountAmount) || 0),
         paymentStatus: formData.paymentStatus
     })

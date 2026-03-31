@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -57,8 +58,8 @@ router.get('/:id', async (req, res) => {
     }
 })
 
-// POST /api/collections - Create collection
-router.post('/', async (req, res) => {
+// POST /api/collections - Create collection (Admin)
+router.post('/', authenticateToken, async (req, res) => {
     const { title } = req.body
 
     if (!title) {
@@ -87,8 +88,8 @@ router.post('/', async (req, res) => {
     }
 })
 
-// PUT /api/collections/:id - Update collection
-router.put('/:id', async (req, res) => {
+// PUT /api/collections/:id - Update collection (Admin)
+router.put('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
     const { title, active } = req.body
 
@@ -145,8 +146,8 @@ router.put('/:id', async (req, res) => {
     }
 })
 
-// DELETE /api/collections/:id - Delete collection
-router.delete('/:id', async (req, res) => {
+// DELETE /api/collections/:id - Delete collection (Admin)
+router.delete('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
 
     try {

@@ -1,11 +1,12 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { cacheMiddleware } from '../cache.js'
+import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
-// GET /api/analytics/summary - Analytics summary
-router.get('/summary', cacheMiddleware(300), async (req, res) => {
+// GET /api/analytics/summary - Analytics summary (Admin)
+router.get('/summary', authenticateToken, cacheMiddleware(300), async (req, res) => {
     try {
         const { dateRange } = req.query;
         let timeFilter = "NOW() - INTERVAL '7 days'";
@@ -100,8 +101,8 @@ router.get('/summary', cacheMiddleware(300), async (req, res) => {
     }
 })
 
-// GET /api/analytics/products/viewed
-router.get('/products/viewed', cacheMiddleware(300), async (req, res) => {
+// GET /api/analytics/products/viewed (Admin)
+router.get('/products/viewed', authenticateToken, cacheMiddleware(300), async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 10;
         const { rows } = await pool.query(`
@@ -122,8 +123,8 @@ router.get('/products/viewed', cacheMiddleware(300), async (req, res) => {
     }
 });
 
-// GET /api/analytics/products/added-to-cart
-router.get('/products/added-to-cart', cacheMiddleware(300), async (req, res) => {
+// GET /api/analytics/products/added-to-cart (Admin)
+router.get('/products/added-to-cart', authenticateToken, cacheMiddleware(300), async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 10;
         const { rows } = await pool.query(`
@@ -145,8 +146,8 @@ router.get('/products/added-to-cart', cacheMiddleware(300), async (req, res) => 
     }
 });
 
-// GET /api/analytics/events/recent
-router.get('/events/recent', async (req, res) => {
+// GET /api/analytics/events/recent (Admin)
+router.get('/events/recent', authenticateToken, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 20;
         const { rows } = await pool.query(`
@@ -292,8 +293,8 @@ router.post('/abandoned-carts', async (req, res) => {
     }
 })
 
-// DELETE /api/analytics/reset - Clear all analytics data
-router.delete('/reset', async (req, res) => {
+// DELETE /api/analytics/reset - Clear all analytics data (Admin)
+router.delete('/reset', authenticateToken, async (req, res) => {
     try {
         console.log('🧹 Reseting analytics data...')
 

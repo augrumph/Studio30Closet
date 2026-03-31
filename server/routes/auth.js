@@ -10,11 +10,6 @@ import crypto from 'crypto'
 const router = express.Router()
 
 const JWT_SECRET = process.env.JWT_SECRET
-    || crypto.createHash('sha256').update('studio30-admin-jwt-secret-2024').digest('hex')
-
-if (!process.env.JWT_SECRET) {
-    console.warn('⚠️  JWT_SECRET não definido no .env — usando fallback derivado. Defina JWT_SECRET em produção.')
-}
 
 // Rate limiting agressivo para login: 10 tentativas por 15 min por IP
 const loginLimiter = rateLimit({

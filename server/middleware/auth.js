@@ -2,7 +2,10 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 
 const JWT_SECRET = process.env.JWT_SECRET
-    || crypto.createHash('sha256').update('studio30-admin-jwt-secret-2024').digest('hex')
+
+if (!JWT_SECRET) {
+    throw new Error('❌ FATAL: JWT_SECRET não definido. O servidor não pode iniciar sem um segredo JWT em produção.')
+}
 
 export function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization']

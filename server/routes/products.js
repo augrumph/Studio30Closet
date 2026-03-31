@@ -2,6 +2,7 @@ import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { enrichImages } from '../lib/s3.js'
+import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -43,8 +44,8 @@ async function processVariants(variants) {
 router.get('/', async (req, res) => {
     const {
         page = 1,
-        pageSize = 20,
-        search = '',
+        pageSize = req.query.limit || 20, // Suporte a limit ou pageSize
+        search = req.query.searchTerm || '', // Suporte a search ou searchTerm
         category = 'all',
         active = 'all',
         featured,
@@ -124,10 +125,10 @@ router.get('/', async (req, res) => {
 
         const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
 
-        // Lite columns: exclui variants e description (pesados)
+        // Lite columns: exclui variants e description (pesados) e cost_price (sensível)
         const selectColumns = isFull
             ? '*'
-            : 'id, name, price, original_price, cost_price, category, stock, active, collection_ids, created_at, supplier_id, images, is_featured, is_new, is_catalog_featured, is_best_seller'
+            : 'id, name, price, original_price, category, stock, active, collection_ids, created_at, supplier_id, images, is_featured, is_new, is_catalog_featured, is_best_seller'
 
         const { rows } = await pool.query(`
             SELECT COUNT(*) OVER() as total_count, ${selectColumns}
@@ -257,8 +258,8 @@ router.get('/:id', async (req, res) => {
     }
 })
 
-// Criar Produto
-router.post('/', async (req, res) => {
+// Criar Produto (Admin)
+router.post('/', authenticateToken, async (req, res) => {
     try {
         console.log('📝 Creating new product...')
         const data = req.body
@@ -325,8 +326,8 @@ router.post('/', async (req, res) => {
     }
 })
 
-// Atualizar Produto
-router.put('/:id', async (req, res) => {
+// Atualizar Produto (Admin)
+router.put('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
     try {
         console.log(`📝 Updating product ${id}...`)
@@ -398,8 +399,8 @@ router.put('/:id', async (req, res) => {
     }
 })
 
-// Deletar Produto
-router.delete('/:id', async (req, res) => {
+// Deletar Produto (Admin)
+router.delete('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
     try {
         // Bloquear deleção se o produto estiver em malinhas ativas (order_items)
@@ -440,7 +441,7 @@ router.post('/stock-check', async (req, res) => {
 
     try {
         const { rows } = await pool.query(
-            'SELECT id, stock, name, images, price, cost_price, variants FROM products WHERE id = ANY($1)',
+            'SELECT id, stock, name, images, price, variants FROM products WHERE id = ANY($1)',
             [ids]
         )
         res.json(enrichImages(toCamelCase(rows)))

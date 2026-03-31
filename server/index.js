@@ -137,11 +137,11 @@ import emailRouter from './routes/email.js'
 
 // Public routes (no auth required)
 app.use('/api/auth', authRouter)
-app.use('/api/orders', ordersRouter)          // checkout público
-app.use('/api/analytics', analyticsRouter)    // rastreamento público
-app.use('/api/collections', collectionsRouter) // catálogo público
+app.use('/api/orders', ordersRouter)          // checkout público (admin protegido internamente)
+app.use('/api/analytics', analyticsRouter)    // rastreamento público (relatórios protegidos internamente)
+app.use('/api/collections', collectionsRouter) // catálogo público (admin protegido internamente)
 app.use('/api/email', emailRouter)            // formulário de contato
-app.use('/api/products', productsRouter)      // catálogo público (writes protegidos internamente)
+app.use('/api/products', productsRouter)      // catálogo público (writes/costs protegidos internamente)
 
 // Protected admin routes (JWT obrigatório)
 app.use('/api/dashboard', authenticateToken, dashboardRouter)

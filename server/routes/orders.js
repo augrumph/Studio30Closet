@@ -4,6 +4,7 @@ import { toCamelCase } from '../utils.js'
 import { updateProductStock } from '../stock-utils.js'
 import { extractKeyFromUrl, getPresignedUrl, enrichImages } from '../lib/s3.js'
 import { sendNewMalinhaNotification } from '../email-service.js'
+import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -18,13 +19,13 @@ function toSnakeCase(obj) {
     }, {})
 }
 
-// GET /api/orders - List Orders
-router.get('/', async (req, res) => {
+// GET /api/orders - List Orders (Admin)
+router.get('/', authenticateToken, async (req, res) => {
     const {
         page = 1,
         pageSize = 30, // Alterado para 30 padrão (igual frontend original)
         status = 'all',
-        searchTerm = ''
+        searchTerm = req.query.search || '' // Suporte a search ou searchTerm
     } = req.query
 
     const offset = (page - 1) * pageSize // page params already parsed by express query but better to ensure
@@ -93,8 +94,8 @@ router.get('/', async (req, res) => {
     }
 })
 
-// GET /api/orders/:id - Get Order Details
-router.get('/:id', async (req, res) => {
+// GET /api/orders/:id - Get Order Details (Admin)
+router.get('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
 
     try {
@@ -259,8 +260,8 @@ router.post('/', async (req, res) => {
     }
 })
 
-// PUT /api/orders/:id - Update Order with Transaction
-router.put('/:id', async (req, res) => {
+// PUT /api/orders/:id - Update Order with Transaction (Admin)
+router.put('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
     const orderData = req.body
     console.log(`📦 PUT /api/orders/${id} - Updating Order Transactionally`)
@@ -429,8 +430,8 @@ router.put('/:id', async (req, res) => {
     }
 })
 
-// DELETE /api/orders/:id - Delete Order
-router.delete('/:id', async (req, res) => {
+// DELETE /api/orders/:id - Delete Order (Admin)
+router.delete('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
     console.log(`📦 DELETE /api/orders/${id} - Deleting Order`)
 

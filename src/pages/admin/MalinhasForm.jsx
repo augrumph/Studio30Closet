@@ -267,27 +267,24 @@ export function MalinhasForm() {
 
         // console.log('Payload enviado:', payload)
 
-        const action = isEdit ? updateMalinha(parseInt(id), payload) : createMalinha(payload)
+        const action = isEdit
+            ? updateMalinha({ id: parseInt(id), data: payload })
+            : createMalinha(payload)
 
         toast.promise(action, {
             loading: isEdit ? 'Atualizando malinha...' : 'Criando malinha...',
             success: (result) => {
-                if (result.success) {
-                    // Celebration time for successfully submitting the malinha
-                    triggerFireworks()
+                triggerFireworks()
 
-                    // Dispara email de notificação para a admin
-                    sendNewMalinhaEmail({
-                        customerName: formData.customerName,
-                        customerEmail: null,
-                        itemsCount: formData.items.length,
-                        orderId: result.order?.id || (isEdit ? parseInt(id) : null)
-                    }).catch(console.error)
+                sendNewMalinhaEmail({
+                    customerName: formData.customerName,
+                    customerEmail: null,
+                    itemsCount: formData.items.length,
+                    orderId: result?.order?.id || result?.id || (isEdit ? parseInt(id) : null)
+                }).catch(console.error)
 
-                    navigate('/admin/malinhas')
-                    return isEdit ? 'Malinha atualizada!' : 'Malinha criada com sucesso!'
-                }
-                throw new Error(result.error)
+                navigate('/admin/malinhas')
+                return isEdit ? 'Malinha atualizada!' : 'Malinha criada com sucesso!'
             },
             error: (err) => formatUserFriendlyError(err)
         })

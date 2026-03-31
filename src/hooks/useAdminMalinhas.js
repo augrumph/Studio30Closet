@@ -71,7 +71,6 @@ export function useAdminMalinhasMutations() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas'] })
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas', 'kpis'] })
-            toast.success('Malinha criada com sucesso!')
         },
         onError: (error) => {
             toast.error(formatUserFriendlyError(error))
@@ -84,7 +83,6 @@ export function useAdminMalinhasMutations() {
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas'] })
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinhas', 'kpis'] })
             queryClient.invalidateQueries({ queryKey: ['admin', 'malinha', variables.id] })
-            toast.success('Malinha atualizada com sucesso!')
         },
         onError: (error) => {
             toast.error(formatUserFriendlyError(error))

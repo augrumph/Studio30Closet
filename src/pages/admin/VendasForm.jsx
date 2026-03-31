@@ -37,6 +37,7 @@ import { toast } from 'sonner'
 import { InstallmentDetails } from './InstallmentsList'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { getOptimizedImageUrl } from '@/lib/image-optimizer'
+import { apiClient } from '@/lib/api-client'
 
 // Configuração dos métodos de pagamento
 const PAYMENT_METHODS = [
@@ -844,8 +845,7 @@ export function VendasForm() {
                                                             try {
                                                                 // Se não tem variantes (lite), busca o produto completo antes de adicionar
                                                                 if (!product.variants) {
-                                                                    const res = await fetch(`/api/products/${product.id}?full=true`)
-                                                                    const fullProduct = await res.json()
+                                                                    const fullProduct = await apiClient(`/products/${product.id}?full=true`)
                                                                     addProduct(fullProduct)
                                                                 } else {
                                                                     addProduct(product)

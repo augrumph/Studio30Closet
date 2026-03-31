@@ -136,7 +136,7 @@ export function InstallmentDetails({ vendaId }) {
                                                     type="button"
                                                     onClick={() => {
                                                         setSelectedInstallment(installment)
-                                                        setPaymentForm(prev => ({ ...prev, amount: installment.remainingAmount.toFixed(2) })) // Pre-fill amount
+                                                        setPaymentForm(prev => ({ ...prev, amount: (installment.remainingAmount || 0).toFixed(2) }))
                                                         setShowPaymentModal(true)
                                                     }}
                                                     className="px-3 py-1.5 bg-[#C75D3B] text-white text-xs font-bold rounded-lg hover:bg-[#A64D31] transition-colors"

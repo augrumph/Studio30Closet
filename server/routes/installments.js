@@ -430,9 +430,9 @@ router.post('/create', async (req, res) => {
 
         const venda = vendaRows[0]
         const totalValue = parseFloat(venda.total_value) || 0
-        const entryAmt = parseFloat(entryPayment) || parseFloat(venda.entry_payment) || 0
+        const entryAmt = entryPayment != null ? parseFloat(entryPayment) : parseFloat(venda.entry_payment) || 0
         const valorParcelar = Math.max(0, totalValue - entryAmt)
-        const valorParcela = numInstallments > 0 ? valorParcelar / numInstallments : 0
+        const baseAmount = numInstallments > 0 ? Math.floor((valorParcelar / numInstallments) * 100) / 100 : 0
 
         // Criar N parcelas
         const insertedInstallments = []
@@ -443,11 +443,17 @@ router.post('/create', async (req, res) => {
             const dueDate = new Date(baseDayMs + i * 30 * 24 * 60 * 60 * 1000)
             const dueDateStr = dueDate.toISOString().split('T')[0]
 
+            // Última parcela absorve arredondamento (ex: R$100 ÷ 3 = R$33.33 + R$33.33 + R$33.34)
+            const isLast = i === numInstallments - 1
+            const thisAmount = isLast
+                ? (valorParcelar - baseAmount * (numInstallments - 1)).toFixed(2)
+                : baseAmount.toFixed(2)
+
             const { rows: inst } = await pool.query(`
                 INSERT INTO installments (venda_id, installment_number, due_date, original_amount, paid_amount, remaining_amount, status)
                 VALUES ($1, $2, $3, $4, 0, $4, 'pending')
                 RETURNING *
-            `, [vendaId, i + 1, dueDateStr, valorParcela.toFixed(2)])
+            `, [vendaId, i + 1, dueDateStr, thisAmount])
 
             insertedInstallments.push(inst[0])
         }

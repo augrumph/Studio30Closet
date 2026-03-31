@@ -2,7 +2,7 @@ import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { enrichImages } from '../lib/s3.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -40,8 +40,8 @@ async function processVariants(variants) {
     return processedVariants
 }
 
-// Listagem de Produtos com Paginação e Busca
-router.get('/', async (req, res) => {
+// Listagem de Produtos com Paginação e Busca (Público, mas revela custos se Admin)
+router.get('/', optionalAuthenticateToken, async (req, res) => {
     const {
         page = 1,
         pageSize = req.query.limit || 20, // Suporte a limit ou pageSize
@@ -125,8 +125,11 @@ router.get('/', async (req, res) => {
 
         const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
 
+        // Determina se o usuário é admin para ver dados sensíveis (cost_price)
+        const isAdmin = !!req.user; // Token verificado pelo middleware opcional (see below)
+
         // Lite columns: exclui variants e description (pesados) e cost_price (sensível)
-        const selectColumns = isFull
+        const selectColumns = (isFull && isAdmin)
             ? '*'
             : 'id, name, price, original_price, category, stock, active, collection_ids, created_at, supplier_id, images, is_featured, is_new, is_catalog_featured, is_best_seller'
 

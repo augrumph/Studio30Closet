@@ -23,3 +23,22 @@ export function authenticateToken(req, res, next) {
         return res.status(401).json({ error: 'Token inválido ou expirado' })
     }
 }
+
+export function optionalAuthenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(' ')[1]
+
+    if (!token) {
+        return next()
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET)
+        req.user = decoded
+        next()
+    } catch (err) {
+        // No caso opcional, se o token for inválido, apenas ignoramos e tratamos como deslogado
+        console.warn('⚠️ Token inválido em rota opcional ignorado')
+        next()
+    }
+}

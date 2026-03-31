@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { deleteProduct as deleteProductApi, deleteMultipleProducts as deleteMultipleProductsApi, getProductById } from '@/lib/api/products'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Hook para buscar produtos com paginação no servidor

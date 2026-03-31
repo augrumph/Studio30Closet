@@ -30,9 +30,7 @@ export function CollectionDetail() {
             setCollection(col)
 
             // Carregar todos os produtos (via BFF)
-            const response = await fetch('/api/products?pageSize=1000')
-            if (!response.ok) throw new Error('Falha ao buscar produtos')
-            const data = await response.json()
+            const data = await apiClient('/products?pageSize=1000')
 
             // Garantir que temos os itens ativados e o schema esperado
             setAllProducts(data.items || [])

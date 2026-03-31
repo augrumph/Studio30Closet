@@ -85,12 +85,10 @@ export function VendasList() {
     const handleQuickPay = async (id) => {
         setIsPaying(id)
         try {
-            const res = await fetch(`/api/vendas/${id}/pay`, {
+            await apiClient(`/vendas/${id}/pay`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ paymentMethod: 'cash' })
+                body: { paymentMethod: 'cash' }
             })
-            if (!res.ok) throw new Error('Erro ao processar pagamento')
             toast.success('Venda liquidada com sucesso!')
             refetch()
             refetchMetrics()

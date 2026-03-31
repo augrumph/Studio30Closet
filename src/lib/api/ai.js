@@ -3,17 +3,11 @@
  * A chamada à Edge Function do Supabase foi substituída pelo endpoint BFF.
  */
 
+import { apiClient } from '../api-client'
+
 export async function perguntarIA(pergunta) {
-    const response = await fetch('/api/ai/ask', {
+    return apiClient('/ai/ask', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: pergunta })
+        body: { question: pergunta }
     })
-
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: response.statusText }))
-        throw new Error(err.error || 'Erro ao consultar a IA')
-    }
-
-    return response.json()
 }

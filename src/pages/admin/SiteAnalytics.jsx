@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { useQueryClient } from '@tanstack/react-query'
 import { SiteAnalyticsSkeleton } from '@/components/admin/PageSkeleton'
+import { apiClient } from '@/lib/api-client'
 
 // Componente de tooltip clicável
 function InfoTooltip({ text }) {
@@ -119,8 +120,7 @@ export function SiteAnalytics() {
         }
 
         try {
-            const response = await fetch('/api/analytics/reset', { method: 'DELETE' })
-            if (!response.ok) throw new Error('Erro ao resetar dados')
+            await apiClient('/analytics/reset', { method: 'DELETE' })
 
             import('sonner').then(({ toast }) => {
                 toast.success('Métricas resetadas com sucesso!')

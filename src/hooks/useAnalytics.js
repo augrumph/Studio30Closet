@@ -5,6 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Busca resumo de analytics
@@ -14,9 +15,7 @@ export function useAnalyticsSummary(dateRange = 'today') {
         queryKey: ['analytics', 'summary', dateRange],
         queryFn: async () => {
             const queryParams = new URLSearchParams({ dateRange })
-            const response = await fetch(`/api/analytics/summary?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar resumo de analytics')
-            return response.json()
+            return apiClient(`/analytics/summary?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 2, // 2 min
     })
@@ -30,9 +29,7 @@ export function useTopViewedProducts(limit = 10) {
         queryKey: ['analytics', 'top-viewed', limit],
         queryFn: async () => {
             const queryParams = new URLSearchParams({ limit: limit.toString() })
-            const response = await fetch(`/api/analytics/products/viewed?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar produtos mais visualizados')
-            return response.json()
+            return apiClient(`/analytics/products/viewed?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 5,
     })
@@ -46,9 +43,7 @@ export function useTopAddedToCart(limit = 10) {
         queryKey: ['analytics', 'top-cart', limit],
         queryFn: async () => {
             const queryParams = new URLSearchParams({ limit: limit.toString() })
-            const response = await fetch(`/api/analytics/products/added-to-cart?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar produtos mais adicionados')
-            return response.json()
+            return apiClient(`/analytics/products/added-to-cart?${queryParams.toString()}`)
         },
         staleTime: 1000 * 60 * 5,
     })
@@ -60,11 +55,7 @@ export function useTopAddedToCart(limit = 10) {
 export function useAbandonedCarts() {
     return useQuery({
         queryKey: ['analytics', 'abandoned-carts'],
-        queryFn: async () => {
-            const response = await fetch('/api/analytics/carts/abandoned')
-            if (!response.ok) throw new Error('Falha ao buscar carrinhos abandonados')
-            return response.json()
-        },
+        queryFn: () => apiClient('/analytics/carts/abandoned'),
         staleTime: 1000 * 60 * 2,
     })
 }
@@ -77,9 +68,7 @@ export function useRecentEvents(limit = 20) {
         queryKey: ['analytics', 'recent-events', limit],
         queryFn: async () => {
             const queryParams = new URLSearchParams({ limit: limit.toString() })
-            const response = await fetch(`/api/analytics/events/recent?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar eventos recentes')
-            return response.json()
+            return apiClient(`/analytics/events/recent?${queryParams.toString()}`)
         },
         staleTime: 1000 * 30, // 30 segundos
     })

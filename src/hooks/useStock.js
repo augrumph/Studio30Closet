@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/lib/api-client'
 
 /**
  * Hook para verificar estoque de múltiplos itens de uma vez
@@ -11,14 +12,10 @@ export function useStock(items) {
         queryFn: async () => {
             if (productIds.length === 0) return []
 
-            const response = await fetch('/api/products/stock-check', {
+            return apiClient('/products/stock-check', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: productIds })
+                body: { ids: productIds }
             })
-
-            if (!response.ok) throw new Error('Erro ao checar estoque')
-            return response.json()
         },
         // Configuração especial para Checkout
         enabled: productIds.length > 0, // Só roda se tiver itens

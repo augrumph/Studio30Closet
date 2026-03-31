@@ -243,7 +243,7 @@ router.post('/', async (req, res) => {
     }
 })
 
-// PUT /api/vendas/:id - Atualizar venda (atualização completa)
+// PUT /api/vendas/:id - Atualizar venda (atualização completa, com reconciliação de estoque)
 router.put('/:id', async (req, res) => {
     const { id } = req.params
     const {
@@ -265,8 +265,24 @@ router.put('/:id', async (req, res) => {
         items
     } = req.body
 
+    const client = await getClient()
+
     try {
-        const { rows } = await pool.query(`
+        await client.query('BEGIN')
+
+        // 1. Buscar venda original com lock para evitar race condition
+        const { rows: originalRows } = await client.query(
+            'SELECT * FROM vendas WHERE id = $1 FOR UPDATE',
+            [id]
+        )
+
+        if (originalRows.length === 0) {
+            await client.query('ROLLBACK')
+            return res.status(404).json({ error: 'Venda não encontrada' })
+        }
+
+        // 2. Atualizar a venda
+        const { rows } = await client.query(`
             UPDATE vendas SET
                 customer_id = COALESCE($1, customer_id),
                 payment_status = COALESCE($2, payment_status),
@@ -307,9 +323,48 @@ router.put('/:id', async (req, res) => {
             id
         ])
 
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Venda não encontrada' })
+        // 3. Reconciliar estoque apenas se items foram enviados (changed)
+        if (items !== undefined) {
+            const originalItems = typeof originalRows[0].items === 'string'
+                ? JSON.parse(originalRows[0].items || '[]')
+                : (originalRows[0].items || [])
+
+            const newItems = items || []
+
+            console.log(`🔄 Venda #${id} - Reconciliando estoque: ${originalItems.length} itens → ${newItems.length} itens`)
+
+            // Restaurar estoque dos itens originais (best effort — produto pode ter sido deletado)
+            for (const item of originalItems) {
+                if (!item.productId) continue
+                try {
+                    await updateProductStock(
+                        client,
+                        item.productId,
+                        item.quantity || 1,
+                        item.selectedColor || 'Padrão',
+                        item.selectedSize || 'Único',
+                        'restore'
+                    )
+                } catch (stockErr) {
+                    console.warn(`⚠️ Não foi possível restaurar estoque do produto ${item.productId}:`, stockErr.message)
+                }
+            }
+
+            // Reservar estoque dos novos itens (estrito — falha impede a atualização)
+            for (const item of newItems) {
+                if (!item.productId) continue
+                await updateProductStock(
+                    client,
+                    item.productId,
+                    item.quantity || 1,
+                    item.selectedColor || 'Padrão',
+                    item.selectedSize || 'Único',
+                    'reserve'
+                )
+            }
         }
+
+        await client.query('COMMIT')
 
         const updated = toCamelCase(rows[0])
         if (typeof updated.items === 'string') {
@@ -319,8 +374,11 @@ router.put('/:id', async (req, res) => {
         console.log(`✅ Venda #${id} atualizada com sucesso`)
         res.json(enrichImages(updated))
     } catch (error) {
+        await client.query('ROLLBACK')
         console.error(`❌ Erro ao atualizar venda ${id}:`, error)
-        res.status(500).json({ error: 'Erro ao atualizar venda' })
+        res.status(500).json({ error: error.message || 'Erro ao atualizar venda' })
+    } finally {
+        client.release()
     }
 })
 

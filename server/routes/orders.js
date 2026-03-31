@@ -2,7 +2,7 @@ import express from 'express'
 import { pool, getClient } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { updateProductStock } from '../stock-utils.js'
-import { extractKeyFromUrl, getPresignedUrl } from '../lib/s3.js'
+import { extractKeyFromUrl, getPresignedUrl, enrichImages } from '../lib/s3.js'
 import { sendNewMalinhaNotification } from '../email-service.js'
 
 const router = express.Router()
@@ -80,7 +80,7 @@ router.get('/', async (req, res) => {
         })
 
         res.json({
-            orders,
+            orders: enrichImages(orders),
             total,
             page: Number(page),
             pageSize: limit,
@@ -141,36 +141,7 @@ router.get('/:id', async (req, res) => {
 
         const order = toCamelCase(rows[0])
 
-        // Enrich items if needed, or ensure array
-        if (!order.items) order.items = []
-
-        // Convert S3 URLs to presigned URLs and format images
-        order.items = await Promise.all(order.items.map(async (item) => {
-            let imageUrl = 'https://via.placeholder.com/150'
-
-            if (item.images && item.images.length > 0) {
-                const firstImage = item.images[0]
-                // Check if it's an S3 URL that needs signing
-                if (firstImage && firstImage.includes(process.env.S3_ENDPOINT)) {
-                    const key = extractKeyFromUrl(firstImage)
-                    if (key) {
-                        const signedUrl = await getPresignedUrl(key)
-                        imageUrl = signedUrl || firstImage
-                    } else {
-                        imageUrl = firstImage
-                    }
-                } else {
-                    imageUrl = firstImage
-                }
-            }
-
-            return {
-                ...item,
-                image: imageUrl
-            }
-        }))
-
-        res.json(order)
+        res.json(enrichImages(order))
 
     } catch (error) {
         console.error(`❌ Erro ao buscar order ${id}:`, error)

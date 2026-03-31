@@ -891,7 +891,7 @@ export function VendasForm() {
                                                 >
                                                     <div className="w-12 h-12 rounded-lg bg-white overflow-hidden flex-shrink-0">
                                                         {item.image ? (
-                                                            <img src={item.image} alt="" className="w-full h-full object-cover" />
+                                                            <img src={getOptimizedImageUrl(item.image, 200)} alt="" className="w-full h-full object-cover" />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center">
                                                                 <Package className="w-5 h-5 text-[#4A3B32]/20" />

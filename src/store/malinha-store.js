@@ -69,8 +69,21 @@ export const useMalinhaStore = create(
                 return { success: true, message: 'Peça adicionada à malinha!' }
             },
 
-            // Remove item from malinha
-            removeItem: (itemId) => {
+            // Update item in malinha (size, color, etc)
+1:             updateItem: (itemId, updates) => {
+2:                 set((state) => ({
+3:                     items: state.items.map((item) =>
+4:                         item.itemId === itemId ? { ...item, ...updates } : item
+5:                     ),
+6:                 }))
+7: 
+8:                 // 📊 Analytics: Atualizar snapshot
+9:                 const { items } = get()
+10:                 saveCartSnapshot(items)
+11:             },
+12: 
+13:             // Remove item from malinha
+14:             removeItem: (itemId) => {
                 const { items } = get()
                 const removedItem = items.find(item => item.itemId === itemId)
                 const newItems = items.filter(item => item.itemId !== itemId)

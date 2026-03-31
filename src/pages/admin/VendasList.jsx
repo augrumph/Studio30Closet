@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart, AlertTriangle, Loader2 } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from 'sonner'
@@ -55,7 +55,13 @@ export function VendasList() {
     const {
         dashboardMetricsRaw: backendMetrics,
         isLoading: isLoadingMetrics,
-    } = useAdminDashboardData()
+        refetchAll: refetchMetrics
+    } = useAdminDashboardData({
+        period: dateFilter === 'today' ? 'today' : dateFilter === 'month' ? 'currentMonth' : 'all',
+        method: filterType,
+        status: filterPaymentStatus,
+        search: searchTerm
+    })
 
     const {
         data: vendasData,
@@ -73,6 +79,27 @@ export function VendasList() {
     })
 
     const { deleteSale } = useAdminSalesMutations()
+
+    // 🚀 NOVO: Mutação de Depósito/Pagamento Rápido
+    const [isPaying, setIsPaying] = useState(null)
+    const handleQuickPay = async (id) => {
+        setIsPaying(id)
+        try {
+            const res = await fetch(`/api/vendas/${id}/pay`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paymentMethod: 'cash' })
+            })
+            if (!res.ok) throw new Error('Erro ao processar pagamento')
+            toast.success('Venda liquidada com sucesso!')
+            refetch()
+            refetchMetrics()
+        } catch (err) {
+            toast.error(err.message)
+        } finally {
+            setIsPaying(null)
+        }
+    }
 
     // Query para buscar TODAS as vendas (para o modal de descontos)
     const { data: allVendasData } = useQuery({
@@ -520,6 +547,25 @@ export function VendasList() {
                                             </td>
                                             <td className="px-4 md:px-8 py-6 text-center">
                                                 <div className="flex items-center justify-center gap-2">
+                                                    {venda.paymentStatus === 'pending' && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault()
+                                                                if (window.confirm('Marcar esta venda como PAGA agora?')) {
+                                                                    handleQuickPay(venda.id)
+                                                                }
+                                                            }}
+                                                            disabled={isPaying === venda.id}
+                                                            className="p-2.5 bg-emerald-50 border border-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
+                                                            title="Liquidar Venda"
+                                                        >
+                                                            {isPaying === venda.id ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <DollarSign className="w-4 h-4" />
+                                                            )}
+                                                        </button>
+                                                    )}
                                                     <Link
                                                         to={`/admin/vendas/${venda.id}`}
                                                         className="p-2.5 bg-white border border-gray-100 text-[#4A3B32] hover:bg-[#4A3B32] hover:text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"

@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { enrichImages } from '../lib/s3.js'
 
 const router = express.Router()
 
@@ -147,7 +148,7 @@ router.get('/', async (req, res) => {
             }))
 
         res.json({
-            items,
+            items: enrichImages(items),
             total,
             page: Number(page),
             pageSize,
@@ -249,7 +250,7 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Produto não encontrado' })
         }
 
-        res.json(toCamelCase(rows[0]))
+        res.json(enrichImages(toCamelCase(rows[0])))
     } catch (err) {
         console.error(`❌ Erro ao buscar produto ${id}:`, err)
         res.status(500).json({ error: 'Erro ao buscar produto' })
@@ -316,7 +317,7 @@ router.post('/', async (req, res) => {
         ])
 
         console.log(`✅ Product created with ID: ${rows[0].id}`)
-        res.status(201).json(toCamelCase(rows[0]))
+        res.status(201).json(enrichImages(toCamelCase(rows[0])))
 
     } catch (err) {
         console.error('❌ Error creating product:', err)
@@ -389,7 +390,7 @@ router.put('/:id', async (req, res) => {
         }
 
         console.log(`✅ Product ${id} updated`)
-        res.json(toCamelCase(rows[0]))
+        res.json(enrichImages(toCamelCase(rows[0])))
 
     } catch (err) {
         console.error(`❌ Error updating product ${id}:`, err)
@@ -442,7 +443,7 @@ router.post('/stock-check', async (req, res) => {
             'SELECT id, stock, name, images, price, cost_price, variants FROM products WHERE id = ANY($1)',
             [ids]
         )
-        res.json(toCamelCase(rows))
+        res.json(enrichImages(toCamelCase(rows)))
     } catch (err) {
         console.error('❌ Erro no stock-check:', err)
         res.status(500).json({ error: err.message })

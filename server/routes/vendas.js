@@ -3,6 +3,8 @@ import { pool, getClient } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { updateProductStock } from '../stock-utils.js'
 import { asyncHandler, AppError, ValidationError } from '../middleware/errorHandler.js'
+import { enrichImages } from '../lib/s3.js'
+import { payFullVendaLogic } from '../lib/venda-utils.js'
 
 const router = express.Router()
 
@@ -120,7 +122,7 @@ router.get('/', asyncHandler(async (req, res) => {
     })
 
     res.json({
-        vendas,
+        vendas: enrichImages(vendas),
         total,
         page: Number(page),
         pageSize: Number(pageSize),
@@ -153,7 +155,7 @@ router.get('/:id', async (req, res) => {
             venda.items = JSON.parse(venda.items || '[]')
         }
 
-        res.json(venda)
+        res.json(enrichImages(venda))
     } catch (error) {
         console.error(`❌ Erro ao buscar venda ${id}:`, error)
         res.status(500).json({ error: 'Erro ao buscar venda' })
@@ -231,7 +233,7 @@ router.post('/', async (req, res) => {
 
         await client.query('COMMIT')
 
-        res.status(201).json(toCamelCase(novaVenda))
+        res.status(201).json(enrichImages(toCamelCase(novaVenda)))
     } catch (error) {
         await client.query('ROLLBACK')
         console.error('❌ Erro ao criar venda:', error)
@@ -315,12 +317,53 @@ router.put('/:id', async (req, res) => {
         }
 
         console.log(`✅ Venda #${id} atualizada com sucesso`)
-        res.json(updated)
+        res.json(enrichImages(updated))
     } catch (error) {
         console.error(`❌ Erro ao atualizar venda ${id}:`, error)
         res.status(500).json({ error: 'Erro ao atualizar venda' })
     }
 })
+
+// PATCH /api/vendas/:id/pay - Liquidar venda rapidamente
+router.patch('/:id/pay', asyncHandler(async (req, res) => {
+    const { id } = req.params
+    const { paymentMethod = 'cash' } = req.body
+
+    // 1. Buscar a venda para saber o método
+    const { rows: [venda] } = await pool.query('SELECT * FROM vendas WHERE id = $1', [id])
+
+    if (!venda) {
+        throw new AppError('Venda não encontrada', 404)
+    }
+
+    if (venda.payment_status === 'paid') {
+        return res.json({ message: 'Venda já está paga', venda: enrichImages(toCamelCase(venda)) })
+    }
+
+    const isCrediario = ['fiado', 'fiado_parcelado'].includes(venda.payment_method)
+
+    if (isCrediario) {
+        // Usar lógica de quitação total para crediário
+        await payFullVendaLogic(id, paymentMethod === 'cash' ? 'dinheiro' : paymentMethod)
+    } else {
+        // Apenas marcar como pago para outros métodos
+        await pool.query(
+            "UPDATE vendas SET payment_status = 'paid', updated_at = NOW() WHERE id = $1",
+            [id]
+        )
+    }
+
+    // Buscar venda atualizada
+    const { rows: [updated] } = await pool.query(`
+        SELECT v.*, c.name as customer_name
+        FROM vendas v
+        LEFT JOIN customers c ON c.id = v.customer_id
+        WHERE v.id = $1
+    `, [id])
+
+    console.log(`✅ Venda #${id} liquidada com sucesso via ação rápida`)
+    res.json(enrichImages(toCamelCase(updated)))
+}))
 
 // DELETE /api/vendas/:id - Deletar venda (com restauração de estoque)
 router.delete('/:id', async (req, res) => {

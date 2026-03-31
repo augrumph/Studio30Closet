@@ -45,12 +45,15 @@ export function useAdminDashboardData(filters = {}) {
     })
 
     const dashboardMetricsQuery = useQuery({
-        queryKey: ['admin', 'dashboard-metrics-api', period, start, end],
+        queryKey: ['admin', 'dashboard-metrics-api', period, start, end, filters.method, filters.status, filters.search],
         queryFn: async () => {
             const params = new URLSearchParams()
             if (period) params.append('period', period)
             if (start) params.append('start', start)
             if (end) params.append('end', end)
+            if (filters.method && filters.method !== 'all') params.append('method', filters.method)
+            if (filters.status && filters.status !== 'all') params.append('status', filters.status)
+            if (filters.search) params.append('search', filters.search)
             return apiClient(`/dashboard/stats?${params.toString()}`)
         },
         staleTime,

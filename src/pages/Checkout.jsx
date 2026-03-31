@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, Plus, ArrowLeft, MessageCircle, ShoppingBag, Check, Truck, AlertTriangle, User, Phone, Mail, Hash, Calendar } from 'lucide-react'
 import { useMalinhaStore } from '@/store/malinha-store'
-import { formatMalinhaMessage, generateWhatsAppLink, cn } from '@/lib/utils'
+import { formatMalinhaMessage, generateWhatsAppLink, cn, formatPrice } from '@/lib/utils'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { useAdminStore } from '@/store/admin-store'
 import { Badge } from '@/components/ui/Badge'
@@ -26,8 +26,130 @@ function generateOrderNumber(orderId) {
 }
 
 export function Checkout() {
-    const { items, removeItem, clearItems, resetAll, customerData, setCustomerData, resetCustomerData } = useMalinhaStore()
+    const { items, removeItem, updateItem, clearItems, resetAll, customerData, setCustomerData, resetCustomerData } = useMalinhaStore()
     const { addOrder } = useAdminStore()
+    const toast = useToast()
+
+    const [step, setStep] = useState(items.length > 0 ? 1 : 0)
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [successOrder, setSuccessOrder] = useState(null)
+    const [formErrors, setFormErrors] = useState({})
+
+    const handleUpdateItem = (itemId, productId, newSize, newColor) => {
+        const product = productsMap[productId]
+        if (!product) return
+
+        const updates = {
+            selectedSize: newSize,
+            selectedColor: newColor
+        }
+
+        // Se mudou a cor, precisamos atualizar a imagem também
+        if (newColor) {
+            const variant = product.variants?.find(v =>
+                (v.colorName || '').toLowerCase().trim() === (newColor || '').toLowerCase().trim()
+            )
+            if (variant?.images?.length > 0) {
+                updates.image = variant.images[0]
+            }
+        }
+
+        updateItem(itemId, updates)
+        toast.success('Peça atualizada!')
+    }
+
+    // 🧹 Limpar dados de cliente antigos do localStorage ao iniciar novo checkout
+    // Isso resolve o bug de dados do cliente anterior (ex: "Larissa") persistindo
+    const hasCleanedOldData = useRef(false)
+    useEffect(() => {
+        if (!hasCleanedOldData.current && items.length > 0 && !customerData.name) {
+            // Se tem items mas não tem nome preenchido, garantir que dados antigos estejam limpos
+            hasCleanedOldData.current = true
+            resetCustomerData()
+        }
+    }, [])
+
+    // ⚡ REACT QUERY: Validação de Estoque e Busca de Dados em Tempo Real
+    // Substitui o useEffect manual de fetchProductData
+    const { data: productsData = [], isLoading: loadingProducts } = useStock(items)
+
+    // Mapa de produtos para acesso rápido
+    const productsMap = useMemo(() => {
+        return productsData.reduce((acc, p) => ({ ...acc, [p.id]: p }), {})
+    }, [productsData])
+
+    // Detectar itens sem estoque (verifica variante específica cor+tamanho)
+    const outOfStockItems = useMemo(() => {
+        return items.filter(item => {
+            const product = productsMap[item.productId]
+            if (!product) return false
+
+            // Verificar estoque da variante específica (cor + tamanho)
+            if (product.variants?.length > 0 && item.selectedColor && item.selectedSize) {
+                const variant = product.variants.find(v =>
+                    (v.colorName || '').toLowerCase().trim() === (item.selectedColor || '').toLowerCase().trim()
+                )
+                if (variant?.sizeStock) {
+                    const sizeEntry = variant.sizeStock.find(s =>
+                        (s.size || '').toLowerCase().trim() === (item.selectedSize || '').toLowerCase().trim()
+                    )
+                    return !sizeEntry || sizeEntry.quantity <= 0
+                }
+            }
+
+            // Fallback: checar stock total do produto
+            return product.stock <= 0
+        })
+    }, [items, productsMap])
+
+    // Consolidar itens da malinha com dados do produto
+    const groupedItems = useMemo(() => {
+        const itemSummary = items.reduce((acc, item) => {
+            const product = productsMap[item.productId] || {}
+
+            // Agrupar por Nome + Tamanho + Cor (para não mesclar cores diferentes)
+            const key = `${product.name || 'Produto'}-${item.selectedSize}-${item.selectedColor || 'default'}`
+
+            if (acc[key]) {
+                acc[key].count += 1
+                acc[key].itemIds.push(item.itemId)
+            } else {
+                acc[key] = {
+                    id: item.productId,
+                    itemId: item.itemId,
+                    name: product.name || 'Produto indisponível',
+                    price: product.price || 0,
+                    // Tentar encontrar a imagem da variante selecionada (Case Insensitive & Robust)
+                    image: (() => {
+                        // 1. Tentar usar a imagem salva no momento da adição (Mais preciso)
+                        if (item.image) return item.image
+
+                        // 2. Fallback: Tentar encontrar via lógica de cores (para itens antigos)
+                        const targetColor = item.selectedColor?.toLowerCase().trim()
+                        if (targetColor && product.variants && Array.isArray(product.variants)) {
+                            // Tenta encontrar cor correspondente (suporta camelCase e snake_case)
+                            const variant = product.variants.find(v => {
+                                const vColor = (v.colorName || v.color_name || '').toLowerCase().trim()
+                                return vColor === targetColor
+                            })
+                            // Se achou variante e tem imagem, usa ela
+                            if (variant?.images?.length > 0) return variant.images[0]
+                        }
+                        // 3. Fallback final: Imagem principal do produto
+                        return product.images?.[0] || 'https://via.placeholder.com/300x400?text=Produto'
+                    })(),
+                    selectedSize: item.selectedSize,
+                    selectedColor: item.selectedColor,
+                    count: 1,
+                    itemIds: [item.itemId],
+                    stock: product.stock !== undefined ? product.stock : 999,
+                    costPrice: product.costPrice || product.cost_price || 0
+                }
+            }
+            return acc
+        }, {})
+        return Object.values(itemSummary)
+    }, [items, productsMap])
     const toast = useToast()
 
     const [step, setStep] = useState(items.length > 0 ? 1 : 0)
@@ -485,28 +607,101 @@ export function Checkout() {
                                         {loadingProducts ? (
                                             <div className="py-12 text-center text-gray-400">Carregando detalhes...</div>
                                         ) : (
-                                            groupedItems.map((item) => (
-                                                <div key={item.itemIds[0]} className={`flex gap-4 p-3 rounded-xl border ${item.stock <= 0 ? 'border-red-200 bg-red-50/50' : 'border-gray-100 bg-white'}`}>
-                                                    <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                                                        <img src={getOptimizedImageUrl(item.image, 200)} alt={item.name} className="w-full h-full object-cover" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
-                                                        <div>
-                                                            <div className="flex justify-between items-start">
-                                                                <h3 className="font-bold text-[#4A3B32] text-sm truncate pr-2">{item.name}</h3>
-                                                                <button onClick={() => removeItem(item.itemIds[0])} className="text-gray-400 hover:text-red-500 p-1" aria-label="Remover item">
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
+                                            groupedItems.map((item) => {
+                                                const product = productsMap[item.id] || {}
+                                                const variants = product.variants || []
+                                                
+                                                // Cores disponíveis (tem que ter algum estoque em algum tamanho)
+                                                const availableColors = variants.filter(v => 
+                                                    v.sizeStock?.some(s => s.quantity > 0)
+                                                )
+
+                                                // Tamanhos disponíveis para a cor selecionada (ou atual)
+                                                const currentVariant = variants.find(v => 
+                                                    (v.colorName || '').toLowerCase().trim() === (item.selectedColor || '').toLowerCase().trim()
+                                                )
+                                                const availableSizes = currentVariant?.sizeStock
+                                                    ?.filter(s => s.quantity > 0)
+                                                    ?.map(s => s.size) || []
+
+                                                return (
+                                                    <div key={item.itemIds[0]} className={`flex flex-col sm:flex-row gap-4 p-4 rounded-2xl border transition-all ${item.stock <= 0 ? 'border-red-200 bg-red-50/50' : 'border-gray-100 bg-white shadow-sm hover:shadow-md'}`}>
+                                                        <div className="flex gap-4 flex-1">
+                                                            <div className="w-20 h-28 bg-gray-100 rounded-xl overflow-hidden shrink-0 shadow-inner">
+                                                                <img src={getOptimizedImageUrl(item.image, 200)} alt={item.name} className="w-full h-full object-cover" />
                                                             </div>
-                                                            <div className="flex gap-2 mt-1">
-                                                                <Badge variant="outline" className="text-xs">{item.selectedSize}</Badge>
-                                                                {item.stock <= 0 && <Badge className="bg-red-100 text-red-600 border-red-200 text-xs">Esgotado</Badge>}
+                                                            <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                                                                <div>
+                                                                    <div className="flex justify-between items-start">
+                                                                        <h3 className="font-bold text-[#4A3B32] text-base truncate pr-2">{item.name}</h3>
+                                                                        <button onClick={() => removeItem(item.itemIds[0])} className="text-gray-400 hover:text-red-500 p-2 -mt-2 -mr-2 transition-colors" aria-label="Remover item">
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                    
+                                                                    <div className="mt-3 space-y-3">
+                                                                        {/* Seletor de Cor */}
+                                                                        {availableColors.length > 1 && (
+                                                                            <div className="flex flex-wrap gap-1.5 items-center">
+                                                                                <span className="text-[10px] uppercase font-bold text-gray-400 w-full mb-0.5">Cor</span>
+                                                                                {availableColors.map(v => (
+                                                                                    <button
+                                                                                        key={v.colorName}
+                                                                                        type="button"
+                                                                                        onClick={() => handleUpdateItem(item.itemIds[0], item.id, item.selectedSize, v.colorName)}
+                                                                                        className={cn(
+                                                                                            "px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all",
+                                                                                            (v.colorName || '').toLowerCase().trim() === (item.selectedColor || '').toLowerCase().trim()
+                                                                                                ? "bg-[#C75D3B] text-white border-[#C75D3B]"
+                                                                                                : "bg-white text-gray-600 border-gray-200 hover:border-[#C75D3B]/30"
+                                                                                        )}
+                                                                                    >
+                                                                                        {v.colorName}
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Seletor de Tamanho */}
+                                                                        <div className="flex flex-wrap gap-1.5 items-center">
+                                                                            <span className="text-[10px] uppercase font-bold text-gray-400 w-full mb-0.5">Tamanho</span>
+                                                                            {availableSizes.length > 0 ? (
+                                                                                availableSizes.map(size => (
+                                                                                    <button
+                                                                                        key={size}
+                                                                                        type="button"
+                                                                                        onClick={() => handleUpdateItem(item.itemIds[0], item.id, size, item.selectedColor)}
+                                                                                        className={cn(
+                                                                                            "w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold border transition-all",
+                                                                                            size === item.selectedSize
+                                                                                                ? "bg-[#4A3B32] text-white border-[#4A3B32]"
+                                                                                                : "bg-white text-gray-600 border-gray-200 hover:border-[#4A3B32]/30"
+                                                                                        )}
+                                                                                    >
+                                                                                        {size}
+                                                                                    </button>
+                                                                                ))
+                                                                            ) : (
+                                                                                <Badge variant="outline" className="text-[10px] py-1">{item.selectedSize}</Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex justify-between items-center mt-2">
+                                                                    <span className="text-[#C75D3B] font-bold text-sm">{formatPrice(item.price)}</span>
+                                                                    {item.count > 1 && <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{item.count} unidades</span>}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        {item.count > 1 && <div className="text-xs text-gray-500">{item.count} unidades</div>}
+                                                        {item.stock <= 0 && (
+                                                            <div className="mt-2 p-2 bg-red-100/50 rounded-xl flex items-center gap-2 text-red-600 text-[11px] font-bold">
+                                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                                                Esgotado nesta variação
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            ))
+                                                )
+                                            })
                                         )}
 
                                         <button

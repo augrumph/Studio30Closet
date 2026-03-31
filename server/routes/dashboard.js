@@ -15,7 +15,12 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         let startDate = null
         let endDate = null
 
-        if (period === 'last7days') {
+        if (period === 'today') {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            startDate = today.toISOString()
+            endDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+        } else if (period === 'last7days') {
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
         } else if (period === 'last30days') {
             startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
@@ -31,6 +36,35 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
         console.log(`📊 Dashboard Query Params: Period=${period}, Start=${startDate}, End=${endDate}`)
 
         // 2. BUSCA OTIMIZADA (Paralela)
+        const { method, status: saleStatus, search } = req.query
+        let whereConditions = []
+        let queryParams = []
+        let paramIdx = 1
+
+        if (startDate) {
+            whereConditions.push(`v.created_at >= $${paramIdx++}`)
+            queryParams.push(startDate)
+            whereConditions.push(`v.created_at <= $${paramIdx++}`)
+            queryParams.push(endDate || now.toISOString())
+        }
+
+        if (method && method !== 'all') {
+            whereConditions.push(`v.payment_method = $${paramIdx++}`)
+            queryParams.push(method)
+        }
+
+        if (saleStatus && saleStatus !== 'all') {
+            whereConditions.push(`v.payment_status = $${paramIdx++}`)
+            queryParams.push(saleStatus)
+        }
+
+        if (search && search.trim()) {
+            whereConditions.push(`c.name ILIKE $${paramIdx++}`)
+            queryParams.push(`%${search.trim()}%`)
+        }
+
+        const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
+
         const [
             vendasResult,
             expensesResult,
@@ -40,20 +74,13 @@ router.get('/stats', cacheMiddleware(180), async (req, res) => {
             productsResult
         ] = await Promise.all([
             // Vendas do período (com customer name via JOIN)
-            startDate
-                ? pool.query(`
-                    SELECT v.*, c.name as customer_name
-                    FROM vendas v
-                    LEFT JOIN customers c ON c.id = v.customer_id
-                    WHERE v.created_at >= $1 AND v.created_at <= $2
-                    ORDER BY v.created_at DESC
-                `, [startDate, endDate || now.toISOString()])
-                : pool.query(`
-                    SELECT v.*, c.name as customer_name
-                    FROM vendas v
-                    LEFT JOIN customers c ON c.id = v.customer_id
-                    ORDER BY v.created_at DESC
-                `),
+            pool.query(`
+                SELECT v.*, c.name as customer_name
+                FROM vendas v
+                LEFT JOIN customers c ON c.id = v.customer_id
+                ${whereClause}
+                ORDER BY v.created_at DESC
+            `, queryParams),
 
             // Despesas fixas
             pool.query('SELECT * FROM fixed_expenses'),

@@ -13,6 +13,7 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 
 import { useActiveCollections } from '@/hooks/useCollections'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 export function ProductsForm() {
     const { id } = useParams()
@@ -748,7 +749,11 @@ export function ProductsForm() {
                                                                     <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-100 flex flex-col items-center justify-center relative transition-all hover:border-[#C75D3B]/40 group-hover:bg-gray-100">
                                                                         {url ? (
                                                                             <>
-                                                                                <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                                                                                <img 
+                                                                                    src={url.startsWith('data:') ? url : getOptimizedImageUrl(url, 400)} 
+                                                                                    alt="Preview" 
+                                                                                    className="w-full h-full object-cover" 
+                                                                                />
                                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                                     <ImageIcon className="w-8 h-8 text-white" />
                                                                                 </div>

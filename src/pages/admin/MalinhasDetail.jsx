@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { AlertDialog } from '@/components/ui/AlertDialog'
+import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 
 export function MalinhasDetail() {
     const { id } = useParams()
@@ -272,7 +273,7 @@ export function MalinhasDetail() {
                                         )}
                                     >
                                         <div className="w-24 h-24 rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">
-                                            <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                                            <img src={getOptimizedImageUrl(item.image, 200)} alt={item.productName} className="w-full h-full object-cover" />
                                         </div>
                                         <div className="flex-1 space-y-1">
                                             <h4 className="text-lg font-bold text-[#4A3B32]">{item.productName}</h4>

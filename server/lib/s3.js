@@ -112,3 +112,60 @@ export async function deleteFile(fileUrl) {
         // Don't throw, just log
     }
 }
+
+/**
+ * Converts a raw S3 URL to a local proxy URL
+ * @param {String} url - The raw S3 URL
+ * @returns {String} - The proxy URL
+ */
+export function ensureProxyUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+
+    const endpoint = process.env.S3_ENDPOINT;
+    if (!endpoint) return url;
+
+    // Check if the URL belongs to our S3 endpoint
+    if (url.includes(endpoint)) {
+        const key = extractKeyFromUrl(url);
+        if (key) {
+            return `/api/images/proxy/${key}`;
+        }
+    }
+
+    return url;
+}
+
+/**
+ * Recursively enriches an object or array by converting S3 URLs to proxy URLs
+ * in fields named 'image', 'images', 'profile_image', etc.
+ * @param {Object|Array} data - The data to enrich
+ * @returns {Object|Array} - The enriched data
+ */
+export function enrichImages(data) {
+    if (!data) return data;
+
+    if (Array.isArray(data)) {
+        return data.map(item => enrichImages(item));
+    }
+
+    if (typeof data === 'object') {
+        const newData = { ...data };
+        const imageFields = ['image', 'images', 'profile_image', 'thumbnail'];
+
+        for (const field of Object.keys(newData)) {
+            if (imageFields.includes(field)) {
+                if (Array.isArray(newData[field])) {
+                    newData[field] = newData[field].map(url => ensureProxyUrl(url));
+                } else {
+                    newData[field] = ensureProxyUrl(newData[field]);
+                }
+            } else if (typeof newData[field] === 'object' && newData[field] !== null) {
+                // Recursive call for nested objects (like order items)
+                newData[field] = enrichImages(newData[field]);
+            }
+        }
+        return newData;
+    }
+
+    return data;
+}

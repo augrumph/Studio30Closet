@@ -3,63 +3,11 @@ import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { cacheMiddleware } from '../cache.js'
 import { validateInstallmentPayment } from '../middleware/validation.js'
+import { calculateInstallmentFields, syncVendaPaymentStatus, payFullVendaLogic } from '../lib/venda-utils.js'
 
 const router = express.Router()
 
-/**
- * Helper: Calcular campos derivados de uma venda com crediário
- */
-async function calculateInstallmentFields(venda) {
-    const vendaId = venda.id
-    const totalValue = parseFloat(venda.total_value) || 0
-    const entryPayment = parseFloat(venda.entry_payment) || 0
-
-    // Buscar todas as parcelas e seus pagamentos
-    const { rows: installments } = await pool.query(`
-        SELECT
-            i.*,
-            COALESCE(SUM(ip.payment_amount), 0) as total_paid_via_payments
-        FROM installments i
-        LEFT JOIN installment_payments ip ON ip.installment_id = i.id
-        WHERE i.venda_id = $1
-        GROUP BY i.id
-        ORDER BY i.installment_number ASC
-    `, [vendaId])
-
-    // Calcular totais
-    let paidAmount = entryPayment
-    let remainingAmount = 0
-    let overdueCount = 0
-    const today = new Date().toISOString().split('T')[0]
-
-    installments.forEach(inst => {
-        // FIXED: Always use total_paid_via_payments (from installment_payments JOIN) as source of truth.
-        // Never rely on inst.paid_amount or inst.remaining_amount which may be stale if triggers failed.
-        const instPaid = parseFloat(inst.total_paid_via_payments) || 0
-        const instOriginal = parseFloat(inst.original_amount) || 0
-        const instRemaining = Math.max(0, instOriginal - instPaid)
-
-        paidAmount += instPaid
-        remainingAmount += instRemaining
-
-        if (inst.due_date < today && instRemaining > 0) {
-            overdueCount++
-        }
-    })
-
-    // Se não há parcelas, calcular manualmente
-    if (installments.length === 0) {
-        remainingAmount = totalValue - entryPayment
-        paidAmount = entryPayment
-    }
-
-    return {
-        dueAmount: Math.max(0, remainingAmount),
-        paidAmount: paidAmount,
-        overdueCount: overdueCount,
-        hasInstallments: installments.length > 0
-    }
-}
+// Utilitários movidos para ../lib/venda-utils.js
 
 /**
  * GET /api/installments - Listar vendas com crediário (BFF)
@@ -408,6 +356,9 @@ router.post('/:installmentId/payment', validateInstallmentPayment, async (req, r
         const updatedInstallment = updatedInst[0]
         console.log(`📊 Parcela ${installmentId} - Status: ${updatedInstallment.status}, Restante: R$ ${updatedInstallment.remaining_amount}`)
 
+        // 8. SINCRONIZAR STATUS DA VENDA
+        await syncVendaPaymentStatus(updatedInstallment.venda_id)
+
         res.json(toCamelCase(updatedInstallment))
     } catch (error) {
         console.error(`❌ Erro ao registrar pagamento na parcela ${installmentId}:`, error)
@@ -567,6 +518,12 @@ router.put('/payments/:paymentId', async (req, res) => {
             WHERE id = $1
         `, [instId])
 
+        // Sincronizar status da venda
+        const { rows: instRows } = await pool.query('SELECT venda_id FROM installments WHERE id = $1', [instId])
+        if (instRows.length > 0) {
+            await syncVendaPaymentStatus(instRows[0].venda_id)
+        }
+
         res.json(toCamelCase(updatedPayment[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar pagamento ${paymentId}:`, error)
@@ -619,6 +576,12 @@ router.delete('/payments/:paymentId', async (req, res) => {
             WHERE id = $1
         `, [instId])
 
+        // Sincronizar status da venda
+        const { rows: instRows } = await pool.query('SELECT venda_id FROM installments WHERE id = $1', [instId])
+        if (instRows.length > 0) {
+            await syncVendaPaymentStatus(instRows[0].venda_id)
+        }
+
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao deletar pagamento ${paymentId}:`, error)
@@ -633,69 +596,13 @@ router.put('/:vendaId/pay-full', async (req, res) => {
     const { vendaId } = req.params
     const { paymentMethod = 'dinheiro' } = req.body
 
-    // Use a transaction to ensure atomicity — if any insert fails,
-    // the venda status update also rolls back, preventing phantom 'paid' state.
-    const client = await pool.connect()
-
     try {
-        await client.query('BEGIN')
-
-        // 1. Buscar parcelas pendentes DENTRO da transação com lock, calculando saldo real via payments
-        const { rows: pendingInstallments } = await client.query(`
-            SELECT i.id, i.original_amount,
-                GREATEST(0, i.original_amount - COALESCE((
-                    SELECT SUM(ip.payment_amount) FROM installment_payments ip WHERE ip.installment_id = i.id
-                ), 0)) as real_remaining
-            FROM installments i
-            WHERE i.venda_id = $1 AND i.status != 'paid'
-            FOR UPDATE
-        `, [vendaId])
-
-        const today = new Date().toISOString().split('T')[0]
-
-        if (pendingInstallments.length > 0) {
-            for (const inst of pendingInstallments) {
-                // Usar saldo REAL calculado a partir dos pagamentos, não a coluna stale
-                const amountToPay = parseFloat(inst.real_remaining) > 0.01
-                    ? parseFloat(inst.real_remaining)
-                    : 0
-
-                if (amountToPay <= 0) {
-                    // Parcela já quitada mas não marcada — apenas atualizar status
-                    await client.query(
-                        "UPDATE installments SET status = 'paid', remaining_amount = 0, paid_amount = original_amount, updated_at = NOW() WHERE id = $1",
-                        [inst.id]
-                    )
-                    continue
-                }
-
-                await client.query(`
-                    INSERT INTO installment_payments (installment_id, payment_amount, payment_date, payment_method, notes, created_by)
-                    VALUES ($1, $2, $3, $4, 'Quitação total da venda', 'admin')
-                `, [inst.id, amountToPay, today, paymentMethod])
-
-                // Explicitly mark installment as paid and zero out remaining amount
-                await client.query(`
-                    UPDATE installments
-                    SET status = 'paid', paid_amount = original_amount, remaining_amount = 0, updated_at = NOW()
-                    WHERE id = $1
-                `, [inst.id])
-            }
-        }
-
-        // 2. Atualizar status da venda para paid — only after all payments succeeded
-        await client.query("UPDATE vendas SET payment_status = 'paid', updated_at = NOW() WHERE id = $1", [vendaId])
-
-        await client.query('COMMIT')
-
-        console.log(`✅ Venda #${vendaId} quitada totalmente via ${paymentMethod}`)
+        await payFullVendaLogic(vendaId, paymentMethod)
+        console.log(`✅ Venda #${vendaId} quitada totalmente`)
         res.json({ success: true })
     } catch (error) {
-        await client.query('ROLLBACK')
         console.error(`❌ Erro ao quitar venda ${vendaId}:`, error)
         res.status(500).json({ error: 'Erro ao quitar venda' })
-    } finally {
-        client.release()
     }
 })
 

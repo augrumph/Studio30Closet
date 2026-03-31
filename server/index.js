@@ -18,6 +18,9 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// ✅ Trust Proxy - Necessário para Railway/Proxies para o express-rate-limit funcionar corretamente
+app.set('trust proxy', 1)
+
 // Security com configuração de CSP para permitir Supabase, Google Fonts, Google Analytics
 app.use(helmet({
     contentSecurityPolicy: {
@@ -31,6 +34,7 @@ app.use(helmet({
                 "https://www.googletagmanager.com",
                 "https://www.google-analytics.com",
                 "https://www.google.com",
+                "https://www.google.com.br",
                 "https://googleads.g.doubleclick.net"
             ],
             scriptSrc: [
@@ -56,7 +60,7 @@ app.use(helmet({
                 "data:",
                 "https://fonts.gstatic.com"
             ],
-            imgSrc: ["'self'", "data:", "https:", "blob:", "https://www.google.com", "https://googleads.g.doubleclick.net"],
+            imgSrc: ["'self'", "data:", "https:", "blob:", "https://www.google.com", "https://www.google.com.br", "https://googleads.g.doubleclick.net"],
             frameSrc: ["'self'", "https://www.googletagmanager.com", "https://www.instagram.com"]
         }
     }

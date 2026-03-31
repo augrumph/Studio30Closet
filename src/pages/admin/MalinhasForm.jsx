@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/Badge'
 import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 import { triggerConfetti, triggerFireworks } from '@/components/magicui/confetti'
 import { sendNewMalinhaEmail } from '@/lib/email-service'
+import { apiClient } from '@/lib/api-client'
 
 export function MalinhasForm() {
     const { id } = useParams()
@@ -396,8 +397,7 @@ export function MalinhasForm() {
                                                     try {
                                                         let fullProduct = product;
                                                         if (!product.variants) {
-                                                            const res = await fetch(`/api/products/${product.id}?full=true`);
-                                                            fullProduct = await res.json();
+                                                            fullProduct = await apiClient(`/products/${product.id}?full=true`);
                                                         }
                                                         initiateAddProduct(fullProduct)
                                                     } catch (err) {
@@ -453,8 +453,7 @@ export function MalinhasForm() {
                                                                     try {
                                                                         let fullProduct = product;
                                                                         if (!product.variants) {
-                                                                            const res = await fetch(`/api/products/${product.id}?full=true`);
-                                                                            fullProduct = await res.json();
+                                                                            fullProduct = await apiClient(`/products/${product.id}?full=true`);
                                                                         }
                                                                         initiateAddProduct(fullProduct, size)
                                                                     } catch (err) {

@@ -19,9 +19,8 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
                 full: full.toString()
             })
 
-            const response = await fetch(`/api/products?${queryParams.toString()}`)
-            if (!response.ok) throw new Error('Falha ao buscar produtos do backend')
-            return response.json()
+            const data = await apiClient(`/products?${queryParams.toString()}`)
+            return data
         },
         staleTime: 1000 * 30, // 30 segundos - busca mais fresca
         gcTime: 1000 * 60 * 5, // 5 minutos no cache

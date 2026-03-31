@@ -348,7 +348,7 @@ export function VendasForm() {
             totalValue: finalValue,
             originalTotal: subtotal,
             discountAmount: discount,
-            costPrice: formData.items.reduce((acc, item) => acc + (item.costPrice * item.quantity), 0),
+            costPrice: formData.items.reduce((acc, item) => acc + ((item.costPrice || 0) * (item.quantity || 1)), 0),
             feePercentage: feeInfo.feePercentage || 0,
             feeAmount: feeInfo.feeValue || 0,
             netAmount: netValue,

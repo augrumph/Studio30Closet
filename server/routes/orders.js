@@ -149,7 +149,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Erro ao buscar order' })
     }
 })
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
     console.log('📦 POST /api/orders - Creating Order & Sending Email')
     const orderData = req.body
 
@@ -221,17 +221,15 @@ router.post('/', async (req, res) => {
                     ]
                 )
 
-                // Reserve stock for each item (usa 'Padrão' como fallback de cor)
-                if (item.selectedSize) {
-                    await updateProductStock(
-                        client,
-                        item.productId,
-                        item.quantity,
-                        item.selectedColor || 'Padrão',
-                        item.selectedSize,
-                        'reserve'
-                    )
-                }
+                // Reserve stock for each item (com fallbacks para cor e tamanho)
+                await updateProductStock(
+                    client,
+                    item.productId,
+                    item.quantity,
+                    item.selectedColor || 'Padrão',
+                    item.selectedSize || 'Único',
+                    'reserve'
+                )
             }
         }
 

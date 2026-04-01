@@ -126,94 +126,37 @@ export function MalinhasForm() {
         triggerConfetti({ particleCount: 40, spread: 50 })
     }
 
-    const initiateAddProduct = (product, preSelectedSize = null) => {
-        // Helper to check effective stock for a variant
-        const checkStock = (p, color, size) => {
-            const variant = p.variants?.find(v => v.colorName === color)
-            const stockItem = variant?.sizeStock?.find(s => s.size === size)
-            const dbStock = stockItem?.quantity || 0
+    // Retorna estoque efetivo: DB - itens já na malinha (exceto os desta malinha em edição)
+    const getEffectiveStock = (product, color, size) => {
+        const variant = product.variants?.find(v => v.colorName === color)
+        const sizeEntry = variant?.sizeStock?.find(s => s.size === size)
+        const dbStock = Number(sizeEntry?.quantity) || 0
+        const inMalinha = formData.items
+            .filter(i => i.productId === product.id && i.selectedColor === color && i.selectedSize === size)
+            .reduce((acc, i) => acc + (i.quantity || 1), 0)
+        return dbStock + inMalinha
+    }
 
-            const inMalinha = formData.items
-                .filter(item => item.productId === p.id && item.selectedColor === color && item.selectedSize === size)
-                .reduce((acc, item) => acc + (item.quantity || 1), 0)
+    const initiateAddProduct = (product) => {
+        const variants = product.variants || []
 
-            return (dbStock + inMalinha) > 0
-        }
-
-        // Helper to check if ANY variant has stock
-        const hasAnyStock = () => {
-            // Simple fallback: if global stock > 0 OR if we have items in malinha
-            const inMalinhaTotal = formData.items
-                .filter(item => item.productId === product.id)
-                .reduce((acc, item) => acc + (item.quantity || 1), 0)
-
-            return ((product.stock || 0) + inMalinhaTotal) > 0
-        }
-
-        if (!hasAnyStock()) {
-            toast.error('Produto sem estoque')
+        if (variants.length === 0) {
+            // Produto sem variantes
+            addItemToCart(product, 'Padrão', 'Único')
             return
         }
 
-        const hasVariants = product.variants?.length > 0
-
-        // Se já tem tamanho pré-selecionado (clicou no botão de tamanho)
-        if (preSelectedSize && hasVariants) {
-            // Verifica quantas opções de cor existem para esse tamanho, considerando stock efetivo
-            const variantsWithSize = product.variants.filter(v => checkStock(product, v.colorName, preSelectedSize))
-
-            if (variantsWithSize.length > 1) {
-                // Múltiplas cores: Abre modal já com tamanho selecionado
-                setVariantModal({
-                    open: true,
-                    product,
-                    selectedColor: null,
-                    selectedSize: preSelectedSize
-                })
-                return
-            } else if (variantsWithSize.length === 1) {
-                // Só uma cor: Adiciona direto
-                addItemToCart(product, variantsWithSize[0].colorName, preSelectedSize)
-                return
-            } else {
-                // Nenhuma cor com estoque para esse tamanho? (Raro se clicou no botão de tamanho validado)
-                // Falback para abrir modal
-            }
-        }
-
-        const hasMultipleOptions = hasVariants && (
-            product.variants.length > 1 ||
-            product.variants.some(v => (v.sizeStock || []).length > 1)
+        // Produto com variantes → sempre abre o modal
+        const firstAvailable = variants.find(v =>
+            (v.sizeStock || []).some(s => getEffectiveStock(product, v.colorName, s.size) > 0)
         )
 
-        if (hasVariants && !hasMultipleOptions) {
-            const color = product.variants[0].colorName
-            const size = product.variants[0].sizeStock?.[0]?.size
-            if (color && size && checkStock(product, color, size)) {
-                addItemToCart(product, color, size)
-                return
-            }
-        }
-
-        if (hasVariants) {
-            // Find first available variant logic updated
-            const firstAvailable = product.variants.find(v =>
-                v.sizeStock?.some(s => checkStock(product, v.colorName, s.size))
-            )
-
-            setVariantModal({
-                open: true,
-                product,
-                selectedColor: firstAvailable?.colorName || product.variants[0].colorName,
-                selectedSize: null
-            })
-            return
-        }
-
-        // Sem variantes (produto simples)
-        // Tenta pegar o primeiro tamanho se existir na estrutura antiga ou null
-        const defaultSize = product.sizes?.[0] || 'UN'
-        addItemToCart(product, 'Padrão', defaultSize)
+        setVariantModal({
+            open: true,
+            product,
+            selectedColor: firstAvailable?.colorName || null,
+            selectedSize: null
+        })
     }
 
     const removeItem = (idx) => {
@@ -382,23 +325,19 @@ export function MalinhasForm() {
                                                 isAdded ? "border-[#C75D3B]/40" : "border-gray-200 hover:border-[#C75D3B]/20 hover:shadow-md"
                                             )}
                                         >
-                                            {/* Imagem do Produto - Clicável para adicionar */}
+                                            {/* Imagem do Produto - Clicável para abrir modal */}
                                             <div
                                                 className={cn(
                                                     "relative aspect-square overflow-hidden bg-gray-100",
                                                     canBeAdded && "cursor-pointer group/image"
                                                 )}
                                                 onClick={async () => {
-                                                    if (!canBeAdded) return;
-
+                                                    if (!canBeAdded) return
                                                     try {
-                                                        let fullProduct = product;
-                                                        if (!product.variants) {
-                                                            fullProduct = await apiClient(`/products/${product.id}?full=true`);
-                                                        }
+                                                        const fullProduct = await apiClient(`/products/${product.id}?full=true`)
                                                         initiateAddProduct(fullProduct)
                                                     } catch (err) {
-                                                        toast.error('Erro ao carregar detalhes do produto');
+                                                        toast.error('Erro ao carregar detalhes do produto')
                                                     }
                                                 }}
                                             >
@@ -412,13 +351,11 @@ export function MalinhasForm() {
                                                         <span className="text-white text-xs font-bold">ESGOTADO</span>
                                                     </div>
                                                 )}
-                                                {/* Badge de estoque */}
                                                 {canBeAdded && (
                                                     <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-white text-xs font-bold">
                                                         {product.stock} unid.
                                                     </div>
                                                 )}
-                                                {/* Overlay de adicionar ao passar o mouse */}
                                                 {canBeAdded && (
                                                     <div className="absolute inset-0 bg-[#C75D3B]/0 group-hover/image:bg-[#C75D3B]/20 transition-all flex items-center justify-center">
                                                         <div className="opacity-0 group-hover/image:opacity-100 transition-opacity bg-white/90 px-4 py-2 rounded-lg">
@@ -432,58 +369,15 @@ export function MalinhasForm() {
                                             <div className="p-3">
                                                 <h4 className="font-bold text-[#4A3B32] text-sm mb-1 line-clamp-1">{product.name}</h4>
                                                 <p className="text-base font-bold text-[#C75D3B] mb-2">
-                                                    R$ {(product.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    R$ {Number(product.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </p>
 
-                                                {/* Tamanhos compactos */}
-                                                <div className="flex flex-wrap gap-1 mb-2">
-                                                    {(product.sizes || []).map(size => {
-                                                        const itemsWithSize = formData.items.filter(
-                                                            item => item.productId === product.id && item.selectedSize === size
-                                                        ).length
-
-                                                        return (
-                                                            <button
-                                                                key={size}
-                                                                onClick={async () => {
-                                                                    if (!canBeAdded) return
-                                                                    try {
-                                                                        let fullProduct = product;
-                                                                        if (!product.variants) {
-                                                                            fullProduct = await apiClient(`/products/${product.id}?full=true`);
-                                                                        }
-                                                                        initiateAddProduct(fullProduct, size)
-                                                                    } catch (err) {
-                                                                        console.error(err)
-                                                                        toast.error('Erro ao carregar detalhes')
-                                                                    }
-                                                                }}
-                                                                disabled={!canBeAdded}
-                                                                className={cn(
-                                                                    "relative px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                                                                    itemsWithSize > 0
-                                                                        ? "bg-[#C75D3B] text-white"
-                                                                        : canBeAdded
-                                                                            ? "bg-gray-100 text-[#4A3B32] hover:bg-gray-200"
-                                                                            : "bg-gray-100 text-gray-300 cursor-not-allowed"
-                                                                )}
-                                                            >
-                                                                {size}
-                                                                {itemsWithSize > 0 && (
-                                                                    <span className="ml-1">({itemsWithSize})</span>
-                                                                )}
-                                                            </button>
-                                                        )
-                                                    })}
-                                                </div>
-
-                                                {/* Ações rápidas */}
                                                 {isAdded && (
                                                     <div className="flex gap-1">
                                                         <button
+                                                            type="button"
                                                             onClick={() => {
-                                                                // Remove o último item desse produto
-                                                                const lastIdx = formData.items.map((item, idx) => item.productId === product.id ? idx : -1).filter(idx => idx !== -1).pop()
+                                                                const lastIdx = formData.items.map((item, idx) => item.productId === product.id ? idx : -1).filter(i => i !== -1).pop()
                                                                 if (lastIdx !== undefined) removeItem(lastIdx)
                                                             }}
                                                             className="flex-1 px-2 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-all flex items-center justify-center gap-1"
@@ -727,13 +621,20 @@ export function MalinhasForm() {
 
             {/* Modal de Variante */}
             <AnimatePresence>
-                {variantModal.open && variantModal.product && (
+                {variantModal.open && variantModal.product && (() => {
+                    const p = variantModal.product
+                    const variants = p.variants || []
+                    const closeModal = () => setVariantModal({ open: false, product: null, selectedColor: null, selectedSize: null })
+                    const selectedVariant = variants.find(v => v.colorName === variantModal.selectedColor)
+                    const canAdd = !!variantModal.selectedColor && !!variantModal.selectedSize
+
+                    return (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
-                        onClick={() => setVariantModal({ open: false, product: null, selectedColor: null, selectedSize: null })}
+                        onClick={closeModal}
                     >
                         <motion.div
                             initial={{ y: 100, opacity: 0 }}
@@ -745,8 +646,8 @@ export function MalinhasForm() {
                             <div className="p-4 border-b border-[#4A3B32]/5 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 rounded-xl bg-[#4A3B32]/5 overflow-hidden">
-                                        {variantModal.product.images?.[0] ? (
-                                            <img src={getOptimizedImageUrl(variantModal.product.images[0], 200)} alt="" className="w-full h-full object-cover" />
+                                        {p.images?.[0] ? (
+                                            <img src={getOptimizedImageUrl(p.images[0], 200)} alt="" className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
                                                 <Package className="w-5 h-5 text-[#4A3B32]/20" />
@@ -754,52 +655,43 @@ export function MalinhasForm() {
                                         )}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-[#4A3B32]">{variantModal.product.name}</h3>
-                                        <p className="text-sm text-[#C75D3B] font-bold">R$ {variantModal.product.price?.toFixed(2)}</p>
+                                        <h3 className="font-bold text-[#4A3B32]">{p.name}</h3>
+                                        <p className="text-sm text-[#C75D3B] font-bold">
+                                            R$ {Number(p.price || 0).toFixed(2)}
+                                        </p>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setVariantModal({ open: false, product: null, selectedColor: null, selectedSize: null })}
-                                    className="p-2 hover:bg-[#4A3B32]/5 rounded-xl"
-                                >
+                                <button type="button" onClick={closeModal} className="p-2 hover:bg-[#4A3B32]/5 rounded-xl">
                                     <X className="w-5 h-5 text-[#4A3B32]/50" />
                                 </button>
                             </div>
 
-                            <div className="p-4 space-y-4">
+                            <div className="p-4 space-y-5">
                                 {/* Cores */}
                                 <div>
-                                    <p className="text-xs font-bold text-[#4A3B32]/50 uppercase mb-2">Cor</p>
+                                    <p className="text-xs font-bold text-[#4A3B32]/50 uppercase mb-3">Cor</p>
                                     <div className="flex flex-wrap gap-2">
-                                        {variantModal.product.variants?.map((v, i) => {
-                                            // Calculate if this variant has ANY stock (DB + Malinha)
-                                            const hasStock = v.sizeStock?.some(s => {
-                                                const inMalinha = formData.items.filter(item =>
-                                                    item.productId === variantModal.product.id &&
-                                                    item.selectedColor === v.colorName &&
-                                                    item.selectedSize === s.size
-                                                ).reduce((acc, i) => acc + (i.quantity || 1), 0)
-                                                return (s.quantity + inMalinha) > 0
-                                            })
-
+                                        {variants.map((v) => {
+                                            const hasStock = (v.sizeStock || []).some(s =>
+                                                getEffectiveStock(p, v.colorName, s.size) > 0
+                                            )
                                             return (
                                                 <button
-                                                    key={i}
+                                                    key={v.colorName}
                                                     type="button"
-                                                    onClick={() => hasStock && setVariantModal(prev => ({
+                                                    disabled={!hasStock}
+                                                    onClick={() => setVariantModal(prev => ({
                                                         ...prev,
                                                         selectedColor: v.colorName,
-                                                        // Se mudou de cor e o tamanho atual não existe nessa cor, reseta tamanho
-                                                        selectedSize: (prev.selectedSize && v.sizeStock.some(s => s.size === prev.selectedSize)) ? prev.selectedSize : null
+                                                        selectedSize: null
                                                     }))}
-                                                    disabled={!hasStock}
                                                     className={cn(
-                                                        "px-4 py-2 rounded-xl text-sm font-medium transition-all",
+                                                        "px-4 py-2 rounded-xl text-sm font-medium transition-all border",
                                                         variantModal.selectedColor === v.colorName
-                                                            ? "bg-[#4A3B32] text-white"
+                                                            ? "bg-[#4A3B32] text-white border-[#4A3B32]"
                                                             : hasStock
-                                                                ? "bg-[#4A3B32]/5 text-[#4A3B32]"
-                                                                : "bg-[#4A3B32]/5 text-[#4A3B32]/30 line-through"
+                                                                ? "bg-white text-[#4A3B32] border-[#4A3B32]/20 hover:border-[#4A3B32]/50"
+                                                                : "bg-gray-50 text-[#4A3B32]/30 border-gray-100 line-through cursor-not-allowed"
                                                     )}
                                                 >
                                                     {v.colorName}
@@ -809,52 +701,36 @@ export function MalinhasForm() {
                                     </div>
                                 </div>
 
-                                {/* Tamanhos */}
+                                {/* Tamanhos — aparece só após escolher cor */}
                                 {variantModal.selectedColor && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                    >
-                                        <p className="text-xs font-bold text-[#4A3B32]/50 uppercase mb-2">Tamanho</p>
+                                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                                        <p className="text-xs font-bold text-[#4A3B32]/50 uppercase mb-3">Tamanho</p>
                                         <div className="grid grid-cols-4 gap-2">
-                                            {variantModal.product.variants
-                                                ?.find(v => v.colorName === variantModal.selectedColor)
-                                                ?.sizeStock?.map((s, i) => {
-                                                    // Calculate effective stock for this size
-                                                    const inMalinha = formData.items.filter(item =>
-                                                        item.productId === variantModal.product.id &&
-                                                        item.selectedColor === variantModal.selectedColor &&
-                                                        item.selectedSize === s.size
-                                                    ).reduce((acc, i) => acc + (i.quantity || 1), 0)
-
-                                                    const effectiveQty = (s.quantity || 0) + inMalinha
-                                                    const hasSizeStock = effectiveQty > 0
-
-                                                    return (
-                                                        <button
-                                                            key={i}
-                                                            type="button"
-                                                            onClick={() => hasSizeStock && setVariantModal(prev => ({
-                                                                ...prev,
-                                                                selectedSize: s.size
-                                                            }))}
-                                                            disabled={!hasSizeStock}
-                                                            className={cn(
-                                                                "py-3 rounded-xl text-sm font-bold transition-all",
-                                                                variantModal.selectedSize === s.size
-                                                                    ? "bg-[#C75D3B] text-white"
-                                                                    : hasSizeStock
-                                                                        ? "bg-[#4A3B32]/5 text-[#4A3B32]"
-                                                                        : "bg-[#4A3B32]/5 text-[#4A3B32]/30"
-                                                            )}
-                                                        >
-                                                            {s.size}
-                                                            <span className="block text-[10px] font-normal opacity-60">
-                                                                {hasSizeStock ? `${effectiveQty}un` : 'Esgotado'}
-                                                            </span>
-                                                        </button>
-                                                    )
-                                                })}
+                                            {(selectedVariant?.sizeStock || []).map((s) => {
+                                                const qty = getEffectiveStock(p, variantModal.selectedColor, s.size)
+                                                const hasStock = qty > 0
+                                                return (
+                                                    <button
+                                                        key={s.size}
+                                                        type="button"
+                                                        disabled={!hasStock}
+                                                        onClick={() => setVariantModal(prev => ({ ...prev, selectedSize: s.size }))}
+                                                        className={cn(
+                                                            "py-3 rounded-xl text-sm font-bold transition-all",
+                                                            variantModal.selectedSize === s.size
+                                                                ? "bg-[#C75D3B] text-white"
+                                                                : hasStock
+                                                                    ? "bg-[#4A3B32]/5 text-[#4A3B32] hover:bg-[#4A3B32]/10"
+                                                                    : "bg-gray-50 text-[#4A3B32]/25 cursor-not-allowed"
+                                                        )}
+                                                    >
+                                                        {s.size}
+                                                        <span className="block text-[10px] font-normal opacity-60 mt-0.5">
+                                                            {hasStock ? `${qty}un` : 'Esgotado'}
+                                                        </span>
+                                                    </button>
+                                                )
+                                            })}
                                         </div>
                                     </motion.div>
                                 )}
@@ -863,27 +739,24 @@ export function MalinhasForm() {
                             <div className="p-4 border-t border-[#4A3B32]/5">
                                 <button
                                     type="button"
+                                    disabled={!canAdd}
                                     onClick={() => {
-                                        if (variantModal.selectedColor && variantModal.selectedSize) {
-                                            addItemToCart(variantModal.product, variantModal.selectedColor, variantModal.selectedSize)
-                                            setVariantModal({ open: false, product: null, selectedColor: null, selectedSize: null })
-                                        }
+                                        addItemToCart(p, variantModal.selectedColor, variantModal.selectedSize)
+                                        closeModal()
                                     }}
-                                    disabled={!variantModal.selectedColor || !variantModal.selectedSize}
                                     className={cn(
                                         "w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all",
-                                        variantModal.selectedColor && variantModal.selectedSize
-                                            ? "bg-[#C75D3B] text-white"
-                                            : "bg-[#4A3B32]/10 text-[#4A3B32]/30"
+                                        canAdd ? "bg-[#C75D3B] text-white hover:bg-[#A64D31]" : "bg-[#4A3B32]/10 text-[#4A3B32]/30 cursor-not-allowed"
                                     )}
                                 >
                                     <Plus className="w-5 h-5" />
-                                    Adicionar
+                                    {canAdd ? `Adicionar — ${variantModal.selectedColor}, ${variantModal.selectedSize}` : 'Selecione cor e tamanho'}
                                 </button>
                             </div>
                         </motion.div>
                     </motion.div>
-                )}
+                    )
+                })()}
             </AnimatePresence>
         </div>
     )

@@ -468,6 +468,13 @@ router.delete('/:id', async (req, res) => {
             }
         }
 
+        // Deletar pagamentos e parcelas antes da venda (FK sem CASCADE)
+        await client.query(`
+            DELETE FROM installment_payments
+            WHERE installment_id IN (SELECT id FROM installments WHERE venda_id = $1)
+        `, [id])
+        await client.query('DELETE FROM installments WHERE venda_id = $1', [id])
+
         const { rowCount } = await client.query('DELETE FROM vendas WHERE id = $1', [id])
         await client.query('COMMIT')
 

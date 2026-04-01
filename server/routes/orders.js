@@ -239,8 +239,8 @@ router.post('/', authenticateToken, async (req, res) => {
         // Usamos background / promises sem 'await' para que o painel do admin receba o erro se der,
         // mas o cliente recebe a resposta da ordem antes mesmo do email terminar de enviar.
         sendNewMalinhaNotification({
-            customerName: customer.name || 'Cliente',
-            customerEmail: customer.email || '',
+            customerName: customer?.name || 'Cliente',
+            customerEmail: customer?.email || '',
             itemsCount: items ? items.length : 0,
             orderId: newOrder[0].id,
             items: items || [],

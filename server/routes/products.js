@@ -51,7 +51,8 @@ router.get('/', optionalAuthenticateToken, async (req, res) => {
         featured,
         sizes,       // CSV string: 'P,M,G'
         collection,   // ID da coleção
-        inStock      // 'true' para filtrar apenas items com stock > 0
+        inStock,      // 'true' para filtrar apenas items com stock > 0
+        in_stock      // Suporte ao formato snake_case vindo do frontend
     } = req.query
 
     const offset = (page - 1) * pageSize
@@ -81,7 +82,9 @@ router.get('/', optionalAuthenticateToken, async (req, res) => {
             whereConditions.push(`is_featured = true`)
         }
 
-        if (inStock === 'true') {
+        const stockFilter = inStock ?? in_stock
+
+        if (stockFilter === 'true') {
             whereConditions.push(`stock > 0`)
         }
 
@@ -119,8 +122,8 @@ router.get('/', optionalAuthenticateToken, async (req, res) => {
 
         // Filtro por coleção: produto precisa pertencer à coleção
         if (collection) {
-            whereConditions.push(`$${paramIndex++}::text = ANY(collection_ids)`)
-            params.push(String(collection))
+            whereConditions.push(`$${paramIndex++}::bigint = ANY(collection_ids)`)
+            params.push(Number(collection))
         }
 
         const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''

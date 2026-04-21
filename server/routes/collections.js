@@ -163,9 +163,9 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         // Remover o ID deletado do array collection_ids de todos os produtos que o referenciam
         await pool.query(`
             UPDATE products
-            SET collection_ids = array_remove(collection_ids, $1::text)
-            WHERE collection_ids @> ARRAY[$1::text]
-        `, [String(id)])
+            SET collection_ids = array_remove(collection_ids, $1::bigint)
+            WHERE collection_ids @> ARRAY[$1::bigint]
+        `, [Number(id)])
 
         res.json({ success: true })
     } catch (error) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Receipt, Calendar, DollarSign, Trash2, Edit2, TrendingDown, Sparkles, ArrowUpDown } from 'lucide-react'
 import { useAdminExpenses, useAdminExpensesMutations, useAdminExpensesMetrics } from '@/hooks/useAdminExpenses'

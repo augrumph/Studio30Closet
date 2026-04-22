@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign, User, Store, ArrowUpDown } from 'lucide-react'
 import { useAdminPurchases, useAdminPurchasesMutations, useAdminPurchasesMetrics } from '@/hooks/useAdminPurchases'

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart, AlertTriangle, Loader2 } from 'lucide-react'
+import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart, AlertTriangle, Loader2, ArrowUpDown } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from 'sonner'
@@ -119,6 +119,45 @@ export function VendasList() {
     const totalItems = vendasData?.total || 0
     const totalPages = vendasData?.totalPages || 0
 
+    const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' })
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
+
+    const sortedVendas = useMemo(() => {
+        if (!paginatedVendas) return []
+        const sortableItems = [...paginatedVendas]
+        
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+
+            if (sortConfig.key === 'lucro') {
+                aValue = (parseFloat(a.totalValue) || 0) - (parseFloat(a.costPrice) || 0);
+                bValue = (parseFloat(b.totalValue) || 0) - (parseFloat(b.costPrice) || 0);
+            } else if (['totalValue', 'costPrice', 'id'].includes(sortConfig.key)) {
+                aValue = parseFloat(a[sortConfig.key]) || 0;
+                bValue = parseFloat(b[sortConfig.key]) || 0;
+            } else if (sortConfig.key === 'createdAt') {
+                aValue = new Date(a.createdAt).getTime();
+                bValue = new Date(b.createdAt).getTime();
+            } else {
+                aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        })
+        
+        return sortableItems
+    }, [paginatedVendas, sortConfig])
+
     // Usar as métricas calculadas no servidor
     const metrics = useMemo(() => {
         const raw = backendMetrics || {}
@@ -127,10 +166,8 @@ export function VendasList() {
         const cashFlow = raw.cashFlow || {}
 
         return {
-            // FIXED: Changed from grossRevenue to netRevenue for consistency with Dashboard
-            // Faturamento should show net revenue (after discounts), not gross revenue
             totalRevenue: Number(summary.netRevenue || 0),
-            totalDiscounts: Number(summary.totalDiscounts || 0), // Added for transparency
+            totalDiscounts: Number(summary.totalDiscounts || 0),
             pendingCrediario: Number(cashFlow.pendingCrediario || 0),
             totalDevedores: Number(operational.totalDevedores || 0),
             valorDevedores: Number(cashFlow.valorDevedores || 0),
@@ -461,13 +498,43 @@ export function VendasList() {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-[#FAF8F5]/50 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em]">
-                                <th className="px-4 md:px-8 py-5">Data / Horário</th>
-                                <th className="px-4 md:px-8 py-5">Cliente</th>
-                                <th className="px-4 md:px-8 py-5 hidden sm:table-cell">Método</th>
-                                <th className="px-4 md:px-8 py-5 text-right hidden lg:table-cell">Lcr Bruto</th>
-                                <th className="px-4 md:px-8 py-5 text-right">Valor Final</th>
-                                <th className="px-4 md:px-8 py-5">Status</th>
-                                <th className="px-4 md:px-8 py-5 text-center">Ações</th>
+                                <th className="px-4 md:px-8 py-5 cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('createdAt')}>
+                                     <div className="flex items-center gap-2">
+                                         Data / Horário
+                                         <ArrowUpDown className="w-3 h-3" />
+                                     </div>
+                                 </th>
+                                 <th className="px-4 md:px-8 py-5 cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('customerName')}>
+                                     <div className="flex items-center gap-2">
+                                         Cliente
+                                         <ArrowUpDown className="w-3 h-3" />
+                                     </div>
+                                 </th>
+                                 <th className="px-4 md:px-8 py-5 hidden sm:table-cell cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('paymentMethod')}>
+                                     <div className="flex items-center gap-2">
+                                         Método
+                                         <ArrowUpDown className="w-3 h-3" />
+                                     </div>
+                                 </th>
+                                 <th className="px-4 md:px-8 py-5 text-right hidden lg:table-cell cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('lucro')}>
+                                     <div className="flex items-center justify-end gap-2">
+                                         <ArrowUpDown className="w-3 h-3" />
+                                         Lcr Bruto
+                                     </div>
+                                 </th>
+                                 <th className="px-4 md:px-8 py-5 text-right cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('totalValue')}>
+                                     <div className="flex items-center justify-end gap-2">
+                                         <ArrowUpDown className="w-3 h-3" />
+                                         Valor Final
+                                     </div>
+                                 </th>
+                                 <th className="px-4 md:px-8 py-5 cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('paymentStatus')}>
+                                     <div className="flex items-center gap-2">
+                                         Status
+                                         <ArrowUpDown className="w-3 h-3" />
+                                     </div>
+                                 </th>
+                                 <th className="px-4 md:px-8 py-5 text-center">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -493,8 +560,8 @@ export function VendasList() {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : paginatedVendas.length > 0 ? (
-                                    paginatedVendas.map((venda, idx) => (
+                                ) : sortedVendas.length > 0 ? (
+                                    sortedVendas.map((venda, idx) => (
                                         <motion.tr
                                             key={venda.id}
                                             initial={{ opacity: 0 }}

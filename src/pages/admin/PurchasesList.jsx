@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign, User, Store } from 'lucide-react'
+import { Plus, Search, ShoppingCart, CreditCard, Calendar, Package, Trash2, Edit2, DollarSign, User, Store, ArrowUpDown } from 'lucide-react'
 import { useAdminPurchases, useAdminPurchasesMutations, useAdminPurchasesMetrics } from '@/hooks/useAdminPurchases'
 import { useAdminSuppliers } from '@/hooks/useAdminSuppliers'
 import { AlertDialog } from '@/components/ui/AlertDialog'
@@ -24,6 +24,16 @@ export function PurchasesList() {
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(20)
 
+    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' })
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
+
     // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(1)
@@ -44,6 +54,32 @@ export function PurchasesList() {
         endDate: customDateRange.end
     })
 
+    const sortedPurchases = useMemo(() => {
+        if (!purchases) return []
+        const sortableItems = [...purchases]
+        
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+
+            if (['value', 'pieces', 'id'].includes(sortConfig.key)) {
+                aValue = parseFloat(a[sortConfig.key]) || 0;
+                bValue = parseFloat(b[sortConfig.key]) || 0;
+            } else if (sortConfig.key === 'date') {
+                aValue = new Date(a.date).getTime();
+                bValue = new Date(b.date).getTime();
+            } else {
+                aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        })
+        
+        return sortableItems
+    }, [purchases, sortConfig])
+
     // Fetch Metrics (Server-side aggregation)
     const { metrics: serverMetrics } = useAdminPurchasesMetrics({
         search,
@@ -53,7 +89,7 @@ export function PurchasesList() {
     })
 
     // Derived values
-    const filteredPurchases = purchases || []
+    const filteredPurchases = sortedPurchases || []
     const totalPurchases = serverMetrics.totalValue || 0
     const totalItems = serverMetrics.totalItems || 0
     const totalLoja = serverMetrics.totalLoja || 0
@@ -345,6 +381,28 @@ export function PurchasesList() {
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-50">
+                            {/* Sorting Header */}
+                            <div className="bg-[#FAF8F5]/50 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em] px-6 py-4 flex items-center justify-between border-b border-gray-100">
+                                <div className="flex-1 flex gap-4">
+                                    <div className="w-12 shrink-0"></div>
+                                    <div className="flex-1 grid grid-cols-4 gap-4">
+                                        <div className="cursor-pointer hover:text-[#4A3B32] transition-colors flex items-center gap-2">
+                                            Fornecedor
+                                        </div>
+                                        <div className="cursor-pointer hover:text-[#4A3B32] transition-colors flex items-center gap-2" onClick={() => requestSort('value')}>
+                                            Valor <ArrowUpDown className="w-3 h-3" />
+                                        </div>
+                                        <div className="cursor-pointer hover:text-[#4A3B32] transition-colors flex items-center gap-2" onClick={() => requestSort('date')}>
+                                            Data <ArrowUpDown className="w-3 h-3" />
+                                        </div>
+                                        <div className="cursor-pointer hover:text-[#4A3B32] transition-colors flex items-center gap-2" onClick={() => requestSort('pieces')}>
+                                            Peças <ArrowUpDown className="w-3 h-3" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="w-24 text-center">Ações</div>
+                            </div>
+
                             <AnimatePresence>
                                 {filteredPurchases.map((purchase, idx) => {
                                     const supplier = suppliers.find(s => s.id === purchase.supplierId)

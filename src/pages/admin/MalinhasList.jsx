@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Eye, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Calendar, ChevronRight, Plus, Trash2, Package, Pencil, Info } from 'lucide-react'
+import { Search, Eye, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Calendar, ChevronRight, Plus, Trash2, Package, Pencil, Info, ArrowUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
@@ -50,6 +50,49 @@ export function MalinhasList() {
 
     const { deleteMalinha: deleteOrder } = useAdminMalinhasMutations()
     const [deleteAlert, setDeleteAlert] = useState({ isOpen: false, orderId: null })
+
+    const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' })
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
+
+    const sortedOrders = useMemo(() => {
+        if (!paginatedOrders) return []
+        const sortableItems = [...paginatedOrders]
+        
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+
+            if (['itemsCount', 'id'].includes(sortConfig.key)) {
+                aValue = parseFloat(a[sortConfig.key]) || 0;
+                bValue = parseFloat(b[sortConfig.key]) || 0;
+            } else if (sortConfig.key === 'orderNumber') {
+                // Remove '#' if present and compare numerically
+                aValue = parseInt(a.orderNumber?.replace('#', '') || '0')
+                bValue = parseInt(b.orderNumber?.replace('#', '') || '0')
+            } else if (['deliveryDate', 'pickupDate'].includes(sortConfig.key)) {
+                aValue = a[sortConfig.key] ? new Date(a[sortConfig.key]).getTime() : 0;
+                bValue = b[sortConfig.key] ? new Date(b[sortConfig.key]).getTime() : 0;
+            } else if (sortConfig.key === 'customerName') {
+                aValue = (a.customer?.name || '').toLowerCase();
+                bValue = (b.customer?.name || '').toLowerCase();
+            } else {
+                aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        })
+        
+        return sortableItems
+    }, [paginatedOrders, sortConfig])
 
     // Reset pagination on filter change
     useEffect(() => {
@@ -217,10 +260,18 @@ export function MalinhasList() {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-[#FAF8F5]/50 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em]">
-                                <th className="px-8 py-5">Malinha / Itens</th>
-                                <th className="px-8 py-5">Cliente</th>
-                                <th className="px-8 py-5">Agendamento</th>
-                                <th className="px-8 py-5">Status Logístico</th>
+                                <th className="px-8 py-5 cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('orderNumber')}>
+                                    <div className="flex items-center gap-2">Malinha / Itens <ArrowUpDown className="w-3 h-3" /></div>
+                                </th>
+                                <th className="px-8 py-5 cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('customerName')}>
+                                    <div className="flex items-center gap-2">Cliente <ArrowUpDown className="w-3 h-3" /></div>
+                                </th>
+                                <th className="px-8 py-5 cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('deliveryDate')}>
+                                    <div className="flex items-center gap-2">Agendamento <ArrowUpDown className="w-3 h-3" /></div>
+                                </th>
+                                <th className="px-8 py-5 cursor-pointer hover:text-[#4A3B32] transition-colors" onClick={() => requestSort('status')}>
+                                    <div className="flex items-center gap-2">Status Logístico <ArrowUpDown className="w-3 h-3" /></div>
+                                </th>
                                 <th className="px-8 py-5 text-center">Ação</th>
                             </tr>
                         </thead>
@@ -228,8 +279,8 @@ export function MalinhasList() {
                             <AnimatePresence>
                                 {isError ? (
                                     <tr><td colSpan="5" className="py-24 text-center text-red-500 italic">Erro ao carregar malinhas. Tente recarregar.</td></tr>
-                                ) : paginatedOrders.length > 0 ? (
-                                    paginatedOrders.map((order, idx) => {
+                                ) : sortedOrders.length > 0 ? (
+                                    sortedOrders.map((order, idx) => {
                                         const status = statusMap[order.status] || statusMap.pending
                                         return (
                                             <motion.tr

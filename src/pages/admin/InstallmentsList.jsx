@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { ArrowLeft, Plus, DollarSign, Calendar, User, AlertCircle, Check, Clock, Trash2, Edit2, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { ArrowLeft, Plus, DollarSign, Calendar, User, AlertCircle, Check, Clock, Trash2, Edit2, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -18,6 +18,41 @@ export function InstallmentDetails({ vendaId }) {
         date: new Date().toISOString().split('T')[0],
         method: 'dinheiro'
     })
+
+    const [sortConfig, setSortConfig] = useState({ key: 'installmentNumber', direction: 'asc' })
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
+
+    const installments = detailsData?.installments || []
+
+    const sortedInstallments = useMemo(() => {
+        const sortableItems = [...installments]
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+
+            if (['originalAmount', 'paidAmount', 'remainingAmount', 'installmentNumber', 'id'].includes(sortConfig.key)) {
+                aValue = parseFloat(a[sortConfig.key]) || 0;
+                bValue = parseFloat(b[sortConfig.key]) || 0;
+            } else if (sortConfig.key === 'dueDate') {
+                aValue = new Date(a.dueDate).getTime();
+                bValue = new Date(b.dueDate).getTime();
+            } else {
+                aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        })
+        return sortableItems
+    }, [installments, sortConfig])
 
     const handlePayFull = async () => {
         try {
@@ -102,17 +137,29 @@ export function InstallmentDetails({ vendaId }) {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b-2 border-gray-300">
-                                    <th className="text-left py-3 px-4 font-bold text-[#4A3B32]">Parcela</th>
-                                    <th className="text-left py-3 px-4 font-bold text-[#4A3B32]">Vencimento</th>
-                                    <th className="text-right py-3 px-4 font-bold text-[#4A3B32]">Valor</th>
-                                    <th className="text-right py-3 px-4 font-bold text-[#4A3B32]">Pago</th>
-                                    <th className="text-right py-3 px-4 font-bold text-[#4A3B32]">Saldo</th>
-                                    <th className="text-center py-3 px-4 font-bold text-[#4A3B32]">Status</th>
+                                    <th className="text-left py-3 px-4 font-bold text-[#4A3B32] cursor-pointer hover:text-[#C75D3B]" onClick={() => requestSort('installmentNumber')}>
+                                         <div className="flex items-center gap-2">Parcela <ArrowUpDown className="w-3 h-3" /></div>
+                                     </th>
+                                    <th className="text-left py-3 px-4 font-bold text-[#4A3B32] cursor-pointer hover:text-[#C75D3B]" onClick={() => requestSort('dueDate')}>
+                                         <div className="flex items-center gap-2">Vencimento <ArrowUpDown className="w-3 h-3" /></div>
+                                     </th>
+                                    <th className="text-right py-3 px-4 font-bold text-[#4A3B32] cursor-pointer hover:text-[#C75D3B]" onClick={() => requestSort('originalAmount')}>
+                                         <div className="flex items-center justify-end gap-2">Valor <ArrowUpDown className="w-3 h-3" /></div>
+                                     </th>
+                                    <th className="text-right py-3 px-4 font-bold text-[#4A3B32] cursor-pointer hover:text-[#C75D3B]" onClick={() => requestSort('paidAmount')}>
+                                         <div className="flex items-center justify-end gap-2">Pago <ArrowUpDown className="w-3 h-3" /></div>
+                                     </th>
+                                    <th className="text-right py-3 px-4 font-bold text-[#4A3B32] cursor-pointer hover:text-[#C75D3B]" onClick={() => requestSort('remainingAmount')}>
+                                         <div className="flex items-center justify-end gap-2">Saldo <ArrowUpDown className="w-3 h-3" /></div>
+                                     </th>
+                                    <th className="text-center py-3 px-4 font-bold text-[#4A3B32] cursor-pointer hover:text-[#C75D3B]" onClick={() => requestSort('status')}>
+                                         <div className="flex items-center justify-center gap-2">Status <ArrowUpDown className="w-3 h-3" /></div>
+                                     </th>
                                     <th className="text-center py-3 px-4 font-bold text-[#4A3B32]">Ação</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {installments.map((installment) => (
+                                {sortedInstallments.map((installment) => (
                                     <tr key={installment.id} className="border-b border-gray-200 hover:bg-white transition-colors">
                                         <td className="py-3 px-4 font-bold text-[#4A3B32]">{installment.installmentNumber}ª</td>
                                         <td className="py-3 px-4">
@@ -249,6 +296,8 @@ export function InstallmentsList() {
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize] = useState(20)
 
+    const [sortConfig, setSortConfig] = useState({ key: 'customerName', direction: 'asc' })
+
     // Reset pagination when filter changes
     useEffect(() => {
         setCurrentPage(1)
@@ -266,6 +315,37 @@ export function InstallmentsList() {
         pageSize,
         status: statusFilter
     })
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
+
+    const sortedSales = useMemo(() => {
+        if (!vendas) return []
+        const sortableItems = [...vendas]
+        
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+
+            if (['totalValue', 'entryPayment', 'dueAmount', 'numInstallments', 'id'].includes(sortConfig.key)) {
+                aValue = parseFloat(a[sortConfig.key]) || 0;
+                bValue = parseFloat(b[sortConfig.key]) || 0;
+            } else {
+                aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        })
+        
+        return sortableItems
+    }, [vendas, sortConfig])
 
     // Fetch Metrics for Cards (Filtered by current status)
     const {
@@ -373,7 +453,7 @@ export function InstallmentsList() {
 
             {/* Lista de Vendas */}
             <AnimatePresence>
-                {vendas.length === 0 ? (
+                {sortedSales.length === 0 ? (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
                         <AlertCircle className="w-12 h-12 text-[#4A3B32]/20 mx-auto mb-4" />
                         <p className="text-[#4A3B32]/60">
@@ -384,7 +464,29 @@ export function InstallmentsList() {
                     </motion.div>
                 ) : (
                     <div className="space-y-4">
-                        {vendas.map((venda) => (
+                        {/* Sorting Header for Cards */}
+                        <div className="bg-[#FAF8F5]/50 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em] px-10 py-4 flex items-center justify-between border-b border-gray-100 italic">
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-6">
+                                <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('customerName')}>
+                                    Cliente <ArrowUpDown className="w-3 h-3" />
+                                </div>
+                                <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('totalValue')}>
+                                    Total <ArrowUpDown className="w-3 h-3" />
+                                </div>
+                                <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('entryPayment')}>
+                                    Entrada <ArrowUpDown className="w-3 h-3" />
+                                </div>
+                                <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('dueAmount')}>
+                                    Saldo <ArrowUpDown className="w-3 h-3" />
+                                </div>
+                                <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('numInstallments')}>
+                                    Parcelas <ArrowUpDown className="w-3 h-3" />
+                                </div>
+                            </div>
+                            <div className="w-10"></div>
+                        </div>
+
+                        {sortedSales.map((venda) => (
                             <motion.div key={venda.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                                 <Card className="overflow-hidden">
                                     <CardContent className="pt-6 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => handleExpandVenda(venda.id)}>

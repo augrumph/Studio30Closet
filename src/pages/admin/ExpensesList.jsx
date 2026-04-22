@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Receipt, Calendar, DollarSign, Trash2, Edit2, TrendingDown, Sparkles } from 'lucide-react'
+import { Plus, Search, Receipt, Calendar, DollarSign, Trash2, Edit2, TrendingDown, Sparkles, ArrowUpDown } from 'lucide-react'
 import { useAdminExpenses, useAdminExpensesMutations, useAdminExpensesMetrics } from '@/hooks/useAdminExpenses'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,8 @@ export function ExpensesList() {
         setCurrentPage(1)
     }, [search])
 
+    const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' })
+
     // Fetch Expenses (Paginated & Filtered)
     const {
         expenses,
@@ -35,10 +37,41 @@ export function ExpensesList() {
         search
     })
 
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
+
+    const sortedExpenses = useMemo(() => {
+        if (!expenses) return []
+        const sortableItems = [...expenses]
+        
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+
+            if (['value', 'dueDay', 'id'].includes(sortConfig.key)) {
+                aValue = parseFloat(a[sortConfig.key]) || 0;
+                bValue = parseFloat(b[sortConfig.key]) || 0;
+            } else {
+                aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        })
+        
+        return sortableItems
+    }, [expenses, sortConfig])
+
     // Fetch Metrics
     const { metrics } = useAdminExpensesMetrics({ search })
 
-    const filteredExpenses = expenses || []
+    const filteredExpenses = sortedExpenses || []
 
     const handleDelete = (id) => {
         setConfirmDelete({ isOpen: true, expenseId: id })
@@ -171,6 +204,28 @@ export function ExpensesList() {
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-50">
+                            {/* Sorting Header */}
+                            <div className="bg-[#FAF8F5]/50 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em] px-6 py-4 flex items-center justify-between border-b border-gray-100">
+                                <div className="flex-1 flex gap-4">
+                                    <div className="w-12 shrink-0"></div>
+                                    <div className="flex-1 flex gap-4">
+                                        <div className="cursor-pointer hover:text-[#4A3B32] transition-colors flex items-center gap-2" onClick={() => requestSort('name')}>
+                                            Nome <ArrowUpDown className="w-3 h-3" />
+                                        </div>
+                                        <div className="cursor-pointer hover:text-[#4A3B32] transition-colors flex items-center gap-2" onClick={() => requestSort('value')}>
+                                            Valor <ArrowUpDown className="w-3 h-3" />
+                                        </div>
+                                        <div className="hidden sm:flex cursor-pointer hover:text-[#4A3B32] transition-colors items-center gap-2" onClick={() => requestSort('category')}>
+                                            Categoria <ArrowUpDown className="w-3 h-3" />
+                                        </div>
+                                        <div className="hidden md:flex cursor-pointer hover:text-[#4A3B32] transition-colors items-center gap-2" onClick={() => requestSort('dueDay')}>
+                                            Vencimento <ArrowUpDown className="w-3 h-3" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="w-24 text-center">Ações</div>
+                            </div>
+
                             <AnimatePresence>
                                 {filteredExpenses.map((expense, idx) => (
                                     <motion.div

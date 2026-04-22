@@ -18,7 +18,7 @@ import { toast } from 'sonner'
 import {
     Plus, Search, MessageCircle, ShoppingBag, TrendingUp,
     Star, AlertCircle, Phone, Mail, ExternalLink,
-    Users, Award, Cake
+    Users, Award, Cake, ArrowUpDown
 } from 'lucide-react'
 import { useAdminCustomers, useAdminCustomersMutations } from '@/hooks/useAdminCustomers'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -33,6 +33,7 @@ export function CustomersList() {
     const [search, setSearch] = useState('')
     const debouncedSearch = useDebounce(searchInput, 400)
     const [currentPage, setCurrentPage] = useState(1)
+    const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' })
 
 
 
@@ -43,9 +44,6 @@ export function CustomersList() {
     const [selectedCustomer, setSelectedCustomer] = useState(null)
     const [isDetailOpen, setIsDetailOpen] = useState(false)
 
-    // ============================================================================
-    // React Query: Fetch customers
-    // ============================================================================
     const {
         customers,
         total,
@@ -55,9 +53,44 @@ export function CustomersList() {
         error
     } = useAdminCustomers(currentPage, 50, search || '', activeFilter === 'all' ? 'all' : activeFilter)
 
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
+
+    const sortedCustomers = useMemo(() => {
+        if (!customers) return []
+        const sortableItems = [...customers]
+        
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+
+            if (['total_spent', 'totalSpent', 'purchases_count', 'purchasesCount', 'id'].includes(sortConfig.key)) {
+                aValue = parseFloat(a[sortConfig.key]) || 0;
+                bValue = parseFloat(b[sortConfig.key]) || 0;
+            } else if (sortConfig.key === 'last_purchase' || sortConfig.key === 'lastPurchaseDate') {
+                aValue = new Date(a[sortConfig.key]).getTime();
+                bValue = new Date(b[sortConfig.key]).getTime();
+            } else {
+                aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        })
+        
+        return sortableItems
+    }, [customers, sortConfig])
+
     const { deleteCustomer } = useAdminCustomersMutations()
 
     const totalCustomers = total
+    const filteredCustomers = sortedCustomers || []
 
     // ============================================================================
     // Derived Metrics
@@ -351,6 +384,25 @@ export function CustomersList() {
                                 </button>
                             )
                         })}
+                    </div>
+
+                    {/* Sorting Header for Grid (Mobile Friendly) */}
+                    <div className="bg-[#FAF8F5]/80 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em] px-4 py-3 flex items-center justify-between rounded-xl border border-gray-100 italic">
+                        <div className="flex-1 flex gap-6">
+                            <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('name')}>
+                                Nome <ArrowUpDown className="w-3 h-3" />
+                            </div>
+                            <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('total_spent')}>
+                                Gasto <ArrowUpDown className="w-3 h-3" />
+                            </div>
+                            <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('purchases_count')}>
+                                Compras <ArrowUpDown className="w-3 h-3" />
+                            </div>
+                            <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('last_purchase')}>
+                                Última <ArrowUpDown className="w-3 h-3" />
+                            </div>
+                        </div>
+                        <div className="w-8"></div>
                     </div>
                 </CardContent>
             </Card>

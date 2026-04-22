@@ -33,7 +33,8 @@ import {
     Hash,
     ShoppingBag,
     Plus,
-    Loader2
+    Loader2,
+    ArrowUpDown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -117,9 +118,9 @@ export function EntregasList() {
     const [isDetailOpen, setIsDetailOpen] = useState(false)
     const [isConfigured] = useState(false) // Will check for API credentials
 
-    // ============================================================================
-    // React Query: Fetch entregas from Backend
-    // ============================================================================
+    const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' })
+
+    // ... hooks ...
     const {
         entregas: deliveries,
         total,
@@ -135,10 +136,50 @@ export function EntregasList() {
         search: searchTerm
     })
 
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    }
+
+    const sortedDeliveries = useMemo(() => {
+        if (!deliveries) return []
+        const sortableItems = [...deliveries]
+        
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+
+            if (['total', 'id'].includes(sortConfig.key)) {
+                aValue = parseFloat(a[sortConfig.key]) || 0;
+                bValue = parseFloat(b[sortConfig.key]) || 0;
+            } else if (sortConfig.key === 'createdAt') {
+                aValue = new Date(a.createdAt).getTime();
+                bValue = new Date(b.createdAt).getTime();
+            } else if (sortConfig.key === 'customerName') {
+                aValue = (a.customer?.name || '').toLowerCase();
+                bValue = (b.customer?.name || '').toLowerCase();
+            } else {
+                aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        })
+        
+        return sortableItems
+    }, [deliveries, sortConfig])
+
     // Fetch Metrics from Backend
     const { data: serverMetrics } = useEntregasMetrics()
 
     const { updateStatus: updateStatusMutation, isUpdating } = useEntregasMutations()
+
+    // ... rest of useMemo ...
+
 
     // ============================================================================
     // Metrics (Use server metrics or fallback)
@@ -172,7 +213,7 @@ export function EntregasList() {
     // ============================================================================
     // Filtered Deliveries (Already filtered by backend)
     // ============================================================================
-    const filteredDeliveries = deliveries || []
+    const filteredDeliveries = sortedDeliveries || []
 
     // Reset pagination on filter change
     useEffect(() => {
@@ -434,6 +475,22 @@ export function EntregasList() {
                                 </button>
                             )
                         })}
+                    </div>
+
+                    {/* Sorting Header for Grid (Mobile Friendly) */}
+                    <div className="bg-[#FAF8F5]/80 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em] px-4 py-3 flex items-center justify-between rounded-xl border border-gray-100 italic">
+                        <div className="flex-1 flex gap-6">
+                            <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('customerName')}>
+                                Cliente <ArrowUpDown className="w-3 h-3" />
+                            </div>
+                            <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('total')}>
+                                Valor <ArrowUpDown className="w-3 h-3" />
+                            </div>
+                            <div className="cursor-pointer hover:text-[#C75D3B] flex items-center gap-2" onClick={() => requestSort('createdAt')}>
+                                Data <ArrowUpDown className="w-3 h-3" />
+                            </div>
+                        </div>
+                        <div className="w-8"></div>
                     </div>
                 </CardContent>
             </Card>

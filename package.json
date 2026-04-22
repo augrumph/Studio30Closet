@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Studio30 Closet - E-commerce Platform",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "npm-run-all --parallel server client",
     "client": "vite",

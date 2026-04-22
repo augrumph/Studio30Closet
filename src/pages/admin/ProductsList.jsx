@@ -96,11 +96,19 @@ export function ProductsList() {
             let aValue, bValue;
 
             if (sortConfig.key === 'markup') {
-                aValue = a.costPrice > 0 ? a.price / a.costPrice : 0;
-                bValue = b.costPrice > 0 ? b.price / b.costPrice : 0;
+                const aPrice = parseFloat(a.price) || 0;
+                const aCost = parseFloat(a.costPrice) || 0;
+                const bPrice = parseFloat(b.price) || 0;
+                const bCost = parseFloat(b.costPrice) || 0;
+                aValue = aCost > 0 ? aPrice / aCost : 0;
+                bValue = bCost > 0 ? bPrice / bCost : 0;
             } else if (sortConfig.key === 'margin') {
-                aValue = a.price > 0 ? (a.price - a.costPrice) / a.price : -Infinity;
-                bValue = b.price > 0 ? (b.price - b.costPrice) / b.price : -Infinity;
+                const aPrice = parseFloat(a.price) || 0;
+                const aCost = parseFloat(a.costPrice) || 0;
+                const bPrice = parseFloat(b.price) || 0;
+                const bCost = parseFloat(b.costPrice) || 0;
+                aValue = aPrice > 0 && aCost > 0 ? (aPrice - aCost) / aPrice : -Infinity;
+                bValue = bPrice > 0 && bCost > 0 ? (bPrice - bCost) / bPrice : -Infinity;
             } else {
                 aValue = a[sortConfig.key];
                 bValue = b[sortConfig.key];
@@ -529,19 +537,21 @@ export function ProductsList() {
                                                         {(product.costPrice || 0) === 0 && <AlertTriangle className="w-3 h-3" />}
                                                         R$ {(product.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                     </span>
-                                                    {(product.costPrice || 0) === 0 && (
-                                                        <span className="text-[9px] text-amber-500 font-black uppercase">Custo Zerado</span>
-                                                    )}
+                                                        {(product.costPrice === undefined || parseFloat(product.costPrice) === 0) && (
+                                                            <span className="text-[9px] text-amber-500 font-black uppercase tracking-tighter">Custo Zerado</span>
+                                                        )}
                                                 </div>
                                             </td>
                                             <td className="hidden lg:table-cell px-4 md:px-8 py-4 md:py-6 text-right">
                                                 <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-                                                    {product.costPrice > 0 ? (((product.price - product.costPrice) / product.costPrice) * 100).toFixed(0) + '%' : '-'}
+                                                        {parseFloat(product.costPrice) > 0 ? (((parseFloat(product.price) - parseFloat(product.costPrice)) / parseFloat(product.costPrice)) * 100).toFixed(0) + '%' : '-'}
                                                 </span>
                                             </td>
                                             <td className="hidden lg:table-cell px-4 md:px-8 py-4 md:py-6 text-right">
                                                 {(() => {
-                                                    const margin = product.price > 0 ? ((product.price - product.costPrice) / product.price * 100) : 0;
+                                                    const price = parseFloat(product.price) || 0;
+                                                const cost = parseFloat(product.costPrice) || 0;
+                                                const margin = price > 0 && cost > 0 ? ((price - cost) / price * 100) : 0;
                                                     return (
                                                         <span className={cn(
                                                             "text-sm font-bold px-2 py-1 rounded-md",

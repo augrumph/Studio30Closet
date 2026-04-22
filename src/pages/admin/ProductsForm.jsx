@@ -350,6 +350,7 @@ export function ProductsForm() {
             price: parseBrazilianNumber(formData.price),
             originalPrice: formData.originalPrice ? parseBrazilianNumber(formData.originalPrice) : null,
             costPrice: parseBrazilianNumber(formData.costPrice),
+            cost_price: parseBrazilianNumber(formData.costPrice), // Dual-compatibility fallback
             supplierId: formData.supplierId && formData.supplierId !== '' ? formData.supplierId : null,
             stock: calculatedStock, // Estoque total calculado automaticamente
             sizes: calculatedSizes, // Tamanhos calculados automaticamente

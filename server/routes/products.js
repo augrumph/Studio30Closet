@@ -134,7 +134,24 @@ router.get('/', optionalAuthenticateToken, async (req, res) => {
         // Lite columns: exclui variants e description (pesados) e cost_price (sensível)
         const selectColumns = (isFull && isAdmin)
             ? '*'
-            : 'id, name, price, original_price, category, stock, active, collection_ids, created_at, supplier_id, images, is_featured, is_new, is_catalog_featured, is_best_seller'
+            : [
+                'id',
+                'name',
+                'price',
+                'original_price',
+                'category',
+                'stock',
+                'active',
+                'collection_ids',
+                'created_at',
+                'supplier_id',
+                'images',
+                'is_featured',
+                'is_new',
+                'is_catalog_featured',
+                'is_best_seller',
+                'cost_price' // Inclui custo por padrão para evitar problemas de visualização administrativa
+            ].join(', ')
 
         const { rows } = await pool.query(`
             SELECT COUNT(*) OVER() as total_count, ${selectColumns}
@@ -305,7 +322,7 @@ router.post('/', authenticateToken, async (req, res) => {
         `, [
             data.name,
             data.price,
-            data.cost_price || 0,
+            data.cost_price ?? data.costPrice ?? 0,
             data.original_price,
             data.description,
             data.stock || 0,

@@ -109,7 +109,7 @@ export function ProductsList() {
                 const bCost = parseFloat(b.costPrice) || 0;
                 aValue = aPrice > 0 && aCost > 0 ? (aPrice - aCost) / aPrice : -Infinity;
                 bValue = bPrice > 0 && bCost > 0 ? (bPrice - bCost) / bPrice : -Infinity;
-            } else if (['price', 'costPrice', 'stock', 'originalPrice', 'original_price'].includes(sortConfig.key)) {
+            } else if (['id', 'price', 'costPrice', 'stock', 'originalPrice', 'original_price'].includes(sortConfig.key)) {
                 aValue = parseFloat(a[sortConfig.key]) || 0;
                 bValue = parseFloat(b[sortConfig.key]) || 0;
             } else {

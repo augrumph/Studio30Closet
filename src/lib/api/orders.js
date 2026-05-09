@@ -49,6 +49,8 @@ export async function getOrderById(id) {
 export async function createOrder(orderData) {
     return apiClient('/orders', {
         method: 'POST',
+        auth: false,
+        logoutOnUnauthorized: false,
         body: orderData
     })
 }

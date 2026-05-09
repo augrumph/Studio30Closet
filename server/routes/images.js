@@ -1,9 +1,7 @@
 import express from 'express'
 import multer from 'multer'
 import { pool } from '../db.js'
-import { uploadFile, s3Client } from '../lib/s3.js'
-import { GetObjectCommand } from '@aws-sdk/client-s3'
-import sharp from 'sharp'
+import { uploadFile, s3Client, createGetObjectCommand } from '../lib/s3.js'
 import { validateFileUpload } from '../middleware/fileSanitization.js'
 import { authenticateToken } from '../middleware/auth.js'
 
@@ -24,7 +22,7 @@ router.get('/proxy/*', async (req, res) => {
 
         if (!key) return res.status(400).send('Key required')
 
-        const command = new GetObjectCommand({
+        const command = await createGetObjectCommand({
             Bucket: process.env.S3_BUCKET,
             Key: key
         })
@@ -48,6 +46,7 @@ router.get('/proxy/*', async (req, res) => {
         const quality = q ? parseInt(q) : 80
 
         // Pipeline de Transformação
+        const { default: sharp } = await import('sharp')
         const transform = sharp()
 
         // 1. Resize

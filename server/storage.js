@@ -1,4 +1,3 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -12,16 +11,27 @@ if (process.env.NODE_ENV !== 'production') {
   dotenv.config({ path: path.resolve(__dirname, '../.env') })
 }
 
-// Configuração do Cliente S3 (Railway / R2 / AWS)
-const s3Client = new S3Client({
-  region: process.env.S3_REGION || 'auto',
-  endpoint: process.env.S3_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
-  },
-  forcePathStyle: true // Necessário para alguns providers compatíveis com S3
-})
+let s3ModulesPromise
+
+async function getS3Modules() {
+  if (!s3ModulesPromise) {
+    s3ModulesPromise = import('@aws-sdk/client-s3').then(({ S3Client, PutObjectCommand, DeleteObjectCommand }) => {
+      const client = new S3Client({
+        region: process.env.S3_REGION || 'auto',
+        endpoint: process.env.S3_ENDPOINT,
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY_ID,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
+        },
+        forcePathStyle: true
+      })
+
+      return { client, PutObjectCommand, DeleteObjectCommand }
+    })
+  }
+
+  return s3ModulesPromise
+}
 
 const BUCKET_NAME = process.env.S3_BUCKET
 
@@ -42,6 +52,7 @@ export async function uploadBuffer(buffer, contentType, folder = 'uploads') {
     const ext = contentType.split('/')[1] || 'jpg'
     const filename = `${folder}/${crypto.randomUUID()}.${ext}`
 
+    const { client, PutObjectCommand } = await getS3Modules()
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: filename,
@@ -49,7 +60,7 @@ export async function uploadBuffer(buffer, contentType, folder = 'uploads') {
       ContentType: contentType,
     })
 
-    await s3Client.send(command)
+    await client.send(command)
 
     // Reset endpoint trailing slash
     const endpoint = process.env.S3_ENDPOINT.replace(/\/$/, '')
@@ -121,12 +132,13 @@ export async function deleteImage(fileUrl) {
 
     const key = parts[1] // Pegar tudo depois do bucket/
 
+    const { client, DeleteObjectCommand } = await getS3Modules()
     const command = new DeleteObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key
     })
 
-    await s3Client.send(command)
+    await client.send(command)
     console.log(`🗑️ Imagem deletada do S3: ${key}`)
 
   } catch (error) {

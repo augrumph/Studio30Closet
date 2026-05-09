@@ -1,11 +1,9 @@
 
 import express from 'express'
 import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import { pool } from '../db.js'
-
-import crypto from 'crypto'
+import { signJwt, verifyJwt } from '../lib/jwt.js'
 
 const router = express.Router()
 
@@ -49,7 +47,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         }
 
         // 4. Gerar Token
-        const token = jwt.sign(
+        const token = signJwt(
             {
                 id: user.id,
                 email: user.email,
@@ -82,7 +80,7 @@ router.get('/me', async (req, res) => {
     const token = authHeader.split(' ')[1]
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET)
+        const decoded = verifyJwt(token, JWT_SECRET)
         // Opcional: Buscar dados atualizados do banco
         const { rows } = await pool.query('SELECT id, username as email, name FROM admins WHERE id = $1', [decoded.id])
 

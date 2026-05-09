@@ -5,7 +5,7 @@
 
 const API_Base = import.meta.env.VITE_API_URL || '/api'
 
-export async function apiClient(endpoint, { body, ...customConfig } = {}) {
+export async function apiClient(endpoint, { body, auth = true, logoutOnUnauthorized = true, ...customConfig } = {}) {
     const headers = {
         'Content-Type': 'application/json',
     }
@@ -21,7 +21,7 @@ export async function apiClient(endpoint, { body, ...customConfig } = {}) {
 
     // Injetar Token de Autenticação se existir
     const token = localStorage.getItem('auth_token')
-    if (token) {
+    if (auth && token) {
         config.headers['Authorization'] = `Bearer ${token}`
     }
 
@@ -47,7 +47,7 @@ export async function apiClient(endpoint, { body, ...customConfig } = {}) {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}))
-            if (response.status === 401) {
+            if (response.status === 401 && logoutOnUnauthorized) {
                 const { useAuthStore } = await import('@/store/auth-store')
                 useAuthStore.getState().logout()
             }

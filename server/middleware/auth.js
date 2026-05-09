@@ -1,5 +1,4 @@
-import jwt from 'jsonwebtoken'
-import crypto from 'crypto'
+import { verifyJwt } from '../lib/jwt.js'
 
 const JWT_SECRET = process.env.JWT_SECRET
 
@@ -16,7 +15,7 @@ export function authenticateToken(req, res, next) {
     }
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET)
+        const decoded = verifyJwt(token, JWT_SECRET)
         req.user = decoded
         next()
     } catch (err) {
@@ -33,7 +32,7 @@ export function optionalAuthenticateToken(req, res, next) {
     }
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET)
+        const decoded = verifyJwt(token, JWT_SECRET)
         req.user = decoded
         next()
     } catch (err) {

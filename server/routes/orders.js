@@ -5,6 +5,7 @@ import { updateProductStock } from '../stock-utils.js'
 import { extractKeyFromUrl, getPresignedUrl, enrichImages } from '../lib/s3.js'
 import { sendNewMalinhaNotification } from '../email-service.js'
 import { authenticateToken } from '../middleware/auth.js'
+import { isValidCpf, normalizeCpf } from '../lib/cpf.js'
 
 const router = express.Router()
 
@@ -149,7 +150,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Erro ao buscar order' })
     }
 })
-router.post('/', authenticateToken, async (req, res) => {
+// POST /api/orders - Public checkout submission.
+// Admin-only operations in this router remain protected by authenticateToken.
+router.post('/', async (req, res) => {
     console.log('📦 POST /api/orders - Creating Order & Sending Email')
     const orderData = req.body
 
@@ -163,25 +166,52 @@ router.post('/', authenticateToken, async (req, res) => {
 
         // 1. Handle Customer
         if (!customerId && customer) {
-            const cpf = customer.cpf?.replace(/\D/g, '')
+            const cpf = normalizeCpf(customer.cpf)
+            if (!isValidCpf(cpf)) {
+                await client.query('ROLLBACK')
+                return res.status(400).json({ error: 'CPF inválido' })
+            }
+
+            const birthDate = customer.birth_date || customer.birthDate || null
+
             if (cpf) {
                 const { rows: existing } = await client.query(
-                    'SELECT id FROM customers WHERE cpf = $1',
+                    `SELECT id FROM customers WHERE regexp_replace(COALESCE(cpf, ''), '\\D', '', 'g') = $1`,
                     [cpf]
                 )
-                if (existing.length > 0) customerId = existing[0].id
+                if (existing.length > 0) {
+                    customerId = existing[0].id
+
+                    await client.query(
+                        `UPDATE customers
+                         SET phone = COALESCE($2, phone),
+                             email = COALESCE($3, email),
+                             birth_date = COALESCE($4, birth_date),
+                             addresses = COALESCE($5, addresses),
+                             updated_at = NOW()
+                         WHERE id = $1`,
+                        [
+                            customerId,
+                            customer.phone || null,
+                            customer.email || null,
+                            birthDate,
+                            customer.addresses ? JSON.stringify(customer.addresses) : null
+                        ]
+                    )
+                }
             }
 
             if (!customerId) {
                 const { rows: newCust } = await client.query(
-                    `INSERT INTO customers (name, cpf, phone, email, addresses)
-                     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+                    `INSERT INTO customers (name, cpf, phone, email, addresses, birth_date)
+                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
                     [
                         customer.name,
-                        cpf || null,
+                        cpf,
                         customer.phone || null,
                         customer.email || null,
-                        customer.addresses ? JSON.stringify(customer.addresses) : '[]'
+                        customer.addresses ? JSON.stringify(customer.addresses) : '[]',
+                        birthDate
                     ]
                 )
                 customerId = newCust[0].id

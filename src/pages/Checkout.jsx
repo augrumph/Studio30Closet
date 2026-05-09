@@ -13,6 +13,7 @@ import { getOptimizedImageUrl } from '@/lib/image-optimizer'
 import { useStock } from '@/hooks/useStock'
 import { trackCheckoutStarted, trackCheckoutCompleted, markCartCheckoutStarted, markCartConverted, saveCustomerDataToCart } from '@/lib/api/analytics'
 import { SEO } from '@/components/SEO'
+import { formatCpf, isValidCpf } from '@/lib/cpf-utils'
 
 // Helper para gerar número do pedido
 function generateOrderNumber(orderId) {
@@ -180,6 +181,11 @@ export function Checkout() {
     // Form handlers
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target
+        if (name === 'cpf') {
+            setCustomerData({ cpf: formatCpf(value) })
+            setFormErrors(prev => ({ ...prev, cpf: undefined }))
+            return
+        }
         setCustomerData({ [name]: value })
     }, [setCustomerData])
 
@@ -191,7 +197,11 @@ export function Checkout() {
         if (!customerData.name?.trim()) errors.name = 'Obrigatório'
         if (!customerData.phone?.trim() || customerData.phone.length < 10) errors.phone = 'Inválido'
         if (!customerData.email?.trim()) errors.email = 'Obrigatório'
-        if (!customerData.cpf?.trim()) errors.cpf = 'Obrigatório'
+        if (!customerData.cpf?.trim()) {
+            errors.cpf = 'Obrigatório'
+        } else if (!isValidCpf(customerData.cpf)) {
+            errors.cpf = 'CPF inválido'
+        }
         if (!customerData.birth_date?.trim()) errors.birth_date = 'Obrigatório'
 
 
@@ -694,9 +704,15 @@ export function Checkout() {
                                                             value={customerData.cpf || ''}
                                                             onChange={handleInputChange}
                                                             placeholder="000.000.000-00"
-                                                            className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base"
+                                                            inputMode="numeric"
+                                                            autoComplete="off"
+                                                            maxLength={14}
+                                                            className={`w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-medium transition-all text-base ${formErrors.cpf ? 'ring-2 ring-red-300' : ''}`}
                                                         />
                                                     </div>
+                                                    {formErrors.cpf && (
+                                                        <p className="mt-2 text-xs font-semibold text-red-500">{formErrors.cpf}</p>
+                                                    )}
                                                 </div>
 
                                                 {/* Data de Nascimento */}

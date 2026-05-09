@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { isValidCpf, normalizeCpf } from '../lib/cpf.js'
 
 const router = express.Router()
 
@@ -131,14 +132,20 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/customers - Criar cliente
 router.post('/', async (req, res) => {
-    const { name, phone, email, cpf, address, complement, instagram, addresses, birthDate } = req.body
+    const { name, phone, email, cpf, address, complement, instagram, addresses } = req.body
+    const normalizedCpf = cpf ? normalizeCpf(cpf) : null
+    const birthDate = req.body.birthDate || req.body.birth_date || null
+
+    if (normalizedCpf && !isValidCpf(normalizedCpf)) {
+        return res.status(400).json({ error: 'CPF inválido' })
+    }
 
     try {
         const { rows } = await pool.query(`
             INSERT INTO customers (name, phone, email, cpf, address, complement, instagram, addresses, birth_date)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
-        `, [name, phone || null, email || null, cpf || null, address || null, complement || null, instagram || null,
+        `, [name, phone || null, email || null, normalizedCpf, address || null, complement || null, instagram || null,
             addresses ? JSON.stringify(addresses) : '[]', birthDate || null])
 
         res.status(201).json(toCamelCase(rows[0]))
@@ -151,7 +158,13 @@ router.post('/', async (req, res) => {
 // PUT /api/customers/:id - Atualizar cliente
 router.put('/:id', async (req, res) => {
     const { id } = req.params
-    const { name, phone, email, cpf, address, complement, instagram, addresses, birthDate } = req.body
+    const { name, phone, email, cpf, address, complement, instagram, addresses } = req.body
+    const normalizedCpf = cpf ? normalizeCpf(cpf) : null
+    const birthDate = req.body.birthDate || req.body.birth_date || null
+
+    if (normalizedCpf && !isValidCpf(normalizedCpf)) {
+        return res.status(400).json({ error: 'CPF inválido' })
+    }
 
     try {
         const { rows } = await pool.query(`
@@ -172,7 +185,7 @@ router.put('/:id', async (req, res) => {
             name || null,
             phone || null,
             email !== undefined ? email : null,
-            cpf !== undefined ? cpf : null,
+            cpf !== undefined ? normalizedCpf : null,
             address !== undefined ? address : null,
             complement !== undefined ? complement : null,
             instagram !== undefined ? instagram : null,

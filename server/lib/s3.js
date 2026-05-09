@@ -1,5 +1,3 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import dotenv from 'dotenv'
 
 import path from 'path'
@@ -13,15 +11,43 @@ if (process.env.NODE_ENV !== 'production') {
   dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 }
 
-export const s3Client = new S3Client({
-    region: process.env.S3_REGION || 'auto',
-    endpoint: process.env.S3_ENDPOINT,
-    credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID,
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
-    },
-    forcePathStyle: true // Needed for some S3-compatible providers
-})
+let s3ModulesPromise
+
+async function getS3Modules() {
+    if (!s3ModulesPromise) {
+        s3ModulesPromise = Promise.all([
+            import('@aws-sdk/client-s3'),
+            import('@aws-sdk/s3-request-presigner')
+        ]).then(([clientS3, presigner]) => {
+            const { S3Client } = clientS3
+            const client = new S3Client({
+                region: process.env.S3_REGION || 'auto',
+                endpoint: process.env.S3_ENDPOINT,
+                credentials: {
+                    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+                    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
+                },
+                forcePathStyle: true
+            })
+
+            return { ...clientS3, ...presigner, client }
+        })
+    }
+
+    return s3ModulesPromise
+}
+
+export const s3Client = {
+    async send(command) {
+        const { client } = await getS3Modules()
+        return client.send(command)
+    }
+}
+
+export async function createGetObjectCommand(input) {
+    const { GetObjectCommand } = await getS3Modules()
+    return new GetObjectCommand(input)
+}
 
 const BUCKET_NAME = process.env.S3_BUCKET
 
@@ -35,6 +61,7 @@ export async function uploadFile(file, folder = 'uploads') {
     const fileExtension = file.originalname.split('.').pop()
     const fileName = `${folder}/${Date.now()}-${Math.round(Math.random() * 1E9)}.${fileExtension}`
 
+    const { PutObjectCommand } = await getS3Modules()
     const command = new PutObjectCommand({
         Bucket: BUCKET_NAME,
         Key: fileName,
@@ -62,11 +89,12 @@ export async function uploadFile(file, folder = 'uploads') {
  */
 export async function getPresignedUrl(key) {
     try {
+        const { GetObjectCommand, getSignedUrl, client } = await getS3Modules()
         const command = new GetObjectCommand({
             Bucket: BUCKET_NAME,
             Key: key
         })
-        const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 }) // 1 hour
+        const url = await getSignedUrl(client, command, { expiresIn: 3600 }) // 1 hour
         return url
     } catch (error) {
         console.error('❌ Error generating presigned URL:', error)
@@ -101,6 +129,7 @@ export async function deleteFile(fileUrl) {
         const key = extractKeyFromUrl(fileUrl)
         if (!key) return
 
+        const { DeleteObjectCommand } = await getS3Modules()
         const command = new DeleteObjectCommand({
             Bucket: BUCKET_NAME,
             Key: key

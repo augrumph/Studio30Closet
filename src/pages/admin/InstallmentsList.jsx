@@ -62,8 +62,6 @@ export function InstallmentDetails({ vendaId }) {
         }
     }
 
-    const installments = detailsData?.installments || []
-
     const getStatusBadge = (status) => {
         switch (status) {
             case 'paid': return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">Pago</span>

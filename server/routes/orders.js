@@ -20,6 +20,32 @@ function toSnakeCase(obj) {
     }, {})
 }
 
+// Auxiliar para limpar campos (vazio -> null) e garantir tipos
+function sanitizeOrderData(data) {
+    const clean = { ...data }
+    
+    // Datas: string vazia ou "null" -> null
+    if (clean.deliveryDate === '' || clean.deliveryDate === 'null') clean.deliveryDate = null
+    if (clean.pickupDate === '' || clean.pickupDate === 'null') clean.pickupDate = null
+    
+    // Números: garantir que são números e não strings/NaN
+    if (clean.totalValue !== undefined) clean.totalValue = Number(clean.totalValue) || 0
+    if (clean.customerId !== undefined) clean.customerId = parseInt(clean.customerId) || null
+    
+    // Itens
+    if (Array.isArray(clean.items)) {
+        clean.items = clean.items.map(item => ({
+            ...item,
+            productId: parseInt(item.productId) || null,
+            quantity: parseInt(item.quantity) || 1,
+            price: Number(item.price) || 0,
+            costPrice: Number(item.costPrice) || 0
+        }))
+    }
+    
+    return clean
+}
+
 // GET /api/orders - List Orders (Admin)
 router.get('/', authenticateToken, async (req, res) => {
     const {
@@ -153,13 +179,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // POST /api/orders - Public checkout submission.
 // Admin-only operations in this router remain protected by authenticateToken.
 router.post('/', async (req, res) => {
-    console.log('📦 POST /api/orders - Creating Order & Sending Email')
-    const orderData = req.body
-
-    const client = await getClient()
-
     try {
-        await client.query('BEGIN')
+        const orderData = sanitizeOrderData(req.body)
+        console.log('📦 POST /api/orders - Creating Order & Sending Email')
 
         const { customer, items, ...orderFields } = orderData
         let customerId = orderFields.customerId
@@ -168,21 +190,20 @@ router.post('/', async (req, res) => {
         if (!customerId && customer) {
             const cpf = normalizeCpf(customer.cpf)
             if (!isValidCpf(cpf)) {
-                await client.query('ROLLBACK')
                 return res.status(400).json({ error: 'CPF inválido' })
             }
 
             const birthDate = customer.birth_date || customer.birthDate || null
 
             if (cpf) {
-                const { rows: existing } = await client.query(
+                const { rows: existing } = await pool.query(
                     `SELECT id FROM customers WHERE regexp_replace(COALESCE(cpf, ''), '\\D', '', 'g') = $1`,
                     [cpf]
                 )
                 if (existing.length > 0) {
                     customerId = existing[0].id
 
-                    await client.query(
+                    await pool.query(
                         `UPDATE customers
                          SET phone = COALESCE($2, phone),
                              email = COALESCE($3, email),
@@ -202,7 +223,7 @@ router.post('/', async (req, res) => {
             }
 
             if (!customerId) {
-                const { rows: newCust } = await client.query(
+                const { rows: newCust } = await pool.query(
                     `INSERT INTO customers (name, cpf, phone, email, addresses, birth_date)
                      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
                     [
@@ -220,83 +241,89 @@ router.post('/', async (req, res) => {
 
         if (!customerId) throw new Error('Customer ID required')
 
-        // 2. Insert Order
-        const { rows: newOrder } = await client.query(
-            `INSERT INTO orders (customer_id, status, total_value, delivery_date, pickup_date)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [
-                customerId,
-                orderFields.status || 'pending',
-                orderFields.totalValue || 0,
-                orderFields.deliveryDate || null,
-                orderFields.pickupDate || null
-            ]
-        )
+        const client = await getClient()
+        try {
+            await client.query('BEGIN')
 
-        // 3. Insert Items
-        if (items && items.length) {
-            for (const item of items) {
-                if (!item.productId) throw new Error('Item sem productId')
-                if (!item.quantity || item.quantity <= 0) throw new Error('Quantidade de item deve ser maior que zero')
-                await client.query(
-                    `INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time)
-                     VALUES ($1, $2, $3, $4, $5, $6)`,
-                    [
-                        newOrder[0].id,
+            // 2. Insert Order
+            const { rows: newOrder } = await client.query(
+                `INSERT INTO orders (customer_id, status, total_value, delivery_date, pickup_date)
+                 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+                [
+                    customerId,
+                    orderFields.status || 'pending',
+                    orderFields.totalValue || 0,
+                    orderFields.deliveryDate || null,
+                    orderFields.pickupDate || null
+                ]
+            )
+
+            // 3. Insert Items
+            if (items && items.length) {
+                for (const item of items) {
+                    if (!item.productId) throw new Error('Item sem productId')
+                    if (!item.quantity || item.quantity <= 0) throw new Error('Quantidade de item deve ser maior que zero')
+                    await client.query(
+                        `INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time)
+                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [
+                            newOrder[0].id,
+                            item.productId,
+                            item.quantity,
+                            item.selectedSize || null,
+                            item.selectedColor || null,
+                            item.price || 0
+                        ]
+                    )
+
+                    // Reserve stock for each item (com fallbacks para cor e tamanho)
+                    await updateProductStock(
+                        client,
                         item.productId,
                         item.quantity,
-                        item.selectedSize || null,
-                        item.selectedColor || null,
-                        item.price || 0
-                    ]
-                )
-
-                // Reserve stock for each item (com fallbacks para cor e tamanho)
-                await updateProductStock(
-                    client,
-                    item.productId,
-                    item.quantity,
-                    item.selectedColor || 'Padrão',
-                    item.selectedSize || 'Único',
-                    'reserve'
-                )
+                        item.selectedColor || 'Padrão',
+                        item.selectedSize || 'Único',
+                        'reserve'
+                    )
+                }
             }
+
+            await client.query('COMMIT')
+
+            // 🎉 Dispara o EmailJS de forma invisível via Backend (SÍNCRONO)
+            // Usamos background / promises sem 'await' para que o painel do admin receba o erro se der,
+            // mas o cliente recebe a resposta da ordem antes mesmo do email terminar de enviar.
+            sendNewMalinhaNotification({
+                customerName: customer?.name || 'Cliente',
+                customerEmail: customer?.email || '',
+                itemsCount: items ? items.length : 0,
+                orderId: newOrder[0].id,
+                items: items || [],
+                totalValue: orderFields.totalValue || 0
+            }).catch(e => console.error("Falha no email em background:", e))
+
+            res.json({ success: true, order: toCamelCase(newOrder[0]) })
+        } catch (error) {
+            await client.query('ROLLBACK')
+            throw error
+        } finally {
+            client.release()
         }
-
-        await client.query('COMMIT')
-
-        // 🎉 Dispara o EmailJS de forma invisível via Backend (SÍNCRONO)
-        // Usamos background / promises sem 'await' para que o painel do admin receba o erro se der,
-        // mas o cliente recebe a resposta da ordem antes mesmo do email terminar de enviar.
-        sendNewMalinhaNotification({
-            customerName: customer?.name || 'Cliente',
-            customerEmail: customer?.email || '',
-            itemsCount: items ? items.length : 0,
-            orderId: newOrder[0].id,
-            items: items || [],
-            totalValue: orderFields.totalValue || 0
-        }).catch(e => console.error("Falha no email em background:", e))
-
-        res.json({ success: true, order: toCamelCase(newOrder[0]) })
-
     } catch (error) {
-        await client.query('ROLLBACK')
         console.error('❌ Create Order Error:', error)
         res.status(500).json({ error: error.message })
-    } finally {
-        client.release()
     }
 })
 
 // PUT /api/orders/:id - Update Order with Transaction (Admin)
 router.put('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
-    const orderData = req.body
     console.log(`📦 PUT /api/orders/${id} - Updating Order Transactionally`)
 
     const client = await getClient()
 
     try {
+        const orderData = sanitizeOrderData(req.body)
         await client.query('BEGIN')
 
         // 1. Fetch Current Order Items

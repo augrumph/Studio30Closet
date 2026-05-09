@@ -187,23 +187,23 @@ export function MalinhasForm() {
         // SIMPLIFICADO: Enviar apenas IDs dos produtos
         // Os dados completos (preços, nomes, etc) serão buscados do banco via getOrderById
         const payload = {
-            customerId: formData.customerId,
-            deliveryDate: formData.deliveryDate,
-            pickupDate: formData.pickupDate,
+            customerId: parseInt(formData.customerId),
+            deliveryDate: formData.deliveryDate || null,
+            pickupDate: formData.pickupDate || null,
             status: formData.status,
-            totalValue,
+            totalValue: Number(totalValue || 0),
             items: formData.items.map(item => {
                 // Validar que productId existe
                 if (!item.productId) {
                     throw new Error(`Erro: Item sem produto válido`);
                 }
                 return {
-                    productId: item.productId,
-                    quantity: item.quantity || 1,
-                    selectedSize: item.selectedSize,
-                    selectedColor: item.selectedColor || 'Padrão', // 🔒 CRÍTICO para reserva de estoque
-                    price: item.price || 0,
-                    costPrice: item.costPrice || 0
+                    productId: parseInt(item.productId),
+                    quantity: parseInt(item.quantity || 1),
+                    selectedSize: item.selectedSize || 'Único',
+                    selectedColor: item.selectedColor || 'Padrão',
+                    price: parseFloat(item.price || 0),
+                    costPrice: parseFloat(item.costPrice || 0)
                 };
             })
         }

@@ -90,7 +90,6 @@ export function CustomersList() {
     const { deleteCustomer } = useAdminCustomersMutations()
 
     const totalCustomers = total
-    const filteredCustomers = sortedCustomers || []
 
     // ============================================================================
     // Derived Metrics
@@ -190,7 +189,7 @@ export function CustomersList() {
     // Filtered Customers
     // ============================================================================
     const filteredCustomers = useMemo(() => {
-        let filtered = customers
+        let filtered = sortedCustomers
 
         if (activeFilter === 'vip') {
             filtered = filtered.filter(c => isVIP(c))
@@ -201,7 +200,7 @@ export function CustomersList() {
         }
 
         return filtered
-    }, [customers, activeFilter])
+    }, [sortedCustomers, activeFilter])
 
     // ============================================================================
     // Loading State

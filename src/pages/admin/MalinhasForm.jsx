@@ -174,7 +174,7 @@ export function MalinhasForm() {
             return
         }
 
-        const totalValue = formData.items.reduce((sum, item) => sum + item.price, 0)
+        const totalValue = formData.items.reduce((sum, item) => sum + Number(item.price || 0), 0)
 
         // Validar preços dos produtos
         const invalidPriceItems = formData.items.filter(item => !item.price || item.price <= 0)
@@ -552,7 +552,7 @@ export function MalinhasForm() {
                                             <div className="flex items-center justify-between">
                                                 <span className="font-bold text-[#4A3B32]">Total</span>
                                                 <span className="text-xl font-bold text-[#C75D3B]">
-                                                    R$ {formData.items.reduce((sum, item) => sum + (item.price || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    R$ {formData.items.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                         </div>

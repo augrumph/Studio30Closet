@@ -127,8 +127,8 @@ export function MalinhasDetail() {
         setIsSubmitting(true)
 
         const itemsToSell = order.items.filter((_, idx) => keptItems.includes(idx))
-        const totalKept = itemsToSell.reduce((sum, item) => sum + item.price, 0)
-        const totalCost = itemsToSell.reduce((sum, item) => sum + (item.costPrice || 0), 0)
+        const totalKept = itemsToSell.reduce((sum, item) => sum + Number(item.price || 0), 0)
+        const totalCost = itemsToSell.reduce((sum, item) => sum + Number(item.costPrice || 0), 0)
 
         const isCrediario = saleConfig.paymentMethod === 'fiado_parcelado'
 
@@ -325,7 +325,7 @@ export function MalinhasDetail() {
                                 </div>
                                 <div className="flex items-center gap-8">
                                     <span className="text-3xl font-display font-bold text-[#C75D3B]">
-                                        R$ {(order.items.filter((_, i) => keptItems.includes(i)).reduce((s, it) => s + (it.price || 0), 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        R$ {(order.items.filter((_, i) => keptItems.includes(i)).reduce((s, it) => s + Number(it.price || 0), 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </span>
                                     <button
                                         onClick={handleFinalizeSale}

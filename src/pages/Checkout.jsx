@@ -161,7 +161,7 @@ export function Checkout() {
     useEffect(() => {
         if (items.length > 0 && !hasTrackedCheckoutStart.current) {
             hasTrackedCheckoutStart.current = true
-            const totalValue = groupedItems.reduce((sum, item) => sum + (item.price * item.count), 0)
+            const totalValue = groupedItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.count || 1)), 0)
             trackCheckoutStarted(items.length, totalValue)
             markCartCheckoutStarted()
         }
@@ -220,7 +220,7 @@ export function Checkout() {
 
         setIsSubmitting(true)
         try {
-            const totalValue = groupedItems.reduce((sum, item) => sum + ((item.price || 0) * item.count), 0)
+            const totalValue = groupedItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.count || 1)), 0)
             const orderPayload = {
                 customer: customerData,
                 totalValue,

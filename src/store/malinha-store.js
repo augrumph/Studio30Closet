@@ -47,7 +47,7 @@ export const useMalinhaStore = create(
                     productId: product.id,          // ID do produto
                     selectedSize: size,             // Tamanho selecionado
                     selectedColor: color,           // ✅ Cor selecionada (IMPORTANTÍSSIMO PARA ESTOQUE)
-                    price: product.price || 0,      // ✅ Preço no momento da adição (para getTotalPrice)
+                    price: Number(product.price || 0),      // ✅ Preço no momento da adição (para getTotalPrice)
                     image: product.images?.[0],     // ✅ Salvar a imagem exata que o usuário viu (Variação)
                     addedAt: new Date().toISOString(),
                 }
@@ -130,7 +130,7 @@ export const useMalinhaStore = create(
 
             // Get total price
             getTotalPrice: () =>
-                get().items.reduce((sum, item) => sum + (item.price || 0), 0),
+                get().items.reduce((sum, item) => sum + Number(item.price || 0), 0),
 
             // Check if limit reached
             isLimitReached: () => get().items.length >= MAX_ITEMS,

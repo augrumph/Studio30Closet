@@ -22,7 +22,9 @@ import {
 } from 'lucide-react'
 import { useAdminCustomers, useAdminCustomersMutations } from '@/hooks/useAdminCustomers'
 import { useDebounce } from '@/hooks/useDebounce'
-import { cn } from '@/lib/utils'
+import { cn, calculateCustomerSizeAnalysis } from '@/lib/utils'
+import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/lib/api-client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
@@ -679,6 +681,9 @@ export function CustomersList() {
                                             </div>
                                         </div>
 
+                                        {/* Análise de Tamanhos Instantânea */}
+                                        <CustomerAnalysisContent customerId={selectedCustomer.id} />
+
                                         {/* Contato */}
                                         <div className="space-y-3">
                                             <h3 className="text-xs md:text-sm font-bold text-[#4A3B32] uppercase tracking-wide">Informações de Contato</h3>
@@ -731,3 +736,55 @@ export function CustomersList() {
         </div>
     )
 }
+
+/**
+ * Componente interno para carregar e analisar tamanhos no Modal
+ */
+function CustomerAnalysisContent({ customerId }) {
+    const { data: vendas = [], isLoading } = useQuery({
+        queryKey: ['customer-vendas', customerId],
+        queryFn: () => apiClient(`/customers/${customerId}/vendas`),
+        enabled: !!customerId,
+        staleTime: 1000 * 60 * 5
+    })
+
+    const allItems = vendas.flatMap(v => v.items || [])
+    const sizeAnalysis = calculateCustomerSizeAnalysis(allItems)
+    const hasHistory = allItems.length > 0
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center py-6 gap-3 bg-gray-50/50 rounded-2xl border border-dashed border-gray-100">
+                <div className="w-6 h-6 border-2 border-[#C75D3B] border-t-transparent rounded-full animate-spin" />
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Analisando perfil...</p>
+            </div>
+        )
+    }
+
+    if (!hasHistory) return null
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-3"
+        >
+            <h3 className="text-xs font-bold text-[#4A3B32] uppercase tracking-widest flex items-center gap-2">
+                <TrendingUp className="w-3.5 h-3.5 text-[#C75D3B]" />
+                Perfil de Tamanhos
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+                {Object.entries(sizeAnalysis).map(([key, analysis]) => (
+                    analysis.primary && (
+                        <div key={key} className="bg-gradient-to-br from-[#FAF8F5] to-white p-3 rounded-xl border border-[#4A3B32]/5 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-8 h-8 bg-[#C75D3B]/5 rounded-bl-full -mr-2 -mt-2" />
+                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">{analysis.label}</p>
+                            <p className="text-xl font-black text-[#C75D3B]">{analysis.primary}</p>
+                        </div>
+                    )
+                ))}
+            </div>
+        </motion.div>
+    )
+}
+

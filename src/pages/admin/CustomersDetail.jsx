@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Phone, Mail, MessageCircle, ShoppingBag, TrendingUp, Star, Package, Calendar, Tag, Pencil, Instagram, MapPin, CreditCard, Banknote, Smartphone, Award, AlertCircle, Clock } from 'lucide-react'
 import { useAdminCustomer } from '@/hooks/useAdminCustomers'
 import { apiClient } from '@/lib/api-client'
-import { cn } from '@/lib/utils'
+import { cn, calculateCustomerSizeAnalysis } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 
@@ -49,50 +49,10 @@ export function CustomersDetail() {
         staleTime: 1000 * 60 * 5
     })
 
-    const metrics = useMemo(() => {
-        const totalGasto = customer?.lifetimeValue || 0
-        const totalPedidos = customer?.totalOrders || 0
-        const ticketMedio = totalPedidos > 0 ? totalGasto / totalPedidos : 0
-        const ultimaCompra = customer?.lastPurchaseDate
+        // Análise de Tamanhos por Grupo (usando helper centralizado)
+        const sizeAnalysis = calculateCustomerSizeAnalysis(allItems)
 
-        const diasSemComprar = ultimaCompra
-            ? Math.floor((Date.now() - new Date(ultimaCompra)) / (1000 * 60 * 60 * 24))
-            : null
-
-        // Aggregate all items bought
-        const allItems = vendas.flatMap(v => v.items || [])
-        const totalPecas = allItems.length
-
-        // Category summary
-        const categoryCount = {}
-        allItems.forEach(item => {
-            const cat = item.category || 'Sem categoria'
-            categoryCount[cat] = (categoryCount[cat] || 0) + 1
-        })
-        const categorias = Object.entries(categoryCount)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 6)
-
-        // Top items by name
-        const itemCount = {}
-        allItems.forEach(item => {
-            const key = item.name || item.productName || 'Sem nome'
-            itemCount[key] = (itemCount[key] || 0) + 1
-        })
-        const topItens = Object.entries(itemCount)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-
-        // Métodos de pagamento preferidos
-        const methodCount = {}
-        vendas.forEach(v => {
-            if (v.paymentMethod) {
-                methodCount[v.paymentMethod] = (methodCount[v.paymentMethod] || 0) + 1
-            }
-        })
-        const metodoPref = Object.entries(methodCount).sort((a, b) => b[1] - a[1])[0]?.[0]
-
-        return { totalGasto, totalPedidos, ticketMedio, ultimaCompra, diasSemComprar, totalPecas, categorias, topItens, metodoPref }
+        return { totalGasto, totalPedidos, ticketMedio, ultimaCompra, diasSemComprar, totalPecas, categorias, topItens, metodoPref, sizeAnalysis }
     }, [customer, vendas])
 
     const segment = SEGMENT_CONFIG[customer?.segment] || SEGMENT_CONFIG.inactive
@@ -240,6 +200,70 @@ export function CustomersDetail() {
                     </motion.div>
                 ))}
             </div>
+
+            {/* ── SIZE ANALYSIS ── */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+            >
+                <Card className="border-none shadow-lg overflow-hidden bg-white">
+                    <CardHeader className="bg-[#FAF8F5] border-b border-[#4A3B32]/5 py-4">
+                        <CardTitle className="text-[#4A3B32] flex items-center gap-2 text-lg">
+                            <TrendingUp className="w-5 h-5 text-[#C75D3B]" />
+                            Análise de Perfil & Tamanhos
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            {Object.entries(metrics.sizeAnalysis).map(([key, analysis]) => (
+                                <div key={key} className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{analysis.label}</p>
+                                        <div className="px-2 py-1 bg-[#4A3B32]/5 rounded-lg text-[10px] font-black text-[#4A3B32]/40 uppercase">
+                                            {key}
+                                        </div>
+                                    </div>
+                                    
+                                    {analysis.primary ? (
+                                        <div className="bg-gradient-to-br from-[#FDFBF7] to-white p-4 rounded-2xl border border-[#4A3B32]/5 relative group overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-16 h-16 bg-[#C75D3B]/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
+                                            <p className="text-xs text-[#4A3B32]/50 mb-1">Tamanho Principal</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-4xl font-black text-[#C75D3B]">{analysis.primary}</span>
+                                                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">FIT</span>
+                                            </div>
+                                            
+                                            <div className="mt-4 space-y-1.5">
+                                                {Object.entries(analysis.counts).sort((a,b) => b[1]-a[1]).map(([size, count], idx) => (
+                                                    <div key={size} className="flex items-center gap-2">
+                                                        <span className={cn(
+                                                            "w-6 text-[10px] font-bold",
+                                                            size === analysis.primary ? "text-[#C75D3B]" : "text-gray-400"
+                                                        )}>{size}</span>
+                                                        <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={cn("h-full rounded-full", size === analysis.primary ? "bg-[#C75D3B]" : "bg-gray-300")} 
+                                                                style={{ width: `${(count / Object.values(analysis.counts).reduce((a,b) => a+b, 0)) * 100}%` }} 
+                                                            />
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-400 font-medium">{count}x</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="h-[120px] bg-gray-50 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center text-center p-4">
+                                            <Tag className="w-6 h-6 text-gray-200 mb-2" />
+                                            <p className="text-[10px] text-gray-400 font-medium leading-tight">Sem histórico suficiente para este grupo</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </motion.div>
 
             {/* ── MAIN CONTENT ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

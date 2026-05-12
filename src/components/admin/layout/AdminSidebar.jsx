@@ -1,341 +1,377 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
-    BarChart3,
-    Boxes,
-    ChevronLeft,
-    ChevronRight,
-    CircleDollarSign,
-    ClipboardList,
-    CreditCard,
-    Database,
-    LayoutDashboard,
-    Link as LinkIcon,
-    LogOut,
-    Package,
-    PackageCheck,
-    Receipt,
-    Settings,
-    ShoppingBag,
-    ShoppingCart,
-    Sparkles,
-    Store,
-    TrendingDown,
-    Truck,
-    Users,
-    X
+    BarChart3, Boxes, ChevronDown, ChevronLeft,
+    CircleDollarSign, ClipboardList, CreditCard,
+    LayoutDashboard, Link as LinkIcon, LogOut,
+    Package, PackageCheck, ShoppingCart,
+    Store, TrendingDown, Truck, Users, X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
 
-const fixedItems = [
-    { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, accent: 'from-[#C75D3B] to-[#A64D31]' },
-    { path: '/admin/vendas', label: 'Vendas', icon: CircleDollarSign, accent: 'from-emerald-500 to-teal-600' }
+// ── Data ────────────────────────────────────────────────────────────────────
+const PINNED = [
+    { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/admin/vendas',    label: 'Vendas',    icon: CircleDollarSign },
 ]
 
-const menuSections = [
+const SECTIONS = [
     {
-        id: 'commerce',
-        label: 'Comercial',
-        icon: ShoppingBag,
-        hint: 'Produtos, malinhas e pedidos',
+        id: 'comercial', label: 'Comercial',
         items: [
-            { path: '/admin/products', label: 'Produtos', icon: Package },
-            { path: '/admin/malinhas', label: 'Malinhas', icon: Store },
+            { path: '/admin/products',       label: 'Produtos',       icon: Package },
+            { path: '/admin/malinhas',       label: 'Malinhas',       icon: Store },
             { path: '/admin/pedidos-online', label: 'Pedidos Online', icon: ClipboardList },
-            { path: '/admin/entregas', label: 'Entregas', icon: PackageCheck }
-        ]
+            { path: '/admin/entregas',       label: 'Entregas',       icon: PackageCheck },
+        ],
     },
     {
-        id: 'management',
-        label: 'Gestão',
-        icon: Database,
-        hint: 'Clientes, estoque e fornecedores',
+        id: 'gestao', label: 'Gestão',
         items: [
-            { path: '/admin/customers', label: 'Clientes', icon: Users },
-            { path: '/admin/stock', label: 'Estoque', icon: Boxes },
-            { path: '/admin/suppliers', label: 'Fornecedores', icon: Truck },
-            { path: '/admin/purchases', label: 'Compras', icon: ShoppingCart }
-        ]
+            { path: '/admin/customers',  label: 'Clientes',     icon: Users },
+            { path: '/admin/stock',      label: 'Estoque',      icon: Boxes },
+            { path: '/admin/suppliers',  label: 'Fornecedores', icon: Truck },
+            { path: '/admin/purchases',  label: 'Compras',      icon: ShoppingCart },
+        ],
     },
     {
-        id: 'finance',
-        label: 'Financeiro',
-        icon: Receipt,
-        hint: 'Recebíveis e despesas',
+        id: 'financeiro', label: 'Financeiro',
         items: [
             { path: '/admin/installments', label: 'Crediário', icon: CreditCard },
-            { path: '/admin/expenses', label: 'Despesas', icon: TrendingDown }
-        ]
+            { path: '/admin/expenses',     label: 'Despesas',  icon: TrendingDown },
+        ],
     },
     {
-        id: 'platform',
-        label: 'Plataforma',
-        icon: Settings,
-        hint: 'Integrações e métricas do site',
+        id: 'plataforma', label: 'Plataforma',
         items: [
-            { path: '/admin/integracoes', label: 'Integrações', icon: LinkIcon },
-            { path: '/admin/site', label: 'Site & Analytics', icon: BarChart3 }
-        ]
-    }
+            { path: '/admin/integracoes', label: 'Integrações',      icon: LinkIcon },
+            { path: '/admin/site',        label: 'Site & Analytics', icon: BarChart3 },
+        ],
+    },
 ]
 
 function sectionHasActive(section, pathname) {
-    return section.items.some(item => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    return section.items.some(
+        item => pathname === item.path || pathname.startsWith(`${item.path}/`)
+    )
 }
 
-export function AdminSidebar({
-    onClose,
-    isCollapsed,
-    onToggleCollapse,
-    isOpen,
-    toggleSidebar,
-    isMobile = false
-}) {
-    const location = useLocation()
-    const logout = useAuthStore(state => state.logout)
-    const collapsed = typeof isCollapsed === 'boolean' ? isCollapsed : (typeof isOpen === 'boolean' ? !isOpen : false)
-    const closeHandler = onClose || (isMobile ? toggleSidebar : undefined)
-    const collapseHandler = onToggleCollapse || toggleSidebar
-    const showCollapseToggle = !isMobile && Boolean(collapseHandler)
-    const showCloseButton = isMobile && Boolean(closeHandler)
+// ── Item de nav (pinned e rail colapsado) ───────────────────────────────────
+function NavItem({ path, label, icon: Icon, active, onClick, collapsed, mobile }) {
+    return (
+        <Link to={path} onClick={onClick} title={collapsed ? label : undefined}>
+            <div className={cn(
+                'relative flex items-center rounded-xl transition-all duration-200',
+                mobile   ? 'h-[52px]' : 'h-[42px]',
+                collapsed ? 'justify-center' : 'gap-3 px-3',
+                active
+                    ? 'bg-white/15 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white',
+            )}>
+                {/* Indicador Ativo Lateral */}
+                <span className={cn(
+                    'absolute left-0 w-[4px] rounded-r-full bg-[#E87D4F] transition-all duration-300 shadow-[0_0_12px_rgba(232,125,79,0.5)]',
+                    mobile ? 'h-[24px]' : 'h-[20px]',
+                    active ? 'opacity-100' : 'opacity-0 scale-y-0',
+                )} />
+                
+                <div className={cn(
+                    'flex items-center justify-center rounded-lg transition-colors',
+                    active ? 'text-white' : 'text-white/30'
+                )}>
+                    <Icon className={cn(
+                        'shrink-0',
+                        mobile ? 'h-[20px] w-[20px]' : 'h-[18px] w-[18px]',
+                    )} />
+                </div>
 
-    const activeSectionIds = useMemo(
-        () => menuSections.filter(section => sectionHasActive(section, location.pathname)).map(section => section.id),
-        [location.pathname]
+                {!collapsed && (
+                    <span className={cn(
+                        'flex-1 truncate font-medium tracking-wide',
+                        mobile ? 'text-[15px]' : 'text-[14px]',
+                    )}>
+                        {label}
+                    </span>
+                )}
+                
+                {active && !collapsed && (
+                    <motion.div 
+                        layoutId="active-glow"
+                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#E87D4F]/10 to-transparent pointer-events-none" 
+                    />
+                )}
+            </div>
+        </Link>
     )
-    const [openSections, setOpenSections] = useState(() => activeSectionIds.length ? activeSectionIds : ['commerce', 'management'])
+}
+
+// ── Item dentro do acordeão ──────────────────────────────────────────────────
+function AccordionItem({ path, label, icon: Icon, active, onClick, mobile }) {
+    return (
+        <Link to={path} onClick={onClick}>
+            <div className={cn(
+                'group flex items-center gap-3 rounded-lg px-3 transition-all duration-200',
+                mobile ? 'h-[48px]' : 'h-[38px]',
+                active
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/60 hover:bg-white/10 hover:text-white',
+            )}>
+                <Icon className={cn(
+                    'shrink-0 transition-colors',
+                    mobile ? 'h-[16px] w-[16px]' : 'h-[15px] w-[15px]',
+                    active ? 'text-white' : 'text-white/20 group-hover:text-white/50',
+                )} />
+                <span className={cn(
+                    'flex-1 truncate tracking-wide',
+                    mobile ? 'text-[14px]' : 'text-[13.5px]',
+                    active ? 'font-semibold' : 'font-medium',
+                )}>
+                    {label}
+                </span>
+                {active && (
+                    <motion.span 
+                        layoutId="dot"
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#E87D4F] shadow-[0_0_8px_rgba(232,125,79,0.8)]" 
+                    />
+                )}
+            </div>
+        </Link>
+    )
+}
+
+// ── Seção acordeão ───────────────────────────────────────────────────────────
+function Section({ section, isOpen, hasActive, onToggle, onLinkClick, activeCheck, mobile }) {
+    return (
+        <div>
+            {/* Trigger */}
+            <button
+                type="button"
+                onClick={onToggle}
+                className={cn(
+                    'relative flex w-full items-center rounded-xl px-3 text-left transition-all duration-200',
+                    mobile ? 'h-[50px] gap-3' : 'h-[40px] gap-2.5',
+                    isOpen
+                        ? 'text-white'
+                        : 'text-white/50 hover:text-white/90',
+                )}
+            >
+                <span className={cn(
+                    'flex-1 truncate font-bold uppercase tracking-[0.15em]',
+                    mobile ? 'text-[11.5px]' : 'text-[10px]',
+                )}>
+                    {section.label}
+                </span>
+
+                <motion.span
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.25, ease: 'backOut' }}
+                    className={cn('shrink-0', isOpen ? 'text-[#E87D4F]' : 'text-white/20')}
+                >
+                    <ChevronDown className={mobile ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+                </motion.span>
+            </button>
+
+            {/* Items */}
+            <AnimatePresence initial={false}>
+                {isOpen && (
+                    <motion.div
+                        key="body"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ overflow: 'hidden' }}
+                    >
+                        <div className="relative ml-[15px] mt-1 space-y-1 pb-2 pl-[16px] before:absolute before:left-0 before:top-1 before:h-[calc(100%-12px)] before:w-px before:bg-white/10">
+                            {section.items.map(item => (
+                                <AccordionItem
+                                    key={item.path}
+                                    {...item}
+                                    active={activeCheck(item.path)}
+                                    onClick={onLinkClick}
+                                    mobile={mobile}
+                                />
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
+
+// ── AdminSidebar ─────────────────────────────────────────────────────────────
+export function AdminSidebar({
+    onClose, isCollapsed, onToggleCollapse,
+    isOpen, toggleSidebar, isMobile = false,
+}) {
+    const location        = useLocation()
+    const logout          = useAuthStore(s => s.logout)
+    const collapsed       = isMobile ? false
+                          : typeof isCollapsed === 'boolean' ? isCollapsed
+                          : typeof isOpen      === 'boolean' ? !isOpen
+                          : false
+    const closeHandler    = onClose || (isMobile ? toggleSidebar : undefined)
+    const collapseHandler = onToggleCollapse || toggleSidebar
+    const showCollapse    = !isMobile && Boolean(collapseHandler)
+
+    const [openSection, setOpenSection] = useState(() => {
+        const f = SECTIONS.find(s => sectionHasActive(s, location.pathname))
+        return f?.id ?? null
+    })
 
     useEffect(() => {
-        if (!collapsed && activeSectionIds.length) {
-            setOpenSections(prev => Array.from(new Set([...prev, ...activeSectionIds])))
-        }
-    }, [activeSectionIds, collapsed])
+        const f = SECTIONS.find(s => sectionHasActive(s, location.pathname))
+        if (f) setOpenSection(f.id)
+    }, [location.pathname])
 
-    const isActive = (path) => {
-        if (path === '/admin/dashboard') return location.pathname === path
-        return location.pathname === path || location.pathname.startsWith(`${path}/`)
-    }
+    const isActive   = p => p === '/admin/dashboard'
+        ? location.pathname === p
+        : location.pathname === p || location.pathname.startsWith(`${p}/`)
+    const handleLink = () => closeHandler?.()
+    const toggle     = id => setOpenSection(prev => prev === id ? null : id)
 
-    const handleLinkClick = () => {
-        if (closeHandler) closeHandler()
-    }
+    const allFlat = [...PINNED, ...SECTIONS.flatMap(s => s.items)]
 
     return (
         <motion.aside
-            animate={{ width: collapsed ? 78 : 286 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-20 h-full overflow-hidden border-r border-[#E9DED6] bg-[#FBF8F4] text-[#33261F] shadow-[1px_0_0_rgba(255,255,255,0.7)_inset]"
+            animate={{ width: collapsed ? 64 : (isMobile ? '100%' : 236) }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="relative z-20 flex h-full flex-col overflow-hidden bg-[#0D0805] shadow-2xl"
         >
-            <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#C75D3B]/20 to-transparent" />
-
-            <div className={cn('flex h-full flex-col', collapsed ? 'px-2.5' : 'px-4')}>
-                <header className={cn('shrink-0', collapsed ? 'py-4' : 'py-5')}>
-                    <div className={cn(
-                        'flex items-center rounded-2xl border border-white/80 bg-white/70 shadow-sm shadow-[#4A3B32]/5 backdrop-blur',
-                        collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-3'
-                    )}>
-                        <Link to="/admin/dashboard" onClick={handleLinkClick} className={cn('flex min-w-0 items-center', collapsed ? 'justify-center' : 'gap-3')}>
-                            <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F4E8E1]">
-                                <img src="/logomarca.webp" alt="Studio 30" className="max-h-7 max-w-7 object-contain" />
-                            </div>
-                            {!collapsed && (
-                                <div className="min-w-0">
-                                    <p className="truncate text-[13px] font-black uppercase tracking-[0.08em] text-[#33261F]">Studio 30</p>
-                                    <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.18em] text-[#C75D3B]">Mobile Admin</p>
-                                </div>
-                            )}
-                        </Link>
-
-                        {showCloseButton && (
-                            <button
-                                type="button"
-                                onClick={closeHandler}
-                                className="ml-auto grid h-9 w-9 place-items-center rounded-xl text-[#33261F]/45 transition hover:bg-[#33261F]/5 hover:text-[#33261F]"
-                                aria-label="Fechar menu"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        )}
-                    </div>
-                </header>
-
-                <nav className="custom-scrollbar min-h-0 flex-1 overflow-y-auto pb-4">
-                    {!collapsed && (
-                        <div className="mb-3 flex items-center justify-between px-1">
-                            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[#33261F]/35">Essenciais</span>
-                            <Sparkles className="h-3.5 w-3.5 text-[#C75D3B]/50" />
+            {/* ── Header ──────────────────────────── */}
+            <div className="shrink-0 border-b border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent">
+                <div className={cn(
+                    'flex items-center',
+                    isMobile    ? 'px-5 py-5'
+                    : collapsed ? 'justify-center py-5'
+                    : 'gap-3 px-4 py-[18px]',
+                )}>
+                    <Link to="/admin/dashboard" onClick={handleLink} className="flex shrink-0 items-center gap-3">
+                        <div className={cn(
+                            'grid shrink-0 place-items-center rounded-xl bg-[#F0DDD5] shadow-sm ring-1 ring-[#C75D3B]/20',
+                            isMobile ? 'h-10 w-10' : 'h-9 w-9',
+                        )}>
+                            <img src="/logomarca.webp" alt="Studio 30"
+                                className={isMobile ? 'h-6 w-6 object-contain' : 'h-[22px] w-[22px] object-contain'} />
                         </div>
-                    )}
-
-                    <div className="space-y-2">
-                        {fixedItems.map(item => {
-                            const Icon = item.icon
-                            const active = isActive(item.path)
-
-                            return (
-                                <Link key={item.path} to={item.path} onClick={handleLinkClick} title={collapsed ? item.label : undefined} className="block">
-                                    <motion.div
-                                        whileTap={{ scale: 0.98 }}
-                                        className={cn(
-                                            'group relative flex items-center overflow-hidden rounded-2xl border transition-all duration-200',
-                                            collapsed ? 'h-12 justify-center' : 'h-12 gap-3 px-3',
-                                            active
-                                                ? 'border-[#C75D3B]/15 bg-white text-[#33261F] shadow-sm shadow-[#4A3B32]/5'
-                                                : 'border-transparent text-[#33261F]/55 hover:border-[#E9DED6] hover:bg-white/65 hover:text-[#33261F]'
-                                        )}
-                                    >
-                                        {active && <div className={cn('absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b', item.accent)} />}
-                                        <span className={cn(
-                                            'grid h-8 w-8 shrink-0 place-items-center rounded-xl transition',
-                                            active ? 'bg-[#C75D3B]/10 text-[#C75D3B]' : 'bg-[#33261F]/5 text-[#33261F]/45 group-hover:text-[#C75D3B]'
-                                        )}>
-                                            <Icon className="h-[17px] w-[17px]" />
-                                        </span>
-                                        {!collapsed && (
-                                            <>
-                                                <span className="min-w-0 flex-1 truncate text-[13px] font-extrabold">{item.label}</span>
-                                                <ChevronRight className={cn('h-4 w-4 transition', active ? 'text-[#C75D3B]' : 'text-[#33261F]/20 group-hover:text-[#C75D3B]')} />
-                                            </>
-                                        )}
-                                    </motion.div>
-                                </Link>
-                            )
-                        })}
-                    </div>
-
-                    <div className={cn('mt-5', collapsed ? 'space-y-2' : '')}>
                         {!collapsed && (
-                            <div className="mb-2 px-1">
-                                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[#33261F]/35">Áreas</span>
+                            <div className="leading-none">
+                                <p className={cn('font-black uppercase tracking-[0.15em] text-white',
+                                    isMobile ? 'text-[15px]' : 'text-[14px]')}>
+                                    Studio 30
+                                </p>
+                                <p className={cn('mt-[3px] font-bold uppercase tracking-[0.25em] text-[#E87D4F]',
+                                    isMobile ? 'text-[10px]' : 'text-[9px]')}>
+                                    Admin
+                                </p>
                             </div>
                         )}
+                    </Link>
 
-                        {collapsed ? (
-                            <div className="space-y-2">
-                                {menuSections.flatMap(section => section.items).map(item => {
-                                    const Icon = item.icon
-                                    const active = isActive(item.path)
-
-                                    return (
-                                        <Link key={item.path} to={item.path} onClick={handleLinkClick} title={item.label} className="block">
-                                            <motion.div
-                                                whileTap={{ scale: 0.96 }}
-                                                className={cn(
-                                                    'relative grid h-11 place-items-center rounded-2xl border transition',
-                                                    active
-                                                        ? 'border-[#C75D3B]/15 bg-white text-[#C75D3B] shadow-sm shadow-[#4A3B32]/5'
-                                                        : 'border-transparent bg-transparent text-[#33261F]/40 hover:border-[#E9DED6] hover:bg-white/65 hover:text-[#C75D3B]'
-                                                )}
-                                            >
-                                                {active && <span className="absolute left-0 h-5 w-1 rounded-r-full bg-[#C75D3B]" />}
-                                                <Icon className="h-[18px] w-[18px]" />
-                                            </motion.div>
-                                        </Link>
-                                    )
-                                })}
-                            </div>
-                        ) : (
-                            <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="space-y-2">
-                                {menuSections.map(section => {
-                                    const SectionIcon = section.icon
-                                    const active = sectionHasActive(section, location.pathname)
-
-                                    return (
-                                        <AccordionItem key={section.id} value={section.id} className="overflow-hidden rounded-2xl border border-[#E9DED6]/70 bg-white/45 px-1 shadow-sm shadow-[#4A3B32]/[0.02]">
-                                            <AccordionTrigger className="group px-2.5 py-3 hover:no-underline">
-                                                <div className="flex min-w-0 items-center gap-3 text-left">
-                                                    <span className={cn(
-                                                        'grid h-8 w-8 shrink-0 place-items-center rounded-xl transition',
-                                                        active ? 'bg-[#C75D3B] text-white' : 'bg-[#33261F]/5 text-[#33261F]/45 group-hover:text-[#C75D3B]'
-                                                    )}>
-                                                        <SectionIcon className="h-4 w-4" />
-                                                    </span>
-                                                    <div className="min-w-0">
-                                                        <p className={cn('truncate text-[12px] font-black uppercase tracking-[0.08em]', active ? 'text-[#33261F]' : 'text-[#33261F]/70')}>
-                                                            {section.label}
-                                                        </p>
-                                                        <p className="mt-0.5 truncate text-[10px] font-semibold text-[#33261F]/35">{section.hint}</p>
-                                                    </div>
-                                                </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="pb-2">
-                                                <div className="space-y-1.5 border-l border-[#E9DED6] pl-3 ml-[1.45rem]">
-                                                    {section.items.map(item => {
-                                                        const Icon = item.icon
-                                                        const activeItem = isActive(item.path)
-
-                                                        return (
-                                                            <Link key={item.path} to={item.path} onClick={handleLinkClick} className="block">
-                                                                <motion.div
-                                                                    whileTap={{ scale: 0.98 }}
-                                                                    className={cn(
-                                                                        'group/item relative flex h-10 items-center gap-2.5 rounded-xl px-2.5 transition',
-                                                                        activeItem
-                                                                            ? 'bg-[#33261F] text-white shadow-sm shadow-[#33261F]/10'
-                                                                            : 'text-[#33261F]/55 hover:bg-[#F7EFE9] hover:text-[#33261F]'
-                                                                    )}
-                                                                >
-                                                                    <Icon className={cn('h-4 w-4 shrink-0', activeItem ? 'text-[#F2B097]' : 'text-[#33261F]/35 group-hover/item:text-[#C75D3B]')} />
-                                                                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold">{item.label}</span>
-                                                                    {activeItem && <span className="h-1.5 w-1.5 rounded-full bg-[#F2B097]" />}
-                                                                </motion.div>
-                                                            </Link>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    )
-                                })}
-                            </Accordion>
-                        )}
-                    </div>
-                </nav>
-
-                <footer className="shrink-0 border-t border-[#E9DED6] py-3">
-                    {!collapsed && (
-                        <div className="mb-2 rounded-2xl border border-white/80 bg-white/60 p-3 shadow-sm shadow-[#4A3B32]/5">
-                            <div className="flex items-center gap-3">
-                                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#33261F] text-[11px] font-black text-white">AD</div>
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-[12px] font-black text-[#33261F]">Administrador</p>
-                                    <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#33261F]/35">Painel Enterprise</p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={logout}
-                            title={collapsed ? 'Sair do painel' : undefined}
-                            className={cn(
-                                'flex h-10 items-center justify-center rounded-2xl font-bold text-[#33261F]/50 transition hover:bg-red-50 hover:text-red-600',
-                                collapsed ? 'w-full' : 'flex-1 gap-2 text-[12px]'
-                            )}
-                        >
-                            <LogOut className="h-4 w-4" />
-                            {!collapsed && 'Sair'}
+                    {isMobile && closeHandler && (
+                        <button type="button" onClick={closeHandler}
+                            className="ml-auto grid h-10 w-10 place-items-center rounded-xl text-[#A07060] transition-colors duration-150 hover:bg-[#F0DDD5] hover:text-[#3D1F10]">
+                            <X className="h-5 w-5" />
                         </button>
+                    )}
+                </div>
+            </div>
 
-                        {showCollapseToggle && (
-                            <button
-                                type="button"
-                                onClick={collapseHandler}
-                                className="grid h-10 w-10 place-items-center rounded-2xl text-[#33261F]/40 transition hover:bg-white hover:text-[#33261F]"
-                                aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
-                            >
-                                <motion.span animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                                    <ChevronLeft className="h-4 w-4" />
-                                </motion.span>
-                            </button>
-                        )}
+            {/* ── Nav ─────────────────────────────── */}
+            <nav className={cn(
+                'min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                isMobile ? 'p-3' : 'p-2',
+            )}>
+                {collapsed ? (
+                    // Rail de ícones
+                    <div className="space-y-0.5">
+                        {allFlat.map(item => (
+                            <NavItem
+                                key={item.path}
+                                {...item}
+                                active={isActive(item.path)}
+                                onClick={handleLink}
+                                collapsed
+                                mobile={false}
+                            />
+                        ))}
                     </div>
-                </footer>
+                ) : (
+                    <div className="space-y-0.5">
+                        {/* Pinned */}
+                        {PINNED.map(item => (
+                            <NavItem
+                                key={item.path}
+                                {...item}
+                                active={isActive(item.path)}
+                                onClick={handleLink}
+                                collapsed={false}
+                                mobile={isMobile}
+                            />
+                        ))}
+
+                        {/* Divisor */}
+                        <div className={cn('h-px bg-white/5', isMobile ? 'my-4' : 'my-3')} />
+
+                        {/* Acordeões */}
+                        {SECTIONS.map(section => (
+                            <Section
+                                key={section.id}
+                                section={section}
+                                isOpen={openSection === section.id}
+                                hasActive={sectionHasActive(section, location.pathname)}
+                                onToggle={() => toggle(section.id)}
+                                onLinkClick={handleLink}
+                                activeCheck={isActive}
+                                mobile={isMobile}
+                            />
+                        ))}
+                    </div>
+                )}
+            </nav>
+
+            {/* ── Footer ──────────────────────────── */}
+            <div className={cn(
+                'shrink-0 border-t border-white/5 bg-[#1A0F0A]/50 backdrop-blur-md',
+                isMobile ? 'p-4' : 'p-3',
+            )}>
+                <div className={cn('flex items-center gap-1.5', collapsed && 'flex-col')}>
+                    <ShimmerButton
+                        onClick={logout}
+                        title={collapsed ? 'Sair' : undefined}
+                        background="rgba(255, 255, 255, 0.03)"
+                        shimmerColor="rgba(232, 125, 79, 0.3)"
+                        shimmerSize="0.05em"
+                        shimmerDuration="3s"
+                        borderRadius="12px"
+                        className={cn(
+                            'gap-2.5 border-white/10 px-0 font-bold tracking-wide',
+                            'text-white/70 hover:text-white hover:scale-[1.02] active:scale-[0.98]',
+                            isMobile ? 'h-[52px] text-[14px]' : 'h-[42px] text-[13px]',
+                            collapsed ? 'w-full justify-center' : 'flex-1',
+                        )}
+                    >
+                        <LogOut className={cn('shrink-0', isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5')} />
+                        {!collapsed && 'Sair da Conta'}
+                    </ShimmerButton>
+
+                    {showCollapse && (
+                        <button type="button" onClick={collapseHandler}
+                            aria-label={collapsed ? 'Expandir' : 'Recolher'}
+                            className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl text-white/40 transition-all duration-200 hover:bg-white/10 hover:text-white">
+                            <motion.span
+                                animate={{ rotate: collapsed ? 180 : 0 }}
+                                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </motion.span>
+                        </button>
+                    )}
+                </div>
             </div>
         </motion.aside>
     )

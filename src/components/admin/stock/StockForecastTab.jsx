@@ -30,7 +30,7 @@ function SkeletonPulse({ className }) {
 function ForecastSkeleton() {
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 {[1, 2, 3, 4, 5].map(i => (
                     <SkeletonPulse key={i} className="h-28" />
                 ))}

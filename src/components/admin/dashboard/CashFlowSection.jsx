@@ -58,7 +58,7 @@ export function CashFlowSection({ trends }) {
     ]
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
             {trendCards.map((card, idx) => (
                 <motion.div
                     key={idx}
@@ -68,17 +68,17 @@ export function CashFlowSection({ trends }) {
                     className="h-full"
                 >
                     <div className={cn(
-                        "border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br h-full rounded-2xl p-4 md:p-5",
+                        "border-none shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br h-full min-h-[108px] rounded-2xl p-3 md:p-5 flex flex-col justify-between",
                         card.gradient
                     )}>
-                        <div className="flex items-start justify-between mb-3 gap-2">
-                            <card.icon className="w-6 h-6 md:w-7 md:h-7 text-white/80 flex-shrink-0" />
-                            <span className="text-xl md:text-2xl font-bold text-white text-right break-words leading-tight">
-                                {card.value}
-                            </span>
+                        <div>
+                            <card.icon className="w-5 h-5 text-white/80 shrink-0" />
                         </div>
-                        <p className="text-xs md:text-sm text-white/90 font-medium leading-tight mb-1">{card.label}</p>
-                        <p className="text-[10px] md:text-xs text-white/70 leading-snug">{card.description}</p>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/70 truncate">{card.label}</p>
+                            <p className="text-[17px] md:text-xl font-black text-white leading-tight mt-0.5 line-clamp-2">{card.value}</p>
+                            <p className="text-[10px] text-white/60 leading-snug mt-0.5 line-clamp-2">{card.description}</p>
+                        </div>
                     </div>
                 </motion.div>
             ))}

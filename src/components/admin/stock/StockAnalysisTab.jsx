@@ -31,7 +31,7 @@ function SkeletonPulse({ className }) {
 function AnalysisSkeleton() {
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {[1, 2, 3, 4].map(i => (
                     <SkeletonPulse key={i} className="h-32" />
                 ))}
@@ -134,25 +134,21 @@ function AnalysisKPI({ title, value, subtext, gradient, icon: Icon, tooltip }) {
             whileHover={{ y: -4, scale: 1.02 }}
             transition={{ duration: 0.3 }}
         >
-            <Card className={cn("border-0 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden", gradient)}>
-                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 -mr-8 -mt-8">
+            <Card className={cn("border-0 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden min-h-[108px]", gradient)}>
+                <div className="absolute top-0 right-0 w-24 h-24 opacity-10 -mr-6 -mt-6">
                     <Icon className="w-full h-full" />
                 </div>
 
-                <CardContent className="p-5 relative z-10">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-white/50 shadow-sm">
-                                <Icon className="w-4 h-4 text-[#4A3B32]" />
-                            </div>
-                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-600">{title}</p>
+                <CardContent className="p-3 md:p-5 relative z-10 flex flex-col justify-between min-h-[108px]">
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="p-2 rounded-lg bg-white/50 shadow-sm shrink-0">
+                            <Icon className="w-4 h-4 text-[#4A3B32]" />
                         </div>
-
                         <TooltipProvider>
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
-                                    <button className="opacity-40 hover:opacity-100 transition-opacity">
-                                        <HelpCircle className="w-4 h-4 text-gray-500" />
+                                    <button className="hidden sm:block opacity-40 hover:opacity-100 transition-opacity">
+                                        <HelpCircle className="w-3.5 h-3.5 text-gray-500" />
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-xs bg-[#2A211C] text-white p-3 text-xs shadow-2xl">
@@ -163,10 +159,11 @@ function AnalysisKPI({ title, value, subtext, gradient, icon: Icon, tooltip }) {
                         </TooltipProvider>
                     </div>
 
-                    <div className="flex items-baseline gap-2 mb-2">
-                        <div className="text-3xl font-black text-[#4A3B32]">{value}</div>
+                    <div className="mt-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500 truncate">{title}</p>
+                        <div className="text-[18px] md:text-2xl font-black text-[#4A3B32] leading-none mt-0.5 truncate">{value}</div>
+                        <p className="text-[11px] text-gray-500 font-medium mt-0.5 truncate">{subtext}</p>
                     </div>
-                    <p className="text-[10px] text-gray-500 font-medium">{subtext}</p>
                 </CardContent>
             </Card>
         </motion.div>
@@ -265,7 +262,7 @@ export function StockAnalysisTab() {
             </motion.div>
 
             {/* KPI Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 <AnalysisKPI
                     title="Produtos Prioritários"
                     value={summary.classA ?? summary.abc?.a?.count ?? 0}

@@ -1,4 +1,5 @@
 export { EmptyState } from './EmptyState'
 export { ErrorState } from './ErrorState'
+export { KpiCard } from './KpiCard'
 export { LoadingState } from './LoadingState'
 export { TableWrapper } from './TableWrapper'

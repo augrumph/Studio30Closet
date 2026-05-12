@@ -40,7 +40,7 @@ export function SizeProfileDeepDive({ vendas = [] }) {
                 </CardHeader>
 
                 <CardContent className="p-6 md:p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
                         {groupEntries.map(([key, group]) => {
                             const entries = Object.entries(group.counts || {})
                                 .sort((a, b) => {

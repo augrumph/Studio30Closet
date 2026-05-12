@@ -64,7 +64,7 @@ function OverviewSkeleton() {
             </div>
 
             {/* KPI Cards Skeleton */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {[1, 2, 3, 4].map(i => (
                     <SkeletonPulse key={i} className="h-32" />
                 ))}
@@ -73,7 +73,7 @@ function OverviewSkeleton() {
             {/* Rankings Section Skeleton */}
             <div className="space-y-4">
                 <SkeletonPulse className="h-8 w-64" />
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                     {[1, 2, 3, 4].map(i => (
                         <SkeletonPulse key={i} className="h-64" />
                     ))}
@@ -103,22 +103,22 @@ function KPICard({ title, value, subtext, icon: Icon, tooltip, gradient, iconCol
             transition={{ duration: 0.4, ease: 'easeOut' }}
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
         >
-            <Card className={cn("relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300", gradient)}>
-                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 -mr-8 -mt-8">
+            <Card className={cn("relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 min-h-[108px]", gradient)}>
+                <div className="absolute top-0 right-0 w-24 h-24 opacity-10 -mr-6 -mt-6">
                     <Icon className="w-full h-full" />
                 </div>
 
-                <CardContent className="p-5 relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-                        <div className={cn("p-3 rounded-xl shadow-md", iconColor)}>
-                            <Icon className="w-6 h-6 text-white" />
+                <CardContent className="p-3 md:p-5 relative z-10 flex flex-col justify-between h-full min-h-[108px]">
+                    <div className="flex items-start justify-between">
+                        <div className={cn("p-2 md:p-3 rounded-xl shadow-md", iconColor)}>
+                            <Icon className="w-4 h-4 md:w-6 md:h-6 text-white" />
                         </div>
 
                         <TooltipProvider>
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
-                                    <button className="opacity-50 hover:opacity-100 transition-opacity">
-                                        <HelpCircle className="w-4 h-4 text-gray-600" />
+                                    <button className="hidden sm:block opacity-50 hover:opacity-100 transition-opacity">
+                                        <HelpCircle className="w-3.5 h-3.5 text-gray-600" />
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="max-w-xs bg-[#2A211C] text-white p-3 text-sm shadow-2xl">
@@ -129,21 +129,21 @@ function KPICard({ title, value, subtext, icon: Icon, tooltip, gradient, iconCol
                         </TooltipProvider>
                     </div>
 
-                    <div className="space-y-2">
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-600">{title}</p>
-                        <div className="flex items-baseline gap-2">
-                            <h3 className="text-3xl font-black text-[#4A3B32] tracking-tight">{value}</h3>
+                    <div className="mt-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500 truncate">{title}</p>
+                        <div className="flex items-baseline gap-1.5 mt-0.5">
+                            <h3 className="text-[18px] md:text-2xl font-black text-[#4A3B32] leading-none truncate">{value}</h3>
                             {trend && (
                                 <span className={cn(
-                                    "text-xs font-bold flex items-center gap-0.5 px-2 py-0.5 rounded-full",
+                                    "shrink-0 text-[10px] font-bold flex items-center gap-0.5 px-1.5 py-0.5 rounded-full",
                                     trend === 'up' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
                                 )}>
-                                    {trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                    {trend === 'up' ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
                                     {trendValue}
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-gray-500 font-medium">{subtext}</p>
+                        <p className="text-[11px] text-gray-500 font-medium mt-0.5 truncate">{subtext}</p>
                     </div>
                 </CardContent>
             </Card>
@@ -353,7 +353,7 @@ function OverviewTab() {
             </motion.div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 <KPICard
                     title="Valor em Estoque"
                     value={money(kpis?.totalValue)}
@@ -436,7 +436,7 @@ function OverviewTab() {
                         )}
                     </AnimatePresence>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                         <RankingCard
                             title="Por Categoria"
                             icon={Tag}

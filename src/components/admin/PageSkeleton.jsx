@@ -187,7 +187,7 @@ export function CustomersListSkeleton() {
             <SkeletonPulse className="h-10 max-w-md rounded-lg" />
 
             {/* Customer Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {[...Array(9)].map((_, i) => (
                     <div key={i} className="bg-white rounded-xl p-4 border border-gray-100 space-y-3">
                         <div className="flex items-center gap-3">
@@ -232,7 +232,7 @@ export function MalinhasListSkeleton() {
             </div>
 
             {/* Malinha Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {[...Array(6)].map((_, i) => (
                     <div key={i} className="bg-white rounded-xl p-4 border border-gray-100 space-y-3">
                         <div className="flex justify-between">
@@ -323,7 +323,7 @@ export function StockDashboardSkeleton() {
     return (
         <div className="space-y-8 pb-20">
             {/* Header KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                 {[...Array(3)].map((_, i) => (
                     <SkeletonPulse key={i} className="rounded-2xl h-32" />
                 ))}
@@ -336,7 +336,7 @@ export function StockDashboardSkeleton() {
             </div>
 
             {/* Rankings */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 pt-4">
                 {[...Array(3)].map((_, i) => (
                     <SkeletonPulse key={i} className="rounded-2xl h-48" />
                 ))}

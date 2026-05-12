@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/Card'
 import { TableSkeleton } from '@/components/admin/PageSkeleton'
+import { KpiCard } from '@/components/admin/shared'
 import { useAdminInstallmentSales, useAdminInstallmentDetails, useAdminInstallmentsMutations, useAdminInstallmentsMetrics } from '@/hooks/useAdminInstallments'
 
 // Sub-component for Details
@@ -414,40 +415,38 @@ export function InstallmentsList() {
                 </div>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                    <CardContent className="pt-8">
-                        <div className="space-y-2">
-                            <p className="text-sm text-[#4A3B32]/60 font-medium">
-                                {statusFilter === 'pendentes' ? 'Vendas Pendentes' : statusFilter === 'pagas' ? 'Vendas Pagas' : 'Vendas Ativas'}
-                            </p>
-                            <p className="text-3xl font-bold text-[#C75D3B]">{metrics.count || 0}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-8">
-                        <div className="space-y-2">
-                            <p className="text-sm text-[#4A3B32]/60 font-medium">Saldo Devido (Estimado)</p>
-                            <p className="text-3xl font-bold text-amber-600">R$ {(metrics.totalDueEstimative || 0).toFixed(2)}</p>
-                            <p className="text-xs text-[#4A3B32]/40 font-medium">
-                                {statusFilter === 'pendentes' ? 'Apenas vendas pendentes' : statusFilter === 'pagas' ? 'Nada a receber' : 'Todas as vendas'}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-8">
-                        <div className="space-y-2">
-                            <p className="text-sm text-[#4A3B32]/60 font-medium">Parcelas Vencidas</p>
-                            <p className="text-3xl font-bold text-red-600">{metrics.overdueCount || 0}</p>
-                            <p className="text-xs text-[#4A3B32]/40 font-medium">
-                                R$ {(metrics.totalOverdueEstimative || 0).toFixed(2)}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </motion.div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+                <KpiCard
+                    label={statusFilter === 'pendentes' ? 'Pendentes' : statusFilter === 'pagas' ? 'Pagas' : 'Ativas'}
+                    value={metrics.count || 0}
+                    sub="vendas no crediário"
+                    icon={CreditCard}
+                    iconBg="bg-[#F0E6DF]"
+                    iconColor="text-[#C75D3B]"
+                    accent="text-[#C75D3B]"
+                    delay={0.1}
+                />
+                <KpiCard
+                    label="Saldo Devido"
+                    value={`R$ ${(metrics.totalDueEstimative || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    sub={statusFilter === 'pendentes' ? 'Só pendentes' : 'Estimado'}
+                    icon={DollarSign}
+                    iconBg="bg-amber-100"
+                    iconColor="text-amber-600"
+                    accent="text-amber-700"
+                    delay={0.15}
+                />
+                <KpiCard
+                    label="Parcelas Vencidas"
+                    value={metrics.overdueCount || 0}
+                    sub={`R$ ${(metrics.totalOverdueEstimative || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    icon={AlertCircle}
+                    iconBg="bg-red-100"
+                    iconColor="text-red-500"
+                    accent="text-red-600"
+                    delay={0.2}
+                />
+            </div>
 
             {/* Lista de Vendas */}
             <AnimatePresence>

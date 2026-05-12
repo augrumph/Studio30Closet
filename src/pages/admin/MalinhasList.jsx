@@ -19,6 +19,7 @@ import {
     PaginationPrevious,
 } from "@/components/ui/Pagination"
 import { MalinhasListSkeleton } from '@/components/admin/PageSkeleton'
+import { KpiCard } from '@/components/admin/shared'
 import { useAdminMalinhas, useAdminMalinhasMutations, useAdminMalinhasKPIs } from '@/hooks/useAdminMalinhas'
 
 export function MalinhasList() {
@@ -167,35 +168,21 @@ export function MalinhasList() {
                 </ShimmerButton>
             </motion.div>
 
-            {/* Quick Insights - Bento Style Cards */}
-            <TooltipProvider delayDuration={200}>
-                <div className="grid md:grid-cols-4 gap-6">
-                    <KPI_Card
-                        title="Ativas" value={metrics.totalActive} subtitle="Total em circulação"
-                        icon={Package} color="text-purple-600" bg="bg-purple-50" border="border-purple-50"
-                        tooltip="Malinhas em trânsito, com cliente ou aguardando envio/coleta."
-                        delay={0.1}
-                    />
-                    <KPI_Card
-                        title="Pendentes" value={metrics.pending} subtitle="Aguardando início"
-                        icon={Clock} color="text-amber-600" bg="bg-amber-50" border="border-amber-50"
-                        tooltip="Malinhas criadas que ainda aguardam o primeiro passo logístico."
-                        delay={0.2}
-                    />
-                    <KPI_Card
-                        title="Concluídas" value={metrics.completedMonth} subtitle="Este mês"
-                        icon={CheckCircle} color="text-emerald-600" bg="bg-emerald-50" border="border-emerald-50"
-                        tooltip="Malinhas concluídas com sucesso no mês atual."
-                        delay={0.3}
-                    />
-                    <KPI_Card
-                        title="Total Peças" value={metrics.totalItems} subtitle="Volume em circulação"
-                        icon={ShoppingBag} color="text-blue-600" bg="bg-blue-50" border="border-blue-50"
-                        tooltip="Soma total de peças enviadas em todas as malinhas (exceto canceladas)."
-                        delay={0.4}
-                    />
-                </div>
-            </TooltipProvider>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                <KpiCard label="Ativas" value={metrics.totalActive} sub="Em circulação"
+                    icon={Package} iconBg="bg-purple-100" iconColor="text-purple-600"
+                    tooltip="Malinhas em trânsito, com cliente ou aguardando envio/coleta." delay={0.1} />
+                <KpiCard label="Pendentes" value={metrics.pending} sub="Aguardando início"
+                    icon={Clock} iconBg="bg-amber-100" iconColor="text-amber-600"
+                    tooltip="Malinhas criadas que ainda aguardam o primeiro passo logístico." delay={0.15} />
+                <KpiCard label="Concluídas" value={metrics.completedMonth} sub="Este mês"
+                    icon={CheckCircle} iconBg="bg-emerald-100" iconColor="text-emerald-600"
+                    tooltip="Malinhas concluídas com sucesso no mês atual." delay={0.2} />
+                <KpiCard label="Total Peças" value={metrics.totalItems} sub="Em circulação"
+                    icon={ShoppingBag} iconBg="bg-blue-100" iconColor="text-blue-600"
+                    tooltip="Soma total de peças enviadas em todas as malinhas (exceto canceladas)." delay={0.25} />
+            </div>
 
             {/* Premium Filtering Area */}
             <Card className="border-none shadow-xl overflow-visible">

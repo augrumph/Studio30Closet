@@ -12,7 +12,7 @@ import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip'
 import { Info } from 'lucide-react'
 import { VendasListSkeleton } from '@/components/admin/PageSkeleton'
-import { ErrorState } from '@/components/admin/shared'
+import { ErrorState, KpiCard } from '@/components/admin/shared'
 import {
     Pagination,
     PaginationContent,
@@ -29,6 +29,7 @@ import { useAdminVendas } from '@/hooks/useAdminVendas'
 import { DiscountsModal } from '@/components/admin/vendas/DiscountsModal'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
+import { LiquidationModal } from '@/components/admin/vendas/LiquidationModal'
 
 export function VendasList() {
     // Estado de filtros
@@ -41,6 +42,7 @@ export function VendasList() {
     const [dateFilter, setDateFilter] = useState('all')
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, vendaId: null, customerName: '' })
     const [showDiscountsModal, setShowDiscountsModal] = useState(false)
+    const [liquidationModal, setLiquidationModal] = useState({ isOpen: false, venda: null })
 
     // Debounce search
     useEffect(() => {
@@ -89,7 +91,8 @@ export function VendasList() {
                 method: 'PATCH',
                 body: { paymentMethod: 'cash' }
             })
-            toast.success('Venda liquidada com sucesso!')
+            // Não fecha o modal aqui — o LiquidationModal exibe o estado
+            // de sucesso e se fecha sozinho após a animação
             refetch()
             refetchMetrics()
         } catch (err) {
@@ -97,6 +100,10 @@ export function VendasList() {
         } finally {
             setIsPaying(null)
         }
+    }
+
+    const openLiquidationModal = (venda) => {
+        setLiquidationModal({ isOpen: true, venda })
     }
 
     // Query para buscar TODAS as vendas (para o modal de descontos)
@@ -238,151 +245,57 @@ export function VendasList() {
                 </ShimmerButton>
             </motion.div>
 
-            {/* Quick Insights - Bento Style Cards */}
-            <TooltipProvider delayDuration={200}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                        <Card
-                            onClick={() => setShowDiscountsModal(true)}
-                            className="border-emerald-50 bg-white group overflow-hidden relative cursor-pointer hover:shadow-xl hover:border-emerald-200 transition-all duration-300"
-                        >
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-emerald-50 rounded-xl group-hover:bg-emerald-100 transition-colors"><DollarSign className="w-5 h-5 text-emerald-600" /></div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Faturamento</span>
-                                    </div>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-                                            >
-                                                <Info className="w-4 h-4 text-gray-300" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Receita líquida de todas as vendas (total vendido menos descontos aplicados). Clique para ver detalhes dos descontos.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-display font-bold text-[#4A3B32]">
-                                    R$ {(metrics.totalRevenue || 0).toLocaleString('pt-BR')}
-                                </div>
-                                <p className="text-xs text-emerald-600 font-medium mt-1 flex items-center gap-1">
-                                    Receita líquida (após descontos)
-                                    <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                        <Card className="border-indigo-50 bg-white group overflow-hidden relative">
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-indigo-50 rounded-xl"><DollarSign className="w-5 h-5 text-indigo-600" /></div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ticket Médio</span>
-                                    </div>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                                <Info className="w-4 h-4 text-gray-300" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Valor médio gasto por venda (Faturamento Total / Quantidade de Vendas).</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-display font-bold text-[#4A3B32]">
-                                    R$ {(metrics.averageTicket || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </div>
-                                <p className="text-xs text-indigo-600 font-medium mt-1">Média por venda</p>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                        <Card className="border-[#FDF0ED] bg-white group overflow-hidden relative">
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-[#FDF0ED] rounded-xl"><TrendingUp className="w-5 h-5 text-[#C75D3B]" /></div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Performance Hoje</span>
-                                    </div>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                                <Info className="w-4 h-4 text-gray-300" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                            <p>Quantidade total de vendas realizadas no dia de hoje.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-display font-bold text-[#4A3B32]">
-                                    {backendMetrics?.summary?.todaySalesCount || 0}
-                                    <span className="text-sm font-medium text-gray-400 ml-2">vendas hoje</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-
-                    {/* Card de Devedores - DESTAQUE */}
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                        <Card className="border-red-100 bg-gradient-to-br from-red-50 to-white cursor-pointer hover:shadow-lg transition-all group overflow-hidden relative"
-                            onClick={() => {
-                                setFilterType('fiado_parcelado')
-                                setFilterPaymentStatus('pending')
-                            }}>
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center justify-between w-full">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-red-100 rounded-xl"><CreditCard className="w-5 h-5 text-red-600" /></div>
-                                            <span className="text-xs font-bold text-red-600 uppercase tracking-widest">⚠️ Devedores</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {metrics.totalDevedores > 0 && (
-                                                <span className="px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
-                                                    {metrics.totalDevedores}
-                                                </span>
-                                            )}
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <button className="p-1.5 hover:bg-red-200/50 rounded-full transition-colors">
-                                                        <Info className="w-4 h-4 text-red-400" />
-                                                    </button>
-                                                </TooltipTrigger>
-                                                <TooltipContent className="max-w-xs bg-gray-900 text-white p-3 text-sm">
-                                                    <p>Soma total de TODAS as vendas pendentes (Crediário e outros métodos aguardando pagamento).</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-display font-bold text-red-600">
-                                    R$ {(metrics.valorDevedores || 0).toLocaleString('pt-BR')}
-                                </div>
-                                <p className="text-xs text-red-500 font-medium mt-1">
-                                    {metrics.totalDevedores} {metrics.totalDevedores === 1 ? 'venda pendente' : 'vendas pendentes'}
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-                </div>
-            </TooltipProvider>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                <KpiCard
+                    label="Faturamento"
+                    value={`R$ ${(metrics.totalRevenue || 0).toLocaleString('pt-BR')}`}
+                    sub="Receita líquida"
+                    icon={DollarSign}
+                    iconBg="bg-emerald-100"
+                    iconColor="text-emerald-600"
+                    accent="text-emerald-700"
+                    tooltip="Receita líquida de todas as vendas (total vendido menos descontos aplicados). Clique para ver detalhes."
+                    onClick={() => setShowDiscountsModal(true)}
+                    delay={0.1}
+                />
+                <KpiCard
+                    label="Ticket Médio"
+                    value={`R$ ${(metrics.averageTicket || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    sub="Média por venda"
+                    icon={TrendingUp}
+                    iconBg="bg-indigo-100"
+                    iconColor="text-indigo-600"
+                    tooltip="Valor médio gasto por venda (Faturamento Total ÷ Quantidade de Vendas)."
+                    delay={0.15}
+                />
+                <KpiCard
+                    label="Hoje"
+                    value={backendMetrics?.summary?.todaySalesCount || 0}
+                    sub="vendas realizadas"
+                    icon={ShoppingCart}
+                    tooltip="Quantidade total de vendas realizadas no dia de hoje."
+                    delay={0.2}
+                />
+                <KpiCard
+                    label="Devedores"
+                    value={`R$ ${(metrics.valorDevedores || 0).toLocaleString('pt-BR')}`}
+                    sub={`${metrics.totalDevedores} ${metrics.totalDevedores === 1 ? 'pendente' : 'pendentes'}`}
+                    icon={CreditCard}
+                    iconBg="bg-red-100"
+                    iconColor="text-red-500"
+                    accent="text-red-600"
+                    tooltip="Soma total de todas as vendas pendentes no crediário."
+                    onClick={() => { setFilterType('fiado_parcelado'); setFilterPaymentStatus('pending') }}
+                    gradient="bg-gradient-to-br from-red-50 to-white"
+                    badge={metrics.totalDevedores > 0 && (
+                        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                            {metrics.totalDevedores}
+                        </span>
+                    )}
+                    delay={0.25}
+                />
+            </div>
 
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
@@ -449,7 +362,10 @@ export function VendasList() {
                             <div className="grid grid-cols-3 gap-2 p-4 pt-0">
                                 {venda.paymentStatus === 'pending' ? (
                                     <button
-                                        onClick={() => handleQuickPay(venda.id)}
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            openLiquidationModal(venda)
+                                        }}
                                         disabled={isPaying === venda.id}
                                         className="inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/10 active:scale-95"
                                     >
@@ -733,11 +649,10 @@ export function VendasList() {
                                                 <div className="flex items-center justify-center gap-2">
                                                     {venda.paymentStatus === 'pending' && (
                                                         <button
+                                                            type="button"
                                                             onClick={(e) => {
                                                                 e.preventDefault()
-                                                                if (window.confirm('Marcar esta venda como PAGA agora?')) {
-                                                                    handleQuickPay(venda.id)
-                                                                }
+                                                                openLiquidationModal(venda)
                                                             }}
                                                             disabled={isPaying === venda.id}
                                                             className="p-2.5 bg-emerald-50 border border-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
@@ -856,6 +771,14 @@ export function VendasList() {
                 onClose={() => setShowDiscountsModal(false)}
                 vendas={allVendasData || []}
                 metrics={metrics}
+            />
+            {/* Modal de Liquidação */}
+            <LiquidationModal
+                isOpen={liquidationModal.isOpen}
+                onClose={() => setLiquidationModal({ isOpen: false, venda: null })}
+                onConfirm={handleQuickPay}
+                venda={liquidationModal.venda}
+                isPaying={isPaying === liquidationModal.venda?.id}
             />
         </div>
     )

@@ -252,7 +252,7 @@ export function OperationalCosts() {
                                     {/* Crédito Parcelado */}
                                     <div className="space-y-4 pt-4 border-t border-gray-200">
                                         <label className="text-sm font-bold text-[#4A3B32] block">📅 Crédito Parcelado</label>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
                                             {installmentOptions.map(inst => (
                                                 <div key={inst.key} className="space-y-1">
                                                     <label className="text-xs font-bold text-[#4A3B32]/60 uppercase tracking-widest block">

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Search, Tag, Package, Trash2, Edit2, EyeOff, TrendingUp, DollarSign, Info, ArrowUpDown, ArrowUp, ArrowDown, Layers, AlertTriangle, Activity } from 'lucide-react'
+import { Plus, Search, Tag, Package, Trash2, Edit2, TrendingUp, DollarSign, ArrowUpDown, Layers, AlertTriangle, Activity, FolderPlus, ChevronDown, Check, X } from 'lucide-react'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { formatUserFriendlyError } from '@/lib/errorHandler'
 import { cn } from '@/lib/utils'
@@ -35,6 +35,7 @@ export function ProductsList() {
     const [search, setSearch] = useState('')
     const debouncedSearch = useDebounce(searchInput, 300)
     const [categoryFilter, setCategoryFilter] = useState('all')
+    const [collectionFilter, setCollectionFilter] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(20)
 
@@ -57,6 +58,7 @@ export function ProductsList() {
         pageSize: itemsPerPage,
         search: search,
         category: categoryFilter,
+        collection: collectionFilter,
         full: false
     })
 
@@ -68,12 +70,38 @@ export function ProductsList() {
 
     const [collectionsModalOpen, setCollectionsModalOpen] = useState(false)
     const [collections, setCollections] = useState([])
+    const [bulkCollectionOpen, setBulkCollectionOpen] = useState(false)
+    const [bulkCollectionLoading, setBulkCollectionLoading] = useState(false)
 
     useEffect(() => {
         getActiveCollections().then(setCollections).catch(err => {
             console.error('Erro ao carregar coleções:', err)
         })
     }, [])
+
+    const handleBulkAddToCollection = async (collectionId) => {
+        setBulkCollectionLoading(true)
+        try {
+            const selectedItems = paginatedProducts.filter(p => selectedProducts.includes(p.id))
+            await Promise.all(selectedItems.map(product => {
+                const current = product.collectionIds || product.collection_ids || []
+                if (current.includes(collectionId)) return Promise.resolve()
+                return apiClient(`/products/${product.id}`, {
+                    method: 'PUT',
+                    body: { collection_ids: [...current, collectionId] }
+                })
+            }))
+            const col = collections.find(c => c.id === collectionId)
+            toast.success(`${selectedProducts.length} produto(s) adicionados à coleção "${col?.title}"`)
+            setSelectedProducts([])
+            setBulkCollectionOpen(false)
+            refetch()
+        } catch (err) {
+            toast.error('Erro ao adicionar produtos à coleção')
+        } finally {
+            setBulkCollectionLoading(false)
+        }
+    }
 
     const requestSort = (key) => {
         let direction = 'asc';
@@ -127,7 +155,7 @@ export function ProductsList() {
 
     useEffect(() => {
         setCurrentPage(1)
-    }, [search, categoryFilter])
+    }, [search, categoryFilter, collectionFilter])
 
     const {
         dashboardMetricsRaw: backendMetrics,
@@ -234,16 +262,79 @@ export function ProductsList() {
                         Coleções
                     </button>
 
+                    <AnimatePresence>
                     {selectedProducts.length > 0 && (
-                        <motion.button
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            onClick={() => setConfirmMultiDelete(true)}
-                            className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl text-sm font-bold shadow-lg shadow-red-500/10 hover:bg-red-600 transition-all active:scale-95"
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                            animate={{ opacity: 1, scale: 1, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                            className="flex items-center gap-2"
                         >
-                            <Trash2 className="w-5 h-5" /> Excluir ({selectedProducts.length})
-                        </motion.button>
+                            <span className="text-xs font-bold text-[#C75D3B] bg-[#FDF0ED] px-3 py-1.5 rounded-full">
+                                {selectedProducts.length} selecionado{selectedProducts.length > 1 ? 's' : ''}
+                            </span>
+
+                            {/* Bulk: Adicionar à Coleção */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setBulkCollectionOpen(o => !o)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-2xl text-sm font-bold text-[#4A3B32] shadow-sm hover:shadow-md hover:border-[#C75D3B]/30 transition-all active:scale-95"
+                                >
+                                    <FolderPlus className="w-4 h-4 text-purple-500" />
+                                    Coleção
+                                    <ChevronDown className={cn("w-3.5 h-3.5 text-gray-400 transition-transform", bulkCollectionOpen && "rotate-180")} />
+                                </button>
+
+                                <AnimatePresence>
+                                {bulkCollectionOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-10" onClick={() => setBulkCollectionOpen(false)} />
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                                            transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                                            className="absolute right-0 top-full mt-2 z-20 w-56 bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden"
+                                        >
+                                            <div className="px-4 py-3 border-b border-gray-50">
+                                                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                                                    Adicionar {selectedProducts.length} produto{selectedProducts.length > 1 ? 's' : ''} à:
+                                                </p>
+                                            </div>
+                                            <div className="max-h-64 overflow-y-auto py-1">
+                                                {collections.length === 0 && (
+                                                    <p className="px-4 py-3 text-sm text-gray-400 text-center">Nenhuma coleção ativa</p>
+                                                )}
+                                                {collections.map(col => (
+                                                    <button
+                                                        key={col.id}
+                                                        disabled={bulkCollectionLoading}
+                                                        onClick={() => handleBulkAddToCollection(col.id)}
+                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-[#4A3B32] hover:bg-[#FDF0ED] transition-colors text-left disabled:opacity-50"
+                                                    >
+                                                        <Layers className="w-4 h-4 text-purple-400 shrink-0" />
+                                                        <span className="truncate">{col.title}</span>
+                                                        {bulkCollectionLoading && <span className="ml-auto text-[10px] text-gray-400">...</span>}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    </>
+                                )}
+                                </AnimatePresence>
+                            </div>
+
+                            {/* Bulk: Excluir */}
+                            <button
+                                onClick={() => setConfirmMultiDelete(true)}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-red-500 text-white rounded-2xl text-sm font-bold shadow-lg shadow-red-500/10 hover:bg-red-600 transition-all active:scale-95"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Excluir
+                            </button>
+                        </motion.div>
                     )}
+                    </AnimatePresence>
 
                     <ShimmerButton
                         onClick={() => navigate('/admin/products/new')}
@@ -311,8 +402,9 @@ export function ProductsList() {
 
             {/* Main Content */}
             <Card className="overflow-hidden border border-gray-100 shadow-sm bg-white rounded-3xl">
-                <div className="p-6 border-b border-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="relative flex-1 max-w-md">
+                <div className="p-4 md:p-6 border-b border-gray-50 flex flex-col gap-3">
+                    {/* Linha 1: busca */}
+                    <div className="relative flex-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                         <input
                             type="text"
@@ -321,6 +413,46 @@ export function ProductsList() {
                             onChange={(e) => setSearchInput(e.target.value)}
                             className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all"
                         />
+                    </div>
+
+                    {/* Linha 2: filtros rápidos */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Filtro Coleção */}
+                        <div className="flex items-center gap-1.5">
+                            <Layers className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            <select
+                                value={collectionFilter}
+                                onChange={e => setCollectionFilter(e.target.value)}
+                                className={cn(
+                                    "text-[12px] font-semibold border rounded-xl px-3 py-1.5 outline-none transition-all cursor-pointer",
+                                    collectionFilter
+                                        ? "bg-purple-50 border-purple-200 text-purple-700"
+                                        : "bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-200"
+                                )}
+                            >
+                                <option value="">Todas as coleções</option>
+                                {collections.map(col => (
+                                    <option key={col.id} value={col.id}>{col.title}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Limpar filtros */}
+                        {(collectionFilter || categoryFilter !== 'all') && (
+                            <button
+                                onClick={() => { setCollectionFilter(''); setCategoryFilter('all') }}
+                                className="flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                                <X className="w-3 h-3" /> Limpar filtros
+                            </button>
+                        )}
+
+                        {/* Indicador de filtro ativo */}
+                        {collectionFilter && (
+                            <span className="text-[11px] font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full">
+                                {collections.find(c => String(c.id) === String(collectionFilter))?.title}
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -383,9 +515,17 @@ export function ProductsList() {
                                         <div className="flex justify-between items-start gap-2">
                                             <p className="font-bold text-[#4A3B32] text-base leading-tight truncate">{product.name}</p>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-1">
+                                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">#{product.id}</span>
                                             <span className="text-[10px] font-bold text-gray-400 px-2 py-0.5 bg-gray-100 rounded-full">{product.category}</span>
+                                            {(product.collectionIds || product.collection_ids || []).map(cid => {
+                                                const col = collections.find(c => c.id === cid)
+                                                return col ? (
+                                                    <span key={cid} className="text-[9px] font-bold px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full truncate max-w-[70px]">
+                                                        {col.title}
+                                                    </span>
+                                                ) : null
+                                            })}
                                         </div>
 
                                         <div className="mt-3 flex items-end justify-between">
@@ -464,7 +604,17 @@ export function ProductsList() {
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="text-sm font-bold text-[#4A3B32] truncate">{product.name}</p>
-                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">#{product.id}</p>
+                                                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">#{product.id}</p>
+                                                            {(product.collectionIds || product.collection_ids || []).map(cid => {
+                                                                const col = collections.find(c => c.id === cid)
+                                                                return col ? (
+                                                                    <span key={cid} className="text-[9px] font-bold px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full truncate max-w-[80px]">
+                                                                        {col.title}
+                                                                    </span>
+                                                                ) : null
+                                                            })}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>

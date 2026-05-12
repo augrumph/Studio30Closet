@@ -5,11 +5,11 @@ import { apiClient } from '@/lib/api-client'
 /**
  * Hook para buscar produtos com paginação no servidor
  */
-export function useAdminProducts({ page = 1, pageSize = 20, search = '', category = 'all', active = 'all', full = false } = {}) {
+export function useAdminProducts({ page = 1, pageSize = 20, search = '', category = 'all', active = 'all', full = false, collection = '' } = {}) {
     const queryClient = useQueryClient()
 
     const query = useQuery({
-        queryKey: ['admin', 'products-paginated', { page, pageSize, search, category, active, full }],
+        queryKey: ['admin', 'products-paginated', { page, pageSize, search, category, active, full, collection }],
         queryFn: async () => {
             const queryParams = new URLSearchParams({
                 page: page.toString(),
@@ -19,6 +19,7 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
                 active,
                 full: full.toString()
             })
+            if (collection) queryParams.set('collection', collection)
 
             const data = await apiClient(`/products?${queryParams.toString()}`)
             return data

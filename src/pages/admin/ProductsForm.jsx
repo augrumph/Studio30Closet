@@ -403,7 +403,7 @@ export function ProductsForm() {
                     </motion.button>
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <h2 className="text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">
+                            <h2 className="text-2xl md:text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">
                                 {id ? 'Editar Detalhes' : 'Novo Produto'}
                             </h2>
                             {id && (
@@ -945,7 +945,7 @@ export function ProductsForm() {
                                         Estoque Total (Calculado Automaticamente)
                                     </label>
                                 </div>
-                                <div className="text-3xl font-bold text-[#4A3B32]">
+                                <div className="text-xl md:text-3xl font-bold text-[#4A3B32]">
                                     {calculatedStock} {calculatedStock === 1 ? 'unidade' : 'unidades'}
                                 </div>
                                 {calculatedStock === 0 && (

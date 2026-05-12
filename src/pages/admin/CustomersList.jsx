@@ -6,10 +6,6 @@ import {
     Phone,
     Mail,
     MessageSquare,
-    Filter,
-    Download,
-    LayoutGrid,
-    List,
     Trash2,
     Edit2,
     SearchX,
@@ -19,7 +15,6 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import { Card, CardContent } from '@/components/ui/Card'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { EmptyState, LoadingState, TableWrapper } from '@/components/admin/shared'
 import { cn } from '@/lib/utils'
@@ -116,72 +111,64 @@ export function CustomersList() {
     }
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gray-50 min-h-screen">
+        <div className="p-3 sm:p-6 lg:p-8 space-y-4 md:space-y-6 bg-gray-50 min-h-screen">
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col gap-5"
+                className="flex flex-col gap-3 md:gap-5"
             >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <h2 className="text-3xl font-display font-semibold text-[#4A3B32] tracking-tight">
+                {/* Header — compacto no mobile */}
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 className="text-2xl md:text-3xl font-display font-semibold text-[#4A3B32] tracking-tight leading-none">
                             Clientes
                         </h2>
-                        <p className="text-sm text-[#4A3B32]/40 font-medium">
-                            Base ordenada por maior comprador. Toque em um card para abrir o cadastro.
+                        <p className="text-xs md:text-sm text-[#4A3B32]/40 font-medium mt-0.5 hidden md:block">
+                            Base ordenada por maior comprador.
                         </p>
                     </div>
-
                     <Link
                         to="/admin/customers/new"
-                        className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#C75D3B] text-white rounded-2xl font-bold shadow-lg shadow-[#C75D3B]/20 hover:bg-[#A64D31] transition-all active:scale-95"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 md:px-5 md:py-3 bg-[#C75D3B] text-white rounded-2xl font-bold shadow-lg shadow-[#C75D3B]/20 hover:bg-[#A64D31] transition-all active:scale-95 text-sm shrink-0"
                     >
-                        <Plus className="w-5 h-5" />
-                        Novo Cliente
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline">Novo Cliente</span>
+                        <span className="sm:hidden">Novo</span>
                     </Link>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                    <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                        <input
-                            type="text"
-                            placeholder="Buscar por nome, telefone ou e-mail..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-12 pr-4 py-4 bg-white border-none rounded-2xl text-sm shadow-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all placeholder:text-gray-300"
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <button className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-4 bg-white border border-gray-100 rounded-2xl text-sm font-semibold text-[#4A3B32] shadow-sm hover:bg-gray-50 transition-all">
-                            <Filter className="w-4 h-4 text-gray-400" />
-                            Filtros
-                        </button>
-                        <button className="px-4 py-4 bg-white border border-gray-100 rounded-2xl text-sm font-semibold text-[#4A3B32] shadow-sm hover:bg-gray-50 transition-all">
-                            <Download className="w-4 h-4 text-gray-400" />
-                        </button>
-                    </div>
+                {/* Busca */}
+                <div className="relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                    <input
+                        type="text"
+                        placeholder="Nome, telefone ou e-mail..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 md:py-4 bg-white border-none rounded-2xl text-sm shadow-sm focus:ring-2 focus:ring-[#C75D3B]/20 outline-none transition-all placeholder:text-gray-300"
+                    />
                 </div>
 
+                {/* Segmentos — scroll horizontal no mobile, wrap no desktop */}
                 <div className="flex flex-wrap gap-2">
                     {SEGMENT_FILTERS.map(filter => {
                         const count = filter.value === 'all' ? total : Number(summaryCounts?.[filter.value] || 0)
+                        const isActive = segmentFilter === filter.value
                         return (
                             <button
                                 key={filter.value}
                                 onClick={() => setSegmentFilter(filter.value)}
                                 className={cn(
-                                    'inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all',
-                                    segmentFilter === filter.value
+                                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[12px] md:text-sm font-semibold transition-all whitespace-nowrap shrink-0',
+                                    isActive
                                         ? 'bg-[#4A3B32] text-white border-[#4A3B32]'
                                         : 'bg-white text-[#4A3B32] border-gray-100 hover:border-[#C75D3B]/20 hover:text-[#C75D3B]'
                                 )}
                             >
                                 {filter.label}
                                 <span className={cn(
-                                    'text-[10px] px-2 py-0.5 rounded-full',
-                                    segmentFilter === filter.value ? 'bg-white/15 text-white' : 'bg-gray-50 text-gray-400'
+                                    'text-[10px] px-1.5 py-0.5 rounded-full font-bold',
+                                    isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400'
                                 )}>
                                     {count}
                                 </span>
@@ -190,10 +177,11 @@ export function CustomersList() {
                     })}
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <MetricCard icon={User} label="Total" value={total} />
-                    <MetricCard icon={TrendingUp} label="VIP" value={summaryCounts?.vip || 0} />
-                    <MetricCard icon={Calendar} label="Ativos" value={summaryCounts?.active || 0} />
+                {/* KPIs */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
+                    <MetricCard icon={User}         label="Total"  value={total} />
+                    <MetricCard icon={TrendingUp}   label="VIP"    value={summaryCounts?.vip || 0} />
+                    <MetricCard icon={Calendar}     label="Ativos" value={summaryCounts?.active || 0} />
                     <MetricCard icon={MessageSquare} label="Risco" value={summaryCounts?.at_risk || 0} />
                 </div>
 
@@ -368,101 +356,129 @@ export function CustomersList() {
 
 function MetricCard({ icon: Icon, label, value }) {
     return (
-        <Card className="border-none bg-white shadow-sm overflow-hidden">
-            <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-[#FDF0ED]">
-                        <Icon className="w-5 h-5 text-[#C75D3B]" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
-                        <p className="text-lg font-black text-[#4A3B32] leading-none mt-1">{value}</p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+        <div className="bg-white rounded-2xl border border-[#EDE0D8] p-3 flex items-center gap-2.5">
+            <div className="h-8 w-8 shrink-0 grid place-items-center rounded-xl bg-[#F0E6DF]">
+                <Icon className="w-4 h-4 text-[#C75D3B]" />
+            </div>
+            <div className="min-w-0">
+                <p className="text-[10px] font-bold text-[#A07060] uppercase tracking-[0.1em] truncate">{label}</p>
+                <p className="text-[18px] font-black text-[#2C1810] leading-none mt-0.5">{value}</p>
+            </div>
+        </div>
     )
 }
 
 function CustomerCard({ customer, onEdit, onDelete, onWhatsApp }) {
-    return (
-        <Card className="group border-none bg-white shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
-            <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                    <button
-                        onClick={onEdit}
-                        className="flex items-start gap-3 text-left min-w-0 flex-1"
-                    >
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FDF0ED] to-[#FEFAF9] flex items-center justify-center text-[#C75D3B] font-bold shadow-sm flex-shrink-0">
-                            {customer.name?.charAt(0)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-[#4A3B32] text-base leading-tight truncate">
-                                {customer.name}
-                            </h3>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                                #{customer.id}
-                            </p>
-                            <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                <span className="text-sm font-black text-[#4A3B32]">{formatCurrency(customer.lifetimeValue)}</span>
-                                <span className="text-[10px] px-2 py-1 rounded-full bg-gray-50 text-gray-500 font-bold uppercase tracking-widest">
-                                    {customer.totalOrders || 0} pedidos
-                                </span>
-                            </div>
-                        </div>
-                    </button>
+    const seg = SEGMENT_META[customer.segment]
 
-                    <span className={cn(
-                        'text-[10px] px-2 py-1 rounded-full border font-bold uppercase tracking-widest flex-shrink-0',
-                        SEGMENT_META[customer.segment]?.className || 'bg-gray-50 text-gray-500 border-gray-100'
-                    )}>
-                        {SEGMENT_META[customer.segment]?.label || customer.segment || 'Sem segmento'}
-                    </span>
+    return (
+        <div className={cn(
+            'bg-white rounded-2xl overflow-hidden border transition-all duration-150 active:scale-[0.99]',
+            customer.isVip
+                ? 'border-amber-200 shadow-sm shadow-amber-100'
+                : 'border-[#EDE0D8] shadow-sm'
+        )}>
+            {/* Linha principal — toca abre o perfil */}
+            <button
+                type="button"
+                onClick={onEdit}
+                className="w-full flex items-center gap-3 px-4 pt-4 pb-3 text-left"
+            >
+                {/* Avatar com inicial */}
+                <div className={cn(
+                    'h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center text-[17px] font-black',
+                    customer.isVip
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-[#F0E6DF] text-[#C75D3B]'
+                )}>
+                    {customer.name?.charAt(0)?.toUpperCase()}
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 pt-4 mt-4 border-t border-gray-50">
-                    {customer.phone && (
-                        <div className="flex items-center gap-3 text-sm text-gray-500 font-medium">
-                            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
-                                <Phone className="w-4 h-4" />
-                            </div>
-                            <span className="truncate">{customer.phone}</span>
-                        </div>
-                    )}
-                    {customer.email && (
-                        <div className="flex items-center gap-3 text-sm text-gray-500 font-medium">
-                            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
-                                <Mail className="w-4 h-4" />
-                            </div>
-                            <span className="truncate">{customer.email}</span>
-                        </div>
-                    )}
-                    <div className="text-xs text-gray-400 font-medium">
-                        Última compra: {formatDate(customer.lastPurchaseDate)}
+                {/* Info principal */}
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                        <p className="font-bold text-[15px] text-[#2C1810] truncate leading-tight">
+                            {customer.name}
+                        </p>
+                        {customer.isVip && (
+                            <span className="shrink-0 text-[9px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">VIP</span>
+                        )}
+                    </div>
+
+                    {/* LTV + pedidos + segmento */}
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="text-[13px] font-black text-[#2C1810]">
+                            {formatCurrency(customer.lifetimeValue)}
+                        </span>
+                        <span className="text-[10px] text-[#A07060] font-semibold">
+                            {customer.totalOrders || 0} pedido{customer.totalOrders !== 1 ? 's' : ''}
+                        </span>
+                        {seg && !customer.isVip && (
+                            <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded-full border', seg.className)}>
+                                {seg.label}
+                            </span>
+                        )}
                     </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 mt-4">
+                {/* Última compra — alinhado à direita */}
+                <div className="shrink-0 text-right">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#C4A090]">Última</p>
+                    <p className="text-[11px] font-semibold text-[#8C6150] mt-0.5">
+                        {formatDate(customer.lastPurchaseDate)}
+                    </p>
+                </div>
+            </button>
+
+            {/* Contato + ações numa linha só */}
+            <div className="flex items-center gap-0 px-4 pb-3 border-t border-[#F5EBE4] pt-2.5">
+                {/* Telefone / email */}
+                <div className="flex-1 min-w-0">
+                    {customer.phone ? (
+                        <p className="text-[12px] font-semibold text-[#6B4030] truncate flex items-center gap-1.5">
+                            <Phone className="h-3 w-3 shrink-0 text-[#C4A090]" />
+                            {customer.phone}
+                        </p>
+                    ) : customer.email ? (
+                        <p className="text-[12px] font-semibold text-[#6B4030] truncate flex items-center gap-1.5">
+                            <Mail className="h-3 w-3 shrink-0 text-[#C4A090]" />
+                            {customer.email}
+                        </p>
+                    ) : (
+                        <p className="text-[11px] text-[#C4A090] italic">Sem contato</p>
+                    )}
+                </div>
+
+                {/* Ações compactas */}
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                    {customer.phone && (
+                        <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); onWhatsApp() }}
+                            className="h-8 w-8 grid place-items-center rounded-xl bg-emerald-100 text-emerald-700 transition-colors active:scale-95"
+                            title="WhatsApp"
+                        >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                        </button>
+                    )}
                     <button
-                        onClick={onWhatsApp}
-                        className="inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/10 active:scale-95"
+                        type="button"
+                        onClick={e => { e.stopPropagation(); onEdit() }}
+                        className="h-8 w-8 grid place-items-center rounded-xl bg-[#F0E6DF] text-[#C75D3B] transition-colors active:scale-95"
+                        title="Ver perfil"
                     >
-                        <MessageSquare className="w-4 h-4" />
+                        <Edit2 className="h-3.5 w-3.5" />
                     </button>
                     <button
-                        onClick={onEdit}
-                        className="inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#FDF0ED] text-[#C75D3B] font-bold text-sm active:scale-95"
+                        type="button"
+                        onClick={e => { e.stopPropagation(); onDelete() }}
+                        className="h-8 w-8 grid place-items-center rounded-xl bg-red-50 text-red-500 transition-colors active:scale-95"
+                        title="Excluir"
                     >
-                        <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={onDelete}
-                        className="inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-red-50 text-red-500 font-bold text-sm active:scale-95"
-                    >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                     </button>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     )
 }

@@ -169,7 +169,7 @@ export function OnlineOrdersList() {
                         <div className="p-3 bg-[#4A3B32] rounded-2xl shadow-lg">
                             <CreditCard className="w-6 h-6 text-white" />
                         </div>
-                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Pedidos Online</h2>
+                        <h2 className="text-2xl md:text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Pedidos Online</h2>
                     </div>
                     <p className="text-[#4A3B32]/60 font-medium mt-2">E-commerce com pagamento, frete, NF-e e etiqueta.</p>
                 </div>

@@ -197,7 +197,7 @@ export function PurchasesList() {
                         <div className="p-3 bg-gradient-to-br from-slate-600 to-slate-800 rounded-2xl shadow-lg">
                             <ShoppingCart className="w-6 h-6 text-white" />
                         </div>
-                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Compras de Fornecedores</h2>
+                        <h2 className="text-2xl md:text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Compras de Fornecedores</h2>
                     </div>
                     <p className="text-[#4A3B32]/60 font-medium">Gerencie todas as compras realizadas.</p>
                 </div>
@@ -382,7 +382,7 @@ export function PurchasesList() {
                     ) : (
                         <div className="divide-y divide-gray-50">
                             {/* Sorting Header */}
-                            <div className="bg-[#FAF8F5]/50 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em] px-6 py-4 flex items-center justify-between border-b border-gray-100">
+                            <div className="hidden md:flex bg-[#FAF8F5]/50 text-[#4A3B32]/40 text-[10px] uppercase font-bold tracking-[0.2em] px-6 py-4 items-center justify-between border-b border-gray-100">
                                 <div className="flex-1 flex gap-4">
                                     <div className="w-12 shrink-0"></div>
                                     <div className="flex-1 grid grid-cols-4 gap-4">
@@ -413,7 +413,7 @@ export function PurchasesList() {
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, x: -20 }}
                                             transition={{ delay: idx * 0.05 }}
-                                            className="p-6 hover:bg-[#FDFBF7] transition-all group"
+                                            className="p-4 md:p-6 hover:bg-[#FDFBF7] transition-all group"
                                         >
                                             <div className="flex items-start justify-between gap-6">
                                                 <div className="flex items-start gap-4 flex-1">

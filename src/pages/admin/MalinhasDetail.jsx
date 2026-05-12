@@ -218,7 +218,7 @@ export function MalinhasDetail() {
                     </motion.button>
                     <div>
                         <div className="flex items-center gap-3 mb-1">
-                            <h2 className="text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">{order.orderNumber}</h2>
+                            <h2 className="text-2xl md:text-4xl font-display font-semibold text-[#4A3B32] tracking-tight">{order.orderNumber}</h2>
                             <span className={cn(
                                 "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest",
                                 currentStatus.color
@@ -255,7 +255,7 @@ export function MalinhasDetail() {
                 <div className="lg:col-span-8 space-y-8">
                     {/* Items Card */}
                     <Card className="overflow-hidden border-none shadow-xl">
-                        <CardHeader className="bg-white p-8 border-b border-gray-50 flex items-center justify-between">
+                        <CardHeader className="bg-white p-4 md:p-8 border-b border-gray-50 flex items-center justify-between">
                             <CardTitle className="text-xl flex items-center gap-3">
                                 <Package className="w-6 h-6 text-[#C75D3B]" />
                                 Conteúdo da Malinha
@@ -333,14 +333,14 @@ export function MalinhasDetail() {
                                     <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">{keptItems.length} peças selecionadas para venda</span>
                                 </div>
                                 <div className="flex items-center gap-8">
-                                    <span className="text-3xl font-display font-bold text-[#C75D3B]">
+                                    <span className="text-xl md:text-3xl font-display font-bold text-[#C75D3B]">
                                         R$ {(order.items.filter((_, i) => keptItems.includes(i)).reduce((s, it) => s + getItemPrice(it), 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </span>
                                     <button
                                         onClick={handleFinalizeSale}
                                         disabled={keptItems.length === 0}
                                         className={cn(
-                                            "flex items-center gap-3 px-8 py-4 rounded-[24px] font-bold shadow-lg transition-all text-sm uppercase tracking-widest active:scale-95",
+                                            "flex items-center gap-2 px-4 md:px-8 py-3 md:py-4 rounded-[24px] font-bold shadow-lg transition-all text-sm uppercase tracking-[0.1em] active:scale-95",
                                             keptItems.length > 0
                                                 ? "bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600"
                                                 : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
@@ -355,10 +355,10 @@ export function MalinhasDetail() {
 
                     {/* Timeline Card */}
                     <Card className="border-none shadow-xl">
-                        <CardHeader className="p-8 border-b border-gray-50">
+                        <CardHeader className="p-4 md:p-8 border-b border-gray-50">
                             <CardTitle className="text-xl">Histórico do Atendimento</CardTitle>
                         </CardHeader>
-                        <CardContent className="p-8">
+                        <CardContent className="p-4 md:p-8">
                             <div className="space-y-10">
                                 {(order.statusHistory || []).map((step, idx) => (
                                     <div key={idx} className="flex gap-6 relative">
@@ -508,7 +508,7 @@ export function MalinhasDetail() {
                     )}
 
                     <Card className="bg-[#4A3B32] text-white border-none overflow-hidden">
-                        <CardContent className="p-8 space-y-4 relative">
+                        <CardContent className="p-4 md:p-8 space-y-4 relative">
                             <div className="absolute top-0 right-0 p-4 opacity-10">
                                 <Package className="w-24 h-24" />
                             </div>

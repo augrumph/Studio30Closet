@@ -178,7 +178,7 @@ export function OnlineOrderDetail() {
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <h1 className="text-3xl font-display font-bold text-[#4A3B32]">
+                            <h1 className="text-xl md:text-3xl font-display font-bold text-[#4A3B32]">
                                 {order.orderNumber || `#${order.id}`}
                             </h1>
                             <StatusBadge value={order.paymentStatus} map={PAYMENT_MAP} />

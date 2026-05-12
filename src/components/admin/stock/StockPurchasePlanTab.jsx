@@ -295,7 +295,7 @@ export function StockPurchasePlanTab() {
                 >
                     <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-gradient-to-br from-[#4A3B32] to-[#2A211C] text-white">
                         <CardContent className="p-5 text-center">
-                            <div className="text-3xl font-black mb-1">{money(data.summary?.grandTotalCost)}</div>
+                            <div className="text-xl md:text-3xl font-black mb-1">{money(data.summary?.grandTotalCost)}</div>
                             <p className="text-[10px] text-white/70 uppercase font-black tracking-wider">Investimento Total</p>
                         </CardContent>
                     </Card>
@@ -309,7 +309,7 @@ export function StockPurchasePlanTab() {
                 >
                     <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-gradient-to-br from-emerald-50 to-white">
                         <CardContent className="p-5 text-center">
-                            <div className="text-3xl font-black text-[#4A3B32] mb-1">{data.summary?.grandTotalPieces}</div>
+                            <div className="text-xl md:text-3xl font-black text-[#4A3B32] mb-1">{data.summary?.grandTotalPieces}</div>
                             <p className="text-[10px] text-gray-600 uppercase font-black tracking-wider">Peças a Comprar</p>
                         </CardContent>
                     </Card>
@@ -323,7 +323,7 @@ export function StockPurchasePlanTab() {
                 >
                     <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-gradient-to-br from-blue-50 to-white">
                         <CardContent className="p-5 text-center">
-                            <div className="text-3xl font-black text-[#4A3B32] mb-1">{data.summary?.totalProducts}</div>
+                            <div className="text-xl md:text-3xl font-black text-[#4A3B32] mb-1">{data.summary?.totalProducts}</div>
                             <p className="text-[10px] text-gray-600 uppercase font-black tracking-wider">Produtos Diferentes</p>
                         </CardContent>
                     </Card>
@@ -337,7 +337,7 @@ export function StockPurchasePlanTab() {
                 >
                     <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-gradient-to-br from-purple-50 to-white">
                         <CardContent className="p-5 text-center">
-                            <div className="text-3xl font-black text-[#4A3B32] mb-1">{data.summary?.totalSuppliers}</div>
+                            <div className="text-xl md:text-3xl font-black text-[#4A3B32] mb-1">{data.summary?.totalSuppliers}</div>
                             <p className="text-[10px] text-gray-600 uppercase font-black tracking-wider">Fornecedores</p>
                         </CardContent>
                     </Card>

@@ -152,7 +152,7 @@ export function OperationalCosts() {
                     <div className="p-3 bg-gradient-to-br from-[#C75D3B] to-[#A64D31] rounded-2xl shadow-lg">
                         <Sparkles className="w-6 h-6 text-white" />
                     </div>
-                    <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Taxas de Pagamento</h2>
+                    <h2 className="text-2xl md:text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Taxas de Pagamento</h2>
                 </div>
                 <p className="text-[#4A3B32]/60 font-medium">Configure as taxas de máquina para cada bandeira e método de pagamento.</p>
             </motion.div>

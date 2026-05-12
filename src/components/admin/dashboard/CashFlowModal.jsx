@@ -59,7 +59,7 @@ export function CashFlowModal({ isOpen, onClose, details, metrics }) {
                         </div>
 
                         {/* Summary Cards */}
-                        <div className="grid grid-cols-3 gap-4 p-6 bg-white shrink-0">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 md:p-6 bg-white shrink-0">
                             <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
                                 <span className="text-sm font-medium text-emerald-600 flex items-center gap-2">
                                     <ArrowUpCircle size={16} /> Entradas

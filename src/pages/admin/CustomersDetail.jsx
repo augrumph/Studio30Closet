@@ -179,15 +179,65 @@ export function CustomersDetail() {
                     </div>
                 </div>
 
-                <div className="relative bg-gradient-to-br from-[#4A3B32] via-[#5A4B42] to-[#4A3B32] rounded-3xl p-6 md:p-8 text-white overflow-hidden shadow-xl">
+                {/* ── Hero mobile (compacto) ── */}
+                <div className="md:hidden bg-gradient-to-br from-[#4A3B32] to-[#5A4B42] rounded-2xl p-4 text-white overflow-hidden shadow-lg relative">
+                    <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#C75D3B]/25 to-transparent pointer-events-none" />
+                    <div className="relative flex items-center gap-3">
+                        {/* Avatar */}
+                        <div className="h-14 w-14 shrink-0 rounded-xl bg-white/20 flex items-center justify-center text-white font-black text-xl border border-white/20">
+                            {getInitials(customer.name)}
+                        </div>
+                        {/* Info */}
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h2 className="font-display font-bold text-[17px] truncate">{customer.name}</h2>
+                                <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border', segment.color)}>
+                                    <span className={cn('w-1.5 h-1.5 rounded-full', segment.dot)} />
+                                    {segment.label}
+                                </span>
+                                {metrics.totalPedidos > 0 && (metrics.totalGasto / metrics.totalPedidos) > 400 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-400/20 border border-amber-400/30 text-amber-200 text-[10px] font-bold">
+                                        <Star className="w-2.5 h-2.5 fill-amber-300" /> VIP
+                                    </span>
+                                )}
+                            </div>
+                            {customer.phone && (
+                                <p className="text-[12px] text-white/70 mt-0.5 flex items-center gap-1">
+                                    <Phone className="w-3 h-3" /> {customer.phone}
+                                </p>
+                            )}
+                            {!customer.phone && customer.email && (
+                                <p className="text-[12px] text-white/70 mt-0.5 truncate flex items-center gap-1">
+                                    <Mail className="w-3 h-3" /> {customer.email}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    {/* Ações */}
+                    <div className="relative flex items-center gap-2 mt-3">
+                        {customer.phone && (
+                            <button onClick={openWhatsApp}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500 rounded-xl font-bold text-[13px] active:scale-95">
+                                <MessageCircle className="w-4 h-4" /> WhatsApp
+                            </button>
+                        )}
+                        <Link to={`/admin/customers/${id}/edit`}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white/15 border border-white/20 rounded-xl font-bold text-[13px] active:scale-95">
+                            <Pencil className="w-4 h-4" /> Editar
+                        </Link>
+                    </div>
+                </div>
+
+                {/* ── Hero desktop (original) ── */}
+                <div className="hidden md:block relative bg-gradient-to-br from-[#4A3B32] via-[#5A4B42] to-[#4A3B32] rounded-3xl p-8 text-white overflow-hidden shadow-xl">
                     <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#C75D3B]/30 to-transparent pointer-events-none" />
                     <div className="relative z-10 flex flex-col items-center text-center gap-6">
-                        <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white font-bold text-2xl border border-white/20 flex-shrink-0">
+                        <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white font-bold text-2xl border border-white/20">
                             {getInitials(customer.name)}
                         </div>
                         <div className="min-w-0 max-w-3xl">
                             <div className="flex flex-wrap items-center justify-center gap-3 mb-2">
-                                <h2 className="text-2xl md:text-3xl font-display font-bold truncate">{customer.name}</h2>
+                                <h2 className="text-3xl font-display font-bold">{customer.name}</h2>
                                 <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border', segment.color)}>
                                     <span className={cn('w-1.5 h-1.5 rounded-full', segment.dot)} />
                                     {segment.label}
@@ -199,44 +249,20 @@ export function CustomersDetail() {
                                 )}
                             </div>
                             <div className="flex flex-wrap items-center justify-center gap-4 text-white/70 text-sm">
-                                {customer.phone && (
-                                    <span className="flex items-center gap-1.5">
-                                        <Phone className="w-3.5 h-3.5" /> {customer.phone}
-                                    </span>
-                                )}
-                                {customer.email && (
-                                    <span className="flex items-center gap-1.5">
-                                        <Mail className="w-3.5 h-3.5" /> {customer.email}
-                                    </span>
-                                )}
-                                {customer.instagram && (
-                                    <span className="flex items-center gap-1.5">
-                                        <Instagram className="w-3.5 h-3.5" /> @{customer.instagram}
-                                    </span>
-                                )}
-                                {customer.birthDate && (
-                                    <span className="flex items-center gap-1.5">
-                                        <Calendar className="w-3.5 h-3.5" /> {formatDate(customer.birthDate)}
-                                    </span>
-                                )}
+                                {customer.phone && <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> {customer.phone}</span>}
+                                {customer.email && <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> {customer.email}</span>}
+                                {customer.instagram && <span className="flex items-center gap-1.5"><Instagram className="w-3.5 h-3.5" /> @{customer.instagram}</span>}
+                                {customer.birthDate && <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {formatDate(customer.birthDate)}</span>}
                             </div>
                         </div>
-                        <div className="flex flex-wrap items-center justify-center gap-3 flex-shrink-0">
+                        <div className="flex items-center gap-3">
                             {customer.phone && (
-                                <button
-                                    onClick={openWhatsApp}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold text-sm transition-all hover:scale-105 active:scale-95"
-                                >
-                                    <MessageCircle className="w-4 h-4" />
-                                    <span className="hidden sm:inline">WhatsApp</span>
+                                <button onClick={openWhatsApp} className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold text-sm transition-all active:scale-95">
+                                    <MessageCircle className="w-4 h-4" /> WhatsApp
                                 </button>
                             )}
-                            <Link
-                                to={`/admin/customers/${id}/edit`}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-2xl font-bold text-sm transition-all hover:scale-105"
-                            >
-                                <Pencil className="w-4 h-4" />
-                                <span className="hidden sm:inline">Editar</span>
+                            <Link to={`/admin/customers/${id}/edit`} className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-2xl font-bold text-sm transition-all">
+                                <Pencil className="w-4 h-4" /> Editar
                             </Link>
                         </div>
                     </div>
@@ -262,22 +288,36 @@ export function CustomersDetail() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
                     >
-                        <Card className="border border-gray-100 shadow-sm">
-                            <CardContent className="p-4 flex items-center gap-3">
-                                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0', kpi.bg)}>
-                                    <kpi.icon className={cn('w-5 h-5', kpi.color)} />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{kpi.label}</p>
-                                    <p className={cn('text-lg font-bold', kpi.color)}>{kpi.value}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <div className={cn('rounded-2xl border p-3 flex items-center gap-2.5 border-gray-100 shadow-sm bg-white')}>
+                            <div className={cn('h-9 w-9 shrink-0 rounded-xl flex items-center justify-center', kpi.bg)}>
+                                <kpi.icon className={cn('w-4 h-4', kpi.color)} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-gray-400 truncate">{kpi.label}</p>
+                                <p className={cn('text-[16px] md:text-lg font-bold leading-none mt-0.5', kpi.color)}>{kpi.value}</p>
+                            </div>
+                        </div>
                     </motion.div>
                 ))}
             </div>
 
             <SizeProfileDeepDive vendas={vendas} />
+
+            {/* ── Resumo rápido (mobile only, 2×2) ── */}
+            <div className="md:hidden grid grid-cols-2 gap-2">
+                {[
+                    { label: 'Peças',      value: metrics.totalPecas,  sub: `${metrics.totalPedidos > 0 ? (metrics.totalPecas / metrics.totalPedidos).toFixed(1) : '0'} por pedido` },
+                    { label: 'Pagamento',  value: metrics.metodoPref ? (PAYMENT_LABELS[metrics.metodoPref]?.label || metrics.metodoPref) : '—', sub: 'preferido' },
+                    { label: 'Categoria',  value: metrics.categorias[0]?.[0] || '—', sub: `${metrics.categorias[0]?.[1] || 0} compras` },
+                    { label: 'Favorita',   value: metrics.topItens[0]?.[0]?.split(' ').slice(0, 2).join(' ') || '—', sub: `${metrics.topItens[0]?.[1] || 0}×` },
+                ].map(item => (
+                    <div key={item.label} className="bg-white border border-[#EDE0D8] rounded-2xl px-3 py-3">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A07060]">{item.label}</p>
+                        <p className="text-[14px] font-black text-[#2C1810] mt-0.5 truncate">{item.value}</p>
+                        <p className="text-[10px] text-[#C4A090] mt-0.5 truncate">{item.sub}</p>
+                    </div>
+                ))}
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">
@@ -312,41 +352,42 @@ export function CustomersDetail() {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: i * 0.03 }}
                                     >
-                                        <Card className={cn('border shadow-sm', isCancelled && 'opacity-50')}>
-                                            <CardContent className="p-4">
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div>
-                                                        <p className="text-xs text-gray-400 mb-0.5">{formatDate(venda.createdAt)}</p>
-                                                        <p className="font-bold text-[#4A3B32] text-lg">{formatCurrency(venda.totalValue)}</p>
+                                        <div className={cn(
+                                            'rounded-2xl border bg-white overflow-hidden',
+                                            isCancelled ? 'opacity-50 border-gray-100' : 'border-[#EDE0D8]'
+                                        )}>
+                                            {/* Linha principal: data + valor + método */}
+                                            <div className="flex items-center gap-3 px-4 py-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-baseline gap-2">
+                                                        <p className="font-black text-[15px] text-[#2C1810]">{formatCurrency(venda.totalValue)}</p>
                                                         {venda.discountAmount > 0 && (
-                                                            <p className="text-xs text-orange-500">Desconto: -{formatCurrency(venda.discountAmount)}</p>
+                                                            <p className="text-[10px] text-orange-500 font-semibold">-{formatCurrency(venda.discountAmount)}</p>
                                                         )}
                                                     </div>
-                                                    <div className="flex flex-col items-end gap-1.5">
-                                                        <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold', payConf.color)}>
-                                                            <PayIcon className="w-3 h-3" />
-                                                            {payConf.label}
-                                                            {venda.isInstallment && venda.numInstallments > 1 && ` ${venda.numInstallments}x`}
-                                                        </span>
-                                                        {isCancelled && (
-                                                            <span className="text-xs text-red-500 font-medium">Cancelada</span>
-                                                        )}
-                                                    </div>
+                                                    <p className="text-[11px] text-[#A07060] mt-0.5">{formatDate(venda.createdAt)}</p>
                                                 </div>
-                                                {venda.items && venda.items.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {venda.items.map((item, idx) => (
-                                                            <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-50 border border-gray-100 rounded-lg text-xs text-gray-600">
-                                                                <Package className="w-3 h-3 text-gray-400" />
-                                                                {item.name || item.productName}
-                                                                {item.selectedSize && <span className="text-gray-400">· {item.selectedSize}</span>}
-                                                                {item.selectedColor && <span className="text-gray-400">· {item.selectedColor}</span>}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </CardContent>
-                                        </Card>
+                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                    <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold', payConf.color)}>
+                                                        <PayIcon className="w-3 h-3" />
+                                                        {payConf.label}
+                                                        {venda.isInstallment && venda.numInstallments > 1 && ` ${venda.numInstallments}×`}
+                                                    </span>
+                                                    {isCancelled && <span className="text-[10px] text-red-500 font-bold">Cancelada</span>}
+                                                </div>
+                                            </div>
+                                            {venda.items && venda.items.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+                                                    {venda.items.map((item, idx) => (
+                                                        <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-[#FAF7F4] border border-[#EDE0D8] rounded-lg text-[11px] text-[#6B4030] font-medium">
+                                                            <Package className="w-2.5 h-2.5 text-[#C4A090] shrink-0" />
+                                                            <span className="truncate max-w-[120px]">{item.name || item.productName}</span>
+                                                            {item.selectedSize && <span className="text-[#C4A090]">{item.selectedSize}</span>}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </motion.div>
                                 )
                             })}

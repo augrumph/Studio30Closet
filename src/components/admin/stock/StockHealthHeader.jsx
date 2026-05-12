@@ -74,7 +74,7 @@ export function StockHealthHeader({ kpis, loading }) {
                 <CardContent className="p-4 md:p-5 flex items-center justify-between h-full">
                     <div>
                         <h3 className="text-xs font-bold uppercase tracking-widest text-[#C75D3B] mb-1">Saúde do Estoque</h3>
-                        <div className="text-4xl font-display font-bold">{kpis.healthScore.toFixed(0)}</div>
+                        <div className="text-2xl md:text-4xl font-display font-bold">{kpis.healthScore.toFixed(0)}</div>
                         <p className="text-[10px] text-white/60">Base 100 pontos</p>
                     </div>
 

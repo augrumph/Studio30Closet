@@ -108,7 +108,7 @@ export function ParcelinhasModal({ isOpen, onClose }) {
                     </div>
 
                     {/* Cards de Resumo */}
-                    <div className="grid grid-cols-3 gap-3 relative z-10">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 relative z-10">
                         <div className="bg-white/20 backdrop-blur-md rounded-2xl p-3 md:p-4 border border-white/10">
                             <p className="text-[10px] md:text-xs font-bold text-amber-100 uppercase tracking-wider mb-1">Quantidade</p>
                             <p className="text-xl md:text-2xl font-display font-bold">{stats.total}</p>

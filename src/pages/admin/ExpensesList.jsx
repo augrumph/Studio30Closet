@@ -137,7 +137,7 @@ export function ExpensesList() {
                         <div className="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg">
                             <TrendingDown className="w-6 h-6 text-white" />
                         </div>
-                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Despesas Fixas</h2>
+                        <h2 className="text-2xl md:text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Despesas Fixas</h2>
                     </div>
                     <p className="text-[#4A3B32]/60 font-medium">Gerencie seus gastos recorrentes mensais.</p>
                 </div>
@@ -162,7 +162,7 @@ export function ExpensesList() {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-red-100 text-sm font-bold uppercase tracking-widest mb-2">Total Mensal</p>
-                            <p className="text-4xl font-bold text-white">{formatCurrency(getTotalMonthly())}</p>
+                            <p className="text-2xl md:text-4xl font-bold text-white">{formatCurrency(getTotalMonthly())}</p>
                             <p className="text-red-100 text-xs mt-1">{metrics.count || 0} {(metrics.count || 0) === 1 ? 'gasto' : 'gastos'} cadastrados</p>
                         </div>
                         <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center">

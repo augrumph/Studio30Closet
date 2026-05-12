@@ -99,7 +99,7 @@ export function SuppliersList() {
                         <div className="p-3 bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl shadow-lg">
                             <Truck className="w-6 h-6 text-white" />
                         </div>
-                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Fornecedores</h2>
+                        <h2 className="text-2xl md:text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Fornecedores</h2>
                     </div>
                     <p className="text-[#4A3B32]/60 font-medium">Gerencie sua rede de fornecedores.</p>
                 </div>

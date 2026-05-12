@@ -172,7 +172,7 @@ export function CollectionDetail() {
                                 <div className="p-3 bg-purple-600 text-white rounded-2xl shadow-lg shadow-purple-600/20">
                                     <Layers className="w-6 h-6" />
                                 </div>
-                                <h1 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">
+                                <h1 className="text-2xl md:text-4xl font-display font-bold text-[#4A3B32] tracking-tight">
                                     {collection.title}
                                 </h1>
                             </div>

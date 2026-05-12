@@ -126,7 +126,7 @@ function ForecastKPI({ title, value, subtext, gradient, icon: Icon, tooltip }) {
                         </TooltipProvider>
                     </div>
 
-                    <div className="text-3xl font-black text-[#4A3B32] mb-1">{value}</div>
+                    <div className="text-xl md:text-3xl font-black text-[#4A3B32] mb-1">{value}</div>
                     <p className="text-[10px] text-gray-500 font-medium">{subtext}</p>
                 </CardContent>
             </Card>

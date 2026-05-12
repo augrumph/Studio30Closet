@@ -149,7 +149,7 @@ export function MalinhasList() {
                         <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg">
                             <Calendar className="w-6 h-6 text-white" />
                         </div>
-                        <h2 className="text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Malinhas</h2>
+                        <h2 className="text-2xl md:text-4xl font-display font-bold text-[#4A3B32] tracking-tight">Malinhas</h2>
                     </div>
                     <p className="text-[#4A3B32]/60 font-medium">Gestão logística de malas delivery.</p>
                 </div>
@@ -448,7 +448,7 @@ function KPI_Card({ title, value, subtitle, icon: Icon, color, bg, border, toolt
                     </div>
                 </CardHeader>
                 <CardContent className="text-left">
-                    <div className="text-3xl font-display font-bold text-[#4A3B32]">{value}</div>
+                    <div className="text-xl md:text-3xl font-display font-bold text-[#4A3B32]">{value}</div>
                     <p className={`text-xs ${color} font-medium mt-1`}>{subtitle}</p>
                 </CardContent>
             </Card>

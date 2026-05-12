@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Instagram, MessageCircle, Mail, MapPin } from 'lucide-react';
+import { Instagram, MessageCircle, Mail, MapPin, Cookie } from 'lucide-react';
 import { useCookieContext } from '@/contexts/CookieContext';
 
 export function Footer() {
@@ -26,12 +26,20 @@ export function Footer() {
                     {/* Brand Section */}
                     <div className="lg:col-span-1">
                         <div className="flex flex-col gap-6">
-                            <Link to="/" className="flex items-center group transition-opacity hover:opacity-90">
+                            <Link to="/" className="flex items-center group">
                                 <img
-                                    src="/logomarca.webp"
-                                    alt="Studio 30 Closet"
-                                    className="h-12 w-auto object-contain transition-all duration-700 opacity-80 group-hover:opacity-100 group-hover:scale-105"
+                                    src="/logomarca.PNG"
+                                    alt="Logo Studio 30"
+                                    className="h-16 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
                                 />
+                                <div className="ml-3 flex flex-col">
+                                    <span className="font-display text-xl font-bold text-[#C75D3B] tracking-wider">
+                                        STUDIO 30
+                                    </span>
+                                    <span className="text-[10px] text-[#4A3B32]/60 tracking-[0.2em] uppercase font-medium">
+                                        Closet
+                                    </span>
+                                </div>
                             </Link>
 
                             {/* Social Icons */}

@@ -1,32 +1,10 @@
 import { Resend } from 'resend'
 
 /**
- * Inicializa o Resend de forma preguiçosa (lazy) para evitar crash no boot
- * e permitir que as configurações do banco de dados sejam carregadas.
+ * Inicializa o Resend com a chave do .env
  */
-let resendInstance = null;
-
-function getResend() {
-    const apiKey = process.env.RESEND_API_KEY;
-    
-    if (!apiKey) {
-        console.warn('⚠️  RESEND_API_KEY não encontrada. Envios de e-mail desativados.');
-        return null;
-    }
-
-    if (!resendInstance) {
-        try {
-            resendInstance = new Resend(apiKey);
-        } catch (error) {
-            console.error('❌ Erro ao inicializar Resend:', error.message);
-            return null;
-        }
-    }
-    return resendInstance;
-}
-
+const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Studio 30 Closet <pedidos@studio30closet.com.br>'
-const REPLY_TO = process.env.ADMIN_EMAIL || 'studio30closet@gmail.com'
 
 /**
  * Gera as linhas da tabela em HTML para os itens comprados
@@ -132,13 +110,9 @@ export const sendNewMalinhaNotification = async ({ customerName, customerEmail, 
             </div>
         `)
 
-        const resend = getResend()
-        if (!resend) return { success: false, error: 'Resend não configurado' }
-
         await resend.emails.send({
             from: FROM_EMAIL,
             to: process.env.ADMIN_EMAIL || 'studio30closet@gmail.com',
-            reply_to: REPLY_TO,
             subject: `🛍️ Nova Malinha - ${customerName}`,
             html: html
         })
@@ -175,13 +149,9 @@ export const sendOrderReceivedEmail = async (order, items) => {
             </div>
         `)
 
-        const resend = getResend()
-        if (!resend) return
-
         await resend.emails.send({
             from: FROM_EMAIL,
             to: order.customer_email || order.shipping_address?.email,
-            reply_to: REPLY_TO,
             subject: `Pedido Recebido! #${order.order_number || order.id}`,
             html: html
         })
@@ -205,13 +175,9 @@ export const sendPaymentApprovedEmail = async (order) => {
             </div>
         `)
 
-        const resend = getResend()
-        if (!resend) return
-
         await resend.emails.send({
             from: FROM_EMAIL,
             to: order.customer_email || order.shipping_address?.email,
-            reply_to: REPLY_TO,
             subject: `Pagamento Aprovado! Pedido #${order.order_number || order.id}`,
             html: html
         })
@@ -236,13 +202,9 @@ export const sendShippingTrackingEmail = async (order, trackingCode, trackingUrl
             </div>
         `)
 
-        const resend = getResend()
-        if (!resend) return
-
         await resend.emails.send({
             from: FROM_EMAIL,
             to: order.customer_email || order.shipping_address?.email,
-            reply_to: REPLY_TO,
             subject: `Seu pedido está a caminho! #${order.order_number || order.id}`,
             html: html
         })

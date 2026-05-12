@@ -114,8 +114,8 @@ export function Home() {
         // BASE: Fundo Creme Claro Global
         <div className="w-full overflow-x-hidden bg-[#FDFBF7] text-[#4A3B32] font-sans selection:bg-[#C75D3B] selection:text-white">
             <SEO
-                title="Boutique Online e Malinha"
-                description="Compre online com envio ou monte sua malinha Studio 30 para provar em casa. A mesma curadoria, dois jeitos de comprar."
+                title="Sua Boutique em Casa"
+                description="Experimente roupas selecionadas no conforto do seu lar. A Studio 30 leva a boutique até você em Curitiba e região."
             />
 
             {/* ================= HERO SECTION ================= */}
@@ -147,8 +147,8 @@ export function Home() {
 
                     {/* Headline */}
                     <h1 className="font-display text-2xl text-[#4A3B32] leading-snug text-center px-1 mb-4">
-                        Compre online ou<br />
-                        prove em <span className="text-[#C75D3B] italic font-light">casa.</span>
+                        O provador mais exclusivo<br />
+                        é a <span className="text-[#C75D3B] italic font-light">sua casa.</span>
                     </h1>
 
                     {/* Link Ver Tudo */}
@@ -229,7 +229,7 @@ export function Home() {
                             <div className="text-center lg:text-left space-y-2.5 md:space-y-4 order-2 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                                 <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-[#4A3B32] leading-tight md:leading-[1.1] break-words">
                                     <FadeText
-                                        text="Sua boutique online para "
+                                        text="O provador mais exclusivo é a "
                                         direction="up"
                                         className="inline-block"
                                         framerProps={{
@@ -238,7 +238,7 @@ export function Home() {
                                     />
                                     <span className="text-[#C75D3B] italic font-light inline-block">
                                         <FadeText
-                                            text="comprar ou provar em casa."
+                                            text="sua casa."
                                             direction="up"
                                             className="inline-block"
                                             framerProps={{
@@ -249,7 +249,7 @@ export function Home() {
                                 </h1>
 
                                 <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-[#4A3B32]/90 leading-relaxed max-w-xl mx-auto lg:mx-0 px-2 md:px-0">
-                                    Compre online com envio para sua casa ou monte uma malinha para provar com calma. O mesmo estoque, a mesma curadoria.
+                                    Receba nossa curadoria personalizada, experimente sem pressa no seu ambiente e pague apenas pelo que amar.
                                 </p>
 
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center lg:items-start justify-center lg:justify-start gap-3 mt-4 md:mt-6">
@@ -291,9 +291,9 @@ export function Home() {
 
                     <div className="space-y-6">
                         {[
-                            { num: "01", title: "Escolha", desc: "Selecione suas peças favoritas no catálogo." },
-                            { num: "02", title: "Decida", desc: "Compre online ou receba a malinha para provar." },
-                            { num: "03", title: "Receba", desc: "Envio por frete ou entrega agendada da malinha." }
+                            { num: "01", title: "Escolha", desc: "Monte sua seleção no site ou WhatsApp. Até 20 peças." },
+                            { num: "02", title: "Receba", desc: "Entregamos na sua casa. 24h para experimentar." },
+                            { num: "03", title: "Decida", desc: "Fique com o que amar. Buscamos o restante." }
                         ].map((step) => (
                             <div key={step.num} className="flex gap-4 items-start">
                                 <span className="text-[#C75D3B] font-display text-3xl font-light leading-none pt-1">
@@ -327,7 +327,7 @@ export function Home() {
                             <div className="aspect-[4/5] rounded-[2rem] overflow-hidden shadow-xl">
                                 <img
                                     src={howItWorksSectionImage}
-                                    alt="Compra online e malinha Studio 30"
+                                    alt="Conceito Malinha"
                                     width="600"
                                     height="750"
                                     loading="lazy"
@@ -339,17 +339,17 @@ export function Home() {
 
                         <div className="order-1 lg:order-2 space-y-8">
                             <h2 className="font-display text-4xl md:text-5xl text-[#4A3B32] leading-tight">
-                                Dois jeitos de <br />
-                                <span className="text-[#C75D3B] italic">comprar.</span>
+                                A Boutique vai <br />
+                                <span className="text-[#C75D3B] italic">até você.</span>
                             </h2>
                             <p className="text-[#4A3B32]/90 text-lg leading-relaxed">
-                                Compre online quando quiser garantir a peça na hora. Escolha a malinha quando quiser provar em casa com calma e atendimento próximo.
+                                Esqueça a iluminação ruim dos provadores e a pressa. Com a Malinha Delivery, sua casa se torna o cenário perfeito para suas escolhas.
                             </p>
                             <div className="space-y-6 pt-4">
                                 {[
-                                    { title: "1. Escolha", desc: "Monte sua seleção no catálogo com peças disponíveis em estoque." },
-                                    { title: "2. Finalize", desc: "Pague online para envio ou agende a malinha para provar em casa." },
-                                    { title: "3. Receba", desc: "Acompanhe seu pedido ou decida com calma o que fica na malinha." }
+                                    { title: "1. Personalize", desc: "Escolha até 20 peças no site ou WhatsApp." },
+                                    { title: "2. Experimente", desc: "Receba em casa. 24h para provar com calma." },
+                                    { title: "3. Decida", desc: "Fique só com o que amar. Buscamos o resto." }
                                 ].map((step, idx) => (
                                     <div key={idx} className="flex gap-5 border-b border-[#4A3B32]/5 pb-6 last:border-0">
                                         <span className="text-[#C75D3B] font-display text-3xl font-light flex-shrink-0">0{idx + 1}</span>
@@ -728,10 +728,10 @@ export function Home() {
                     <div className="w-12 md:w-16 h-1 bg-[#C75D3B]/20 mx-auto mb-6 md:mb-8 rounded-full" />
 
                     <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-[#4A3B32] mb-4 md:mb-6 leading-tight">
-                        Pronta para escolher suas peças?
+                        Pronta para montar sua malinha?
                     </h2>
                     <p className="text-[#4A3B32]/90 max-w-xl mx-auto mb-8 md:mb-10 text-sm sm:text-base md:text-lg font-light leading-relaxed px-2">
-                        Compre online ou receba a malinha em casa.<br className="hidden md:block" /> Simples, seguro e com curadoria Studio 30.
+                        Selecione suas peças favoritas e receba em casa.<br className="hidden md:block" /> Simples, seguro e sem compromisso.
                     </p>
 
                     <div className="flex flex-col sm:flex-row justify-center gap-4 md:gap-6">
@@ -739,7 +739,7 @@ export function Home() {
                             to="/catalogo"
                             className="inline-flex items-center justify-center px-8 sm:px-10 md:px-12 py-3 md:py-4 bg-[#C75D3B] text-white rounded-full font-bold text-base md:text-lg hover:bg-[#A64D31] transition-all duration-300 shadow-lg md:shadow-xl shadow-[#C75D3B]/20 hover:-translate-y-1 active:scale-95"
                         >
-                            Ver Coleção
+                            Começar Agora
                         </Link>
                     </div>
                 </div>

@@ -35,13 +35,13 @@ export function HowItWorks() {
                                     <span className="text-white font-bold text-base lg:text-lg">01</span>
                                 </div>
                                 <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-[#4A3B32] clear-both">
-                                    Escolha sua peça
+                                    Monte sua Malinha
                                 </h2>
                                 <p className="text-base lg:text-lg text-[#4A3B32]/80 leading-relaxed max-w-md lg:ml-auto">
-                                    Navegue pelo catálogo, veja fotos e tamanhos disponíveis e adicione suas favoritas à seleção.
+                                    Navegue pelo catálogo e escolha até 20 peças. Use filtros inteligentes para encontrar exatamente o que combina com você.
                                 </p>
                                 <div className="flex flex-wrap gap-2 lg:justify-end">
-                                    {['Curadoria exclusiva', 'Filtros intuitivos', 'Compra online'].map((tag) => (
+                                    {['Curadoria exclusiva', 'Filtros intuitivos', 'Preview detalhado'].map((tag) => (
                                         <span key={tag} className="px-3 lg:px-4 py-1.5 lg:py-2 bg-white border border-[#E8C4B0] rounded-full text-xs lg:text-sm text-[#4A3B32]/70">
                                             {tag}
                                         </span>
@@ -52,7 +52,7 @@ export function HowItWorks() {
                                 <div className="aspect-square rounded-2xl lg:rounded-3xl overflow-hidden bg-[#E8C4B0]/20 shadow-xl lg:shadow-2xl">
                                     <img
                                         src={step1Image}
-                                        alt="Escolha peças no catálogo"
+                                        alt="Monte sua malinha"
                                         width="600"
                                         height="600"
                                         loading="lazy"
@@ -89,8 +89,8 @@ export function HowItWorks() {
                                 </div>
                                 {/* Badge flutuante */}
                                 <div className="absolute -bottom-3 -left-3 lg:-bottom-4 lg:-left-4 bg-[#C75D3B] px-4 lg:px-6 py-2 lg:py-3 rounded-xl lg:rounded-2xl shadow-lg">
-                                    <p className="text-xs lg:text-sm text-white/80">Escolha</p>
-                                    <p className="font-display text-2xl lg:text-4xl text-white">2 jeitos</p>
+                                    <p className="text-xs lg:text-sm text-white/80">Entrega em</p>
+                                    <p className="font-display text-2xl lg:text-4xl text-white">24h</p>
                                 </div>
                             </div>
                             <div className="lg:order-2 space-y-4 lg:space-y-6">
@@ -98,13 +98,13 @@ export function HowItWorks() {
                                     <span className="text-white font-bold text-base lg:text-lg">02</span>
                                 </div>
                                 <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-[#4A3B32]">
-                                    Decida o formato
+                                    Receba com Carinho
                                 </h2>
                                 <p className="text-base lg:text-lg text-[#4A3B32]/80 leading-relaxed max-w-md">
-                                    Finalize como e-commerce para pagar agora e receber por frete, ou escolha a malinha para provar em casa com agendamento.
+                                    Sua malinha chega embalada com todo cuidado e com nosso cheirinho especial. Agende o melhor horário para você.
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    {['Pagamento online', 'Malinha local', 'Segurança'].map((tag) => (
+                                    {['Entrega grátis', 'Conforto', 'Segurança'].map((tag) => (
                                         <span key={tag} className="px-3 lg:px-4 py-1.5 lg:py-2 bg-white border border-[#E8C4B0] rounded-full text-xs lg:text-sm text-[#4A3B32]/70">
                                             {tag}
                                         </span>
@@ -126,13 +126,13 @@ export function HowItWorks() {
                                     <span className="text-white font-bold text-base lg:text-lg">03</span>
                                 </div>
                                 <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-[#4A3B32] clear-both">
-                                    Receba do seu jeito
+                                    Experimente em Casa
                                 </h2>
                                 <p className="text-base lg:text-lg text-[#4A3B32]/80 leading-relaxed max-w-md lg:ml-auto">
-                                    No e-commerce, seu pedido segue para separação e envio. Na malinha, você recebe as peças e tem tempo para provar com calma.
+                                    24 horas para provar tudo com calma. Combine com seu guarda-roupa, escolha a melhor iluminação, e fique somente com o que amar.
                                 </p>
                                 <div className="flex flex-wrap gap-2 lg:justify-end">
-                                    {['Envio nacional', 'Seu espelho', 'Conforto total'].map((tag) => (
+                                    {['Sem pressa', 'Seu espelho', 'Conforto total'].map((tag) => (
                                         <span key={tag} className="px-3 lg:px-4 py-1.5 lg:py-2 bg-white border border-[#E8C4B0] rounded-full text-xs lg:text-sm text-[#4A3B32]/70">
                                             {tag}
                                         </span>
@@ -179,8 +179,8 @@ export function HowItWorks() {
                                 </div>
                                 {/* Badge flutuante */}
                                 <div className="absolute -bottom-3 -left-3 lg:-bottom-4 lg:-left-4 bg-[#C75D3B] px-4 lg:px-6 py-2 lg:py-3 rounded-xl lg:rounded-2xl shadow-lg">
-                                    <p className="text-xs lg:text-sm text-white/80">Pedido</p>
-                                    <p className="font-display text-xl lg:text-3xl text-white">seguro</p>
+                                    <p className="text-xs lg:text-sm text-white/80">Pague só</p>
+                                    <p className="font-display text-xl lg:text-3xl text-white">o que ficar</p>
                                 </div>
                             </div>
                             <div className="lg:order-2 space-y-4 lg:space-y-6">
@@ -188,13 +188,13 @@ export function HowItWorks() {
                                     <span className="text-white font-bold text-base lg:text-lg">04</span>
                                 </div>
                                 <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-[#4A3B32]">
-                                    Acompanhe o pedido
+                                    Devolva o Resto
                                 </h2>
                                 <p className="text-base lg:text-lg text-[#4A3B32]/80 leading-relaxed max-w-md">
-                                    Compras online entram no fluxo de pagamento, nota e entrega. Na malinha, você paga apenas pelas peças que decidir ficar.
+                                    Ficou com as peças que ama? Perfeito! O resto nós buscamos sem custo. Você paga apenas pelo que decidir ficar.
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    {['Estoque único', 'Sem burocracia', 'Atendimento próximo'].map((tag) => (
+                                    {['Devolução grátis', 'Sem burocracia', 'Coleta rápida'].map((tag) => (
                                         <span key={tag} className="px-3 lg:px-4 py-1.5 lg:py-2 bg-white border border-[#E8C4B0] rounded-full text-xs lg:text-sm text-[#4A3B32]/70">
                                             {tag}
                                         </span>
@@ -218,10 +218,10 @@ export function HowItWorks() {
 
                     <div className="grid md:grid-cols-2 gap-6">
                         {[
-                            { q: 'Posso comprar online?', a: 'Sim. No checkout você pode pagar online e receber por frete.' },
-                            { q: 'A malinha continua existindo?', a: 'Sim. Ela segue como opção para quem quer provar em casa antes de decidir.' },
-                            { q: 'O estoque é o mesmo?', a: 'Sim. A peça vendida online deixa de aparecer disponível para novas malinhas.' },
-                            { q: 'Como pago?', a: 'Compra online segue pelo checkout digital. Na malinha, o pagamento acontece após a escolha das peças.' },
+                            { q: 'É realmente grátis?', a: 'Sim! Entrega e coleta são 100% gratuitas com agendamento prévio.' },
+                            { q: 'Quanto tempo tenho?', a: 'Você tem 24 horas para experimentar todas as peças com calma em casa.' },
+                            { q: 'E se não quiser ficar com nada?', a: 'Sem problemas! Cobramos apenas a taxa de coleta.' },
+                            { q: 'Como pago?', a: 'Aceitamos PIX, cartão de crédito, débito e dinheiro.' },
                         ].map((faq, i) => (
                             <div key={i} className="bg-[#FDFBF7] p-8 rounded-2xl border border-[#E8C4B0]/50 hover:border-[#C75D3B]/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                                 <div className="flex items-start gap-4">
@@ -246,7 +246,7 @@ export function HowItWorks() {
                         Pronta para começar?
                     </h2>
                     <p className="text-xl text-white/80 max-w-2xl mx-auto mb-12">
-                        Escolha suas peças e decida entre comprar online ou receber a malinha.
+                        Monte sua malinha agora e receba em casa. Simples assim.
                     </p>
                     <Link
                         to="/catalogo"

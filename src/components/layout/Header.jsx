@@ -102,7 +102,7 @@ export function Header() {
                     <div className="flex items-center gap-2 sm:gap-3">
                         {/* WhatsApp Icon - Subtle Brand Style */}
                         <a
-                            href="https://wa.me/5541996863879?text=Oii%2C%20Studio%2030!%20Estava%20olhando%20o%20site%20e%20gostaria%20de%20ajuda%20para%20comprar%20online%20ou%20receber%20a%20malinha."
+                            href="https://wa.me/5541996863879?text=Oii%2C%20Studio%2030!%20Estava%20olhando%20o%20site%20e%20gostaria%20de%20ajuda%20para%20escolher%20algumas%20pe%C3%A7as%20para%20minha%20Malinha."
                             target="_blank"
                             rel="noopener noreferrer"
                             aria-label="Fale conosco no WhatsApp"
@@ -128,10 +128,10 @@ export function Header() {
                             </svg>
                         </a>
 
-                        {/* Selection Button - Premium Design */}
+                        {/* Malinha Button - Premium Design */}
                         <Link
                             to="/malinha"
-                            aria-label="Minha seleção"
+                            aria-label="Minha Malinha"
                             className={cn(
                                 'relative flex items-center gap-2 sm:gap-2.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-xs sm:text-sm transition-all duration-500 shadow-md hover:shadow-lg hover:-translate-y-0.5',
                                 itemsCount > 0
@@ -141,7 +141,7 @@ export function Header() {
                             style={{ letterSpacing: '0.05em' }}
                         >
                             <ShoppingBag className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                            <span className="hidden sm:inline font-semibold">Sacola</span>
+                            <span className="hidden sm:inline font-semibold">Malinha</span>
                             {itemsCount > 0 && (
                                 <span className="absolute -top-1.5 -right-1.5 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-[#FDFBF7] text-[#C75D3B] text-[10px] sm:text-xs rounded-full font-bold shadow-lg border-2 border-[#E8C4B0] animate-pulse opacity-100">
                                     {itemsCount}
@@ -230,7 +230,7 @@ export function Header() {
                             className="mt-4 btn-primary flex items-center gap-2"
                         >
                             <ShoppingBag className="w-5 h-5" />
-                            Ver Seleção
+                            Ver Malinha
                             {itemsCount > 0 && (
                                 <span className="ml-1 bg-white/20 px-2 py-0.5 rounded-full text-sm">
                                     {itemsCount}

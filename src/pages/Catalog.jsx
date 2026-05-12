@@ -1,8 +1,8 @@
 import { ProductCard, ProductModal, ProductFilters, SkeletonCard } from '@/components/catalog'
 import { useMalinhaStore } from '@/store/malinha-store'
-import { useState, useMemo, memo, useEffect, useRef } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
-import { X, SlidersHorizontal, Search, ShoppingBag } from 'lucide-react'
+import { useState, useMemo, memo, Suspense, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { X, SlidersHorizontal, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useCatalog } from '@/hooks/useCatalog'
@@ -11,33 +11,8 @@ import { getProductById } from '@/lib/api/products'
 import { getActiveCollections } from '@/lib/api/collections'
 import { SEO } from '@/components/SEO'
 
-const CATEGORIES_MAP = [
-    { value: 'all',      label: 'Todas' },
-    { value: 'vestidos', label: 'Vestidos' },
-    { value: 'blusas',   label: 'Blusas' },
-    { value: 'calcas',   label: 'Calças' },
-    { value: 'saias',    label: 'Saias' },
-    { value: 'conjuntos',label: 'Conjuntos' },
-    { value: 'shorts',   label: 'Shorts' },
-]
-
-const ALL_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'U']
-
-function FilterChip({ label, onRemove }) {
-    return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#4A3B32]/8 border border-[#4A3B32]/12 text-[#4A3B32] text-xs font-semibold rounded-full">
-            {label}
-            <button
-                onClick={onRemove}
-                className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#4A3B32]/15 transition-colors"
-                aria-label={`Remover filtro ${label}`}
-            >
-                <X className="w-2.5 h-2.5" />
-            </button>
-        </span>
-    )
-}
-
+// Componente Interno que usa o Hook (para poder usar Suspense no Pai se quisesse, 
+// mas aqui vamos tratar os estados isLoading/error do hook direto para UX suave)
 function CatalogContent() {
     const [searchParams, setSearchParams] = useSearchParams()
     const [selectedProduct, setSelectedProduct] = useState(null)
@@ -45,67 +20,104 @@ function CatalogContent() {
     const [searchQuery, setSearchQuery] = useState('')
     const [showOnlyAvailable, setShowOnlyAvailable] = useState(false)
 
+    // Filters from URL
     const selectedCategory = searchParams.get('categoria')
     const selectedSizesParam = searchParams.get('tamanhos')
     const selectedSizes = selectedSizesParam ? selectedSizesParam.split(',') : []
     const productIdFromUrl = searchParams.get('productId')
     const selectedCollection = searchParams.get('colecao')
 
+    // Collections state
     const [collections, setCollections] = useState([])
     useEffect(() => {
         getActiveCollections().then(setCollections).catch(() => { })
     }, [])
 
-    const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, error } = useCatalog({
+    // ⚡ REACT QUERY HOOK
+    // Substitui todo o AdminStore, useEffects e useState de loading
+    const {
+        data,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        isLoading,
+        isError,
+        error
+    } = useCatalog({
         category: selectedCategory,
         sizes: selectedSizes,
         search: searchQuery,
         collection: selectedCollection
     })
 
-    const products = useMemo(() => data?.pages.flatMap(page => page.products) || [], [data])
+    // Flattening das páginas do Infinite Query para um array único
+    const products = useMemo(() => {
+        return data?.pages.flatMap(page => page.products) || []
+    }, [data])
 
+    // Filtro local de disponibilidade (se necessário, mas idealmente seria no backend)
     const displayProducts = useMemo(() => {
         if (!showOnlyAvailable) return products
         return products.filter(p => p.stock > 0)
     }, [products, showOnlyAvailable])
 
+    // Carrinho (Zustand)
     const { items } = useMalinhaStore()
 
+    // 📊 Analytics: Rastrear visualização do catálogo
     useEffect(() => {
-        trackCatalogView({ category: selectedCategory, sizes: selectedSizes, search: searchQuery })
-    }, [])
+        trackCatalogView({
+            category: selectedCategory,
+            sizes: selectedSizes,
+            search: searchQuery
+        })
+    }, []) // Apenas no mount inicial
 
-    // Deep linking — open modal from URL
+    // 🔗 DEEP LINKING: Sincronizar URL com Modal do Produto
+    // 1. URL -> State (Ao carregar ou navegar)
     useEffect(() => {
         const handleOpenProduct = async () => {
             if (productIdFromUrl && !selectedProduct) {
-                const found = products.find(p => p.id.toString() === productIdFromUrl)
-                if (found) { setSelectedProduct(found); return }
+                // Tentar achar na lista já carregada (mais rápido)
+                const productInList = products.find(p => p.id.toString() === productIdFromUrl)
+
+                if (productInList) {
+                    setSelectedProduct(productInList)
+                    return
+                }
+
+                // Se não achou, buscar individualmente
                 try {
-                    const fetched = await getProductById(productIdFromUrl)
-                    if (fetched) setSelectedProduct(fetched)
+                    const fetchedProduct = await getProductById(productIdFromUrl)
+                    if (fetchedProduct) {
+                        setSelectedProduct(fetchedProduct)
+                    }
                 } catch (err) {
-                    console.error('Erro ao buscar produto para modal:', err)
+                    console.error("Erro ao buscar produto para modal:", err)
                 }
             }
         }
         handleOpenProduct()
     }, [productIdFromUrl, products])
 
+    // 2. State -> URL (Ao abrir/fechar modal)
     const handleProductSelect = (product) => {
         setSelectedProduct(product)
         const newParams = new URLSearchParams(searchParams)
+
         if (product) {
             newParams.set('productId', product.id)
+            // Opcional: Atualizar título da página imediatamente para feedback rápido (SEO cuida do resto)
             document.title = `${product.name} | Studio 30`
         } else {
             newParams.delete('productId')
-            document.title = 'Catálogo | Studio 30'
+            document.title = "Catálogo | Studio 30"
         }
+
         setSearchParams(newParams, { replace: true })
     }
 
+    // Handlers
     const updateFilter = (key, value) => {
         const newParams = new URLSearchParams(searchParams)
         if (!value || (Array.isArray(value) && value.length === 0)) {
@@ -117,63 +129,74 @@ function CatalogContent() {
     }
 
     const handleCategoryChange = (cat) => updateFilter('categoria', cat)
+
     const handleSizeChange = (size) => {
         const newSizes = selectedSizes.includes(size)
             ? selectedSizes.filter(s => s !== size)
             : [...selectedSizes, size]
         updateFilter('tamanhos', newSizes)
     }
+
     const handleClearFilters = () => {
         setSearchParams({})
         setSearchQuery('')
-        setShowOnlyAvailable(false)
     }
+
     const handleCollectionChange = (col) => updateFilter('colecao', col)
 
-    const hasActiveFilters = selectedCategory || selectedSizes.length > 0 || searchQuery.trim() || selectedCollection || showOnlyAvailable
+    // Listas estáticas para filtros
+    const allSizes = ['PP', 'P', 'M', 'G', 'GG', 'U']
 
-    // Active filter count for mobile button
-    const activeFilterCount = (selectedSizes.length) + (selectedCollection ? 1 : 0) + (showOnlyAvailable ? 1 : 0)
+    // Categorias corretas mapeadas para o banco de dados (lowercase, sem acento)
+    const CATEGORIES_MAP = [
+        { value: 'all', label: 'Todas' },
+        { value: 'vestidos', label: 'Vestidos' },
+        { value: 'blusas', label: 'Blusas' },
+        { value: 'calcas', label: 'Calças' },
+        { value: 'saias', label: 'Saias' },
+        { value: 'conjuntos', label: 'Conjuntos' },
+        { value: 'shorts', label: 'Shorts' }
+    ]
 
-    // Infinite scroll sentinel
+    const hasActiveFilters = selectedCategory || selectedSizes.length > 0 || searchQuery.trim() || selectedCollection
+
+    // 🔄 Infinite Scroll Logic
     const loadMoreRef = useRef(null)
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage()
+                if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+                    fetchNextPage()
+                }
             },
-            { threshold: 0.1, rootMargin: '200px' }
+            { threshold: 0.1, rootMargin: '200px' } // Load 200px before reaching bottom
         )
-        if (loadMoreRef.current) observer.observe(loadMoreRef.current)
+
+        if (loadMoreRef.current) {
+            observer.observe(loadMoreRef.current)
+        }
+
         return () => observer.disconnect()
     }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
+    // Render de Loading Inicial
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-[#FDFBF7]">
-                <div className="container-custom pt-8 pb-4">
-                    <div className="h-9 w-36 bg-gray-100 rounded-lg animate-pulse mb-2" />
-                    <div className="h-4 w-44 bg-gray-100 rounded animate-pulse" />
-                </div>
-                <div className="border-b border-gray-100 mt-4" />
-                <div className="container-custom pt-8">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4">
-                        {Array.from({ length: 12 }).map((_, i) => <SkeletonCard key={i} />)}
-                    </div>
+            <div className="container-custom py-6 md:py-20">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
                 </div>
             </div>
         )
     }
 
+    // Render de Erro
     if (isError) {
         return (
-            <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
-                <div className="text-center py-24">
-                    <ShoppingBag className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                    <h2 className="text-xl font-display text-[#4A3B32] mb-2">Erro ao carregar</h2>
-                    <p className="text-gray-400 text-sm mb-6">{error?.message}</p>
-                    <button onClick={() => window.location.reload()} className="btn-primary">Tentar novamente</button>
-                </div>
+            <div className="text-center py-32">
+                <h2 className="text-3xl font-display text-red-500 mb-4">Erro ao carregar</h2>
+                <p className="text-gray-500">{error?.message}</p>
+                <button onClick={() => window.location.reload()} className="mt-4 btn-primary">Tentar novamente</button>
             </div>
         )
     }
@@ -181,91 +204,29 @@ function CatalogContent() {
     return (
         <div className="min-h-screen bg-[#FDFBF7]">
             <SEO
-                title={selectedProduct ? selectedProduct.name : 'Catálogo Completo'}
-                description={selectedProduct
-                    ? `Compre ${selectedProduct.name} online ou adicione à seleção para receber na malinha.`
-                    : 'Explore a coleção Studio 30, compre online ou monte sua malinha para provar em casa.'}
+                title={selectedProduct ? selectedProduct.name : "Catálogo Completo"}
+                description={selectedProduct ? `Compre ${selectedProduct.name} - ${selectedProduct.description?.substring(0, 100)}...` : "Explore nossa coleção completa de roupas femininas selecionadas."}
                 image={selectedProduct?.images?.[0]}
                 type={selectedProduct ? 'article' : 'website'}
             />
 
-            {/* ── Header ─────────────────────────────────── */}
-            <div className="container-custom pt-8 pb-0">
-                <div className="flex items-start justify-between gap-6">
-                    <div>
-                        <h1 className="text-3xl font-display text-[#4A3B32] tracking-tight">Catálogo</h1>
-                        <p className="text-sm text-gray-400 mt-1">
-                            {isLoading ? 'Carregando...' : `${displayProducts.length} peças encontradas`}
-                        </p>
-                    </div>
-
-                    {/* Desktop search */}
-                    <div className="hidden md:block flex-shrink-0 w-72 mt-1">
-                        <div className="relative">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                            <input
-                                type="text"
-                                placeholder="Buscar peça..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#C75D3B]/20 focus:border-[#C75D3B]/40 transition-all placeholder:text-gray-300"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                    <X className="w-3.5 h-3.5" />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Category pills */}
-                <div className="-mx-4 sm:mx-0 mt-5 overflow-x-auto scrollbar-hide">
-                    <div className="flex gap-2 px-4 sm:px-0 pb-px" style={{ minWidth: 'max-content' }}>
-                        {CATEGORIES_MAP.map(cat => {
-                            const isActive = (!selectedCategory && cat.value === 'all') || selectedCategory === cat.value
-                            return (
-                                <button
-                                    key={cat.value}
-                                    onClick={() => handleCategoryChange(cat.value === 'all' ? null : cat.value)}
-                                    className={cn(
-                                        'px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap',
-                                        isActive
-                                            ? 'bg-[#4A3B32] text-white shadow-sm'
-                                            : 'bg-white border border-gray-200 text-[#4A3B32]/70 hover:border-[#4A3B32]/30 hover:text-[#4A3B32]'
-                                    )}
-                                >
-                                    {cat.label}
-                                </button>
-                            )
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            <div className="border-b border-gray-100 mt-4" />
-
-            {/* ── Main Content ────────────────────────────── */}
-            <div className="container-custom py-6 md:py-8">
-                <div className="grid md:grid-cols-4 gap-6 md:gap-12">
-
-                    {/* Sidebar — desktop */}
+            {/* Main Content */}
+            <div className="container-custom py-6 md:py-20">
+                <div className="grid md:grid-cols-4 gap-6 md:gap-16">
+                    {/* Sidebar Filters - Desktop Only */}
                     <aside className="hidden md:block">
                         <div className="sticky top-44">
                             <ProductFilters
-                                hideCategories
                                 categories={CATEGORIES_MAP}
                                 selectedCategory={selectedCategory}
                                 onCategoryChange={handleCategoryChange}
-                                sizes={ALL_SIZES}
+                                sizes={allSizes}
                                 selectedSizes={selectedSizes}
                                 onSizeChange={handleSizeChange}
                                 onClearFilters={handleClearFilters}
                                 showOnlyAvailable={showOnlyAvailable}
                                 onAvailabilityChange={setShowOnlyAvailable}
+                                // Collections
                                 collections={collections}
                                 selectedCollection={selectedCollection}
                                 onCollectionChange={handleCollectionChange}
@@ -273,113 +234,77 @@ function CatalogContent() {
                         </div>
                     </aside>
 
-                    {/* Products */}
+                    {/* Products Grid */}
                     <div className="md:col-span-3">
+                        {/* Top Message - Mobile First Optimization */}
+                        <div className="md:hidden bg-[#E07850]/10 border border-[#E07850]/20 rounded-lg p-3 mb-4 flex items-center justify-center text-center">
+                            <p className="text-sm font-medium text-[#E07850]">
+                                🛍️ Prove no conforto da sua casa — eu levo a malinha até você em Mandirituba-PR e região
+                            </p>
+                        </div>
 
-                        {/* Mobile controls */}
-                        <div className="md:hidden space-y-3 mb-5">
-                            <div className="relative">
-                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        {/* MOBILE: Search Bar + Filter Controls */}
+                        <div className="md:hidden space-y-3 mb-6">
+                            <div className="relative touch-target">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                                 <input
                                     type="text"
                                     placeholder="Buscar peça..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 h-11 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#C75D3B]/20 transition-all"
+                                    className="w-full pl-10 pr-4 h-[48px] bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#C75D3B] transition-all"
                                 />
                             </div>
+
                             <button
                                 onClick={() => setShowMobileFilters(true)}
-                                className="w-full flex items-center justify-center gap-2 h-11 bg-white border border-gray-200 text-[#4A3B32] rounded-xl font-semibold text-sm"
+                                className="w-full flex items-center justify-center gap-2 h-[48px] bg-white border border-gray-200 text-[#4A3B32] rounded-lg font-semibold"
                             >
                                 <SlidersHorizontal className="w-4 h-4" />
-                                Filtros
-                                {activeFilterCount > 0 && (
-                                    <span className="ml-0.5 bg-[#C75D3B] text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
-                                        {activeFilterCount}
-                                    </span>
-                                )}
+                                Filtros {hasActiveFilters && `(${selectedSizes.length + (selectedCategory ? 1 : 0)})`}
                             </button>
                         </div>
 
-                        {/* Active filter chips — sizes & collection */}
-                        <AnimatePresence>
-                            {(selectedSizes.length > 0 || selectedCollection || showOnlyAvailable) && (
-                                <motion.div
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className="flex flex-wrap gap-2 mb-5 overflow-hidden"
-                                >
-                                    {selectedSizes.map(size => (
-                                        <FilterChip key={size} label={`Tam. ${size}`} onRemove={() => handleSizeChange(size)} />
-                                    ))}
-                                    {selectedCollection && (
-                                        <FilterChip
-                                            label={collections.find(c => String(c.id) === selectedCollection)?.title || 'Coleção'}
-                                            onRemove={() => handleCollectionChange(null)}
-                                        />
-                                    )}
-                                    {showOnlyAvailable && (
-                                        <FilterChip label="Em estoque" onRemove={() => setShowOnlyAvailable(false)} />
-                                    )}
-                                    {(selectedSizes.length > 1 || (selectedSizes.length > 0 && (selectedCollection || showOnlyAvailable))) && (
-                                        <button
-                                            onClick={handleClearFilters}
-                                            className="text-xs text-gray-400 hover:text-[#C75D3B] transition-colors font-medium"
-                                        >
-                                            Limpar tudo
-                                        </button>
-                                    )}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Grid */}
+                        {/* GRID */}
                         {displayProducts.length > 0 ? (
                             <>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                                     {displayProducts.map((product, index) => (
                                         <motion.div
                                             key={product.id}
-                                            initial={{ opacity: 0, y: 16 }}
+                                            initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: (index % 12) * 0.03, duration: 0.3 }}
+                                            transition={{ delay: (index % 6) * 0.05 }}
                                         >
                                             <ProductCard
                                                 product={product}
                                                 onQuickView={handleProductSelect}
                                                 index={index}
-                                                priority={index < 6}
+                                                isLarge={index < 2}
+                                                priority={index < 4}
                                             />
                                         </motion.div>
                                     ))}
                                 </div>
 
-                                {/* Infinite scroll sentinel */}
-                                <div ref={loadMoreRef} className="mt-10 flex justify-center py-4">
-                                    {isFetchingNextPage && (
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="w-7 h-7 border-[3px] border-[#C75D3B]/20 border-t-[#C75D3B] rounded-full animate-spin" />
-                                            <p className="text-xs text-[#4A3B32]/40 font-medium">Carregando mais...</p>
-                                        </div>
-                                    )}
-                                </div>
+                                {/* Load More Button / Infinite Scroll Sentinel */}
+                                {hasNextPage && (
+                                    <div ref={loadMoreRef} className="mt-8 flex justify-center py-8 w-full">
+                                        {isFetchingNextPage ? (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="w-8 h-8 border-4 border-[#C75D3B]/30 border-t-[#C75D3B] rounded-full animate-spin" />
+                                                <p className="text-xs text-[#4A3B32]/60 animate-pulse font-medium">Carregando mais peças...</p>
+                                            </div>
+                                        ) : (
+                                            <div className="h-10 w-full" />
+                                        )}
+                                    </div>
+                                )}
                             </>
                         ) : (
-                            /* Empty state */
-                            <div className="py-24 flex flex-col items-center text-center">
-                                <div className="w-16 h-16 bg-[#F5F0EC] rounded-full flex items-center justify-center mb-5">
-                                    <ShoppingBag className="w-7 h-7 text-[#C75D3B]/50" />
-                                </div>
-                                <h3 className="text-lg font-display text-[#4A3B32] mb-2">Nenhuma peça encontrada</h3>
-                                <p className="text-sm text-gray-400 mb-6 max-w-xs">
-                                    Tente ajustar os filtros ou buscar por outro termo.
-                                </p>
-                                <button
-                                    onClick={handleClearFilters}
-                                    className="px-5 py-2.5 bg-[#4A3B32] text-white text-sm font-semibold rounded-xl hover:bg-[#C75D3B] transition-colors"
-                                >
+                            <div className="text-center py-24">
+                                <p className="text-gray-400 italic">Nenhum produto encontrado.</p>
+                                <button onClick={handleClearFilters} className="mt-4 text-[#C75D3B] font-bold underline">
                                     Limpar filtros
                                 </button>
                             </div>
@@ -388,52 +313,38 @@ function CatalogContent() {
                 </div>
             </div>
 
-            {/* Mobile Filters Sheet */}
+            {/* Mobile Filters Modal */}
             <AnimatePresence>
                 {showMobileFilters && (
                     <motion.div
                         className="fixed inset-0 z-50 md:hidden"
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     >
-                        <div
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                            onClick={() => setShowMobileFilters(false)}
-                        />
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMobileFilters(false)} />
                         <motion.div
-                            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[88vh] overflow-y-auto"
+                            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto"
                             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-                            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
                         >
-                            {/* Handle */}
-                            <div className="flex justify-center pt-3 pb-1">
-                                <div className="w-10 h-1 bg-gray-200 rounded-full" />
+                            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+                                <h3 className="font-display text-xl">Filtros</h3>
+                                <button onClick={() => setShowMobileFilters(false)} aria-label="Fechar filtros"><X className="w-6 h-6" /></button>
                             </div>
-
-                            <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
-                                <h3 className="font-display text-lg text-[#4A3B32]">Filtros</h3>
-                                <button
-                                    onClick={() => setShowMobileFilters(false)}
-                                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                                >
-                                    <X className="w-5 h-5 text-gray-500" />
-                                </button>
-                            </div>
-
-                            <div className="p-5">
+                            <div className="p-6">
                                 <ProductFilters
-                                    hideCategories
                                     categories={CATEGORIES_MAP}
                                     selectedCategory={selectedCategory}
                                     onCategoryChange={(cat) => {
                                         handleCategoryChange(cat)
                                         setShowMobileFilters(false)
                                     }}
-                                    sizes={ALL_SIZES}
+                                    sizes={allSizes}
                                     selectedSizes={selectedSizes}
-                                    onSizeChange={handleSizeChange}
-                                    onClearFilters={handleClearFilters}
-                                    showOnlyAvailable={showOnlyAvailable}
-                                    onAvailabilityChange={setShowOnlyAvailable}
+                                    onSizeChange={handleSizeChange} // Tamanhos continuam permitindo múltipla seleção
+                                    onClearFilters={() => {
+                                        handleClearFilters()
+                                        // setShowMobileFilters(false) // Opcional: fechar ao limpar? Geralmente não.
+                                    }}
+                                    // Collections
                                     collections={collections}
                                     selectedCollection={selectedCollection}
                                     onCollectionChange={(col) => {
@@ -443,9 +354,9 @@ function CatalogContent() {
                                 />
                                 <button
                                     onClick={() => setShowMobileFilters(false)}
-                                    className="w-full mt-8 py-4 bg-[#4A3B32] text-white font-bold rounded-2xl hover:bg-[#C75D3B] transition-colors"
+                                    className="w-full mt-6 py-4 bg-[#C75D3B] text-white font-bold rounded-lg"
                                 >
-                                    Ver {displayProducts.length} resultado{displayProducts.length !== 1 ? 's' : ''}
+                                    Ver Resultados
                                 </button>
                             </div>
                         </motion.div>
@@ -459,38 +370,19 @@ function CatalogContent() {
                 onClose={() => handleProductSelect(null)}
             />
 
-            {/* Float cart button — mobile */}
+            {/* Float Cart Button */}
             <AnimatePresence>
                 {items.length > 0 && !selectedProduct && (
                     <motion.div
-                        initial={{ y: 100, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: 100, opacity: 0 }}
-                        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-                        className="fixed bottom-0 left-0 right-0 z-40 md:hidden px-4 pt-3 bg-gradient-to-t from-white/80 to-transparent"
-                        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+                        initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
+                        className="fixed bottom-6 left-4 right-4 z-40 md:hidden"
                     >
-                        <Link
-                            to="/malinha"
-                            className="flex items-center justify-between px-6 py-4 bg-[#4A3B32] active:bg-[#C75D3B] text-white rounded-2xl shadow-2xl shadow-[#4A3B32]/40 transition-colors active:scale-[0.98]"
-                        >
-                            <div className="flex items-center gap-3">
-                                <motion.div
-                                    key={items.length}
-                                    initial={{ scale: 1.4 }}
-                                    animate={{ scale: 1 }}
-                                    className="w-8 h-8 bg-[#C75D3B] rounded-full flex items-center justify-center text-sm font-black shadow-md"
-                                >
-                                    {items.length}
-                                </motion.div>
-                                <span className="font-semibold text-sm text-white/85">
-                                    {items.length === 1 ? '1 peça' : `${items.length} peças`} selecionadas
-                                </span>
-                            </div>
-                            <span className="font-bold text-sm flex items-center gap-1">
-                                Finalizar <span className="text-base">→</span>
-                            </span>
-                        </Link>
+
+
+                        <a href="/malinha" className="flex items-center justify-between px-6 py-4 bg-[#C75D3B] text-white rounded-2xl shadow-xl relative overflow-hidden">
+                            <span className="font-bold relative z-10">{items.length} peças</span>
+                            <span className="font-bold relative z-10">Ver Malinha</span>
+                        </a>
                     </motion.div>
                 )}
             </AnimatePresence>

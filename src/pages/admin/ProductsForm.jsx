@@ -389,7 +389,7 @@ export function ProductsForm() {
     ]
 
     return (
-        <div className="max-w-5xl mx-auto space-y-10 pb-20">
+        <div className="max-w-5xl mx-auto space-y-6 md:space-y-10 pb-28 md:pb-20">
             {/* Elegant Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
@@ -419,8 +419,52 @@ export function ProductsForm() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-8 space-y-8">
+            {/* ── Sticky save bar — mobile only ── */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-3 pb-safe">
+                <button
+                    type="submit"
+                    form="products-form"
+                    disabled={isSaving}
+                    className="w-full flex items-center justify-center gap-2 bg-[#C75D3B] hover:bg-[#A64D31] text-white py-3.5 rounded-2xl font-bold text-[15px] shadow-lg disabled:opacity-70"
+                >
+                    {isSaving ? <><Loader2 className="w-5 h-5 animate-spin" />{id ? 'Salvando…' : 'Criando…'}</> : <><Save className="w-5 h-5" />{id ? 'Salvar Alterações' : 'Criar Produto'}</>}
+                </button>
+            </div>
+
+            <form id="products-form" onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-6 md:gap-8">
+                <div className="lg:col-span-8 space-y-6 md:space-y-8">
+                    {/* Categoria + Fornecedor — mobile only, primeiro campo visível */}
+                    <div className="lg:hidden grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] pl-1">Categoria</label>
+                            <select
+                                name="category"
+                                className="w-full px-3 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] text-sm appearance-none"
+                                value={formData.category}
+                                onChange={handleChange}
+                            >
+                                <option value="vestidos">👗 Vestidos</option>
+                                <option value="blusas">👚 Blusas</option>
+                                <option value="calcas">👖 Calças</option>
+                                <option value="shorts">🩳 Shorts</option>
+                                <option value="saias">👗 Saias</option>
+                                <option value="conjuntos">🧥 Conjuntos</option>
+                                <option value="blazers">💼 Blazers</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] pl-1">Fornecedor</label>
+                            <select
+                                name="supplierId"
+                                className="w-full px-3 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none font-bold text-[#4A3B32] text-sm appearance-none"
+                                value={formData.supplierId}
+                                onChange={handleChange}
+                            >
+                                <option value="">Fornecedor</option>
+                                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
                     {/* General Information */}
                     <Card>
                         <CardHeader>
@@ -441,13 +485,13 @@ export function ProductsForm() {
                                     required
                                     aria-required="true"
                                     placeholder="Ex: Vestido Midi Seda"
-                                    className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-lg font-medium transition-all"
+                                    className="w-full px-4 py-3 md:py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-base md:text-lg font-medium transition-all"
                                     value={formData.name}
                                     onChange={handleChange}
                                 />
                             </div>
 
-                            <div className="grid md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
                                 <div className="space-y-2">
                                     <label htmlFor="product-price" className="text-xs text-gray-400 font-bold uppercase tracking-widest pl-1">
                                         Preço de Venda (R$) <span className="text-red-500">*</span>
@@ -460,7 +504,7 @@ export function ProductsForm() {
                                         required
                                         aria-required="true"
                                         placeholder="0,00"
-                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-lg font-bold text-[#4A3B32]"
+                                        className="w-full px-4 py-3 md:py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-base md:text-lg font-bold text-[#4A3B32]"
                                         value={formData.price}
                                         onChange={handleChange}
                                     />
@@ -475,7 +519,7 @@ export function ProductsForm() {
                                         inputMode="decimal"
                                         name="originalPrice"
                                         placeholder="0,00"
-                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-lg font-bold text-gray-300"
+                                        className="w-full px-4 py-3 md:py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-base md:text-lg font-bold text-gray-300"
                                         value={formData.originalPrice}
                                         onChange={handleChange}
                                     />
@@ -501,7 +545,7 @@ export function ProductsForm() {
                                         inputMode="decimal"
                                         name="costPrice"
                                         placeholder="0,00"
-                                        className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-lg font-bold text-[#C75D3B]"
+                                        className="w-full px-4 py-3 md:py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 focus-visible:ring-2 focus-visible:ring-[#C75D3B] outline-none text-base md:text-lg font-bold text-[#C75D3B]"
                                         value={formData.costPrice}
                                         onChange={handleChange}
                                     />
@@ -662,7 +706,7 @@ export function ProductsForm() {
                                                         <input
                                                             type="text"
                                                             placeholder="Ex: Verde Oliva, Off White, Nude..."
-                                                            className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-lg font-bold text-[#4A3B32]"
+                                                            className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#C75D3B]/20 outline-none text-base font-bold text-[#4A3B32]"
                                                             value={variant.colorName}
                                                             onChange={(e) => handleVariantChange(vIdx, 'colorName', e.target.value)}
                                                         />
@@ -673,7 +717,7 @@ export function ProductsForm() {
                                                             whileTap={{ scale: 0.95 }}
                                                             type="button"
                                                             onClick={() => removeVariant(vIdx)}
-                                                            className="px-6 py-4 text-red-400 hover:text-white hover:bg-red-500 bg-red-50 rounded-2xl transition-all font-bold text-sm flex items-center gap-2"
+                                                            className="px-4 py-3 text-red-400 hover:text-white hover:bg-red-500 bg-red-50 rounded-2xl transition-all font-bold text-sm flex items-center gap-2 shrink-0"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                             Remover
@@ -686,7 +730,7 @@ export function ProductsForm() {
                                                     <label className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-1">
                                                         Estoque por Tamanho (Quantidade)
                                                     </label>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                                                    <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
                                                         {allSizes.map(size => {
                                                             const currentStock = (variant.sizeStock || []).find(s => s.size === size.id)
                                                             const quantity = currentStock?.quantity || 0
@@ -786,7 +830,7 @@ export function ProductsForm() {
                                                                 <input
                                                                     type="text"
                                                                     placeholder="Ou cole a URL aqui..."
-                                                                    className="w-full px-3 py-2 bg-gray-50 border-none rounded-lg focus:ring-1 focus:ring-[#C75D3B]/20 outline-none text-[9px] font-medium"
+                                                                    className="hidden md:block w-full px-3 py-2 bg-gray-50 border-none rounded-lg focus:ring-1 focus:ring-[#C75D3B]/20 outline-none text-[9px] font-medium"
                                                                     value={url.startsWith('data:') ? 'Imagem carregada localmente' : url}
                                                                     onChange={(e) => handleVariantImageChange(vIdx, iIdx, e.target.value)}
                                                                     readOnly={url.startsWith('data:')}

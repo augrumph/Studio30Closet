@@ -74,7 +74,7 @@ ALTER TABLE vendas
 
 ALTER TABLE vendas
     ADD CONSTRAINT check_vendas_payment_method CHECK (
-        payment_method IN ('pix', 'debit', 'card_machine', 'credito_parcelado', 'fiado', 'fiado_parcelado', 'cash', 'card')
+        payment_method IN ('pending_decision', 'pix', 'debit', 'card_machine', 'credito_parcelado', 'fiado', 'fiado_parcelado', 'cash', 'card')
     );
 
 -- Products: garantir estoque não negativo

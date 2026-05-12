@@ -88,9 +88,13 @@ export async function updateProductStock(client, productId, quantity, color, siz
         console.warn(`[STOCK WARNING] Strict size match failed for "${size}" on Product ${product.id} ("${product.name}", color: "${variant.colorName}"). Defaulting to its only size: "${variant.sizeStock[0].size}".`)
     }
 
-    // Se ainda não encontrou o tamanho, apenas avisar mas não falhar
+    // Se ainda não encontrou o tamanho, venda/reserva deve falhar para evitar promessa sem estoque.
     if (sizeIndex === undefined || sizeIndex === -1) {
-        console.warn(`[STOCK WARNING] Size "${size}" not found in color "${variant.colorName}" for product ${product.id} ("${product.name}"). Available sizes: ${variant.sizeStock.map(s => s.size).join(', ')}. Skipping stock update.`)
+        const message = `[STOCK WARNING] Size "${size}" not found in color "${variant.colorName}" for product ${product.id} ("${product.name}"). Available sizes: ${variant.sizeStock.map(s => s.size).join(', ')}.`
+        if (type === 'reserve') {
+            throw new Error(message)
+        }
+        console.warn(`${message} Skipping restore.`)
         return true
     }
 

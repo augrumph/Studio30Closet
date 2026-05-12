@@ -151,11 +151,12 @@ export async function trackCheckoutStarted(itemCount, totalValue) {
 export async function trackCheckoutCompleted(orderId, items, totalValue) {
     await trackEvent('checkout_completed', {
         order_id: orderId,
-        item_count: items.length,
+        item_count: items.reduce((sum, item) => sum + Number(item.quantity || item.count || 1), 0),
         total_value: totalValue,
         items: items.map(i => ({
             product_id: i.productId,
-            size: i.selectedSize
+            size: i.selectedSize,
+            quantity: Number(i.quantity || i.count || 1)
         }))
     }, '/malinha')
 }

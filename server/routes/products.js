@@ -22,23 +22,6 @@ async function processImages(images) {
     return processedImages.filter(img => img !== null)
 }
 
-// Helper para processar variants e converter imagens base64 para S3 URLs
-async function processVariants(variants) {
-    if (!variants || !Array.isArray(variants) || variants.length === 0) return []
-
-    const processedVariants = await Promise.all(variants.map(async (variant) => {
-        if (!variant) return variant
-
-        // Se o variant tem imagens, processar elas
-        if (variant.images && Array.isArray(variant.images)) {
-            variant.images = await processImages(variant.images)
-        }
-
-        return variant
-    }))
-
-    return processedVariants
-}
 
 // Listagem de Produtos com Paginação e Busca (Público, mas revela custos se Admin)
 router.get('/', optionalAuthenticateToken, async (req, res) => {
@@ -301,8 +284,8 @@ router.post('/', authenticateToken, async (req, res) => {
         // 🖼️ Processar Imagens (Upload S3)
         const imageUrls = await processImages(data.images)
 
-        // 🎨 Processar Variants (incluindo suas imagens)
-        const processedVariants = await processVariants(data.variants)
+        // 🎨 Processar Variants (incluindo suas imagens e propagando custo)
+        const processedVariants = await processVariants(data.variants, data.cost_price ?? data.costPrice)
 
         // Inserir no banco
         const { rows } = await pool.query(`
@@ -311,12 +294,14 @@ router.post('/', authenticateToken, async (req, res) => {
                 stock, category, active, is_featured, is_new,
                 is_catalog_featured, is_best_seller, supplier_id,
                 color, variants, sizes, images, collection_ids,
+                weight_kg, height_cm, width_cm, length_cm, ncm, cfop, cest,
                 updated_at
             ) VALUES (
                 $1, $2, $3, $4, $5,
                 $6, $7, $8, $9, $10,
                 $11, $12, $13,
                 $14, $15, $16, $17, $18,
+                $19, $20, $21, $22, $23, $24, $25,
                 NOW()
             ) RETURNING *
         `, [
@@ -338,6 +323,13 @@ router.post('/', authenticateToken, async (req, res) => {
             data.sizes ? JSON.stringify(data.sizes) : null,
             imageUrls,
             data.collection_ids,
+            data.weight_kg ?? data.weightKg ?? 0.3,
+            data.height_cm ?? data.heightCm ?? 2,
+            data.width_cm ?? data.widthCm ?? 25,
+            data.length_cm ?? data.lengthCm ?? 35,
+            data.ncm || null,
+            data.cfop || null,
+            data.cest || null,
         ])
 
         console.log(`✅ Product created with ID: ${rows[0].id}`)
@@ -359,8 +351,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
         // 🖼️ Processar Imagens (Upload S3)
         const imageUrls = data.images ? await processImages(data.images) : null
 
-        // 🎨 Processar Variants (incluindo suas imagens)
-        const processedVariants = data.variants ? await processVariants(data.variants) : null
+        // 🎨 Processar Variants (incluindo suas imagens e propagando custo)
+        const processedVariants = data.variants ? await processVariants(data.variants, data.cost_price ?? data.costPrice) : null
 
         const params = [
             data.name,
@@ -381,6 +373,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
             data.sizes && data.sizes.length > 0 ? JSON.stringify(data.sizes) : null,
             imageUrls && imageUrls.length > 0 ? imageUrls : null,
             data.collection_ids ?? data.collectionIds,
+            data.weight_kg ?? data.weightKg,
+            data.height_cm ?? data.heightCm,
+            data.width_cm ?? data.widthCm,
+            data.length_cm ?? data.lengthCm,
+            data.ncm,
+            data.cfop,
+            data.cest,
             id
         ]
 
@@ -404,8 +403,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
                 sizes = COALESCE($16, sizes),
                 images = COALESCE($17, images),
                 collection_ids = COALESCE($18, collection_ids),
+                weight_kg = COALESCE($19, weight_kg),
+                height_cm = COALESCE($20, height_cm),
+                width_cm = COALESCE($21, width_cm),
+                length_cm = COALESCE($22, length_cm),
+                ncm = COALESCE($23, ncm),
+                cfop = COALESCE($24, cfop),
+                cest = COALESCE($25, cest),
                 updated_at = NOW()
-            WHERE id = $19
+            WHERE id = $26
             RETURNING *
         `, params)
 

@@ -17,7 +17,7 @@ export function usePaymentCalculation({
     paymentMethod,
     cardBrand,
     totalValue,
-    discountAmount,
+    discountAmount = 0,
     paymentStatus,
     parcelas
 }) {
@@ -36,7 +36,7 @@ export function usePaymentCalculation({
             const shouldCalculate = paymentMethod && totalValue > 0 &&
                 (paymentMethod === 'credito_parcelado' || paymentStatus !== 'pending')
 
-            const valorFinal = totalValue - discountAmount
+            const valorFinal = Math.max(0, Number(totalValue || 0) - Number(discountAmount || 0))
 
             if (shouldCalculate) {
                 setIsCalculating(true)
@@ -46,7 +46,17 @@ export function usePaymentCalculation({
                     let numInstallments = null
 
                     // Mapear valores do formulário para valores do banco
-                    if (paymentMethod === 'pix') {
+                    if (paymentMethod === 'pending_decision') {
+                        setFeeInfo({
+                            feePercentage: 0,
+                            feeFixed: 0,
+                            feeValue: 0,
+                            netValue: valorFinal
+                        })
+                        setPaymentFee(null)
+                        setIsCalculating(false)
+                        return
+                    } else if (paymentMethod === 'pix') {
                         dbPaymentMethod = 'pix'
                         numInstallments = null
                     } else if (paymentMethod === 'debit') {

@@ -176,6 +176,7 @@ export function VendasList() {
     }, [backendMetrics])
 
     const paymentMethods = {
+        pending_decision: { label: 'A decidir', color: 'bg-slate-100 text-slate-700' },
         pix: { label: 'PIX', color: 'bg-emerald-100 text-emerald-700' },
         debit: { label: 'Débito', color: 'bg-blue-100 text-blue-700' },
         card_machine: { label: 'Crédito', color: 'bg-blue-100 text-blue-700' },
@@ -383,8 +384,109 @@ export function VendasList() {
                 </div>
             </TooltipProvider>
 
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+                {isError ? (
+                    <EmptyState
+                        title="Erro ao carregar vendas"
+                        description={formatUserFriendlyError(error)}
+                        onRetry={refetch}
+                    />
+                ) : (isLoadingVendas && paginatedVendas.length === 0) || (localSearch !== searchTerm) ? (
+                    <div className="py-16 flex flex-col items-center justify-center gap-3">
+                        <div className="w-8 h-8 rounded-full border-2 border-[#C75D3B] border-t-transparent animate-spin" />
+                        <span className="text-gray-400 italic font-medium text-sm">
+                            {localSearch !== searchTerm ? 'Buscando...' : 'Sincronizando registros da Studio 30...'}
+                        </span>
+                    </div>
+                ) : sortedVendas.length > 0 ? (
+                    sortedVendas.map((venda) => (
+                        <motion.div
+                            key={venda.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
+                        >
+                            <Link
+                                to={`/admin/vendas/${venda.id}`}
+                                className="block p-4"
+                            >
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                            {new Date(venda.createdAt).toLocaleDateString('pt-BR')}
+                                        </p>
+                                        <h3 className="text-base font-bold text-[#4A3B32] truncate mt-1">
+                                            {venda.customerName || 'Cliente não identificado'}
+                                        </h3>
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                            <span className={cn(
+                                                'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest',
+                                                paymentMethods[venda.paymentMethod]?.color || 'bg-gray-100 text-gray-600'
+                                            )}>
+                                                {paymentMethods[venda.paymentMethod]?.label || 'Método'}
+                                            </span>
+                                            <span className={cn(
+                                                'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest',
+                                                venda.paymentStatus === 'paid'
+                                                    ? 'bg-emerald-50 text-emerald-700'
+                                                    : 'bg-amber-50 text-amber-700'
+                                            )}>
+                                                {venda.paymentStatus === 'paid' ? 'Liquidado' : 'Pendente'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-right shrink-0">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Valor</p>
+                                        <p className="text-xl font-black text-[#4A3B32]">
+                                            R$ {(venda.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </p>
+                                    </div>
+                                </div>
+                            </Link>
+
+                            <div className="grid grid-cols-3 gap-2 p-4 pt-0">
+                                {venda.paymentStatus === 'pending' ? (
+                                    <button
+                                        onClick={() => handleQuickPay(venda.id)}
+                                        disabled={isPaying === venda.id}
+                                        className="inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/10 active:scale-95"
+                                    >
+                                        {isPaying === venda.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <DollarSign className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                ) : (
+                                    <div className="rounded-2xl bg-gray-50" />
+                                )}
+                                <Link
+                                    to={`/admin/vendas/${venda.id}`}
+                                    className="inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#FDF0ED] text-[#C75D3B] font-bold text-sm active:scale-95"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </Link>
+                                <button
+                                    onClick={() => handleDelete(venda.id, venda.customerName || 'Cliente não identificado')}
+                                    className="inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-red-50 text-red-500 font-bold text-sm active:scale-95"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </motion.div>
+                    ))
+                ) : (
+                    <div className="py-16 text-center">
+                        <Search className="w-12 h-12 text-gray-100 mx-auto" />
+                        <p className="text-gray-400 font-medium text-sm mt-3">Nenhum registro encontrado.</p>
+                    </div>
+                )}
+            </div>
+
             {/* Premium Table Area */}
-            <Card className="overflow-hidden border-none shadow-xl">
+            <Card className="hidden md:block overflow-hidden border-none shadow-xl">
                 <CardHeader className="bg-white border-b border-gray-50 flex flex-col md:flex-row gap-4 items-center justify-between p-6">
                     <div className="flex items-center gap-4 w-full md:w-auto">
                         <CardTitle className="hidden md:block">Registros</CardTitle>
@@ -425,7 +527,7 @@ export function VendasList() {
 
                         {/* Filtro de Método de Pagamento */}
                         <div className="flex gap-1.5 p-1 bg-gray-50 rounded-2xl">
-                            {['all', 'pix', 'card', 'fiado_parcelado'].map(type => (
+                            {['all', 'pending_decision', 'pix', 'card', 'fiado_parcelado'].map(type => (
                                 <button
                                     key={type}
                                     onClick={() => setFilterType(type)}
@@ -436,7 +538,7 @@ export function VendasList() {
                                             : "text-[#4A3B32]/40 hover:text-[#4A3B32]"
                                     )}
                                 >
-                                    {type === 'all' ? 'Método' : type === 'fiado_parcelado' ? 'Crediário' : type.toUpperCase()}
+                                    {type === 'all' ? 'Método' : type === 'pending_decision' ? 'A decidir' : type === 'fiado_parcelado' ? 'Crediário' : type.toUpperCase()}
                                 </button>
                             ))}
                         </div>

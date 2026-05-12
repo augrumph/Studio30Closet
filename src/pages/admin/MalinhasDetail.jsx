@@ -127,8 +127,8 @@ export function MalinhasDetail() {
         setIsSubmitting(true)
 
         const itemsToSell = order.items.filter((_, idx) => keptItems.includes(idx))
-        const totalKept = itemsToSell.reduce((sum, item) => sum + Number(item.price || 0), 0)
-        const totalCost = itemsToSell.reduce((sum, item) => sum + Number(item.costPrice || 0), 0)
+        const totalKept = itemsToSell.reduce((sum, item) => sum + getItemPrice(item), 0)
+        const totalCost = itemsToSell.reduce((sum, item) => sum + getItemCost(item), 0)
 
         const isCrediario = saleConfig.paymentMethod === 'fiado_parcelado'
 
@@ -138,8 +138,8 @@ export function MalinhasDetail() {
             items: itemsToSell.map(item => ({
                 productId: item.productId,
                 name: item.productName,
-                price: item.price,
-                costPrice: item.costPrice || 0,
+                price: getItemPrice(item),
+                costPrice: getItemCost(item),
                 selectedSize: item.selectedSize,
                 selectedColor: item.selectedColor || 'Padrão',
                 quantity: 1,
@@ -199,6 +199,9 @@ export function MalinhasDetail() {
     }
 
     const currentStatus = statusMap[order.status] || statusMap.pending
+    const getItemImage = (item) => item.image || item.images?.[0] || item.product?.images?.[0] || item.productSnapshot?.images?.[0] || null
+    const getItemPrice = (item) => Number(item.price ?? item.priceAtTime ?? item.unitPrice ?? item.totalPrice ?? 0)
+    const getItemCost = (item) => Number(item.costPrice ?? item.unitCost ?? item.cost_price ?? 0)
 
     return (
         <div className="max-w-6xl mx-auto space-y-10 pb-20">
@@ -273,7 +276,13 @@ export function MalinhasDetail() {
                                         )}
                                     >
                                         <div className="w-24 h-24 rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">
-                                            <img src={getOptimizedImageUrl(item.image, 200)} alt={item.productName} className="w-full h-full object-cover" />
+                                            {getItemImage(item) ? (
+                                                <img src={getOptimizedImageUrl(getItemImage(item), 200)} alt={item.productName} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                                    <Package className="w-6 h-6 text-gray-200" />
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex-1 space-y-1">
                                             <h4 className="text-lg font-bold text-[#4A3B32]">{item.productName}</h4>
@@ -287,7 +296,7 @@ export function MalinhasDetail() {
                                         </div>
                                         <div className="flex items-center gap-6">
                                             <div className="text-right">
-                                                <p className="text-xl font-bold text-[#4A3B32]">R$ ${(item.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-xl font-bold text-[#4A3B32]">R$ {getItemPrice(item).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                             </div>
 
                                             <div className="flex bg-gray-100 p-1 rounded-2xl gap-1">
@@ -325,7 +334,7 @@ export function MalinhasDetail() {
                                 </div>
                                 <div className="flex items-center gap-8">
                                     <span className="text-3xl font-display font-bold text-[#C75D3B]">
-                                        R$ {(order.items.filter((_, i) => keptItems.includes(i)).reduce((s, it) => s + Number(it.price || 0), 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        R$ {(order.items.filter((_, i) => keptItems.includes(i)).reduce((s, it) => s + getItemPrice(it), 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </span>
                                     <button
                                         onClick={handleFinalizeSale}
@@ -582,4 +591,3 @@ export function MalinhasDetail() {
         </div>
     )
 }
-

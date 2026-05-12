@@ -6,41 +6,80 @@
 @tailwind utilities;
 
 /* ============================================
-   MOBILE-FIRST: Touch Target Optimization
+   MOBILE-FIRST: Touch & Performance
    ============================================ */
 
-/* Ensure all interactive elements are at least 44x44px (iOS) or 48x48px (Android) */
+/* Eliminate 300ms tap delay + remove iOS gray flash on tap */
+a, button, [role="button"], input, select, textarea, label {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent scroll chain leaking out of modals / drawers */
+.overscroll-contain { overscroll-behavior: contain; }
+.overscroll-none    { overscroll-behavior: none; }
+
 @layer components {
   .touch-target {
     @apply min-h-[44px] min-w-[44px];
   }
 
-  /* Mobile-optimized inputs */
+  /* Mobile-optimized inputs — 16px prevents iOS auto-zoom */
   input[type="text"],
   input[type="email"],
   input[type="tel"],
   input[type="number"],
+  input[type="date"],
   textarea,
   select {
-    @apply min-h-[44px] text-base;
-    font-size: 16px; /* Prevent zoom on iOS */
+    @apply min-h-[48px];
+    font-size: 16px;
   }
 
-  /* Safe area padding for notch devices */
-  .safe-top {
-    padding-top: max(1rem, env(safe-area-inset-top));
-  }
+  /* Safe area helpers for notch / home-indicator devices */
+  .safe-top    { padding-top:    max(0.75rem, env(safe-area-inset-top));    }
+  .safe-right  { padding-right:  max(0.75rem, env(safe-area-inset-right));  }
+  .safe-bottom { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+  .safe-left   { padding-left:   max(0.75rem, env(safe-area-inset-left));   }
 
-  .safe-right {
-    padding-right: max(1rem, env(safe-area-inset-right));
-  }
-
-  .safe-bottom {
+  /* Sticky footer bar (checkout pay button, cart) */
+  .sticky-bottom-bar {
+    @apply fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-4 pt-3;
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
-  .safe-left {
-    padding-left: max(1rem, env(safe-area-inset-left));
+  /* Slide-up animation for bottom sheets */
+  @keyframes slide-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+  .animate-slide-up {
+    animation: slide-up 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+
+  @media (max-width: 767px) {
+    .admin-shell main {
+      padding: 0.75rem;
+      padding-bottom: max(5rem, env(safe-area-inset-bottom));
+    }
+
+    .admin-shell main h1,
+    .admin-shell main h2 {
+      font-size: clamp(1.5rem, 7vw, 2rem);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .admin-shell main input,
+    .admin-shell main select,
+    .admin-shell main textarea {
+      font-size: 16px;
+    }
+
+    .admin-shell main button,
+    .admin-shell main a {
+      scroll-margin-bottom: 5rem;
+    }
   }
 }
 

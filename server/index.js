@@ -1,7 +1,6 @@
 console.log('🏁 Starting server/index.js...')
+import 'dotenv/config'
 import express from 'express'
-import dotenv from 'dotenv'
-dotenv.config()
 import cors from 'cors'
 import compression from 'compression'
 import helmet from 'helmet'
@@ -18,66 +17,27 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// ✅ Trust Proxy - Necessário para Railway/Proxies para o express-rate-limit funcionar corretamente
 app.set('trust proxy', 1)
 
-// Security com configuração de CSP para permitir Supabase, Google Fonts, Google Analytics
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            connectSrc: [
-                "'self'",
-                "https://t3.storageapi.dev",
-                "https://maglev.proxy.rlwy.net",
-                "https://api.emailjs.com",
-                "https://www.googletagmanager.com",
-                "https://www.google-analytics.com",
-                "https://www.google.com",
-                "https://www.google.com.br",
-                "https://googleads.g.doubleclick.net"
-            ],
-            scriptSrc: [
-                "'self'",
-                "'unsafe-inline'",
-                "'unsafe-eval'",
-                "blob:",
-                "https://www.googletagmanager.com",
-                "https://www.google-analytics.com",
-                "https://googleads.g.doubleclick.net",
-                "https://www.googleadservices.com",
-                "https://www.instagram.com"
-            ],
+            connectSrc: ["'self'", "https://t3.storageapi.dev", "https://maglev.proxy.rlwy.net", "https://api.emailjs.com", "https://www.googletagmanager.com", "https://www.google-analytics.com", "https://www.google.com", "https://www.google.com.br", "https://googleads.g.doubleclick.net"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "blob:", "https://www.googletagmanager.com", "https://www.google-analytics.com", "https://googleads.g.doubleclick.net", "https://www.googleadservices.com", "https://www.instagram.com"],
             scriptSrcAttr: ["'unsafe-inline'"],
             workerSrc: ["'self'", "blob:"],
-            styleSrc: [
-                "'self'",
-                "'unsafe-inline'",
-                "https://fonts.googleapis.com"
-            ],
-            fontSrc: [
-                "'self'",
-                "data:",
-                "https://fonts.gstatic.com"
-            ],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "https:", "blob:", "https://www.google.com", "https://www.google.com.br", "https://googleads.g.doubleclick.net"],
             frameSrc: ["'self'", "https://www.googletagmanager.com", "https://www.instagram.com"]
         }
     }
 }))
 
-// CORS — restrict origins to prevent unauthorized cross-site requests
-// Only apply CORS to API routes, not static assets
-const allowedOrigins = [
-    process.env.FRONTEND_URL,
-    'https://studio30closet.com.br',
-    'http://localhost:5173',
-    'http://localhost:3000'
-].filter(Boolean)
-
+const allowedOrigins = [process.env.FRONTEND_URL, 'https://studio30closet.com.br', 'http://localhost:5173', 'http://localhost:3000'].filter(Boolean)
 const corsMiddleware = cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (same-origin, mobile apps, Postman)
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true)
         } else {
@@ -86,35 +46,11 @@ const corsMiddleware = cors({
     },
     credentials: true
 })
-
-// Apply CORS only to API routes (not static assets in production)
 app.use('/api/', corsMiddleware)
-
-// Compression - reduces response size by 70-90%
-app.use(compression({
-    filter: (req, res) => {
-        if (req.headers['x-no-compression']) {
-            return false
-        }
-        return compression.filter(req, res)
-    },
-    level: 6 // Balance between speed and compression ratio
-}))
-
-// Rate limiting
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Limit each IP to 1000 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.'
-})
+app.use(compression())
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 })
 app.use('/api/', limiter)
-
-// Body parser with limit
 app.use(express.json({ limit: '10mb' }))
-
-// Image optimization
-import { imageOptimizationMiddleware } from './imageOptimizer.js'
-app.use('/api/', imageOptimizationMiddleware({ quality: 80, format: 'webp' }))
 
 // Rotas
 import dashboardRouter from './routes/dashboard.js'
@@ -138,16 +74,25 @@ import materialsRouter from './routes/materials.js'
 import paymentFeesRouter from './routes/payment-fees.js'
 import settingsRouter from './routes/settings.js'
 import emailRouter from './routes/email.js'
+import storeRouter from './routes/store.js'
+import webhooksRouter from './routes/webhooks.js'
+import integrationsRouter from './routes/integrations.js'
+import realtimeRouter from './routes/realtime.js'
+import { ensureCommerceSchema } from './lib/commerce-schema.js'
 
-// Public routes (no auth required)
+// Public
 app.use('/api/auth', authRouter)
-app.use('/api/orders', ordersRouter)          // checkout público (admin protegido internamente)
-app.use('/api/analytics', analyticsRouter)    // rastreamento público (relatórios protegidos internamente)
-app.use('/api/collections', collectionsRouter) // catálogo público (admin protegido internamente)
-app.use('/api/email', emailRouter)            // formulário de contato
-app.use('/api/products', productsRouter)      // catálogo público (writes/costs protegidos internamente)
+app.use('/api/orders', ordersRouter)
+app.use('/api/analytics', analyticsRouter)
+app.use('/api/collections', collectionsRouter)
+app.use('/api/email', emailRouter)
+app.use('/api/products', productsRouter)
+app.use('/api/store', storeRouter)
+app.use('/api/webhooks', webhooksRouter)
+app.use('/api/realtime', realtimeRouter)
 
-// Protected admin routes (JWT obrigatório)
+// Protected Admin
+app.use('/api/integrations', authenticateToken, integrationsRouter)
 app.use('/api/dashboard', authenticateToken, dashboardRouter)
 app.use('/api/vendas', authenticateToken, vendasRouter)
 app.use('/api/malinhas', authenticateToken, malinhasRouter)
@@ -158,111 +103,44 @@ app.use('/api/purchases', authenticateToken, purchasesRouter)
 app.use('/api/installments', authenticateToken, installmentsRouter)
 app.use('/api/expenses', authenticateToken, expensesRouter)
 app.use('/api/stock', authenticateToken, stockRouter)
-app.use('/api/images', imagesRouter)                     // imagens públicas (catálogo)
+app.use('/api/images', imagesRouter)
 app.use('/api/admin-tools', authenticateToken, adminToolsRouter)
 app.use('/api/materials', authenticateToken, materialsRouter)
 app.use('/api/payment-fees', authenticateToken, paymentFeesRouter)
 app.use('/api/settings', authenticateToken, settingsRouter)
 
-// Health Check with detailed status
 app.get('/health', async (req, res) => {
     try {
-        // Check database connection
-        const dbStart = Date.now()
         await pool.query('SELECT 1')
-        const dbLatency = Date.now() - dbStart
-
-        res.json({
-            status: 'ok',
-            timestamp: new Date().toISOString(),
-            uptime: process.uptime(),
-            environment: process.env.NODE_ENV || 'development',
-            database: {
-                status: 'connected',
-                latency: `${dbLatency}ms`
-            },
-            memory: {
-                used: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
-                total: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`
-            }
-        })
+        res.json({ status: 'ok', timestamp: new Date().toISOString() })
     } catch (error) {
-        res.status(503).json({
-            status: 'error',
-            timestamp: new Date().toISOString(),
-            error: error.message
-        })
+        res.status(503).json({ status: 'error', error: error.message })
     }
 })
 
-// ==================== PRODUÇÃO: Servir Frontend Estático ====================
-// Em produção, o servidor Express serve tanto a API quanto o frontend buildado
 if (process.env.NODE_ENV === 'production') {
     const distPath = path.join(__dirname, '..', 'dist')
-
-    // Servir version.json SEM cache — garante que o VersionCheck sempre leia a versão atual
-    app.get('/version.json', (req, res) => {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-        res.setHeader('Pragma', 'no-cache')
-        res.setHeader('Expires', '0')
-        res.sendFile(path.join(distPath, 'version.json'))
-    })
-
-    // Servir assets com hash (JS, CSS, imagens) com cache longo — safe pois o hash muda a cada build
-    app.use(express.static(distPath, {
-        maxAge: '1y',
-        etag: true,
-        lastModified: true,
-        setHeaders: (res, filePath) => {
-            // index.html NUNCA deve ser cacheado — é o ponto de entrada que carrega os assets com hash
-            if (filePath.endsWith('index.html')) {
-                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-                res.setHeader('Pragma', 'no-cache')
-                res.setHeader('Expires', '0')
-            }
-        }
-    }))
-
-    // Explicit 404 for /assets/* — prevents stale hashed filenames from being served as index.html
-    // This happens when a user has old index.html cached but the server deployed new hashed assets.
-    app.get('/assets/*', (req, res) => {
-        res.status(404).json({ error: 'Asset not found. Please hard-refresh the page (Ctrl+Shift+R).' })
-    })
-
-    // SPA Fallback: All non-API, non-asset routes return index.html (no cache)
-    app.get('*', (req, res) => {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-        res.sendFile(path.join(distPath, 'index.html'))
-    })
-
-
-    console.log(`📦 Servindo frontend estático de: ${distPath}`)
+    app.use(express.static(distPath))
+    app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')))
 }
 
-// Handle favicon.ico to prevent 404s
-app.get('/favicon.ico', (req, res) => res.status(204).end())
-
-// Simulação de delay para teste de loader (opcional)
-// app.use((req, res, next) => setTimeout(next, 500))
-
-// Root route for development (API info)
-if (process.env.NODE_ENV !== 'production') {
-    app.get('/', (req, res) => {
-        res.send('🚀 Studio30 Admin API is running in Development Mode')
-    })
-}
-
-// ==================== ERROR HANDLING ====================
-// 404 handler - must be after all routes
 app.use(notFoundHandler)
-
-// Global error handler - must be last middleware
 app.use(errorHandler)
+
+await ensureCommerceSchema()
+
+// Carregar configurações de integração salvas pelo admin no banco
+// Sobrescreve valores do .env — permite atualização sem restart
+try {
+    const { rows: cfgRows } = await pool.query('SELECT key, value FROM integration_settings')
+    for (const { key, value } of cfgRows) {
+        if (value) process.env[key] = value
+    }
+    if (cfgRows.length > 0) console.log(`⚙️  ${cfgRows.length} configuração(ões) de integração carregadas do banco`)
+} catch (e) {
+    console.warn('⚠️  Não foi possível carregar configurações de integração:', e.message)
+}
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Studio30 Admin BFF rodando em http://localhost:${PORT}`)
-    console.log(`📍 Modo: ${process.env.NODE_ENV || 'development'}`)
-    console.log(`🛡️  Error Handling: Centralized`)
-    console.log(`✅ Async Handler: Available in utils.js`)
-    // console.log(`🔌 Network: http://${require('ip').address()}:${PORT}`)
 })

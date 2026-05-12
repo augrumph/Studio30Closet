@@ -1,12 +1,31 @@
 import { useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Phone, Mail, MessageCircle, ShoppingBag, TrendingUp, Star, Package, Calendar, Tag, Pencil, Instagram, MapPin, CreditCard, Banknote, Smartphone, Award, AlertCircle, Clock } from 'lucide-react'
+import {
+    ArrowLeft,
+    Phone,
+    Mail,
+    MessageCircle,
+    ShoppingBag,
+    TrendingUp,
+    Star,
+    Package,
+    Calendar,
+    Tag,
+    Pencil,
+    Instagram,
+    CreditCard,
+    Banknote,
+    Smartphone,
+    Clock,
+    Award,
+} from 'lucide-react'
 import { useAdminCustomer } from '@/hooks/useAdminCustomers'
 import { apiClient } from '@/lib/api-client'
-import { cn, calculateCustomerSizeAnalysis } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { SizeProfileDeepDive } from '@/components/admin/dashboard'
 
 const formatCurrency = (v) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -17,6 +36,7 @@ const formatDate = (d) => {
 }
 
 const PAYMENT_LABELS = {
+    pending_decision: { label: 'A decidir', icon: Clock, color: 'text-slate-600 bg-slate-50' },
     pix: { label: 'Pix', icon: Smartphone, color: 'text-emerald-600 bg-emerald-50' },
     debit: { label: 'Débito', icon: CreditCard, color: 'text-blue-600 bg-blue-50' },
     card: { label: 'Crédito', icon: CreditCard, color: 'text-purple-600 bg-purple-50' },
@@ -49,11 +69,71 @@ export function CustomersDetail() {
         staleTime: 1000 * 60 * 5
     })
 
-        // Análise de Tamanhos por Grupo (usando helper centralizado)
-        const sizeAnalysis = calculateCustomerSizeAnalysis(allItems)
+    const allItems = useMemo(() => (
+        vendas.flatMap((venda) => (venda.items || []).map((item) => ({
+            ...item,
+            category: item.category || item.productCategory || item.product_category || item.collection || '',
+            name: item.name || item.productName || item.title || '',
+            productName: item.productName || item.name || item.title || '',
+            quantity: Number(item.quantity || item.qty || 1)
+        })))
+    ), [vendas])
 
-        return { totalGasto, totalPedidos, ticketMedio, ultimaCompra, diasSemComprar, totalPecas, categorias, topItens, metodoPref, sizeAnalysis }
-    }, [customer, vendas])
+    const metrics = useMemo(() => {
+        const totalGasto = Number(customer?.lifetimeValue ?? vendas.reduce((sum, venda) => sum + Number(venda.totalValue || venda.total_value || 0), 0))
+        const totalPedidos = Number(customer?.totalOrders ?? vendas.length)
+        const ticketMedio = totalPedidos > 0 ? totalGasto / totalPedidos : 0
+
+        const lastPurchaseDate = customer?.lastPurchaseDate || vendas.reduce((latest, venda) => {
+            const current = new Date(venda.createdAt || venda.created_at || 0)
+            if (!latest || current > latest) return current
+            return latest
+        }, null)
+
+        const ultimaCompra = lastPurchaseDate instanceof Date && !Number.isNaN(lastPurchaseDate.getTime())
+            ? lastPurchaseDate.toISOString()
+            : customer?.lastPurchaseDate || null
+
+        const diasSemComprar = ultimaCompra
+            ? Math.floor((Date.now() - new Date(ultimaCompra)) / (1000 * 60 * 60 * 24))
+            : null
+
+        const totalPecas = allItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0)
+
+        const categoriasMap = {}
+        const topItensMap = {}
+        const paymentMethodCounts = {}
+
+        allItems.forEach((item) => {
+            const category = (item.category || 'Sem categoria').trim()
+            categoriasMap[category] = (categoriasMap[category] || 0) + Number(item.quantity || 1)
+
+            const itemName = (item.name || item.productName || 'Item').trim()
+            topItensMap[itemName] = (topItensMap[itemName] || 0) + Number(item.quantity || 1)
+        })
+
+        vendas.forEach((venda) => {
+            const method = venda.paymentMethod || venda.payment_method
+            if (!method) return
+            paymentMethodCounts[method] = (paymentMethodCounts[method] || 0) + 1
+        })
+
+        const categorias = Object.entries(categoriasMap).sort((a, b) => b[1] - a[1])
+        const topItens = Object.entries(topItensMap).sort((a, b) => b[1] - a[1]).slice(0, 8)
+        const metodoPref = Object.entries(paymentMethodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null
+
+        return {
+            totalGasto,
+            totalPedidos,
+            ticketMedio,
+            ultimaCompra,
+            diasSemComprar,
+            totalPecas,
+            categorias,
+            topItens,
+            metodoPref,
+        }
+    }, [customer, vendas, allItems])
 
     const segment = SEGMENT_CONFIG[customer?.segment] || SEGMENT_CONFIG.inactive
 
@@ -62,7 +142,7 @@ export function CustomersDetail() {
             <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
                 <div className="h-48 bg-gray-100 rounded-3xl" />
                 <div className="grid grid-cols-4 gap-4">
-                    {[1,2,3,4].map(i => <div key={i} className="h-28 bg-gray-100 rounded-2xl" />)}
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-gray-100 rounded-2xl" />)}
                 </div>
             </div>
         )
@@ -85,8 +165,6 @@ export function CustomersDetail() {
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-20">
-
-            {/* ── HEADER ── */}
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="flex items-center gap-4 mb-6">
                     <Link
@@ -101,27 +179,26 @@ export function CustomersDetail() {
                     </div>
                 </div>
 
-                {/* Profile Card */}
                 <div className="relative bg-gradient-to-br from-[#4A3B32] via-[#5A4B42] to-[#4A3B32] rounded-3xl p-6 md:p-8 text-white overflow-hidden shadow-xl">
                     <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#C75D3B]/30 to-transparent pointer-events-none" />
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
+                    <div className="relative z-10 flex flex-col items-center text-center gap-6">
                         <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white font-bold text-2xl border border-white/20 flex-shrink-0">
                             {getInitials(customer.name)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                        <div className="min-w-0 max-w-3xl">
+                            <div className="flex flex-wrap items-center justify-center gap-3 mb-2">
                                 <h2 className="text-2xl md:text-3xl font-display font-bold truncate">{customer.name}</h2>
                                 <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border', segment.color)}>
                                     <span className={cn('w-1.5 h-1.5 rounded-full', segment.dot)} />
                                     {segment.label}
                                 </span>
-                                {metrics.totalPedidos > 0 && (metrics.totalGasto / metrics.totalPedidos) > (metrics.totalGasto / Math.max(metrics.totalPedidos, 1)) * 1.5 && (
+                                {metrics.totalPedidos > 0 && (metrics.totalGasto / metrics.totalPedidos) > 400 && (
                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-400/20 border border-amber-400/30 text-amber-200 text-xs font-bold">
                                         <Star className="w-3 h-3 fill-amber-300" /> VIP
                                     </span>
                                 )}
                             </div>
-                            <div className="flex flex-wrap gap-4 text-white/70 text-sm">
+                            <div className="flex flex-wrap items-center justify-center gap-4 text-white/70 text-sm">
                                 {customer.phone && (
                                     <span className="flex items-center gap-1.5">
                                         <Phone className="w-3.5 h-3.5" /> {customer.phone}
@@ -144,7 +221,7 @@ export function CustomersDetail() {
                                 )}
                             </div>
                         </div>
-                        <div className="flex gap-3 flex-shrink-0">
+                        <div className="flex flex-wrap items-center justify-center gap-3 flex-shrink-0">
                             {customer.phone && (
                                 <button
                                     onClick={openWhatsApp}
@@ -166,7 +243,6 @@ export function CustomersDetail() {
                 </div>
             </motion.div>
 
-            {/* ── KPI CARDS ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                     { label: 'Total Gasto', value: formatCurrency(metrics.totalGasto), icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -201,74 +277,9 @@ export function CustomersDetail() {
                 ))}
             </div>
 
-            {/* ── SIZE ANALYSIS ── */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
-            >
-                <Card className="border-none shadow-lg overflow-hidden bg-white">
-                    <CardHeader className="bg-[#FAF8F5] border-b border-[#4A3B32]/5 py-4">
-                        <CardTitle className="text-[#4A3B32] flex items-center gap-2 text-lg">
-                            <TrendingUp className="w-5 h-5 text-[#C75D3B]" />
-                            Análise de Perfil & Tamanhos
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            {Object.entries(metrics.sizeAnalysis).map(([key, analysis]) => (
-                                <div key={key} className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{analysis.label}</p>
-                                        <div className="px-2 py-1 bg-[#4A3B32]/5 rounded-lg text-[10px] font-black text-[#4A3B32]/40 uppercase">
-                                            {key}
-                                        </div>
-                                    </div>
-                                    
-                                    {analysis.primary ? (
-                                        <div className="bg-gradient-to-br from-[#FDFBF7] to-white p-4 rounded-2xl border border-[#4A3B32]/5 relative group overflow-hidden">
-                                            <div className="absolute top-0 right-0 w-16 h-16 bg-[#C75D3B]/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-                                            <p className="text-xs text-[#4A3B32]/50 mb-1">Tamanho Principal</p>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-4xl font-black text-[#C75D3B]">{analysis.primary}</span>
-                                                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">FIT</span>
-                                            </div>
-                                            
-                                            <div className="mt-4 space-y-1.5">
-                                                {Object.entries(analysis.counts).sort((a,b) => b[1]-a[1]).map(([size, count], idx) => (
-                                                    <div key={size} className="flex items-center gap-2">
-                                                        <span className={cn(
-                                                            "w-6 text-[10px] font-bold",
-                                                            size === analysis.primary ? "text-[#C75D3B]" : "text-gray-400"
-                                                        )}>{size}</span>
-                                                        <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className={cn("h-full rounded-full", size === analysis.primary ? "bg-[#C75D3B]" : "bg-gray-300")} 
-                                                                style={{ width: `${(count / Object.values(analysis.counts).reduce((a,b) => a+b, 0)) * 100}%` }} 
-                                                            />
-                                                        </div>
-                                                        <span className="text-[10px] text-gray-400 font-medium">{count}x</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="h-[120px] bg-gray-50 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center text-center p-4">
-                                            <Tag className="w-6 h-6 text-gray-200 mb-2" />
-                                            <p className="text-[10px] text-gray-400 font-medium leading-tight">Sem histórico suficiente para este grupo</p>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            </motion.div>
+            <SizeProfileDeepDive vendas={vendas} />
 
-            {/* ── MAIN CONTENT ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* Purchase History */}
                 <div className="lg:col-span-2 space-y-4">
                     <h2 className="text-lg font-bold text-[#4A3B32] flex items-center gap-2">
                         <ShoppingBag className="w-5 h-5 text-[#C75D3B]" />
@@ -278,7 +289,7 @@ export function CustomersDetail() {
 
                     {vendasLoading ? (
                         <div className="space-y-3">
-                            {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />)}
+                            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />)}
                         </div>
                     ) : vendas.length === 0 ? (
                         <Card className="border border-gray-100">
@@ -293,6 +304,7 @@ export function CustomersDetail() {
                                 const payConf = PAYMENT_LABELS[venda.paymentMethod] || { label: venda.paymentMethod, icon: CreditCard, color: 'text-gray-600 bg-gray-50' }
                                 const PayIcon = payConf.icon
                                 const isCancelled = venda.paymentStatus === 'cancelled'
+
                                 return (
                                     <motion.div
                                         key={venda.id}
@@ -342,9 +354,7 @@ export function CustomersDetail() {
                     )}
                 </div>
 
-                {/* Summary Sidebar */}
                 <div className="space-y-4">
-                    {/* Total de Peças */}
                     <Card className="border border-gray-100 shadow-sm">
                         <CardContent className="p-5">
                             <div className="flex items-center gap-3 mb-4">
@@ -358,76 +368,61 @@ export function CustomersDetail() {
                                     <span className="text-gray-500">Total de peças</span>
                                     <span className="font-bold text-[#4A3B32]">{metrics.totalPecas}</span>
                                 </div>
-                                {metrics.totalPedidos > 0 && (
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-500">Peças por pedido</span>
-                                        <span className="font-bold text-[#4A3B32]">{(metrics.totalPecas / metrics.totalPedidos).toFixed(1)}</span>
-                                    </div>
-                                )}
-                                {metrics.metodoPref && (
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-500">Pagamento preferido</span>
-                                        <span className="font-bold text-[#4A3B32]">{PAYMENT_LABELS[metrics.metodoPref]?.label || metrics.metodoPref}</span>
-                                    </div>
-                                )}
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Peças por pedido</span>
+                                    <span className="font-bold text-[#4A3B32]">
+                                        {metrics.totalPedidos > 0 ? (metrics.totalPecas / metrics.totalPedidos).toFixed(1) : '0'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Pagamento preferido</span>
+                                    <span className="font-bold text-[#4A3B32]">
+                                        {metrics.metodoPref ? (PAYMENT_LABELS[metrics.metodoPref]?.label || metrics.metodoPref) : '—'}
+                                    </span>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Categorias */}
-                    {metrics.categorias.length > 0 && (
-                        <Card className="border border-gray-100 shadow-sm">
-                            <CardContent className="p-5">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
-                                        <Tag className="w-4 h-4 text-blue-600" />
+                    <Card className="border border-gray-100 shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-[#FAF3F0] flex items-center justify-center">
+                                    <TrendingUp className="w-4 h-4 text-[#C75D3B]" />
+                                </div>
+                                <p className="font-bold text-[#4A3B32]">Categorias</p>
+                            </div>
+                            <div className="space-y-2">
+                                {metrics.categorias.slice(0, 5).map(([cat, count]) => (
+                                    <div key={cat} className="flex justify-between text-sm">
+                                        <span className="text-gray-500 capitalize">{cat}</span>
+                                        <span className="font-bold text-[#4A3B32]">{count}</span>
                                     </div>
-                                    <p className="font-bold text-[#4A3B32]">Categorias</p>
-                                </div>
-                                <div className="space-y-2">
-                                    {metrics.categorias.map(([cat, count]) => {
-                                        const pct = metrics.totalPecas > 0 ? Math.round((count / metrics.totalPecas) * 100) : 0
-                                        return (
-                                            <div key={cat}>
-                                                <div className="flex justify-between text-xs mb-1">
-                                                    <span className="text-gray-600 font-medium truncate">{cat}</span>
-                                                    <span className="text-gray-400 ml-2 flex-shrink-0">{count} · {pct}%</span>
-                                                </div>
-                                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-[#C75D3B] rounded-full" style={{ width: `${pct}%` }} />
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    {/* Top Itens */}
-                    {metrics.topItens.length > 0 && (
-                        <Card className="border border-gray-100 shadow-sm">
-                            <CardContent className="p-5">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
-                                        <Award className="w-4 h-4 text-amber-600" />
+                    <Card className="border border-gray-100 shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-[#FAF3F0] flex items-center justify-center">
+                                    <Award className="w-4 h-4 text-[#C75D3B]" />
+                                </div>
+                                <p className="font-bold text-[#4A3B32]">Peças Favoritas</p>
+                            </div>
+                            <div className="space-y-2">
+                                {metrics.topItens.map(([name, count], idx) => (
+                                    <div key={name} className="flex justify-between text-sm">
+                                        <span className="text-gray-500">
+                                            {idx + 1}. {name}
+                                        </span>
+                                        <span className="font-bold text-[#4A3B32]">{count}x</span>
                                     </div>
-                                    <p className="font-bold text-[#4A3B32]">Peças Favoritas</p>
-                                </div>
-                                <div className="space-y-2">
-                                    {metrics.topItens.map(([name, count], i) => (
-                                        <div key={name} className="flex items-center gap-2 text-sm">
-                                            <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0">
-                                                {i + 1}
-                                            </span>
-                                            <span className="text-gray-600 truncate flex-1">{name}</span>
-                                            <span className="text-gray-400 flex-shrink-0">{count}x</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>

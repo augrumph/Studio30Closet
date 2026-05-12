@@ -26,7 +26,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 
 // Componentes
-import { FinancialScoreboard, CashFlowSection, ParcelinhasModal } from '@/components/admin/dashboard'
+import { FinancialScoreboard, CashFlowSection, ParcelinhasModal, SizeProfileDeepDive } from '@/components/admin/dashboard'
 import { BusinessOverview } from '@/components/admin/dashboard/BusinessOverview'
 // import { SitePulse } from '@/components/admin/dashboard/SitePulse' // Movido para página do site
 import { useAnalyticsSummary } from '@/hooks/useAnalytics'
@@ -395,6 +395,9 @@ export function Dashboard() {
 
             {/* 3.1 BUSINESS OVERVIEW - Reconciliação, Mensal e Investimento */}
             <BusinessOverview data={businessOverviewData} isLoading={isLoadingOverview} />
+
+            {/* 3.15 PERFIL DE TAMANHOS - LEITURA PROFUNDA */}
+            <SizeProfileDeepDive vendas={vendas} />
 
             {/* 3. TRENDS & TOP CUSTOMERS */}
             <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">

@@ -5,6 +5,7 @@ import { updateProductStock } from '../stock-utils.js'
 import { asyncHandler, AppError, ValidationError } from '../middleware/errorHandler.js'
 import { enrichImages } from '../lib/s3.js'
 import { payFullVendaLogic } from '../lib/venda-utils.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -40,7 +41,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
     // Filtro de método de pagamento
     if (method !== 'all') {
-        const validMethods = ['pix', 'debit', 'card_machine', 'credito_parcelado', 'fiado', 'fiado_parcelado', 'cash', 'card']
+        const validMethods = ['pending_decision', 'pix', 'debit', 'card_machine', 'credito_parcelado', 'fiado', 'fiado_parcelado', 'cash', 'card']
         if (!validMethods.includes(method)) {
             throw new ValidationError({ message: 'Método de pagamento inválido', method })
         }
@@ -233,6 +234,7 @@ router.post('/', async (req, res) => {
 
         await client.query('COMMIT')
 
+        emitRealtimeEvent('venda.created', { id: novaVenda.id })
         res.status(201).json(enrichImages(toCamelCase(novaVenda)))
     } catch (error) {
         await client.query('ROLLBACK')
@@ -372,6 +374,7 @@ router.put('/:id', async (req, res) => {
         }
 
         console.log(`✅ Venda #${id} atualizada com sucesso`)
+        emitRealtimeEvent('venda.updated', { id: Number(id) })
         res.json(enrichImages(updated))
     } catch (error) {
         await client.query('ROLLBACK')
@@ -420,6 +423,7 @@ router.patch('/:id/pay', asyncHandler(async (req, res) => {
     `, [id])
 
     console.log(`✅ Venda #${id} liquidada com sucesso via ação rápida`)
+    emitRealtimeEvent('venda.updated', { id: Number(id) })
     res.json(enrichImages(toCamelCase(updated)))
 }))
 
@@ -482,6 +486,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Venda não encontrada' })
         }
 
+        emitRealtimeEvent('venda.deleted', { id: Number(id) })
         res.json({ message: 'Venda deletada com sucesso' })
     } catch (error) {
         await client.query('ROLLBACK')

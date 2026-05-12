@@ -1,117 +1,116 @@
-import { useState, useEffect, useRef, Suspense } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
-import { AdminSidebar } from './AdminSidebar'
-import { AdminTopbar } from './AdminTopbar'
-
+import { useState, useEffect } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import {
+    LayoutDashboard,
+    Package,
+    ShoppingCart,
+    Users,
+    Settings,
+    Menu,
+    X,
+    LogOut,
+    ChevronRight,
+    Bell,
+    Search,
+    ShoppingBag,
+    Briefcase,
+    Store,
+    Truck,
+    CreditCard,
+    DollarSign,
+    Receipt,
+    Wallet
+} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CommandPalette } from '../CommandPalette'
-import { PageSkeleton } from '../PageSkeleton'
-import { useAdminStore } from '@/store/admin-store'
-import { AIChatSidebar } from '../ai/AIChatSidebar'
+import { AdminTopbar } from './AdminTopbar'
+import { AdminSidebar } from './AdminSidebar'
+import { cn } from '@/lib/utils'
 
 export function AdminLayout() {
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-    const [chatOpen, setChatOpen] = useState(false)
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const location = useLocation()
-    const lastLoadRef = useRef(0)
+    const navigate = useNavigate()
 
-    const isInitialLoading = useAdminStore(state => state.isInitialLoading)
-    const reloadAll = useAdminStore(state => state.reloadAll)
-    const hasData = useAdminStore(state =>
-        state.products.length > 0 || state.vendas.length > 0 || state.customers.length > 0
-    )
-
-    // ⚡ PERFORMANCE: Só recarrega se não houver dados OU se passaram 2 minutos
+    // Fechar menu mobile ao mudar de rota
     useEffect(() => {
-        const now = Date.now()
-        const timeSinceLastLoad = now - lastLoadRef.current
-        const shouldReload = !hasData || timeSinceLastLoad > 120000 // 2 minutos
+        setIsMobileMenuOpen(false)
+    }, [location.pathname])
 
-        if (shouldReload) {
-            lastLoadRef.current = now
-            reloadAll()
+    // Detectar screen size para fechar sidebar em telas pequenas
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 1024) {
+                setIsSidebarOpen(false)
+            } else {
+                setIsSidebarOpen(true)
+            }
         }
-    }, []) // Sem dependências - só na montagem
 
-    // Determine skeleton variant based on route
-    const getSkeletonVariant = () => {
-        const path = location.pathname
-        if (path === '/admin' || path === '/admin/') return 'dashboard'
-        if (path.includes('/products') && !path.includes('/new') && !path.includes('/edit')) return 'products'
-        if (path.includes('/customers') && !path.includes('/new') && !path.includes('/edit')) return 'customers'
-        if (path.includes('/vendas') && !path.includes('/new') && !path.includes('/edit')) return 'vendas'
-        if (path.includes('/malinhas') && !path.includes('/new') && !path.includes('/edit')) return 'malinhas'
-        if (path.includes('/new') || path.includes('/edit')) return 'form'
-        return 'list'
-    }
+        window.addEventListener('resize', handleResize)
+        handleResize() // Initial check
+
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
 
     return (
-        <div className="flex h-screen bg-[#FAF8F5] overflow-hidden max-w-screen">
-            <CommandPalette />
-
-            {/* Desktop Sidebar - Collapsible */}
-            <div className="hidden lg:block">
-                <AdminSidebar isCollapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        <div className="min-h-screen bg-[#FDFBF7] flex overflow-hidden font-sans">
+            {/* Sidebar para Desktop */}
+            <div className={cn(
+                "hidden lg:block fixed inset-y-0 left-0 z-50 bg-white border-r border-[#4A3B32]/5 transition-all duration-500 ease-in-out",
+                isSidebarOpen ? "w-72" : "w-20"
+            )}>
+                <AdminSidebar isOpen={isSidebarOpen} toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
             </div>
 
-            {/* Mobile Drawer Overlay */}
+            {/* Sidebar para Mobile (Overlay) */}
             <AnimatePresence>
-                {mobileMenuOpen && (
+                {isMobileMenuOpen && (
                     <>
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="fixed inset-0 bg-[#4A3B32]/40 backdrop-blur-sm z-[60] lg:hidden"
                         />
                         <motion.div
-                            initial={{ x: -280 }}
+                            initial={{ x: "-100%" }}
                             animate={{ x: 0 }}
-                            exit={{ x: -280 }}
+                            exit={{ x: "-100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed inset-y-0 left-0 w-[280px] z-50 lg:hidden"
+                            className="fixed inset-y-0 left-0 w-80 bg-white z-[70] lg:hidden"
                         >
-                            <AdminSidebar onClose={() => setMobileMenuOpen(false)} />
+                            <AdminSidebar isOpen={true} isMobile toggleSidebar={() => setIsMobileMenuOpen(false)} />
                         </motion.div>
                     </>
                 )}
             </AnimatePresence>
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden relative">
+            {/* Main Content Area */}
+            <div className={cn(
+                "flex-1 flex flex-col min-w-0 transition-all duration-500 ease-in-out",
+                isSidebarOpen ? "lg:pl-72" : "lg:pl-20"
+            )}>
                 {/* Topbar */}
                 <AdminTopbar
-                    onMenuClick={() => setMobileMenuOpen(true)}
-                    onChatClick={() => setChatOpen(true)}
+                    onMenuClick={() => setIsMobileMenuOpen(true)}
+                    isSidebarOpen={isSidebarOpen}
                 />
 
-                {/* Page Content with Transition */}
-                <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8 pb-20 lg:pb-8">
-                    <AnimatePresence mode="wait">
-                        {isInitialLoading ? (
-                            <PageSkeleton variant={getSkeletonVariant()} />
-                        ) : (
-                            <motion.div
-                                key={location.pathname}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <Suspense fallback={<PageSkeleton variant={getSkeletonVariant()} />}>
-                                    <Outlet />
-                                </Suspense>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                {/* Page Content */}
+                <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+                    <motion.div
+                        key={location.pathname}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="max-w-7xl mx-auto"
+                    >
+                        <Outlet />
+                    </motion.div>
                 </main>
             </div>
-
-            {/* AI Chat Sidebar */}
-            <AIChatSidebar isOpen={chatOpen} onClose={() => setChatOpen(false)} />
         </div>
     )
 }
-

@@ -12,13 +12,14 @@ import { apiClient } from '../api-client'
  * @param {number} limit - Itens por página
  */
 export async function getOrders(paramsOrPage = 1, limitArg = 30) {
-    let page, limit, status, searchTerm;
+    let page, limit, status, searchTerm, orderType;
 
     if (typeof paramsOrPage === 'object' && paramsOrPage !== null) {
         page = paramsOrPage.page || 1;
         limit = paramsOrPage.limit || 30;
         status = paramsOrPage.status;
         searchTerm = paramsOrPage.searchTerm;
+        orderType = paramsOrPage.orderType;
     } else {
         page = paramsOrPage || 1;
         limit = limitArg || 30;
@@ -31,6 +32,7 @@ export async function getOrders(paramsOrPage = 1, limitArg = 30) {
 
     if (status) queryParams.append('status', status);
     if (searchTerm) queryParams.append('search', searchTerm);
+    if (orderType) queryParams.append('orderType', orderType);
 
     return apiClient(`/orders?${queryParams.toString()}`);
 }
@@ -93,6 +95,20 @@ export async function deleteOrder(id) {
         method: 'DELETE'
     })
     return true
+}
+
+export async function issueOrderInvoice(id) {
+    return apiClient(`/orders/${id}/invoice`, {
+        method: 'POST',
+        body: {}
+    })
+}
+
+export async function generateOrderShippingLabel(id) {
+    return apiClient(`/orders/${id}/shipping/label`, {
+        method: 'POST',
+        body: {}
+    })
 }
 
 // ==============================================================================

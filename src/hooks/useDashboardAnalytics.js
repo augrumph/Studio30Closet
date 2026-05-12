@@ -103,20 +103,22 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
         vendas.forEach(v => {
             const name = v.customerName
             if (!name) return
+            const key = v.customerId || v.customer_id || name
 
-            if (!customerStats[name]) {
-                customerStats[name] = {
+            if (!customerStats[key]) {
+                customerStats[key] = {
+                    customerId: v.customerId || v.customer_id || null,
                     name: name,
                     revenue: 0,
                     frequency: 0,
                     lastPurchase: v.createdAt
                 }
             }
-            customerStats[name].revenue += (v.totalValue || 0)
-            customerStats[name].frequency += 1
-            customerStats[name].lastPurchase = new Date(v.createdAt) > new Date(customerStats[name].lastPurchase)
+            customerStats[key].revenue += (v.totalValue || 0)
+            customerStats[key].frequency += 1
+            customerStats[key].lastPurchase = new Date(v.createdAt) > new Date(customerStats[key].lastPurchase)
                 ? v.createdAt
-                : customerStats[name].lastPurchase
+                : customerStats[key].lastPurchase
         })
 
         return Object.values(customerStats)
@@ -170,7 +172,7 @@ export function useDashboardAnalytics(vendas, products = [], suppliers = []) {
                     }
 
                     const salePrice = item.price || 0
-                    const cost = masterProduct?.cost || 0
+                    const cost = masterProduct?.costPrice ?? masterProduct?.cost_price ?? masterProduct?.cost ?? 0
                     const revenue = salePrice * qty
                     const profit = (salePrice - cost) * qty
 

@@ -10,6 +10,7 @@ export function useAdminSales(filters = {}) {
         queryFn: () => getVendas(page, limit, {
             search: searchTerm,
             status: paymentStatus,
+            method: type,
             dateFilter: dateFilter
         }),
         staleTime: 1000 * 60 * 5, // 5 minutos

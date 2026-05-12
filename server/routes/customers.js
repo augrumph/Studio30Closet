@@ -35,45 +35,120 @@ router.get('/', async (req, res) => {
         }
 
         const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
+        const segmentFilterActive = segment && segment !== 'all'
+        const segmentUsesParam = segmentFilterActive && !['vip', 'birthdays', 'birthday_today'].includes(segment)
+        const segmentParamIndex = params.length + 1
+        let segmentClause = ''
+        if (segmentFilterActive) {
+            if (segment === 'vip') {
+                segmentClause = `WHERE lifetime_value > (avg_ltv * 1.5)`
+            } else if (segment === 'birthdays') {
+                segmentClause = `WHERE birth_date IS NOT NULL AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE)`
+            } else if (segment === 'birthday_today') {
+                segmentClause = `WHERE birth_date IS NOT NULL AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(DAY FROM birth_date) = EXTRACT(DAY FROM CURRENT_DATE)`
+            } else {
+                segmentClause = `WHERE segment = $${segmentParamIndex}`
+            }
+        }
+
+        const cte = `
+            WITH customer_metrics AS (
+                SELECT
+                    c.id,
+                    c.name,
+                    c.phone,
+                    c.email,
+                    c.cpf,
+                    c.address,
+                    c.addresses,
+                    c.instagram,
+                    c.birth_date,
+                    c.created_at,
+                    COALESCE(SUM(v.total_value), 0) as lifetime_value,
+                    COUNT(v.id) as total_orders,
+                    MAX(v.created_at) as last_purchase_date,
+                    CASE
+                        WHEN COUNT(v.id) = 0 THEN 'inactive'
+                        WHEN MAX(v.created_at) < NOW() - INTERVAL '60 days' THEN 'churned'
+                        WHEN MAX(v.created_at) < NOW() - INTERVAL '30 days' THEN 'at_risk'
+                        ELSE 'active'
+                    END as segment
+                FROM customers c
+                LEFT JOIN vendas v ON v.customer_id = c.id AND v.payment_status != 'cancelled'
+                ${whereClause}
+                GROUP BY c.id, c.name, c.phone, c.email, c.cpf, c.address, c.addresses, c.instagram, c.birth_date, c.created_at
+            )
+        `
+        const cteWithAvg = `
+            ${cte},
+            customer_metrics_with_avg AS (
+                SELECT *, AVG(lifetime_value) OVER () as avg_ltv
+                FROM customer_metrics
+            )
+        `
 
         const { rows } = await pool.query(`
+            ${cteWithAvg}
             SELECT
                 COUNT(*) OVER() as total_count,
-                c.id,
-                c.name,
-                c.phone,
-                c.email,
-                c.cpf,
-                c.address,
-                c.addresses,
-                c.instagram,
-                c.birth_date,
-                c.created_at,
-                COALESCE(SUM(v.total_value), 0) as lifetime_value,
-                COUNT(v.id) as total_orders,
-                MAX(v.created_at) as last_purchase_date,
-                CASE
-                    WHEN COUNT(v.id) = 0 THEN 'inactive'
-                    WHEN MAX(v.created_at) < NOW() - INTERVAL '60 days' THEN 'churned'
-                    WHEN MAX(v.created_at) < NOW() - INTERVAL '30 days' THEN 'at_risk'
-                    ELSE 'active'
-                END as segment
-            FROM customers c
-            LEFT JOIN vendas v ON v.customer_id = c.id AND v.payment_status != 'cancelled'
-            ${whereClause}
-            GROUP BY c.id, c.name, c.phone, c.email, c.cpf, c.address, c.addresses, c.instagram, c.birth_date, c.created_at
-            ORDER BY c.name ASC
-            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `, [...params, limit, offset])
+                customer_metrics_with_avg.*,
+                (lifetime_value > (avg_ltv * 1.5)) as is_vip,
+                (
+                    birth_date IS NOT NULL
+                    AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE)
+                ) as is_birthday_this_month,
+                (
+                    birth_date IS NOT NULL
+                    AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE)
+                    AND EXTRACT(DAY FROM birth_date) = EXTRACT(DAY FROM CURRENT_DATE)
+                ) as is_birthday_today
+            FROM customer_metrics_with_avg
+            ${segmentClause}
+            ORDER BY lifetime_value DESC, total_orders DESC, name ASC
+            LIMIT $${segmentFilterActive && segmentUsesParam ? segmentParamIndex + 1 : segmentParamIndex} OFFSET $${segmentFilterActive && segmentUsesParam ? segmentParamIndex + 2 : segmentParamIndex + 1}
+        `, [...params, ...(segmentUsesParam ? [segment] : []), limit, offset])
 
         const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0
+
+        const { rows: summaryRows } = await pool.query(`
+            ${cteWithAvg}
+            SELECT
+                COUNT(*) FILTER (WHERE segment = 'active')::int as active,
+                COUNT(*) FILTER (WHERE segment = 'at_risk')::int as at_risk,
+                COUNT(*) FILTER (WHERE segment = 'churned')::int as churned,
+                COUNT(*) FILTER (WHERE segment = 'inactive')::int as inactive,
+                COUNT(*) FILTER (WHERE lifetime_value > (avg_ltv * 1.5))::int as vip,
+                COUNT(*) FILTER (
+                    WHERE birth_date IS NOT NULL
+                      AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE)
+                )::int as birthdays,
+                COUNT(*) FILTER (
+                    WHERE birth_date IS NOT NULL
+                      AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE)
+                      AND EXTRACT(DAY FROM birth_date) = EXTRACT(DAY FROM CURRENT_DATE)
+                )::int as birthday_today
+            FROM customer_metrics_with_avg
+        `, params)
+
+        const summaryCounts = summaryRows[0] || {
+            active: 0,
+            at_risk: 0,
+            churned: 0,
+            inactive: 0,
+            vip: 0,
+            birthdays: 0,
+            birthday_today: 0
+        }
 
         const customers = rows.map(c => {
             const camelCustomer = toCamelCase(c)
             return {
                 ...camelCustomer,
                 lifetimeValue: parseFloat(camelCustomer.lifetimeValue) || 0,
-                totalOrders: parseInt(camelCustomer.totalOrders) || 0
+                totalOrders: parseInt(camelCustomer.totalOrders) || 0,
+                isVip: Boolean(camelCustomer.isVip),
+                isBirthdayThisMonth: Boolean(camelCustomer.isBirthdayThisMonth),
+                isBirthdayToday: Boolean(camelCustomer.isBirthdayToday)
             }
         })
 
@@ -82,7 +157,8 @@ router.get('/', async (req, res) => {
             total,
             page: Number(page),
             pageSize,
-            totalPages: Math.ceil(total / pageSize)
+            totalPages: Math.ceil(total / pageSize),
+            summaryCounts
         })
 
     } catch (error) {

@@ -41,6 +41,7 @@ import { apiClient } from '@/lib/api-client'
 
 // Configuração dos métodos de pagamento
 const PAYMENT_METHODS = [
+    { id: 'pending_decision', label: 'A decidir', icon: Clock, color: 'slate' },
     { id: 'pix', label: 'PIX', icon: QrCode, color: 'emerald' },
     { id: 'debit', label: 'Débito', icon: CreditCard, color: 'blue' },
     { id: 'card_machine', label: 'Crédito', icon: CreditCard, color: 'violet' },
@@ -91,9 +92,9 @@ export function VendasForm() {
     const [formData, setFormData] = useState({
         customerId: '',
         customerName: '',
-        paymentMethod: 'pix',
+        paymentMethod: 'pending_decision',
         cardBrand: 'visa',
-        paymentStatus: 'paid',
+        paymentStatus: 'pending',
         items: [],
         couponCode: '',
         discountAmount: 0
@@ -129,30 +130,41 @@ export function VendasForm() {
                 else if (venda.paymentMethod === 'credito') adjustedPaymentMethod = 'credito_parcelado'
             }
 
+            const loadedDiscount = parseFloat(venda.discountAmount) || 0
+
             setFormData({
                 customerId: venda.customerId,
                 customerName: venda.customerName,
-                paymentMethod: adjustedPaymentMethod,
+                paymentMethod: adjustedPaymentMethod || 'pending_decision',
                 cardBrand: venda.cardBrand || 'visa',
-                paymentStatus: venda.paymentStatus,
+                paymentStatus: venda.paymentStatus || 'pending',
                 items: parsedItems,
                 couponCode: venda.couponCode || '',
-                discountAmount: venda.discountAmount || 0
+                discountAmount: loadedDiscount
             })
+            setManualDiscount(loadedDiscount > 0
+                ? { type: 'fixed', value: String(loadedDiscount) }
+                : { type: 'percent', value: '' }
+            )
             if (venda.isInstallment) {
-                setParcelas(venda.numInstallments || 2)
-                setEntryPayment(venda.entryPayment || 0)
-                setInstallmentStartDate(venda.installmentStartDate || '')
+                const loadedParcelas = parseInt(venda.numInstallments) || 2
+                const loadedEntryPayment = parseFloat(venda.entryPayment) || 0
+                const loadedStartDate = venda.installmentStartDate?.split?.('T')?.[0] || venda.installmentStartDate || ''
+
+                setParcelas(loadedParcelas)
+                setEntryPayment(loadedEntryPayment)
+                setInstallmentStartDate(loadedStartDate)
                 setOriginalParcelasConfig({
-                    parcelas: venda.numInstallments || 2,
-                    entryPayment: venda.entryPayment || 0,
-                    installmentStartDate: venda.installmentStartDate || '',
+                    parcelas: loadedParcelas,
+                    entryPayment: loadedEntryPayment,
+                    installmentStartDate: loadedStartDate,
                     paymentMethod: adjustedPaymentMethod
                 })
             } else {
                 setParcelas(1)
                 setEntryPayment(0)
                 setInstallmentStartDate('')
+                setOriginalParcelasConfig(null)
             }
         }
     }, [isEdit, vendaData])
@@ -180,7 +192,8 @@ export function VendasForm() {
         paymentMethod: formData.paymentMethod,
         cardBrand: formData.cardBrand,
         parcelas: parcelas,
-        totalValue: subtotal - (parseFloat(formData.discountAmount) || 0),
+        totalValue: subtotal,
+        discountAmount: parseFloat(formData.discountAmount) || 0,
         paymentStatus: formData.paymentStatus
     })
 
@@ -208,11 +221,11 @@ export function VendasForm() {
     // Handlers
     const handlePaymentMethodChange = (methodId) => {
         const isCredit = ['fiado', 'fiado_parcelado'].includes(methodId)
+        const isUndecided = methodId === 'pending_decision'
         setFormData(prev => ({
             ...prev,
             paymentMethod: methodId,
-            // ✅ Automar status: Se for crediário, coloca como pendente
-            paymentStatus: isCredit ? 'pending' : 'paid'
+            paymentStatus: isCredit || isUndecided ? 'pending' : 'paid'
         }))
 
         if (methodId === 'credito_parcelado') {
@@ -365,8 +378,8 @@ export function VendasForm() {
         toast.promise(action, {
             loading: isEdit ? 'Atualizando...' : 'Registrando venda...',
             success: async (result) => {
-                if (result.success || result.id) { // create/update usually return object with id
-                    const vendaId = result.id || result.data?.id
+                if (result.success || result.id || isEdit) {
+                    const vendaId = result.id || result.data?.id || result.venda?.id || (isEdit ? parseInt(id) : null)
                     if (isParcelado && vendaId) {
                         const configChanged = !isEdit ||
                             !originalParcelasConfig ||

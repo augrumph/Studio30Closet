@@ -86,11 +86,11 @@ export function MalinhasForm() {
                 items: (orderData.items || []).map(item => ({
                     productId: item.productId,
                     productName: item.productName || item.name || '',
-                    price: item.price,
+                    price: Number(item.price ?? item.priceAtTime ?? item.unitPrice ?? item.totalPrice ?? 0),
                     costPrice: item.costPrice || 0,
                     selectedSize: item.selectedSize,
                     selectedColor: item.selectedColor || item.color || 'Padrão',
-                    image: item.image
+                    image: item.image || item.images?.[0] || item.product?.images?.[0] || item.productSnapshot?.images?.[0] || null
                 }))
             })
         }
@@ -106,7 +106,7 @@ export function MalinhasForm() {
         const newItem = {
             productId: product.id,
             productName: product.name,
-            price: product.price,
+            price: Number(product.price || 0),
             image: product.images?.[0] || product.image || null,
             selectedSize: size,
             selectedColor: color,
@@ -174,10 +174,10 @@ export function MalinhasForm() {
             return
         }
 
-        const totalValue = formData.items.reduce((sum, item) => sum + Number(item.price || 0), 0)
+        const totalValue = formData.items.reduce((sum, item) => sum + Number(item.price || item.priceAtTime || item.unitPrice || 0), 0)
 
         // Validar preços dos produtos
-        const invalidPriceItems = formData.items.filter(item => !item.price || item.price <= 0)
+        const invalidPriceItems = formData.items.filter(item => Number(item.price || item.priceAtTime || item.unitPrice || 0) <= 0)
         if (invalidPriceItems.length > 0) {
             // console.log('Itens com preço inválido:', invalidPriceItems)
             toast.error(`${invalidPriceItems.length} produto(s) sem preço válido. Remova-os da malinha.`)
@@ -202,7 +202,7 @@ export function MalinhasForm() {
                     quantity: parseInt(item.quantity || 1),
                     selectedSize: item.selectedSize || 'Único',
                     selectedColor: item.selectedColor || 'Padrão',
-                    price: parseFloat(item.price || 0),
+                    price: parseFloat(item.price || item.priceAtTime || item.unitPrice || 0),
                     costPrice: parseFloat(item.costPrice || 0)
                 };
             })
@@ -515,7 +515,17 @@ export function MalinhasForm() {
                                                         className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group hover:bg-gray-100 transition-all"
                                                     >
                                                         <div className="w-12 h-14 rounded-lg overflow-hidden bg-white flex-shrink-0">
-                                                            <img src={getOptimizedImageUrl(item.image, 200)} alt={item.productName} className="w-full h-full object-cover" />
+                                                            {item.image || item.images?.[0] || item.product?.images?.[0] ? (
+                                                                <img
+                                                                    src={getOptimizedImageUrl(item.image || item.images?.[0] || item.product?.images?.[0], 200)}
+                                                                    alt={item.productName}
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                                                    <Package className="w-4 h-4 text-gray-200" />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-xs font-bold text-[#4A3B32] truncate">{item.productName}</p>
@@ -524,7 +534,7 @@ export function MalinhasForm() {
                                                                     {item.selectedSize}
                                                                 </span>
                                                                 <span className="text-xs font-bold text-[#C75D3B]">
-                                                                    R$ {(item.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    R$ {Number(item.price || item.priceAtTime || item.unitPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -551,8 +561,8 @@ export function MalinhasForm() {
                                         <div className="pt-4 border-t border-gray-200">
                                             <div className="flex items-center justify-between">
                                                 <span className="font-bold text-[#4A3B32]">Total</span>
-                                                <span className="text-xl font-bold text-[#C75D3B]">
-                                                    R$ {formData.items.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            <span className="text-xl font-bold text-[#C75D3B]">
+                                                    R$ {formData.items.reduce((sum, item) => sum + Number(item.price || item.priceAtTime || item.unitPrice || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                         </div>
@@ -643,14 +653,14 @@ export function MalinhasForm() {
                             onClick={(e) => e.stopPropagation()}
                             className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl max-h-[80vh] overflow-y-auto"
                         >
-                            <div className="p-4 border-b border-[#4A3B32]/5 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-xl bg-[#4A3B32]/5 overflow-hidden">
-                                        {p.images?.[0] ? (
-                                            <img src={getOptimizedImageUrl(p.images[0], 200)} alt="" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <Package className="w-5 h-5 text-[#4A3B32]/20" />
+                                    <div className="p-4 border-b border-[#4A3B32]/5 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-xl bg-[#4A3B32]/5 overflow-hidden">
+                                                {p.images?.[0] ? (
+                                                    <img src={getOptimizedImageUrl(p.images[0], 200)} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <Package className="w-5 h-5 text-[#4A3B32]/20" />
                                             </div>
                                         )}
                                     </div>

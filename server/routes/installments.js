@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 import { cacheMiddleware } from '../cache.js'
 import { validateInstallmentPayment } from '../middleware/validation.js'
 import { calculateInstallmentFields, syncVendaPaymentStatus, payFullVendaLogic } from '../lib/venda-utils.js'
@@ -398,10 +399,13 @@ router.post('/create', async (req, res) => {
     }
 
     const startDate = installmentStartDate || new Date().toISOString().split('T')[0]
+    const client = await pool.connect()
 
     try {
+        await client.query('BEGIN')
+
         // Verificar se já existem parcelas COM PAGAMENTOS (segurança)
-        const { rows: existing } = await pool.query(
+        const { rows: existing } = await client.query(
             'SELECT id, paid_amount FROM installments WHERE venda_id = $1',
             [vendaId]
         )
@@ -409,22 +413,24 @@ router.post('/create', async (req, res) => {
         if (existing.length > 0) {
             const temPagamento = existing.some(p => (parseFloat(p.paid_amount) || 0) > 0)
             if (temPagamento) {
+                await client.query('ROLLBACK')
                 return res.status(409).json({
                     success: false,
                     error: 'Esta venda já possui pagamentos registrados. Estorne os pagamentos primeiro para re-gerar parcelas.'
                 })
             }
             // Deletar parcelas sem pagamento para re-gerar
-            await pool.query('DELETE FROM installments WHERE venda_id = $1', [vendaId])
+            await client.query('DELETE FROM installments WHERE venda_id = $1', [vendaId])
         }
 
         // Buscar dados da venda
-        const { rows: vendaRows } = await pool.query(
+        const { rows: vendaRows } = await client.query(
             'SELECT total_value, entry_payment FROM vendas WHERE id = $1',
             [vendaId]
         )
 
         if (vendaRows.length === 0) {
+            await client.query('ROLLBACK')
             return res.status(404).json({ success: false, error: 'Venda não encontrada' })
         }
 
@@ -449,7 +455,7 @@ router.post('/create', async (req, res) => {
                 ? (valorParcelar - baseAmount * (numInstallments - 1)).toFixed(2)
                 : baseAmount.toFixed(2)
 
-            const { rows: inst } = await pool.query(`
+            const { rows: inst } = await client.query(`
                 INSERT INTO installments (venda_id, installment_number, due_date, original_amount, paid_amount, remaining_amount, status)
                 VALUES ($1, $2, $3, $4, 0, $4, 'pending')
                 RETURNING *
@@ -458,11 +464,18 @@ router.post('/create', async (req, res) => {
             insertedInstallments.push(inst[0])
         }
 
+        await client.query('COMMIT')
+
         console.log(`✅ ${numInstallments} parcelas criadas para venda #${vendaId}`)
+        emitRealtimeEvent('installments.updated', { vendaId: Number(vendaId) })
+        emitRealtimeEvent('venda.updated', { id: Number(vendaId) })
         res.status(201).json({ success: true, count: numInstallments, installments: insertedInstallments.map(toCamelCase) })
     } catch (error) {
+        await client.query('ROLLBACK').catch(() => { })
         console.error(`❌ Erro ao criar parcelas da venda ${vendaId}:`, error)
         res.status(500).json({ success: false, error: 'Erro ao criar parcelas' })
+    } finally {
+        client.release()
     }
 })
 
@@ -767,4 +780,3 @@ router.post('/cleanup-duplicates', async (req, res) => {
 })
 
 export default router
-

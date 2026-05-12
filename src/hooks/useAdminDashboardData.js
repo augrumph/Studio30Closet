@@ -8,7 +8,7 @@ export function useAdminDashboardData(filters = {}) {
     const vendasQuery = useQuery({
         queryKey: ['admin', 'all-vendas'],
         queryFn: async () => {
-            const data = await apiClient('/vendas?pageSize=1000')
+            const data = await apiClient('/vendas?pageSize=10000')
             return data.vendas || []
         },
         staleTime,
@@ -22,7 +22,7 @@ export function useAdminDashboardData(filters = {}) {
 
     const productsQuery = useQuery({
         queryKey: ['admin', 'all-products'],
-        queryFn: () => apiClient('/products'),
+        queryFn: () => apiClient('/products?pageSize=10000'),
         staleTime,
     })
 
@@ -40,7 +40,7 @@ export function useAdminDashboardData(filters = {}) {
 
     const customersQuery = useQuery({
         queryKey: ['admin', 'all-customers'],
-        queryFn: () => apiClient('/customers?pageSize=1000'),
+        queryFn: () => apiClient('/customers?pageSize=10000'),
         staleTime,
     })
 
@@ -91,5 +91,4 @@ export function useAdminDashboardData(filters = {}) {
         }
     }
 }
-
 

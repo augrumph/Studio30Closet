@@ -9,7 +9,7 @@ export function useAdminProducts({ page = 1, pageSize = 20, search = '', categor
     const queryClient = useQueryClient()
 
     const query = useQuery({
-        queryKey: ['admin', 'products-paginated', { page, pageSize, search, category, active }],
+        queryKey: ['admin', 'products-paginated', { page, pageSize, search, category, active, full }],
         queryFn: async () => {
             const queryParams = new URLSearchParams({
                 page: page.toString(),

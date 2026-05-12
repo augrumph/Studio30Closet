@@ -1,11 +1,17 @@
 import express from 'express'
 import { pool, getClient } from '../db.js'
 import { toCamelCase } from '../utils.js'
-import { updateProductStock } from '../stock-utils.js'
 import { extractKeyFromUrl, getPresignedUrl, enrichImages } from '../lib/s3.js'
 import { sendNewMalinhaNotification } from '../email-service.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { isValidCpf, normalizeCpf } from '../lib/cpf.js'
+import { enqueueNfeForOrder } from '../services/nuvem-fiscal.js'
+import { 
+    createMelhorEnvioLabelDraft, 
+    checkoutMelhorEnvio, 
+    generateMelhorEnvioLabel, 
+    getMelhorEnvioLabelPrintUrl 
+} from '../services/melhor-envio.js'
 
 const router = express.Router()
 
@@ -50,12 +56,13 @@ function sanitizeOrderData(data) {
 router.get('/', authenticateToken, async (req, res) => {
     const {
         page = 1,
-        pageSize = 30, // Alterado para 30 padrão (igual frontend original)
+        pageSize = 30,
         status = 'all',
-        searchTerm = req.query.search || '' // Suporte a search ou searchTerm
+        searchTerm = req.query.search || '',
+        orderType = req.query.orderType || req.query.order_type || 'all'
     } = req.query
 
-    const offset = (page - 1) * pageSize // page params already parsed by express query but better to ensure
+    const offset = (page - 1) * pageSize
     const limit = Number(pageSize)
 
     try {
@@ -63,13 +70,26 @@ router.get('/', authenticateToken, async (req, res) => {
         let params = []
         let paramIndex = 1
 
-        if (status && status !== 'all') {
+        if (status === 'fraud_review') {
+            whereConditions.push(`o.fraud_action = 'review'`)
+        } else if (status && status !== 'all') {
             whereConditions.push(`o.status = $${paramIndex++}`)
             params.push(status)
         }
 
+        if (orderType && orderType !== 'all') {
+            whereConditions.push(`COALESCE(o.order_type, 'malinha') = $${paramIndex++}`)
+            params.push(orderType)
+        }
+
         if (searchTerm) {
-            whereConditions.push(`(c.name ILIKE $${paramIndex} OR o.id::text ILIKE $${paramIndex})`)
+            whereConditions.push(`(
+                c.name ILIKE $${paramIndex}
+                OR c.email ILIKE $${paramIndex}
+                OR c.phone ILIKE $${paramIndex}
+                OR o.id::text ILIKE $${paramIndex}
+                OR o.order_number ILIKE $${paramIndex}
+            )`)
             params.push(`%${searchTerm}%`)
             paramIndex++
         }
@@ -82,11 +102,13 @@ router.get('/', authenticateToken, async (req, res) => {
                 o.*,
                 c.name as customer_name,
                 c.phone as customer_phone,
+                c.email as customer_email,
                 c.id as customer_id_joined,
                 json_build_object(
                     'id', c.id,
                     'name', c.name,
-                    'phone', c.phone
+                    'phone', c.phone,
+                    'email', c.email
                 ) as customer
             FROM orders o
             LEFT JOIN customers c ON c.id = o.customer_id
@@ -101,8 +123,7 @@ router.get('/', authenticateToken, async (req, res) => {
             const camelRow = toCamelCase(row)
             return {
                 ...camelRow,
-                orderNumber: `#${String(row.id).padStart(6, '0')}`,
-                // Garantir estrutura do customer
+                orderNumber: row.order_number || `#${String(row.id).padStart(6, '0')}`,
                 customer: camelRow.customer || { name: 'Cliente desconhecido' }
             }
         })
@@ -121,187 +142,201 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 })
 
-// GET /api/orders/:id - Get Order Details (Admin)
-router.get('/:id', authenticateToken, async (req, res) => {
+async function getAdminCommerceOrder(orderId) {
+    const { rows } = await pool.query(`
+        SELECT
+            o.*,
+            COALESCE(
+                (
+                    SELECT json_agg(json_build_object(
+                        'id', oi.id,
+                        'productId', oi.product_id,
+                        'quantity', oi.quantity,
+                        'selectedSize', oi.size_selected,
+                        'selectedColor', oi.color_selected,
+                        'unitPrice', COALESCE(oi.unit_price, oi.price_at_time),
+                        'totalPrice', COALESCE(oi.total_price, oi.price_at_time * oi.quantity),
+                        'product', oi.product_snapshot,
+                        'ncm', oi.ncm,
+                        'cfop', oi.cfop,
+                        'cest', oi.cest
+                    ))
+                    FROM order_items oi
+                    WHERE oi.order_id = o.id
+                ),
+                '[]'::json
+            ) as items
+        FROM orders o
+        WHERE o.id = $1
+    `, [orderId])
+
+    return rows[0] || null
+}
+
+// POST /api/orders/:id/invoice - Prepare/trigger NF-e flow
+router.post('/:id/invoice', authenticateToken, async (req, res) => {
     const { id } = req.params
 
     try {
-        // Query to get order + items + customer + products details for items
-        const { rows } = await pool.query(`
-            SELECT
-                o.*,
-                json_build_object(
-                    'id', c.id,
-                    'name', c.name,
-                    'phone', c.phone,
-                    'email', c.email,
-                    'cpf', c.cpf,
-                    'address', c.address
-                ) as customer,
-                (
-                    SELECT json_agg(
-                        json_build_object(
-                            'id', oi.id,
-                            'orderId', oi.order_id,
-                            'productId', oi.product_id,
-                            'quantity', oi.quantity,
-                            'selectedSize', oi.size_selected,
-                            'selectedColor', oi.color_selected,
-                            'priceAtTime', oi.price_at_time,
-                            'price', oi.price_at_time, -- alias legacy
-                            'productName', p.name,
-                            'images', p.images,
-                            'stock', p.stock
-                        )
-                    )
-                    FROM order_items oi
-                    LEFT JOIN products p ON p.id = oi.product_id
-                    WHERE oi.order_id = o.id
-                ) as items
-            FROM orders o
-            LEFT JOIN customers c ON c.id = o.customer_id
-            WHERE o.id = $1
-        `, [id])
-
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Order não encontrada' })
+        const order = await getAdminCommerceOrder(id)
+        if (!order) return res.status(404).json({ error: 'Order não encontrada' })
+        if (order.order_type !== 'ecommerce') {
+            return res.status(400).json({ error: 'NF-e automática só está habilitada para pedidos e-commerce' })
+        }
+        if (order.payment_status !== 'approved') {
+            return res.status(409).json({ error: 'Não é possível emitir NF-e antes do pagamento aprovado' })
+        }
+        if (order.fiscal_status === 'issued') {
+            return res.json({ success: true, status: 'issued', order: toCamelCase(order) })
         }
 
-        const order = toCamelCase(rows[0])
+        await pool.query(`UPDATE orders SET fiscal_status = 'issuing', updated_at = NOW() WHERE id = $1`, [id])
 
-        res.json(enrichImages(order))
+        const result = await enqueueNfeForOrder(order)
+        const nextStatus = result.status === 'issued' ? 'issued' : 'not_issued'
 
+        await pool.query(`
+            UPDATE orders
+            SET fiscal_status = $2,
+                nfe_id = COALESCE($3, nfe_id),
+                nfe_access_key = COALESCE($4, nfe_access_key),
+                nfe_xml_url = COALESCE($5, nfe_xml_url),
+                nfe_pdf_url = COALESCE($6, nfe_pdf_url),
+                status = CASE WHEN $2 = 'issued' THEN 'invoice_issued' ELSE status END,
+                updated_at = NOW()
+            WHERE id = $1
+        `, [id, nextStatus, result.nfeId || null, result.accessKey || null, result.xmlUrl || null, result.pdfUrl || null])
+
+        res.json({ success: true, result })
     } catch (error) {
-        console.error(`❌ Erro ao buscar order ${id}:`, error)
+        console.error('❌ Erro NF-e:', error)
+        res.status(500).json({ error: error.message })
+    }
+})
+
+// POST /api/orders/:id/shipping/label - Fluxo Automatizado Melhor Envio
+router.post('/:id/shipping/label', authenticateToken, async (req, res) => {
+    const { id } = req.params
+
+    try {
+        const order = await getAdminCommerceOrder(id)
+        if (!order) return res.status(404).json({ error: 'Order não encontrada' })
+        if (order.order_type !== 'ecommerce') {
+            return res.status(400).json({ error: 'Etiqueta automática só está habilitada para pedidos e-commerce' })
+        }
+        if (order.payment_status !== 'approved') {
+            return res.status(409).json({ error: 'Não é possível gerar etiqueta antes do pagamento aprovado' })
+        }
+
+        if (order.shipping_status === 'label_generated') {
+            return res.json({ success: true, status: 'label_generated', order: toCamelCase(order) })
+        }
+
+        await pool.query(`UPDATE orders SET shipping_status = 'label_pending', updated_at = NOW() WHERE id = $1`, [id])
+
+        // 1. Carrinho -> 2. Checkout -> 3. Gerar -> 4. Imprimir
+        const cartResult = await createMelhorEnvioLabelDraft({ order })
+        const melId = cartResult.melhorEnvioOrderId
+
+        await checkoutMelhorEnvio(melId)
+        await generateMelhorEnvioLabel(melId)
+        const printUrl = await getMelhorEnvioLabelPrintUrl(melId)
+
+        await pool.query(`
+            UPDATE orders
+            SET shipping_status = 'label_generated',
+                melhor_envio_order_id = $2,
+                melhor_envio_label_url = $3,
+                status = 'label_generated',
+                updated_at = NOW()
+            WHERE id = $1
+        `, [id, melId, printUrl])
+
+        await pool.query(`
+            INSERT INTO order_events (order_id, event_type, message, payload)
+            VALUES ($1, 'shipping_label_generated', 'Etiqueta gerada e paga com sucesso', $2)
+        `, [id, JSON.stringify({ melId, printUrl })])
+
+        res.json({ success: true, printUrl, melhorEnvioOrderId: melId })
+    } catch (error) {
+        console.error('❌ Erro Etiqueta:', error)
+        res.status(500).json({ error: error.message })
+    }
+})
+
+// GET /api/orders/:id - Get Order Details (Admin)
+router.get('/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params
+    try {
+        const { rows } = await pool.query(`
+            SELECT o.*, 
+                   json_build_object('id', c.id, 'name', c.name, 'phone', c.phone, 'email', c.email, 'cpf', c.cpf, 'address', c.address) as customer,
+                   (SELECT json_agg(json_build_object('id', oi.id, 'productId', oi.product_id, 'quantity', oi.quantity, 'selectedSize', oi.size_selected, 'selectedColor', oi.color_selected, 'priceAtTime', oi.price_at_time, 'productName', p.name, 'images', p.images, 'stock', p.stock))
+                    FROM order_items oi LEFT JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id) as items
+            FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = $1
+        `, [id])
+
+        if (rows.length === 0) return res.status(404).json({ error: 'Order não encontrada' })
+        res.json(enrichImages(toCamelCase(rows[0])))
+    } catch (error) {
+        console.error(`❌ Erro buscar order ${id}:`, error)
         res.status(500).json({ error: 'Erro ao buscar order' })
     }
 })
-// POST /api/orders - Public checkout submission.
-// Admin-only operations in this router remain protected by authenticateToken.
+
+// GET /api/orders/:id/full
+router.get('/:id/full', authenticateToken, async (req, res) => {
+    const { id } = req.params
+    try {
+        const [orderResult, eventsResult, fraudResult] = await Promise.all([
+            pool.query(`
+                SELECT o.*, json_build_object('id', c.id, 'name', c.name, 'phone', c.phone, 'email', c.email, 'cpf', c.cpf) as customer,
+                       COALESCE((SELECT json_agg(json_build_object('id', oi.id, 'productId', oi.product_id, 'quantity', oi.quantity, 'selectedSize', oi.size_selected, 'selectedColor', oi.color_selected, 'unitPrice', COALESCE(oi.unit_price, oi.price_at_time), 'totalPrice', COALESCE(oi.total_price, oi.price_at_time * oi.quantity), 'product', oi.product_snapshot, 'images', p.images) ORDER BY oi.id)
+                       FROM order_items oi LEFT JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id), '[]'::json) as items
+                FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = $1
+            `, [id]),
+            pool.query(`SELECT id, event_type, message, payload, created_at FROM order_events WHERE order_id = $1 ORDER BY created_at ASC`, [id]),
+            pool.query(`SELECT risk_score, risk_action, signals, created_at FROM fraud_risk_log WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1`, [id]).catch(() => ({ rows: [] }))
+        ])
+        if (!orderResult.rows[0]) return res.status(404).json({ error: 'Pedido não encontrado' })
+        const order = toCamelCase(enrichImages(orderResult.rows[0]))
+        res.json({ ...order, events: eventsResult.rows.map(r => toCamelCase(r)), fraudLog: fraudResult.rows[0] ? toCamelCase(fraudResult.rows[0]) : null })
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+})
+
+// POST /api/orders - Public checkout submission
 router.post('/', async (req, res) => {
     try {
         const orderData = sanitizeOrderData(req.body)
-        console.log('📦 POST /api/orders - Creating Order & Sending Email')
-
         const { customer, items, ...orderFields } = orderData
         let customerId = orderFields.customerId
 
-        // 1. Handle Customer
         if (!customerId && customer) {
             const cpf = normalizeCpf(customer.cpf)
-            if (!isValidCpf(cpf)) {
-                return res.status(400).json({ error: 'CPF inválido' })
-            }
-
-            const birthDate = customer.birth_date || customer.birthDate || null
-
-            if (cpf) {
-                const { rows: existing } = await pool.query(
-                    `SELECT id FROM customers WHERE regexp_replace(COALESCE(cpf, ''), '\\D', '', 'g') = $1`,
-                    [cpf]
-                )
-                if (existing.length > 0) {
-                    customerId = existing[0].id
-
-                    await pool.query(
-                        `UPDATE customers
-                         SET phone = COALESCE($2, phone),
-                             email = COALESCE($3, email),
-                             birth_date = COALESCE($4, birth_date),
-                             addresses = COALESCE($5, addresses),
-                             updated_at = NOW()
-                         WHERE id = $1`,
-                        [
-                            customerId,
-                            customer.phone || null,
-                            customer.email || null,
-                            birthDate,
-                            customer.addresses ? JSON.stringify(customer.addresses) : null
-                        ]
-                    )
-                }
-            }
-
-            if (!customerId) {
-                const { rows: newCust } = await pool.query(
-                    `INSERT INTO customers (name, cpf, phone, email, addresses, birth_date)
-                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-                    [
-                        customer.name,
-                        cpf,
-                        customer.phone || null,
-                        customer.email || null,
-                        customer.addresses ? JSON.stringify(customer.addresses) : '[]',
-                        birthDate
-                    ]
-                )
+            if (!isValidCpf(cpf)) return res.status(400).json({ error: 'CPF inválido' })
+            const { rows: existing } = await pool.query(`SELECT id FROM customers WHERE regexp_replace(COALESCE(cpf, ''), '\\D', '', 'g') = $1`, [cpf])
+            if (existing.length > 0) {
+                customerId = existing[0].id
+                await pool.query(`UPDATE customers SET phone = COALESCE($2, phone), email = COALESCE($3, email), updated_at = NOW() WHERE id = $1`, [customerId, customer.phone, customer.email])
+            } else {
+                const { rows: newCust } = await pool.query(`INSERT INTO customers (name, cpf, phone, email) VALUES ($1, $2, $3, $4) RETURNING id`, [customer.name, cpf, customer.phone, customer.email])
                 customerId = newCust[0].id
             }
         }
 
-        if (!customerId) throw new Error('Customer ID required')
-
         const client = await getClient()
         try {
             await client.query('BEGIN')
-
-            // 2. Insert Order
-            const { rows: newOrder } = await client.query(
-                `INSERT INTO orders (customer_id, status, total_value, delivery_date, pickup_date)
-                 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-                [
-                    customerId,
-                    orderFields.status || 'pending',
-                    orderFields.totalValue || 0,
-                    orderFields.deliveryDate || null,
-                    orderFields.pickupDate || null
-                ]
-            )
-
-            // 3. Insert Items
-            if (items && items.length) {
+            const { rows: newOrder } = await client.query(`INSERT INTO orders (customer_id, status, total_value) VALUES ($1, $2, $3) RETURNING *`, [customerId, orderFields.status || 'pending', orderFields.totalValue || 0])
+            if (items) {
                 for (const item of items) {
-                    if (!item.productId) throw new Error('Item sem productId')
-                    if (!item.quantity || item.quantity <= 0) throw new Error('Quantidade de item deve ser maior que zero')
-                    await client.query(
-                        `INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time)
-                         VALUES ($1, $2, $3, $4, $5, $6)`,
-                        [
-                            newOrder[0].id,
-                            item.productId,
-                            item.quantity,
-                            item.selectedSize || null,
-                            item.selectedColor || null,
-                            item.price || 0
-                        ]
-                    )
-
-                    // Reserve stock for each item (com fallbacks para cor e tamanho)
-                    await updateProductStock(
-                        client,
-                        item.productId,
-                        item.quantity,
-                        item.selectedColor || 'Padrão',
-                        item.selectedSize || 'Único',
-                        'reserve'
-                    )
+                    await client.query(`INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time) VALUES ($1, $2, $3, $4, $5, $6)`, [newOrder[0].id, item.productId, item.quantity, item.selectedSize, item.selectedColor, item.price])
                 }
             }
-
             await client.query('COMMIT')
-
-            // 🎉 Dispara o EmailJS de forma invisível via Backend (SÍNCRONO)
-            // Usamos background / promises sem 'await' para que o painel do admin receba o erro se der,
-            // mas o cliente recebe a resposta da ordem antes mesmo do email terminar de enviar.
-            sendNewMalinhaNotification({
-                customerName: customer?.name || 'Cliente',
-                customerEmail: customer?.email || '',
-                itemsCount: items ? items.length : 0,
-                orderId: newOrder[0].id,
-                items: items || [],
-                totalValue: orderFields.totalValue || 0
-            }).catch(e => console.error("Falha no email em background:", e))
-
+            sendNewMalinhaNotification({ customerName: customer?.name, orderId: newOrder[0].id, totalValue: orderFields.totalValue }).catch(e => console.error(e))
             res.json({ success: true, order: toCamelCase(newOrder[0]) })
         } catch (error) {
             await client.query('ROLLBACK')
@@ -310,252 +345,58 @@ router.post('/', async (req, res) => {
             client.release()
         }
     } catch (error) {
-        console.error('❌ Create Order Error:', error)
         res.status(500).json({ error: error.message })
     }
 })
 
-// PUT /api/orders/:id - Update Order with Transaction (Admin)
+// PUT /api/orders/:id
 router.put('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
-    console.log(`📦 PUT /api/orders/${id} - Updating Order Transactionally`)
-
     const client = await getClient()
-
     try {
         const orderData = sanitizeOrderData(req.body)
         await client.query('BEGIN')
-
-        // 1. Fetch Current Order Items
-        const { rows: currentOrderRows } = await client.query(
-            `SELECT
-                o.status,
-                json_agg(
-                    json_build_object(
-                        'product_id', oi.product_id,
-                        'quantity', oi.quantity,
-                        'size_selected', oi.size_selected,
-                        'color_selected', oi.color_selected
-                    )
-                ) FILTER (WHERE oi.id IS NOT NULL) as order_items
-             FROM orders o
-             LEFT JOIN order_items oi ON oi.order_id = o.id
-             WHERE o.id = $1
-             GROUP BY o.id, o.status`,
-            [id]
-        )
-
-        if (currentOrderRows.length === 0) throw new Error('Order not found')
-
-        const currentOrder = currentOrderRows[0]
-
-        // 2. Restore stock from old items
-        const statusesThatHoldStock = ['pending', 'active', 'shipped']
-        const isHoldingStock = statusesThatHoldStock.includes(currentOrder.status)
-
-        // CRITICAL FIX: Se order está sendo convertida em venda (convertedToSale = true),
-        // NÃO restaurar o estoque aqui. A venda já gerenciou o estoque corretamente:
-        // - Venda decrementou os items que o cliente ficou
-        // - Items devolvidos precisam ser restaurados explicitamente via returnedItems
-        const isConvertingToSale = orderData.convertedToSale === true
-        const shouldRestoreAllItems = isHoldingStock && !isConvertingToSale && currentOrder.order_items?.length
-
-        if (shouldRestoreAllItems) {
-            console.log(`🔓 Restoring stock for ${currentOrder.order_items.length} old items...`)
-            for (const item of currentOrder.order_items) {
-                if (item.size_selected) {
-                    await updateProductStock(
-                        client,
-                        item.product_id,
-                        item.quantity,
-                        item.color_selected || 'Padrão',
-                        item.size_selected,
-                        'restore'
-                    )
-                }
-            }
-        }
-
-        // Se está convertendo para venda E foram fornecidos returnedItems explicitamente,
-        // restaurar apenas os items devolvidos
-        if (isConvertingToSale && orderData.returnedItems && Array.isArray(orderData.returnedItems)) {
-            console.log(`🔙 Restoring stock for ${orderData.returnedItems.length} returned items...`)
-            for (const item of orderData.returnedItems) {
-                if (item.selectedSize) {
-                    await updateProductStock(
-                        client,
-                        item.productId,
-                        item.quantity,
-                        item.selectedColor || 'Padrão',
-                        item.selectedSize,
-                        'restore'
-                    )
-                }
-            }
-        }
-
-        // 3. Update Order Details
-        const { items, customer, ...fieldsToUpdate } = orderData
-        const snakeFields = toSnakeCase(fieldsToUpdate)
-
+        const { items, ...fields } = orderData
+        const snakeFields = toSnakeCase(fields)
         const updateParts = []
         const updateValues = []
-        let paramIndex = 1
-
-        const validFields = ['status', 'total_value', 'delivery_date', 'pickup_date', 'customer_id', 'converted_to_sale', 'payment_status']
-
-        validFields.forEach(field => {
-            if (snakeFields[field] !== undefined) {
-                updateParts.push(`${field} = $${paramIndex}`)
-                updateValues.push(snakeFields[field])
-                paramIndex++
+        let idx = 1
+        Object.keys(snakeFields).forEach(f => {
+            if (['status', 'total_value', 'payment_status', 'customer_id'].includes(f)) {
+                updateParts.push(`${f} = $${idx++}`)
+                updateValues.push(snakeFields[f])
             }
         })
-
         if (updateParts.length > 0) {
-            // FIXED: Always update updated_at when modifying order
             updateParts.push(`updated_at = NOW()`)
             updateValues.push(id)
-            await client.query(
-                `UPDATE orders SET ${updateParts.join(', ')} WHERE id = $${paramIndex}`,
-                updateValues
-            )
+            await client.query(`UPDATE orders SET ${updateParts.join(', ')} WHERE id = $${idx}`, updateValues)
         }
-
-        // 4. Replace Items
-        if (items && Array.isArray(items)) {
-            console.log(`🔄 Replacing items with ${items.length} new items...`)
-
-            // Delete old items
+        if (items) {
             await client.query('DELETE FROM order_items WHERE order_id = $1', [id])
-
-            // Insert new items
-            if (items.length > 0) {
-                for (const item of items) {
-                    await client.query(
-                        `INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time)
-                         VALUES ($1, $2, $3, $4, $5, $6)`,
-                        [
-                            id,
-                            item.productId,
-                            item.quantity,
-                            item.selectedSize || null,
-                            item.selectedColor || null,
-                            item.price || 0
-                        ]
-                    )
-                }
-            }
-
-            // 5. Reserve Stock for New Items
-            const newStatus = snakeFields.status || currentOrder.status
-            const willHoldStock = statusesThatHoldStock.includes(newStatus)
-
-            if (willHoldStock && items.length > 0) {
-                console.log(`🔒 Reserving stock for ${items.length} new items...`)
-                for (const item of items) {
-                    if (item.selectedSize) {
-                        await updateProductStock(
-                            client,
-                            item.productId,
-                            item.quantity,
-                            item.selectedColor || 'Padrão',
-                            item.selectedSize,
-                            'reserve'
-                        )
-                    }
-                }
+            for (const item of items) {
+                await client.query(`INSERT INTO order_items (order_id, product_id, quantity, size_selected, color_selected, price_at_time) VALUES ($1, $2, $3, $4, $5, $6)`, [id, item.productId, item.quantity, item.selectedSize, item.selectedColor, item.price])
             }
         }
-
         await client.query('COMMIT')
-
-        // Fetch updated order
-        const { rows: finalOrder } = await client.query('SELECT * FROM orders WHERE id = $1', [id])
-
-        console.log('✅ Order updated successfully')
-        res.json(toCamelCase(finalOrder[0]))
-
+        res.json({ success: true })
     } catch (error) {
         await client.query('ROLLBACK')
-        console.error('❌ Update Order Error:', error)
         res.status(500).json({ error: error.message })
     } finally {
         client.release()
     }
 })
 
-// DELETE /api/orders/:id - Delete Order (Admin)
+// DELETE /api/orders/:id
 router.delete('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params
-    console.log(`📦 DELETE /api/orders/${id} - Deleting Order`)
-
-    const client = await getClient()
-
     try {
-        await client.query('BEGIN')
-
-        // 1. Fetch Order to check stock
-        const { rows: orderRows } = await client.query(
-            `SELECT
-                o.status,
-                json_agg(
-                    json_build_object(
-                        'product_id', oi.product_id,
-                        'quantity', oi.quantity,
-                        'size_selected', oi.size_selected,
-                        'color_selected', oi.color_selected
-                    )
-                ) FILTER (WHERE oi.id IS NOT NULL) as order_items
-             FROM orders o
-             LEFT JOIN order_items oi ON oi.order_id = o.id
-             WHERE o.id = $1
-             GROUP BY o.id, o.status`,
-            [id]
-        )
-
-        if (orderRows.length === 0) {
-            await client.query('ROLLBACK')
-            return res.status(404).json({ error: 'Order not found' })
-        }
-
-        const order = orderRows[0]
-        const statusesThatHoldStock = ['pending', 'active', 'shipped']
-        const isHoldingStock = statusesThatHoldStock.includes(order.status)
-
-        // 2. Restore Stock if needed
-        if (isHoldingStock && order.order_items && order.order_items.length > 0) {
-            console.log(`🔓 Restoring stock for deleted order ${id}...`)
-            for (const item of order.order_items) {
-                if (item.size_selected) {
-                    await updateProductStock(
-                        client,
-                        item.product_id,
-                        item.quantity,
-                        item.color_selected || 'Padrão',
-                        item.size_selected,
-                        'restore'
-                    )
-                }
-            }
-        }
-
-        // 3. Delete Items
-        await client.query('DELETE FROM order_items WHERE order_id = $1', [id])
-
-        // 4. Delete Order
-        await client.query('DELETE FROM orders WHERE id = $1', [id])
-
-        await client.query('COMMIT')
-        console.log(`✅ Order ${id} deleted successfully`)
+        await pool.query('DELETE FROM order_items WHERE order_id = $1', [id])
+        await pool.query('DELETE FROM orders WHERE id = $1', [id])
         res.json({ success: true })
-
     } catch (error) {
-        await client.query('ROLLBACK')
-        console.error('❌ Delete Order Error:', error)
         res.status(500).json({ error: error.message })
-    } finally {
-        client.release()
     }
 })
 

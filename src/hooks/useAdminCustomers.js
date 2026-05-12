@@ -66,6 +66,15 @@ export function useAdminCustomers(page = 1, limit = 50, searchTerm = '', segment
         customers: query.data?.customers || [],
         total: query.data?.total || 0,
         totalPages: query.data?.totalPages || 0,
+        summaryCounts: query.data?.summaryCounts || {
+            active: 0,
+            at_risk: 0,
+            churned: 0,
+            inactive: 0,
+            vip: 0,
+            birthdays: 0,
+            birthday_today: 0
+        },
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,

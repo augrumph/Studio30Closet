@@ -38,4 +38,4 @@ export * from './orders.js'
 export * from './installments.js'
 export * from './insights.js'
 export * from './collections.js'
-
+export * from './store.js'

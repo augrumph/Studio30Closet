@@ -111,7 +111,7 @@ export function validateVenda(req, res, next) {
     }
 
     // Payment method válido
-    const validMethods = ['pix', 'debit', 'card_machine', 'credito_parcelado', 'fiado', 'fiado_parcelado', 'cash', 'card']
+    const validMethods = ['pending_decision', 'pix', 'debit', 'card_machine', 'credito_parcelado', 'fiado', 'fiado_parcelado', 'cash', 'card']
     if (!paymentMethod || !validMethods.includes(paymentMethod)) {
         errors.push({ field: 'paymentMethod', message: `Método de pagamento deve ser um de: ${validMethods.join(', ')}` })
     }

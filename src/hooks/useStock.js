@@ -5,7 +5,7 @@ import { apiClient } from '@/lib/api-client'
  * Hook para verificar estoque de múltiplos itens de uma vez
  */
 export function useStock(items) {
-    const productIds = items?.map(item => item.productId) || []
+    const productIds = [...new Set(items?.map(item => item.productId).filter(Boolean) || [])]
 
     return useQuery({
         queryKey: ['stock', productIds],

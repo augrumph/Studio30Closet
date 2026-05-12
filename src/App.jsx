@@ -12,55 +12,50 @@ import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
 import { trackPageView } from '@/lib/api/analytics'
 import { SEO } from '@/components/SEO'
 import { VersionCheck } from '@/components/VersionCheck'
+import { useAdminRealtime } from '@/hooks/useAdminRealtime'
 
-// ============================================================================
-// Analytics Tracker - Rastreia navegação entre páginas
-// ============================================================================
 function AnalyticsTracker() {
     const location = useLocation()
-
     useEffect(() => {
-        // Não rastrear rotas admin
         if (!location.pathname.startsWith('/admin')) {
             trackPageView(location.pathname)
         }
     }, [location.pathname])
-
     return null
 }
 
-// ============================================================================
-// React Query Configuration
-// ============================================================================
+function AdminRealtimeBridge() {
+    const location = useLocation()
+    useAdminRealtime(location.pathname.startsWith('/admin'))
+    return null
+}
+
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
-            staleTime: 1000 * 60 * 5, // 5 minutes
-            cacheTime: 1000 * 60 * 30, // 30 minutes
+            staleTime: 1000 * 60 * 5,
+            cacheTime: 1000 * 60 * 30,
             refetchOnWindowFocus: false,
             retry: 1,
         },
     },
 })
 
-// Eager load critical public pages
 import { Home } from '@/pages/Home'
 import { lazyWithRetry } from '@/utils/lazyRetry'
 
-// Lazy load everything else
 const Catalog = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.Catalog })))
 const HowItWorks = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.HowItWorks })))
 const About = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.About })))
 const Checkout = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.Checkout })))
+const StoreOrderStatus = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.StoreOrderStatus })))
 const PrivacyPolicy = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.PrivacyPolicy })))
 const TermsOfService = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.TermsOfService })))
 
-// Admin Pages (Lazy Loaded)
 const AdminLayout = lazyWithRetry(() => import('@/components/admin/layout/AdminLayout').then(module => ({ default: module.AdminLayout })))
 const AdminLogin = lazyWithRetry(() => import('@/pages/admin/AdminLogin').then(module => ({ default: module.AdminLogin })))
 const Dashboard = lazyWithRetry(() => import('@/pages/admin/Dashboard').then(module => ({ default: module.Dashboard })))
 
-// Admin Features
 const ProductsList = lazyWithRetry(() => import('@/pages/admin/ProductsList').then(module => ({ default: module.ProductsList })))
 const ProductsForm = lazyWithRetry(() => import('@/pages/admin/ProductsForm').then(module => ({ default: module.ProductsForm })))
 const MalinhasList = lazyWithRetry(() => import('@/pages/admin/MalinhasList').then(module => ({ default: module.MalinhasList })))
@@ -71,7 +66,8 @@ const CustomersForm = lazyWithRetry(() => import('@/pages/admin/CustomersForm').
 const CustomersDetail = lazyWithRetry(() => import('@/pages/admin/CustomersDetail').then(module => ({ default: module.CustomersDetail })))
 const VendasList = lazyWithRetry(() => import('@/pages/admin/VendasList').then(module => ({ default: module.VendasList })))
 const VendasForm = lazyWithRetry(() => import('@/pages/admin/VendasForm').then(module => ({ default: module.VendasForm })))
-// Estoque Inteligente
+const OnlineOrdersList = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.OnlineOrdersList })))
+const OnlineOrderDetail = lazyWithRetry(() => import('@/pages/admin/OnlineOrderDetail').then(module => ({ default: module.OnlineOrderDetail })))
 const StockDashboard = lazyWithRetry(() => import('@/pages/admin/StockDashboard').then(module => ({ default: module.StockDashboard })))
 const SuppliersList = lazyWithRetry(() => import('@/pages/admin/SuppliersList').then(module => ({ default: module.SuppliersList })))
 const SuppliersForm = lazyWithRetry(() => import('@/pages/admin/SuppliersForm').then(module => ({ default: module.SuppliersForm })))
@@ -82,12 +78,9 @@ const ExpensesList = lazyWithRetry(() => import('@/pages/admin/ExpensesList').th
 const ExpensesForm = lazyWithRetry(() => import('@/pages/admin/ExpensesForm').then(module => ({ default: module.ExpensesForm })))
 const EntregasList = lazyWithRetry(() => import('@/pages/admin/EntregasList').then(module => ({ default: module.EntregasList })))
 const SiteAnalytics = lazyWithRetry(() => import('@/pages/admin/SiteAnalytics').then(module => ({ default: module.SiteAnalytics })))
+const LogisticsFiscal = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.LogisticsFiscal })))
 const CollectionDetail = lazyWithRetry(() => import('@/pages/admin/CollectionDetail').then(module => ({ default: module.CollectionDetail })))
 
-
-
-
-// Loading Component
 function PageLoader() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -109,83 +102,61 @@ function App() {
                             <LoadingBar />
                             <ScrollToTop />
                             <AnalyticsTracker />
+                            <AdminRealtimeBridge />
                             <VersionCheck />
                             <SEO />
                             <AnimatePresence mode="wait">
                                 <Suspense fallback={<PageLoader />}>
                                     <Routes>
-                                        {/* Rotas Públicas */}
                                         <Route path="/" element={<Layout />}>
                                             <Route index element={<Home />} />
                                             <Route path="catalogo" element={<Catalog />} />
                                             <Route path="como-funciona" element={<HowItWorks />} />
                                             <Route path="sobre" element={<About />} />
                                             <Route path="malinha" element={<Checkout />} />
+                                            <Route path="pedido/:id" element={<StoreOrderStatus />} />
                                             <Route path="politica-de-privacidade" element={<PrivacyPolicy />} />
                                             <Route path="termos-de-servico" element={<TermsOfService />} />
                                         </Route>
 
-                                        {/* Admin Login (pública) */}
                                         <Route path="/admin/login" element={<AdminLogin />} />
 
-                                        {/* Rotas Admin (protegidas) */}
                                         <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
                                             <Route index element={<Navigate to="/admin/dashboard" replace />} />
                                             <Route path="dashboard" element={<Dashboard />} />
-
-                                            {/* Produtos */}
                                             <Route path="products" element={<ProductsList />} />
                                             <Route path="products/new" element={<ProductsForm />} />
                                             <Route path="products/:id" element={<ProductsForm />} />
-
-                                            {/* Coleções */}
                                             <Route path="collections/:collectionId" element={<CollectionDetail />} />
-
                                             <Route path="malinhas" element={<MalinhasList />} />
                                             <Route path="malinhas/new" element={<MalinhasForm />} />
                                             <Route path="malinhas/:id/edit" element={<MalinhasForm />} />
                                             <Route path="malinhas/:id" element={<MalinhasDetail />} />
-
-                                            {/* Vendas */}
                                             <Route path="vendas" element={<VendasList />} />
                                             <Route path="vendas/new" element={<VendasForm />} />
                                             <Route path="vendas/:id" element={<VendasForm />} />
-
-                                            {/* Entregas (TikTok Shop) */}
+                                            <Route path="pedidos-online" element={<OnlineOrdersList />} />
+                                            <Route path="pedidos-online/:id" element={<OnlineOrderDetail />} />
                                             <Route path="entregas" element={<EntregasList />} />
-
-                                            {/* Clientes */}
                                             <Route path="customers" element={<CustomersList />} />
                                             <Route path="customers/new" element={<CustomersForm />} />
                                             <Route path="customers/:id" element={<CustomersDetail />} />
                                             <Route path="customers/:id/edit" element={<CustomersForm />} />
-
-                                            {/* Estoque Inteligente */}
                                             <Route path="stock" element={<StockDashboard />} />
-
-                                            {/* Fornecedores */}
                                             <Route path="suppliers" element={<SuppliersList />} />
                                             <Route path="suppliers/new" element={<SuppliersForm />} />
                                             <Route path="suppliers/:id" element={<SuppliersForm />} />
-
-                                            {/* Compras */}
                                             <Route path="purchases" element={<PurchasesList />} />
                                             <Route path="purchases/new" element={<PurchasesForm />} />
                                             <Route path="purchases/:id" element={<PurchasesForm />} />
-
-                                            {/* Crediário */}
                                             <Route path="installments" element={<InstallmentsList />} />
-
-                                            {/* Despesas Fixas */}
                                             <Route path="expenses" element={<ExpensesList />} />
                                             <Route path="expenses/new" element={<ExpensesForm />} />
                                             <Route path="expenses/:id" element={<ExpensesForm />} />
-
-                                            {/* Analytics do Site */}
                                             <Route path="site" element={<SiteAnalytics />} />
-
-
-
+                                            <Route path="integrations" element={<LogisticsFiscal />} />
+                                            <Route path="integracoes" element={<LogisticsFiscal />} />
+                                            <Route path="logistica-fiscal" element={<LogisticsFiscal />} />
                                         </Route>
                                     </Routes>
                                 </Suspense>

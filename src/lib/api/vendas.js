@@ -16,6 +16,7 @@ export async function getVendas(page = 1, limit = 30, filters = {}) {
     // Build query string
     let url = `/vendas?page=${page}&pageSize=${limit}`
     if (filters.status && filters.status !== 'all') url += `&status=${filters.status}`
+    if (filters.method && filters.method !== 'all') url += `&method=${filters.method}`
     if (filters.search) url += `&search=${encodeURIComponent(filters.search)}`
     if (filters.dateFilter && filters.dateFilter !== 'all') url += `&dateFilter=${filters.dateFilter}`
     if (filters.startDate) url += `&startDate=${filters.startDate}`
@@ -100,5 +101,4 @@ export async function deleteVenda(id) {
     })
     return true
 }
-
 

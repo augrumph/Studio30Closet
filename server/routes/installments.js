@@ -543,6 +543,10 @@ router.put('/payments/:paymentId', async (req, res) => {
             await syncVendaPaymentStatus(instRows[0].venda_id)
         }
 
+        if (instRows.length > 0) {
+            emitRealtimeEvent('installments.updated', { vendaId: instRows[0].venda_id })
+            emitRealtimeEvent('venda.updated', { id: instRows[0].venda_id })
+        }
         res.json(toCamelCase(updatedPayment[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar pagamento ${paymentId}:`, error)
@@ -599,6 +603,8 @@ router.delete('/payments/:paymentId', async (req, res) => {
         const { rows: instRows } = await pool.query('SELECT venda_id FROM installments WHERE id = $1', [instId])
         if (instRows.length > 0) {
             await syncVendaPaymentStatus(instRows[0].venda_id)
+            emitRealtimeEvent('installments.updated', { vendaId: instRows[0].venda_id })
+            emitRealtimeEvent('venda.updated', { id: instRows[0].venda_id })
         }
 
         res.json({ success: true })
@@ -618,6 +624,8 @@ router.put('/:vendaId/pay-full', async (req, res) => {
     try {
         await payFullVendaLogic(vendaId, paymentMethod)
         console.log(`✅ Venda #${vendaId} quitada totalmente`)
+        emitRealtimeEvent('installments.updated', { vendaId: Number(vendaId) })
+        emitRealtimeEvent('venda.updated', { id: Number(vendaId) })
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao quitar venda ${vendaId}:`, error)

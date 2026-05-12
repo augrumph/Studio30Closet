@@ -10,6 +10,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { getNuvemFiscalToken } from '../services/nuvem-fiscal.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -163,6 +164,10 @@ router.patch('/config', async (req, res) => {
     }
 
     console.log(`⚙️  Configurações atualizadas pelo admin: ${saved.join(', ')}`)
+    if (saved.length > 0) {
+        emitRealtimeEvent('settings.updated', { keys: saved })
+        emitRealtimeEvent('integrations.updated', { keys: saved })
+    }
     res.json({ success: true, saved, skipped })
 })
 

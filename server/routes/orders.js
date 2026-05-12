@@ -6,6 +6,7 @@ import { sendNewMalinhaNotification } from '../email-service.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { isValidCpf, normalizeCpf } from '../lib/cpf.js'
 import { enqueueNfeForOrder } from '../services/nuvem-fiscal.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 import { 
     createMelhorEnvioLabelDraft, 
     checkoutMelhorEnvio, 
@@ -337,6 +338,8 @@ router.post('/', async (req, res) => {
             }
             await client.query('COMMIT')
             sendNewMalinhaNotification({ customerName: customer?.name, orderId: newOrder[0].id, totalValue: orderFields.totalValue }).catch(e => console.error(e))
+            emitRealtimeEvent('orders.created', { id: newOrder[0].id })
+            emitRealtimeEvent('malinhas.updated', { id: newOrder[0].id })
             res.json({ success: true, order: toCamelCase(newOrder[0]) })
         } catch (error) {
             await client.query('ROLLBACK')
@@ -379,6 +382,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
             }
         }
         await client.query('COMMIT')
+        emitRealtimeEvent('orders.updated', { id: Number(id) })
+        emitRealtimeEvent('malinhas.updated', { id: Number(id) })
         res.json({ success: true })
     } catch (error) {
         await client.query('ROLLBACK')
@@ -394,6 +399,8 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     try {
         await pool.query('DELETE FROM order_items WHERE order_id = $1', [id])
         await pool.query('DELETE FROM orders WHERE id = $1', [id])
+        emitRealtimeEvent('orders.deleted', { id: Number(id) })
+        emitRealtimeEvent('malinhas.updated', { id: Number(id) })
         res.json({ success: true })
     } catch (error) {
         res.status(500).json({ error: error.message })

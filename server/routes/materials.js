@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -74,6 +75,7 @@ router.post('/', async (req, res) => {
             minStockLevel || 0
         ])
 
+        emitRealtimeEvent('materials.created', { id: rows[0].id })
         res.status(201).json(toCamelCase(rows[0]))
     } catch (error) {
         console.error('❌ Erro ao criar material:', error)
@@ -122,6 +124,7 @@ router.put('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Material não encontrado' })
         }
 
+        emitRealtimeEvent('materials.updated', { id: Number(id) })
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar material ${id}:`, error)
@@ -143,6 +146,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Material não encontrado' })
         }
 
+        emitRealtimeEvent('materials.deleted', { id: Number(id) })
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao deletar material ${id}:`, error)

@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -99,6 +100,7 @@ router.post('/', async (req, res) => {
             RETURNING *
         `, [name, category || null, parseFloat(value), recurrence || 'monthly', dueDay || null, notes || null])
 
+        emitRealtimeEvent('expenses.created', { id: rows[0].id })
         res.status(201).json(toCamelCase(rows[0]))
     } catch (error) {
         console.error("❌ Erro ao criar despesa:", error)
@@ -127,6 +129,7 @@ router.put('/:id', async (req, res) => {
         `, [name, category, value !== undefined ? parseFloat(value) : null, recurrence, dueDay, paid, notes, id])
 
         if (rows.length === 0) return res.status(404).json({ error: 'Despesa não encontrada' })
+        emitRealtimeEvent('expenses.updated', { id: Number(id) })
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar despesa ${id}:`, error)
@@ -140,6 +143,7 @@ router.delete('/:id', async (req, res) => {
     try {
         const { rowCount } = await pool.query('DELETE FROM fixed_expenses WHERE id = $1', [id])
         if (rowCount === 0) return res.status(404).json({ error: 'Despesa não encontrada' })
+        emitRealtimeEvent('expenses.deleted', { id: Number(id) })
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao deletar despesa ${id}:`, error)

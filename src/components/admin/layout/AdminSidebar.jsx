@@ -1,44 +1,90 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, Users, LogOut, DollarSign, Calendar, ChevronRight, BarChart3, Truck, ShoppingCart, Settings, X, TrendingDown, ChevronLeft, PackageCheck, Link as LinkIcon } from 'lucide-react'
+import {
+    BarChart3,
+    Boxes,
+    ChevronLeft,
+    ChevronRight,
+    CircleDollarSign,
+    ClipboardList,
+    CreditCard,
+    Database,
+    LayoutDashboard,
+    Link as LinkIcon,
+    LogOut,
+    Package,
+    PackageCheck,
+    Receipt,
+    Settings,
+    ShoppingBag,
+    ShoppingCart,
+    Sparkles,
+    Store,
+    TrendingDown,
+    Truck,
+    Users,
+    X
+} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
-import { motion } from 'framer-motion'
-import { useState } from 'react'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
 const fixedItems = [
-    { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/admin/vendas', label: 'Vendas', icon: DollarSign }
+    { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, accent: 'from-[#C75D3B] to-[#A64D31]' },
+    { path: '/admin/vendas', label: 'Vendas', icon: CircleDollarSign, accent: 'from-emerald-500 to-teal-600' }
 ]
 
 const menuSections = [
     {
-        label: 'Operação',
+        id: 'commerce',
+        label: 'Comercial',
+        icon: ShoppingBag,
+        hint: 'Produtos, malinhas e pedidos',
         items: [
             { path: '/admin/products', label: 'Produtos', icon: Package },
-            { path: '/admin/malinhas', label: 'Malinhas', icon: Calendar },
+            { path: '/admin/malinhas', label: 'Malinhas', icon: Store },
+            { path: '/admin/pedidos-online', label: 'Pedidos Online', icon: ClipboardList },
             { path: '/admin/entregas', label: 'Entregas', icon: PackageCheck }
         ]
     },
     {
+        id: 'management',
         label: 'Gestão',
+        icon: Database,
+        hint: 'Clientes, estoque e fornecedores',
         items: [
             { path: '/admin/customers', label: 'Clientes', icon: Users },
-            { path: '/admin/stock', label: 'Estoque', icon: BarChart3 },
+            { path: '/admin/stock', label: 'Estoque', icon: Boxes },
             { path: '/admin/suppliers', label: 'Fornecedores', icon: Truck },
-            { path: '/admin/purchases', label: 'Compras', icon: ShoppingCart },
-            { path: '/admin/installments', label: 'Crediário', icon: DollarSign },
+            { path: '/admin/purchases', label: 'Compras', icon: ShoppingCart }
+        ]
+    },
+    {
+        id: 'finance',
+        label: 'Financeiro',
+        icon: Receipt,
+        hint: 'Recebíveis e despesas',
+        items: [
+            { path: '/admin/installments', label: 'Crediário', icon: CreditCard },
             { path: '/admin/expenses', label: 'Despesas', icon: TrendingDown }
         ]
     },
     {
+        id: 'platform',
         label: 'Plataforma',
+        icon: Settings,
+        hint: 'Integrações e métricas do site',
         items: [
             { path: '/admin/integracoes', label: 'Integrações', icon: LinkIcon },
-            { path: '/admin/site', label: 'Site', icon: BarChart3 }
+            { path: '/admin/site', label: 'Site & Analytics', icon: BarChart3 }
         ]
     }
 ]
+
+function sectionHasActive(section, pathname) {
+    return section.items.some(item => pathname === item.path || pathname.startsWith(`${item.path}/`))
+}
 
 export function AdminSidebar({
     onClose,
@@ -50,18 +96,27 @@ export function AdminSidebar({
 }) {
     const location = useLocation()
     const logout = useAuthStore(state => state.logout)
-    const [hoveredItem, setHoveredItem] = useState(null)
     const collapsed = typeof isCollapsed === 'boolean' ? isCollapsed : (typeof isOpen === 'boolean' ? !isOpen : false)
     const closeHandler = onClose || (isMobile ? toggleSidebar : undefined)
     const collapseHandler = onToggleCollapse || toggleSidebar
     const showCollapseToggle = !isMobile && Boolean(collapseHandler)
-    const showCloseButton = Boolean(closeHandler)
+    const showCloseButton = isMobile && Boolean(closeHandler)
+
+    const activeSectionIds = useMemo(
+        () => menuSections.filter(section => sectionHasActive(section, location.pathname)).map(section => section.id),
+        [location.pathname]
+    )
+    const [openSections, setOpenSections] = useState(() => activeSectionIds.length ? activeSectionIds : ['commerce', 'management'])
+
+    useEffect(() => {
+        if (!collapsed && activeSectionIds.length) {
+            setOpenSections(prev => Array.from(new Set([...prev, ...activeSectionIds])))
+        }
+    }, [activeSectionIds, collapsed])
 
     const isActive = (path) => {
-        if (path === '/admin/dashboard') {
-            return location.pathname === path
-        }
-        return location.pathname.startsWith(path)
+        if (path === '/admin/dashboard') return location.pathname === path
+        return location.pathname === path || location.pathname.startsWith(`${path}/`)
     }
 
     const handleLinkClick = () => {
@@ -70,218 +125,218 @@ export function AdminSidebar({
 
     return (
         <motion.aside
-            animate={{ width: collapsed ? 72 : 260 }}
-            transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
-            className="bg-[#FDFBF7] flex flex-col relative z-20 h-full border-r border-[#4A3B32]/5 shadow-[2px_0_12px_rgba(93,46,31,0.01)]"
+            animate={{ width: collapsed ? 78 : 286 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="relative z-20 h-full overflow-hidden border-r border-[#E9DED6] bg-[#FBF8F4] text-[#33261F] shadow-[1px_0_0_rgba(255,255,255,0.7)_inset]"
         >
-            {/* Elegant Header - More Compact */}
-            <div className={cn(
-                "select-none transition-all duration-500",
-                collapsed ? "px-3 py-5" : "px-6 py-6"
-            )}>
-                <div className="flex items-center">
-                    {!collapsed ? (
-                        <Link to="/admin/dashboard" onClick={handleLinkClick} className="flex items-center gap-3 group">
-                            <div className="relative shrink-0">
-                                <img
-                                    src="/logomarca.webp"
-                                    alt="S30"
-                                    className="h-8 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
-                                />
-                                <div className="absolute -inset-1.5 bg-brand-terracotta/5 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#C75D3B]/20 to-transparent" />
+
+            <div className={cn('flex h-full flex-col', collapsed ? 'px-2.5' : 'px-4')}>
+                <header className={cn('shrink-0', collapsed ? 'py-4' : 'py-5')}>
+                    <div className={cn(
+                        'flex items-center rounded-2xl border border-white/80 bg-white/70 shadow-sm shadow-[#4A3B32]/5 backdrop-blur',
+                        collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-3'
+                    )}>
+                        <Link to="/admin/dashboard" onClick={handleLinkClick} className={cn('flex min-w-0 items-center', collapsed ? 'justify-center' : 'gap-3')}>
+                            <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F4E8E1]">
+                                <img src="/logomarca.webp" alt="Studio 30" className="max-h-7 max-w-7 object-contain" />
                             </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[12px] font-black tracking-[0.05em] text-brand-brown leading-none mb-1 uppercase">Studio 30</span>
-                                <span className="text-[8px] font-bold text-brand-terracotta uppercase tracking-[0.2em] opacity-70">Admin Panel</span>
-                            </div>
-                        </Link>
-                    ) : (
-                        <div className="mx-auto">
-                            <img
-                                src="/logomarca.webp"
-                                alt="S"
-                                className="h-7 w-auto object-contain"
-                            />
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Premium Navigation Menu - Compact */}
-            <nav className={cn(
-                "flex-1 overflow-y-auto custom-scrollbar transition-all duration-500",
-                collapsed ? "px-2" : "px-4"
-            )}>
-                {/* Main Items */}
-                <div className="space-y-1 mb-6">
-                    {fixedItems.map((item, idx) => (
-                        <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={handleLinkClick}
-                            className="block group relative"
-                            title={collapsed ? item.label : undefined}
-                        >
-                            <motion.div
-                                whileHover={{ x: collapsed ? 0 : 2 }}
-                                whileTap={{ scale: 0.98 }}
-                                className={cn(
-                                    'relative flex items-center rounded-lg transition-all duration-200',
-                                    collapsed ? 'h-10 justify-center' : 'px-3 py-2 gap-3',
-                                    isActive(item.path)
-                                        ? 'bg-white text-brand-brown shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#4A3B32]/5'
-                                        : 'text-brand-brown/40 hover:bg-white/40 hover:text-brand-brown'
-                                )}
-                            >
-                                <item.icon className={cn(
-                                    "w-[18px] h-[18px] transition-all duration-200",
-                                    isActive(item.path) ? "text-brand-terracotta" : "text-brand-brown/20 group-hover:text-brand-terracotta"
-                                )} />
-                                
-                                {!collapsed && (
-                                    <span className={cn(
-                                        "font-bold text-[13px] tracking-tight transition-colors",
-                                        isActive(item.path) ? "text-brand-brown" : "group-hover:text-brand-brown"
-                                    )}>
-                                        {item.label}
-                                    </span>
-                                )}
-
-                                {isActive(item.path) && (
-                                    <motion.div 
-                                        layoutId="active-indicator"
-                                        className="absolute left-0 w-1 h-4 bg-brand-terracotta rounded-full -translate-x-1"
-                                    />
-                                )}
-                            </motion.div>
-                        </Link>
-                    ))}
-                </div>
-
-                {/* Sections with Compact Modern Accordions */}
-                <Accordion type="multiple" defaultValue={menuSections.map(section => section.label)} className="space-y-0.5">
-                    {menuSections.map((section, sIdx) => (
-                        <AccordionItem key={section.label} value={section.label} className="border-none">
-                            {!collapsed ? (
-                                <>
-                                    <AccordionTrigger className="flex items-center gap-2 px-3 py-2 text-brand-brown/30 hover:text-brand-brown hover:no-underline group transition-all">
-                                        <div className="flex items-center gap-2.5 flex-1">
-                                            <div className="w-1 h-1 rounded-full bg-brand-terracotta/20 group-data-[state=open]:bg-brand-terracotta transition-colors" />
-                                            <span className="text-[10px] font-black uppercase tracking-[0.15em]">{section.label}</span>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="pb-1 border-l border-[#4A3B32]/5 ml-4.5 pl-1.5 space-y-0.5">
-                                        {section.items.map((item, idx) => (
-                                            <Link
-                                                key={item.path}
-                                                to={item.path}
-                                                onClick={handleLinkClick}
-                                                className="block group relative"
-                                            >
-                                                <motion.div
-                                                    whileHover={{ x: 2 }}
-                                                    whileTap={{ scale: 0.98 }}
-                                                    className={cn(
-                                                        'relative flex items-center rounded-lg transition-all duration-200 px-2.5 py-1.5 gap-2.5',
-                                                        isActive(item.path)
-                                                            ? 'bg-white text-brand-brown shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#4A3B32]/5'
-                                                            : 'text-brand-brown/40 hover:bg-white/40 hover:text-brand-brown'
-                                                    )}
-                                                >
-                                                    <item.icon className={cn(
-                                                        "w-[15px] h-[15px] transition-all duration-200",
-                                                        isActive(item.path) ? "text-brand-terracotta" : "text-brand-brown/20 group-hover:text-brand-terracotta"
-                                                    )} />
-                                                    <span className={cn(
-                                                        "font-bold text-[12.5px] tracking-tight",
-                                                        isActive(item.path) ? "text-brand-brown" : "group-hover:text-brand-brown"
-                                                    )}>
-                                                        {item.label}
-                                                    </span>
-                                                </motion.div>
-                                            </Link>
-                                        ))}
-                                    </AccordionContent>
-                                </>
-                            ) : (
-                                <div className="space-y-1.5 py-2">
-                                    {section.items.map((item) => (
-                                        <Link
-                                            key={item.path}
-                                            to={item.path}
-                                            onClick={handleLinkClick}
-                                            className="block group relative"
-                                            title={item.label}
-                                        >
-                                            <motion.div
-                                                className={cn(
-                                                    'relative flex items-center justify-center rounded-lg transition-all duration-200 h-9',
-                                                    isActive(item.path)
-                                                        ? 'bg-white text-brand-brown shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#4A3B32]/5'
-                                                        : 'text-brand-brown/40 hover:bg-white/40 hover:text-brand-brown'
-                                                )}
-                                            >
-                                                <item.icon className={cn(
-                                                    "w-[17px] h-[17px] transition-all duration-200",
-                                                    isActive(item.path) ? "text-brand-terracotta" : "text-brand-brown/20 group-hover:text-brand-terracotta"
-                                                )} />
-                                            </motion.div>
-                                        </Link>
-                                    ))}
+                            {!collapsed && (
+                                <div className="min-w-0">
+                                    <p className="truncate text-[13px] font-black uppercase tracking-[0.08em] text-[#33261F]">Studio 30</p>
+                                    <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.18em] text-[#C75D3B]">Mobile Admin</p>
                                 </div>
                             )}
-                        </AccordionItem>
-                    ))}
-                </Accordion>
-            </nav>
+                        </Link>
 
-            {/* Compact Premium Footer */}
-            <div className={cn(
-                "p-3 mt-auto border-t border-[#4A3B32]/5 transition-all duration-500",
-                collapsed ? "items-center" : "items-stretch"
-            )}>
-                {!collapsed && (
-                    <div className="px-3 py-2.5 mb-2 rounded-xl bg-white/30 border border-[#4A3B32]/5 backdrop-blur-sm">
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-brand-terracotta/10 border border-brand-terracotta/20 flex items-center justify-center text-brand-terracotta font-black text-[11px] shrink-0">
-                                AL
+                        {showCloseButton && (
+                            <button
+                                type="button"
+                                onClick={closeHandler}
+                                className="ml-auto grid h-9 w-9 place-items-center rounded-xl text-[#33261F]/45 transition hover:bg-[#33261F]/5 hover:text-[#33261F]"
+                                aria-label="Fechar menu"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                </header>
+
+                <nav className="custom-scrollbar min-h-0 flex-1 overflow-y-auto pb-4">
+                    {!collapsed && (
+                        <div className="mb-3 flex items-center justify-between px-1">
+                            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[#33261F]/35">Essenciais</span>
+                            <Sparkles className="h-3.5 w-3.5 text-[#C75D3B]/50" />
+                        </div>
+                    )}
+
+                    <div className="space-y-2">
+                        {fixedItems.map(item => {
+                            const Icon = item.icon
+                            const active = isActive(item.path)
+
+                            return (
+                                <Link key={item.path} to={item.path} onClick={handleLinkClick} title={collapsed ? item.label : undefined} className="block">
+                                    <motion.div
+                                        whileTap={{ scale: 0.98 }}
+                                        className={cn(
+                                            'group relative flex items-center overflow-hidden rounded-2xl border transition-all duration-200',
+                                            collapsed ? 'h-12 justify-center' : 'h-12 gap-3 px-3',
+                                            active
+                                                ? 'border-[#C75D3B]/15 bg-white text-[#33261F] shadow-sm shadow-[#4A3B32]/5'
+                                                : 'border-transparent text-[#33261F]/55 hover:border-[#E9DED6] hover:bg-white/65 hover:text-[#33261F]'
+                                        )}
+                                    >
+                                        {active && <div className={cn('absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b', item.accent)} />}
+                                        <span className={cn(
+                                            'grid h-8 w-8 shrink-0 place-items-center rounded-xl transition',
+                                            active ? 'bg-[#C75D3B]/10 text-[#C75D3B]' : 'bg-[#33261F]/5 text-[#33261F]/45 group-hover:text-[#C75D3B]'
+                                        )}>
+                                            <Icon className="h-[17px] w-[17px]" />
+                                        </span>
+                                        {!collapsed && (
+                                            <>
+                                                <span className="min-w-0 flex-1 truncate text-[13px] font-extrabold">{item.label}</span>
+                                                <ChevronRight className={cn('h-4 w-4 transition', active ? 'text-[#C75D3B]' : 'text-[#33261F]/20 group-hover:text-[#C75D3B]')} />
+                                            </>
+                                        )}
+                                    </motion.div>
+                                </Link>
+                            )
+                        })}
+                    </div>
+
+                    <div className={cn('mt-5', collapsed ? 'space-y-2' : '')}>
+                        {!collapsed && (
+                            <div className="mb-2 px-1">
+                                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[#33261F]/35">Áreas</span>
                             </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[12px] font-black text-brand-brown truncate leading-tight">Augusto Luzzi</span>
-                                <span className="text-[8px] font-bold text-brand-brown/30 uppercase tracking-wider">Admin</span>
+                        )}
+
+                        {collapsed ? (
+                            <div className="space-y-2">
+                                {menuSections.flatMap(section => section.items).map(item => {
+                                    const Icon = item.icon
+                                    const active = isActive(item.path)
+
+                                    return (
+                                        <Link key={item.path} to={item.path} onClick={handleLinkClick} title={item.label} className="block">
+                                            <motion.div
+                                                whileTap={{ scale: 0.96 }}
+                                                className={cn(
+                                                    'relative grid h-11 place-items-center rounded-2xl border transition',
+                                                    active
+                                                        ? 'border-[#C75D3B]/15 bg-white text-[#C75D3B] shadow-sm shadow-[#4A3B32]/5'
+                                                        : 'border-transparent bg-transparent text-[#33261F]/40 hover:border-[#E9DED6] hover:bg-white/65 hover:text-[#C75D3B]'
+                                                )}
+                                            >
+                                                {active && <span className="absolute left-0 h-5 w-1 rounded-r-full bg-[#C75D3B]" />}
+                                                <Icon className="h-[18px] w-[18px]" />
+                                            </motion.div>
+                                        </Link>
+                                    )
+                                })}
+                            </div>
+                        ) : (
+                            <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="space-y-2">
+                                {menuSections.map(section => {
+                                    const SectionIcon = section.icon
+                                    const active = sectionHasActive(section, location.pathname)
+
+                                    return (
+                                        <AccordionItem key={section.id} value={section.id} className="overflow-hidden rounded-2xl border border-[#E9DED6]/70 bg-white/45 px-1 shadow-sm shadow-[#4A3B32]/[0.02]">
+                                            <AccordionTrigger className="group px-2.5 py-3 hover:no-underline">
+                                                <div className="flex min-w-0 items-center gap-3 text-left">
+                                                    <span className={cn(
+                                                        'grid h-8 w-8 shrink-0 place-items-center rounded-xl transition',
+                                                        active ? 'bg-[#C75D3B] text-white' : 'bg-[#33261F]/5 text-[#33261F]/45 group-hover:text-[#C75D3B]'
+                                                    )}>
+                                                        <SectionIcon className="h-4 w-4" />
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <p className={cn('truncate text-[12px] font-black uppercase tracking-[0.08em]', active ? 'text-[#33261F]' : 'text-[#33261F]/70')}>
+                                                            {section.label}
+                                                        </p>
+                                                        <p className="mt-0.5 truncate text-[10px] font-semibold text-[#33261F]/35">{section.hint}</p>
+                                                    </div>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="pb-2">
+                                                <div className="space-y-1.5 border-l border-[#E9DED6] pl-3 ml-[1.45rem]">
+                                                    {section.items.map(item => {
+                                                        const Icon = item.icon
+                                                        const activeItem = isActive(item.path)
+
+                                                        return (
+                                                            <Link key={item.path} to={item.path} onClick={handleLinkClick} className="block">
+                                                                <motion.div
+                                                                    whileTap={{ scale: 0.98 }}
+                                                                    className={cn(
+                                                                        'group/item relative flex h-10 items-center gap-2.5 rounded-xl px-2.5 transition',
+                                                                        activeItem
+                                                                            ? 'bg-[#33261F] text-white shadow-sm shadow-[#33261F]/10'
+                                                                            : 'text-[#33261F]/55 hover:bg-[#F7EFE9] hover:text-[#33261F]'
+                                                                    )}
+                                                                >
+                                                                    <Icon className={cn('h-4 w-4 shrink-0', activeItem ? 'text-[#F2B097]' : 'text-[#33261F]/35 group-hover/item:text-[#C75D3B]')} />
+                                                                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold">{item.label}</span>
+                                                                    {activeItem && <span className="h-1.5 w-1.5 rounded-full bg-[#F2B097]" />}
+                                                                </motion.div>
+                                                            </Link>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    )
+                                })}
+                            </Accordion>
+                        )}
+                    </div>
+                </nav>
+
+                <footer className="shrink-0 border-t border-[#E9DED6] py-3">
+                    {!collapsed && (
+                        <div className="mb-2 rounded-2xl border border-white/80 bg-white/60 p-3 shadow-sm shadow-[#4A3B32]/5">
+                            <div className="flex items-center gap-3">
+                                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#33261F] text-[11px] font-black text-white">AD</div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[12px] font-black text-[#33261F]">Administrador</p>
+                                    <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#33261F]/35">Painel Enterprise</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
-
-                <div className="flex items-center gap-1.5">
-                    <motion.button
-                        onClick={logout}
-                        whileTap={{ scale: 0.95 }}
-                        className={cn(
-                            "flex items-center justify-center rounded-lg transition-all duration-200 group",
-                            collapsed ? "w-9 h-9 hover:bg-red-50 text-brand-brown/30 hover:text-red-500" : "flex-1 h-9 gap-2 hover:bg-red-50 text-brand-brown/30 hover:text-red-500"
-                        )}
-                        title={collapsed ? "Sair do Painel" : undefined}
-                    >
-                        <LogOut className={cn("w-4 h-4 transition-transform", !collapsed && "group-hover:-translate-x-0.5")} />
-                        {!collapsed && <span className="text-[12px] font-bold">Sair do Painel</span>}
-                    </motion.button>
-
-                    {showCollapseToggle && (
-                        <motion.button
-                            onClick={collapseHandler}
-                            whileTap={{ scale: 0.9 }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/80 text-brand-brown/20 hover:text-brand-brown transition-all"
-                        >
-                            <motion.div animate={{ rotate: collapsed ? 180 : 0 }}>
-                                <ChevronLeft className="w-4 h-4" />
-                            </motion.div>
-                        </motion.button>
                     )}
-                </div>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={logout}
+                            title={collapsed ? 'Sair do painel' : undefined}
+                            className={cn(
+                                'flex h-10 items-center justify-center rounded-2xl font-bold text-[#33261F]/50 transition hover:bg-red-50 hover:text-red-600',
+                                collapsed ? 'w-full' : 'flex-1 gap-2 text-[12px]'
+                            )}
+                        >
+                            <LogOut className="h-4 w-4" />
+                            {!collapsed && 'Sair'}
+                        </button>
+
+                        {showCollapseToggle && (
+                            <button
+                                type="button"
+                                onClick={collapseHandler}
+                                className="grid h-10 w-10 place-items-center rounded-2xl text-[#33261F]/40 transition hover:bg-white hover:text-[#33261F]"
+                                aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+                            >
+                                <motion.span animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </motion.span>
+                            </button>
+                        )}
+                    </div>
+                </footer>
             </div>
         </motion.aside>
-
     )
 }

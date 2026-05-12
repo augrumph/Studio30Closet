@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -145,6 +146,7 @@ router.post('/', async (req, res) => {
             JSON.stringify(tiktokMetadata || {})
         ])
 
+        emitRealtimeEvent('entregas.created', { id: rows[0].id })
         res.status(201).json(transformEntrega(rows[0]))
     } catch (error) {
         console.error("❌ Erro ao criar entrega:", error)
@@ -180,6 +182,7 @@ router.put('/:id', async (req, res) => {
         `, [status, trackingCode, trackingUrl, carrier, notes, vendaId, shippedAt, deliveredAt, id])
 
         if (rows.length === 0) return res.status(404).json({ error: 'Entrega não encontrada' })
+        emitRealtimeEvent('entregas.updated', { id: Number(id) })
         res.json(transformEntrega(rows[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar entrega ${id}:`, error)
@@ -193,6 +196,7 @@ router.delete('/:id', async (req, res) => {
     try {
         const { rowCount } = await pool.query('DELETE FROM entregas WHERE id = $1', [id])
         if (rowCount === 0) return res.status(404).json({ error: 'Entrega não encontrada' })
+        emitRealtimeEvent('entregas.deleted', { id: Number(id) })
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao deletar entrega ${id}:`, error)

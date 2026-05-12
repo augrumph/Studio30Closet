@@ -2,6 +2,7 @@ import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { authenticateToken } from '../middleware/auth.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -81,6 +82,7 @@ router.post('/', authenticateToken, async (req, res) => {
             RETURNING *
         `, [title, slug])
 
+        emitRealtimeEvent('collections.created', { id: rows[0].id })
         res.status(201).json(toCamelCase(rows[0]))
     } catch (error) {
         console.error('❌ Erro ao criar coleção:', error)
@@ -139,6 +141,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Coleção não encontrada' })
         }
 
+        emitRealtimeEvent('collections.updated', { id: Number(id) })
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar coleção ${id}:`, error)
@@ -167,6 +170,8 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             WHERE collection_ids @> ARRAY[$1::bigint]
         `, [Number(id)])
 
+        emitRealtimeEvent('collections.deleted', { id: Number(id) })
+        emitRealtimeEvent('products.updated', { source: 'collection.deleted' })
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao deletar coleção ${id}:`, error)

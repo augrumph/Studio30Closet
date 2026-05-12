@@ -1,39 +1,33 @@
 import { memo } from 'react'
 
-export function SkeletonCard() {
+function SkeletonCardComponent() {
     return (
-        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
-            {/* Imagem do produto com shimmer */}
-            <div className="relative aspect-[3/4] skeleton-shimmer rounded-t-2xl overflow-hidden">
-                {/* Badges - com stagger animation */}
-                <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
-                    <div className="skeleton-pulse h-5 w-12 rounded-full" style={{ animationDelay: '0.1s' }} />
-                    <div className="skeleton-pulse h-5 w-10 rounded-full" style={{ animationDelay: '0.2s' }} />
-                </div>
+        <div className="flex flex-col">
+            {/* Imagem — mesma proporção do ProductCard real */}
+            <div className="aspect-[3/4] rounded-xl bg-gray-100 overflow-hidden relative">
+                {/* Shimmer sweep */}
+                <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.6s_infinite]"
+                    style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)' }} />
 
-                {/* Botão de visualização rápida */}
-                <div className="absolute top-3 right-3 w-9 h-9 rounded-full skeleton-pulse" style={{ animationDelay: '0.15s' }} />
+                {/* Badge placeholder */}
+                <div className="absolute top-2.5 left-2.5 h-5 w-20 bg-white/60 rounded-full animate-pulse" />
             </div>
 
-            {/* Informações do produto */}
-            <div className="p-4 space-y-3">
-                {/* Categoria */}
-                <div className="skeleton-pulse h-3 w-1/3 rounded" style={{ animationDelay: '0.3s' }} />
+            {/* Info abaixo da imagem */}
+            <div className="pt-2.5 space-y-1.5">
+                {/* Nome — duas linhas */}
+                <div className="h-3.5 bg-gray-100 rounded-md animate-pulse w-full" />
+                <div className="h-3.5 bg-gray-100 rounded-md animate-pulse w-3/4" />
 
-                {/* Nome do produto */}
-                <div className="space-y-1.5">
-                    <div className="skeleton-pulse h-4 w-full rounded" style={{ animationDelay: '0.35s' }} />
-                    <div className="skeleton-pulse h-4 w-4/5 rounded" style={{ animationDelay: '0.4s' }} />
-                </div>
-
-                {/* Preço e preço original */}
-                <div className="flex items-center gap-2 pt-1.5">
-                    <div className="skeleton-pulse h-5 w-20 rounded" style={{ animationDelay: '0.45s' }} />
-                    <div className="skeleton-pulse h-4 w-16 rounded opacity-60" style={{ animationDelay: '0.5s' }} />
+                {/* Preço */}
+                <div className="flex items-center gap-2 pt-0.5">
+                    <div className="h-4 bg-gray-100 rounded-md animate-pulse w-20" />
+                    <div className="h-3 bg-gray-100 rounded-md animate-pulse w-16 opacity-60" />
                 </div>
             </div>
         </div>
     )
 }
 
-export default memo(SkeletonCard)
+export const SkeletonCard = memo(SkeletonCardComponent)
+export default SkeletonCard

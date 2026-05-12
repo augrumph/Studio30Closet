@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -127,6 +128,7 @@ router.post('/', async (req, res) => {
             isActive !== undefined ? isActive : true
         ])
 
+        emitRealtimeEvent('payment-fees.updated', { id: rows[0].id })
         res.status(201).json(toCamelCase(rows[0]))
     } catch (error) {
         console.error('❌ Erro ao criar taxa:', error)
@@ -171,6 +173,7 @@ router.put('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Taxa não encontrada' })
         }
 
+        emitRealtimeEvent('payment-fees.updated', { id: Number(id) })
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar taxa ${id}:`, error)
@@ -192,6 +195,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Taxa não encontrada' })
         }
 
+        emitRealtimeEvent('payment-fees.updated', { id: Number(id), deleted: true })
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao deletar taxa ${id}:`, error)
@@ -203,6 +207,7 @@ router.delete('/:id', async (req, res) => {
 router.delete('/', async (req, res) => {
     try {
         await pool.query('DELETE FROM payment_fees')
+        emitRealtimeEvent('payment-fees.updated', { deleted: 'all' })
         res.json({ success: true })
     } catch (error) {
         console.error('❌ Erro ao deletar todas as taxas:', error)

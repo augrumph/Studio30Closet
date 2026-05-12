@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -130,6 +131,7 @@ router.post('/', async (req, res) => {
             RETURNING *
         `, [supplierId || null, paymentMethod || null, parseFloat(value), date, pieces || null, parcelas || null, notes || null, spentBy || 'loja'])
 
+        emitRealtimeEvent('purchases.created', { id: rows[0].id })
         res.status(201).json(toCamelCase(rows[0]))
     } catch (error) {
         console.error("❌ Erro ao criar compra:", error)
@@ -158,6 +160,7 @@ router.put('/:id', async (req, res) => {
         `, [supplierId, paymentMethod, value !== undefined ? parseFloat(value) : null, date, pieces, parcelas, notes, spentBy, id])
 
         if (rows.length === 0) return res.status(404).json({ error: 'Compra não encontrada' })
+        emitRealtimeEvent('purchases.updated', { id: Number(id) })
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar compra ${id}:`, error)
@@ -171,6 +174,7 @@ router.delete('/:id', async (req, res) => {
     try {
         const { rowCount } = await pool.query('DELETE FROM purchases WHERE id = $1', [id])
         if (rowCount === 0) return res.status(404).json({ error: 'Compra não encontrada' })
+        emitRealtimeEvent('purchases.deleted', { id: Number(id) })
         res.json({ success: true })
     } catch (error) {
         console.error(`❌ Erro ao deletar compra ${id}:`, error)

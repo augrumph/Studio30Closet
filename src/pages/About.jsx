@@ -103,7 +103,7 @@ export function About() {
                             {
                                 icon: Heart,
                                 title: 'Atendimento Humano',
-                                desc: 'Por trás de cada malinha existe uma pessoa real que se importa com sua experiência.',
+                                desc: 'Por trás de cada compra e de cada malinha existe uma pessoa real que se importa com sua experiência.',
                             },
                             {
                                 icon: Users2,
@@ -173,7 +173,7 @@ export function About() {
                         </h2>
 
                         <p className="text-xl text-[#4A3B32]/70 leading-relaxed">
-                            Monte sua primeira malinha e descubra por que essa experiência vale a pena.
+                            Compre online ou monte sua primeira malinha e descubra a curadoria Studio 30.
                         </p>
 
                         <div className="pt-4">
@@ -181,7 +181,7 @@ export function About() {
                                 to="/catalogo"
                                 className="inline-flex items-center gap-3 px-12 py-5 bg-[#C75D3B] text-white rounded-full font-bold text-lg hover:bg-[#A64D31] transition-all duration-300 shadow-2xl hover:scale-105"
                             >
-                                Montar Minha Malinha
+                                Ver Coleção
                                 <ArrowRight className="w-5 h-5" />
                             </Link>
                         </div>

@@ -235,6 +235,9 @@ router.post('/', async (req, res) => {
         await client.query('COMMIT')
 
         emitRealtimeEvent('venda.created', { id: novaVenda.id })
+        if (items && items.length > 0) {
+            emitRealtimeEvent('products.updated', { source: 'venda.created', vendaId: novaVenda.id })
+        }
         res.status(201).json(enrichImages(toCamelCase(novaVenda)))
     } catch (error) {
         await client.query('ROLLBACK')
@@ -375,6 +378,9 @@ router.put('/:id', async (req, res) => {
 
         console.log(`✅ Venda #${id} atualizada com sucesso`)
         emitRealtimeEvent('venda.updated', { id: Number(id) })
+        if (items !== undefined) {
+            emitRealtimeEvent('products.updated', { source: 'venda.updated', vendaId: Number(id) })
+        }
         res.json(enrichImages(updated))
     } catch (error) {
         await client.query('ROLLBACK')
@@ -487,6 +493,9 @@ router.delete('/:id', async (req, res) => {
         }
 
         emitRealtimeEvent('venda.deleted', { id: Number(id) })
+        if (items.length > 0) {
+            emitRealtimeEvent('products.updated', { source: 'venda.deleted', vendaId: Number(id) })
+        }
         res.json({ message: 'Venda deletada com sucesso' })
     } catch (error) {
         await client.query('ROLLBACK')

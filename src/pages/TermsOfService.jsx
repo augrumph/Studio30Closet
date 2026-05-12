@@ -75,10 +75,18 @@ export function TermsOfService() {
             <section className="mb-12">
               <h2 className="font-display text-2xl font-semibold text-[#4A3B32] mb-6 flex items-center gap-3">
                 <FileText className="w-6 h-6 text-[#C75D3B]" />
-                3. Política de Compras e Malinhas
+                3. Política de Compras Online e Malinhas
               </h2>
               <div className="space-y-4">
-                <h3 className="font-semibold text-[#4A3B32]">3.1 Processo de Malinha</h3>
+                <h3 className="font-semibold text-[#4A3B32]">3.1 Compra Online</h3>
+                <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
+                  <li>Pedidos online são confirmados após aprovação do pagamento</li>
+                  <li>O frete é calculado no checkout conforme CEP, peças e transportadora disponível</li>
+                  <li>Peças compradas online são separadas do estoque para envio</li>
+                  <li>Notas fiscais e rastreamento podem ser enviados por e-mail quando disponíveis</li>
+                </ul>
+
+                <h3 className="font-semibold text-[#4A3B32] mt-6">3.2 Processo de Malinha</h3>
                 <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
                   <li>Você pode selecionar até 20 peças por malinha</li>
                   <li>O prazo para decisão é de 3 dias úteis</li>
@@ -86,7 +94,7 @@ export function TermsOfService() {
                   <li>Produtos danificados não serão aceitos</li>
                 </ul>
 
-                <h3 className="font-semibold text-[#4A3B32] mt-6">3.2 Pagamento</h3>
+                <h3 className="font-semibold text-[#4A3B32] mt-6">3.3 Pagamento</h3>
                 <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
                   <li>Os pagamentos são processados após confirmação da compra</li>
                   <li>Aceitamos PIX, cartão de crédito e débito</li>
@@ -94,7 +102,7 @@ export function TermsOfService() {
                   <li>Cancelamentos após envio sujeitos a análise</li>
                 </ul>
 
-                <h3 className="font-semibold text-[#4A3B32] mt-6">3.3 Trocas e Devoluções</h3>
+                <h3 className="font-semibold text-[#4A3B32] mt-6">3.4 Trocas e Devoluções</h3>
                 <ul className="list-disc list-inside text-[#4A3B32]/70 space-y-2 ml-4">
                   <li>Trocas podem ser solicitadas em até 7 dias após recebimento</li>
                   <li>Produtos devem estar sem sinais de uso</li>

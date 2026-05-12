@@ -3,6 +3,7 @@ import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { enrichImages } from '../lib/s3.js'
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -333,6 +334,7 @@ router.post('/', authenticateToken, async (req, res) => {
         ])
 
         console.log(`✅ Product created with ID: ${rows[0].id}`)
+        emitRealtimeEvent('products.created', { id: rows[0].id })
         res.status(201).json(enrichImages(toCamelCase(rows[0])))
 
     } catch (err) {
@@ -420,6 +422,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
         }
 
         console.log(`✅ Product ${id} updated`)
+        emitRealtimeEvent('products.updated', { id: Number(id) })
         res.json(enrichImages(toCamelCase(rows[0])))
 
     } catch (err) {
@@ -454,6 +457,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         }
 
         console.log(`✅ Product ${id} deleted`)
+        emitRealtimeEvent('products.deleted', { id: Number(id) })
         res.json({ success: true })
     } catch (err) {
         console.error(`❌ Error deleting product ${id}:`, err)

@@ -2,6 +2,7 @@ import express from 'express'
 import { pool } from '../db.js'
 import { toCamelCase } from '../utils.js'
 import { isValidCpf, normalizeCpf } from '../lib/cpf.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -224,6 +225,7 @@ router.post('/', async (req, res) => {
         `, [name, phone || null, email || null, normalizedCpf, address || null, complement || null, instagram || null,
             addresses ? JSON.stringify(addresses) : '[]', birthDate || null])
 
+        emitRealtimeEvent('customers.created', { id: rows[0].id })
         res.status(201).json(toCamelCase(rows[0]))
     } catch (error) {
         console.error('❌ Erro ao criar cliente:', error)
@@ -274,6 +276,7 @@ router.put('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Cliente não encontrado' })
         }
 
+        emitRealtimeEvent('customers.updated', { id: Number(id) })
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error(`❌ Erro ao atualizar cliente ${id}:`, error)
@@ -292,6 +295,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Cliente não encontrado' })
         }
 
+        emitRealtimeEvent('customers.deleted', { id: Number(id) })
         res.json({ message: 'Cliente deletado com sucesso' })
     } catch (error) {
         console.error(`❌ Erro ao deletar cliente ${id}:`, error)
@@ -344,6 +348,7 @@ router.get('/:id/preferences', async (req, res) => {
             return res.json(null)
         }
 
+        emitRealtimeEvent('customers.preferences.updated', { id: Number(id) })
         res.json(toCamelCase(rows[0]))
     } catch (error) {
         console.error(`❌ Erro ao buscar preferências do cliente ${id}:`, error)

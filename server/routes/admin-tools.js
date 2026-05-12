@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { blockEntity, unblockEntity } from '../lib/fraud-engine.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -39,6 +40,7 @@ router.patch('/products/:id/cost-price', async (req, res) => {
             [parseFloat(cost_price), id]
         )
 
+        emitRealtimeEvent('products.updated', { id: Number(id), field: 'cost_price' })
         res.json({ success: true, product: rows[0] })
     } catch (error) {
         console.error(`❌ Erro ao atualizar custo do produto ${id}:`, error)
@@ -86,6 +88,7 @@ router.post('/fraud/block', async (req, res) => {
     }
     try {
         await blockEntity({ entityType, entityValue, reason, blockedBy: 'manual' })
+        emitRealtimeEvent('fraud.updated', { entityType, entityValue })
         res.json({ success: true })
     } catch (err) {
         console.error('❌ Erro ao bloquear entidade:', err)
@@ -98,6 +101,7 @@ router.delete('/fraud/block/:id', async (req, res) => {
     try {
         const removed = await unblockEntity(req.params.id)
         if (!removed) return res.status(404).json({ error: 'Não encontrado' })
+        emitRealtimeEvent('fraud.updated', { id: Number(req.params.id), removed: true })
         res.json({ success: true, removed })
     } catch (err) {
         console.error('❌ Erro ao desbloquear:', err)
@@ -141,6 +145,7 @@ router.patch('/fraud/orders/:id/approve', async (req, res) => {
             `INSERT INTO order_events (order_id, event_type, message) VALUES ($1, 'fraud_approved', 'Pedido aprovado manualmente após revisão de risco')`,
             [req.params.id]
         )
+        emitRealtimeEvent('orders.updated', { id: Number(req.params.id), action: 'fraud_approved' })
         res.json({ success: true, order: rows[0] })
     } catch (err) {
         console.error('❌ Erro ao aprovar pedido:', err)
@@ -178,6 +183,7 @@ router.patch('/fraud/orders/:id/block', async (req, res) => {
             `INSERT INTO order_events (order_id, event_type, message, payload) VALUES ($1, 'fraud_blocked', 'Pedido bloqueado manualmente', $2)`,
             [req.params.id, JSON.stringify({ reason, blockCpf, blockEmail })]
         )
+        emitRealtimeEvent('orders.updated', { id: Number(req.params.id), action: 'fraud_blocked' })
         res.json({ success: true })
     } catch (err) {
         console.error('❌ Erro ao bloquear pedido:', err)
@@ -219,6 +225,7 @@ router.patch('/orders/:id/return', async (req, res) => {
             `INSERT INTO order_events (order_id, event_type, message, payload) VALUES ($1, 'return_status_changed', $2, $3)`,
             [req.params.id, `Devolução: ${returnStatus}`, JSON.stringify({ returnStatus, notes })]
         )
+        emitRealtimeEvent('orders.updated', { id: Number(req.params.id), action: 'return_status_changed' })
         res.json({ success: true, order: rows[0] })
     } catch (err) {
         console.error('❌ Erro ao atualizar devolução:', err)

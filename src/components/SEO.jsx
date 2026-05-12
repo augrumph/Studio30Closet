@@ -22,12 +22,12 @@ export function SEO({
 
     // Configurações Padrão
     const siteName = "Studio 30 Closet"
-    const defaultDescription = "O provador mais exclusivo é a sua casa. Receba nossa curadoria personalizada (malinha), experimente sem pressa e pague apenas pelo que amar."
+    const defaultDescription = "Compre online ou receba a malinha Studio 30 em casa para provar com calma. Curadoria feminina, estoque único e atendimento personalizado."
     const siteUrl = "https://studio30closet.com.br" // URL de produção (ajustar se mudar)
     const defaultImage = `${siteUrl}/social-share.png` // Imagem padrão de compartilhamento (Logo no quadrado)
 
     // Processamento de Dados
-    const pageTitle = title ? `${title} | ${siteName}` : `${siteName} - Sua Boutique em Casa`
+    const pageTitle = title ? `${title} | ${siteName}` : `${siteName} - Boutique Online e Malinha`
     const pageDescription = description || defaultDescription
     const currentUrl = `${siteUrl}${location.pathname}`
 

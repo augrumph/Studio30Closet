@@ -1,5 +1,6 @@
 import express from 'express'
 import { pool } from '../db.js'
+import { emitRealtimeEvent } from '../lib/realtime-events.js'
 
 const router = express.Router()
 
@@ -67,6 +68,7 @@ router.put('/', async (req, res) => {
             }
 
             await client.query('COMMIT')
+            emitRealtimeEvent('settings.updated', { keys: Object.keys(settingsData) })
             res.json({ success: true })
 
         } catch (error) {
@@ -100,6 +102,7 @@ router.put('/:key', async (req, res) => {
             RETURNING *
         `, [key, JSON.stringify(value)])
 
+        emitRealtimeEvent('settings.updated', { key })
         res.json({ [key]: rows[0].value })
     } catch (error) {
         console.error(`❌ Erro ao atualizar configuração ${key}:`, error)

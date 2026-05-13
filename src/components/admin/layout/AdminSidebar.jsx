@@ -33,6 +33,7 @@ const SECTIONS = [
         items: [
             { path: '/admin/customers',  label: 'Clientes',     icon: Users },
             { path: '/admin/stock',      label: 'Estoque',      icon: Boxes },
+            { path: '/admin/returns',    label: 'Trocas & Devoluções', icon: PackageCheck },
             { path: '/admin/suppliers',  label: 'Fornecedores', icon: Truck },
             { path: '/admin/purchases',  label: 'Compras',      icon: ShoppingCart },
         ],

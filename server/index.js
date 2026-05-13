@@ -48,13 +48,19 @@ const corsMiddleware = cors({
 })
 app.use('/api/', corsMiddleware)
 app.use(compression())
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 })
+const limiter = rateLimit({ 
+    windowMs: 15 * 60 * 1000, 
+    max: 100000, // Limite altíssimo
+    skip: (req) => process.env.NODE_ENV !== 'production', // DESATIVA em desenvolvimento
+    message: { error: 'Muitas requisições vindas deste IP. Tente novamente mais tarde.' }
+})
 app.use('/api/', limiter)
 app.use(express.json({ limit: '10mb' }))
 
 // Rotas
 import dashboardRouter from './routes/dashboard.js'
 import vendasRouter from './routes/vendas.js'
+import returnsRouter from './routes/returns.js'
 import productsRouter from './routes/products.js'
 import malinhasRouter from './routes/malinhas.js'
 import customersRouter from './routes/customers.js'
@@ -95,6 +101,7 @@ app.use('/api/realtime', realtimeRouter)
 app.use('/api/integrations', authenticateToken, integrationsRouter)
 app.use('/api/dashboard', authenticateToken, dashboardRouter)
 app.use('/api/vendas', authenticateToken, vendasRouter)
+app.use('/api/returns', authenticateToken, returnsRouter)
 app.use('/api/malinhas', authenticateToken, malinhasRouter)
 app.use('/api/customers', authenticateToken, customersRouter)
 app.use('/api/entregas', authenticateToken, entregasRouter)

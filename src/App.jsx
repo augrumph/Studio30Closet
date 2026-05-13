@@ -64,6 +64,8 @@ const MalinhasForm = lazyWithRetry(() => import('@/pages/admin/MalinhasForm').th
 const CustomersList = lazyWithRetry(() => import('@/pages/admin/CustomersList').then(module => ({ default: module.CustomersList })))
 const CustomersForm = lazyWithRetry(() => import('@/pages/admin/CustomersForm').then(module => ({ default: module.CustomersForm })))
 const CustomersDetail = lazyWithRetry(() => import('@/pages/admin/CustomersDetail').then(module => ({ default: module.CustomersDetail })))
+const ReturnsList = lazyWithRetry(() => import('@/pages/admin/ReturnsList').then(module => ({ default: module.ReturnsList })))
+const ReturnsForm = lazyWithRetry(() => import('@/pages/admin/ReturnsForm').then(module => ({ default: module.ReturnsForm })))
 const VendasList = lazyWithRetry(() => import('@/pages/admin/VendasList').then(module => ({ default: module.VendasList })))
 const VendasForm = lazyWithRetry(() => import('@/pages/admin/VendasForm').then(module => ({ default: module.VendasForm })))
 const OnlineOrdersList = lazyWithRetry(() => import('@/pages').then(module => ({ default: module.OnlineOrdersList })))
@@ -132,6 +134,8 @@ function App() {
                                             <Route path="malinhas/new" element={<MalinhasForm />} />
                                             <Route path="malinhas/:id/edit" element={<MalinhasForm />} />
                                             <Route path="malinhas/:id" element={<MalinhasDetail />} />
+                                            <Route path="returns" element={<ReturnsList />} />
+                                            <Route path="returns/new" element={<ReturnsForm />} />
                                             <Route path="vendas" element={<VendasList />} />
                                             <Route path="vendas/new" element={<VendasForm />} />
                                             <Route path="vendas/:id" element={<VendasForm />} />

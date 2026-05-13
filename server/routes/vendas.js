@@ -182,7 +182,8 @@ router.post('/', async (req, res) => {
         entryPayment,
         installmentStartDate,
         discountAmount,
-        originalTotal
+        originalTotal,
+        creditUsed
     } = req.body
 
     const client = await getClient()
@@ -196,19 +197,27 @@ router.post('/', async (req, res) => {
                 customer_id, order_id, total_value, cost_price, items,
                 payment_method, card_brand, fee_percentage, fee_amount, net_amount,
                 payment_status, is_installment, num_installments, entry_payment,
-                installment_start_date, discount_amount, original_total
+                installment_start_date, discount_amount, original_total, credit_used
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
             RETURNING *
         `, [
             customerId, orderId || null, totalValue, costPrice || null,
             items ? JSON.stringify(items) : '[]',
             paymentMethod, cardBrand || null, feePercentage || 0, feeAmount || 0, netAmount || totalValue,
             paymentStatus || 'pending', isInstallment || false, numInstallments || 1,
-            entryPayment || 0, installmentStartDate || null, discountAmount || 0, originalTotal || totalValue
+            entryPayment || 0, installmentStartDate || null, discountAmount || 0, originalTotal || totalValue, creditUsed || 0
         ])
-
+        
         const novaVenda = rows[0]
+
+        // 1.5 Deduct store credit
+        if (creditUsed > 0 && customerId) {
+            await client.query(
+                'UPDATE customers SET store_credit = store_credit - $1 WHERE id = $2',
+                [creditUsed, customerId]
+            )
+        }
 
         // 2. Atualizar Estoque (Sempre, pois se vier de malinha, a malinha vai liberar a reserva ao mudar status)
         if (items && items.length > 0) {
@@ -505,5 +514,60 @@ router.delete('/:id', async (req, res) => {
         client.release()
     }
 })
+
+// POST /api/vendas/:id/void - Anular venda (Erro de digitação ou cancelamento total)
+router.post('/:id/void', asyncHandler(async (req, res) => {
+    const { id } = req.params
+    const client = await getClient()
+
+    try {
+        await client.query('BEGIN')
+
+        // 1. Buscar a venda e seus itens
+        const { rows: [venda] } = await client.query('SELECT * FROM vendas WHERE id = $1', [id])
+        if (!venda) throw new AppError('Venda não encontrada', 404)
+        if (venda.payment_status === 'cancelled') throw new AppError('Esta venda já foi anulada', 400)
+
+        const items = typeof venda.items === 'string' ? JSON.parse(venda.items) : venda.items
+
+        // 2. Restaurar estoque
+        for (const item of items) {
+            const qty = item.quantity || 1
+            const productId = item.productId
+            const color = item.selectedColor || 'Padrão'
+            const size = item.selectedSize || 'Único'
+
+            if (productId) {
+                await updateProductStock(client, productId, qty, color, size, 'restore')
+            }
+        }
+
+        // 3. Se usou crédito (Haver), devolver para a cliente
+        if (parseFloat(venda.credit_used) > 0) {
+            await client.query(
+                'UPDATE customers SET store_credit = COALESCE(store_credit, 0) + $1 WHERE id = $2',
+                [venda.credit_used, venda.customer_id]
+            )
+        }
+
+        // 4. Marcar venda como cancelada
+        await client.query('UPDATE vendas SET payment_status = $1 WHERE id = $2', ['cancelled', id])
+
+        // 5. Se for crediário, remover parcelas pendentes
+        await client.query('DELETE FROM installments WHERE venda_id = $1', [id])
+
+        await client.query('COMMIT')
+        
+        emitRealtimeEvent('vendas.updated', { id, status: 'cancelled' })
+        emitRealtimeEvent('products.updated', { source: 'void_sale' })
+
+        res.json({ message: 'Venda anulada com sucesso e estoque restaurado.' })
+    } catch (error) {
+        await client.query('ROLLBACK')
+        throw error
+    } finally {
+        client.release()
+    }
+}))
 
 export default router

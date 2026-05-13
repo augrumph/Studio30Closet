@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart, AlertTriangle, Loader2, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, Filter, DollarSign, Calendar, CreditCard, ChevronRight, MoreHorizontal, TrendingUp, Trash2, Edit2, ShoppingCart, AlertTriangle, Loader2, ArrowUpDown, RefreshCw, XCircle } from 'lucide-react'
 import { useAdminStore } from '@/store/admin-store'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from 'sonner'
@@ -206,6 +206,19 @@ export function VendasList() {
             toast.error(formatUserFriendlyError(error))
         }
         setConfirmDelete({ ...confirmDelete, isOpen: false })
+    }
+
+    const handleVoidSale = async (id, customer) => {
+        if (!window.confirm(`Tem certeza que deseja ANULAR a venda de ${customer}? \n\nIsso irá:\n1. Devolver os itens ao estoque\n2. Cancelar o crediário (se houver)\n3. Marcar a venda como Cancelada\n\nEsta ação não pode ser desfeita.`)) return
+
+        try {
+            await apiClient(`/vendas/${id}/void`, { method: 'POST' })
+            toast.success('Venda anulada e estoque restaurado!')
+            refetch()
+            refetchMetrics()
+        } catch (error) {
+            toast.error(error.message || 'Erro ao anular venda')
+        }
     }
 
     // Show skeleton while loading
@@ -666,6 +679,13 @@ export function VendasList() {
                                                         </button>
                                                     )}
                                                     <Link
+                                                        to={`/admin/returns/new?saleId=${venda.id}&customerId=${venda.customerId}`}
+                                                        className="p-2.5 bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
+                                                        title="Realizar Troca/Devolução"
+                                                    >
+                                                        <RefreshCw className="w-4 h-4" />
+                                                    </Link>
+                                                    <Link
                                                         to={`/admin/vendas/${venda.id}`}
                                                         className="p-2.5 bg-white border border-gray-100 text-[#4A3B32] hover:bg-[#4A3B32] hover:text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
                                                         title="Editar Venda"
@@ -673,9 +693,16 @@ export function VendasList() {
                                                         <Edit2 className="w-4 h-4" />
                                                     </Link>
                                                     <button
+                                                        onClick={() => handleVoidSale(venda.id, venda.customerName || 'Cliente não identificado')}
+                                                        className="p-2.5 bg-red-50 border border-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
+                                                        title="Anular Venda (Erro/Cancelamento)"
+                                                    >
+                                                        <XCircle className="w-4 h-4" />
+                                                    </button>
+                                                    <button
                                                         onClick={() => handleDelete(venda.id, venda.customerName || 'Cliente não identificado')}
-                                                        className="p-2.5 bg-white border border-gray-100 text-red-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
-                                                        title="Excluir Registro"
+                                                        className="p-2.5 bg-white border border-gray-100 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
+                                                        title="Excluir Registro (Permanente)"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>

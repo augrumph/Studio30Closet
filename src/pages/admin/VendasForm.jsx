@@ -97,7 +97,9 @@ export function VendasForm() {
         paymentStatus: 'pending',
         items: [],
         couponCode: '',
-        discountAmount: 0
+        discountAmount: 0,
+        creditUsed: 0,
+        customerStoreCredit: 0
     })
 
     const [parcelas, setParcelas] = useState(1)
@@ -211,8 +213,11 @@ export function VendasForm() {
     }, [manualDiscount.type, manualDiscount.value, subtotal, formData.couponCode])
 
     const discount = parseFloat(formData.discountAmount) || 0
-    const finalValue = Math.max(0, Number(subtotal - discount))
-    const netValue = Math.max(0, Number(feeInfo?.netValue || finalValue))
+    const totalWithDiscount = Math.max(0, Number(subtotal - discount))
+    const creditUsed = parseFloat(formData.creditUsed) || 0
+    const finalValue = Math.max(0, totalWithDiscount - creditUsed)
+    
+    const netValue = Math.max(0, Number(feeInfo?.netValue || totalWithDiscount))
     const feeValue = Number(feeInfo?.feeValue || 0) || 0
     const isParcelado = ['credito_parcelado', 'fiado_parcelado'].includes(formData.paymentMethod)
     const needsCardBrand = ['debit', 'card_machine', 'credito_parcelado'].includes(formData.paymentMethod)
@@ -330,7 +335,13 @@ export function VendasForm() {
     }
 
     const selectCustomer = (customer) => {
-        setFormData(prev => ({ ...prev, customerId: customer.id, customerName: customer.name }))
+        setFormData(prev => ({ 
+            ...prev, 
+            customerId: customer.id, 
+            customerName: customer.name,
+            customerStoreCredit: parseFloat(customer.storeCredit) || 0,
+            creditUsed: 0 // Reset credit used when customer changes
+        }))
         setCustomerSearch('')
         setShowCustomerSearch(false)
         toast.success(`Cliente: ${customer.name}`, { duration: 1500 })
@@ -358,9 +369,10 @@ export function VendasForm() {
 
         const payload = {
             ...formData,
-            totalValue: finalValue,
+            totalValue: totalWithDiscount, // Total da venda (antes do crédito, após desconto)
             originalTotal: subtotal,
             discountAmount: discount,
+            creditUsed: creditUsed,
             costPrice: formData.items.reduce((acc, item) => acc + (Number(item.costPrice || 0) * Number(item.quantity || 1)), 0),
             feePercentage: feeInfo.feePercentage || 0,
             feeAmount: feeInfo.feeValue || 0,
@@ -730,6 +742,45 @@ export function VendasForm() {
                     </button>
 
                     <AnimatePresence>
+                        {activeSection === 'customer' && formData.customerId && formData.customerStoreCredit > 0 && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="px-4 pb-4"
+                            >
+                                <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] uppercase font-bold text-amber-600">Crédito Disponível (Haver)</p>
+                                        <p className="text-sm font-black text-amber-700">R$ {formData.customerStoreCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {formData.creditUsed > 0 ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(p => ({ ...p, creditUsed: 0 }))}
+                                                className="px-3 py-1 bg-white text-red-600 text-xs font-bold rounded-lg shadow-sm"
+                                            >
+                                                Remover
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const use = Math.min(formData.customerStoreCredit, totalWithDiscount)
+                                                    setFormData(p => ({ ...p, creditUsed: use }))
+                                                    toast.success(`Crédito de R$ ${use.toFixed(2)} aplicado!`)
+                                                }}
+                                                className="px-3 py-1 bg-amber-600 text-white text-xs font-bold rounded-lg shadow-sm"
+                                            >
+                                                Usar Crédito
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                        
                         {activeSection === 'customer' && !formData.customerId && (
                             <motion.div
                                 initial={{ height: 0 }}

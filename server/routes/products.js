@@ -23,6 +23,26 @@ async function processImages(images) {
     return processedImages.filter(img => img !== null)
 }
 
+/**
+ * Helper para processar variantes de produto
+ * Faz upload de imagens de cada variante e garante consistência de dados
+ */
+async function processVariants(variants, costPrice) {
+    if (!variants || !Array.isArray(variants) || variants.length === 0) return []
+
+    return await Promise.all(variants.map(async (variant) => {
+        // Processar imagens específicas desta variante
+        const variantImages = await processImages(variant.images)
+
+        return {
+            ...variant,
+            images: variantImages,
+            // Propagar preço de custo para a variante se não houver um específico
+            costPrice: variant.costPrice || costPrice || 0
+        }
+    }))
+}
+
 
 // Listagem de Produtos com Paginação e Busca (Público, mas revela custos se Admin)
 router.get('/', optionalAuthenticateToken, async (req, res) => {

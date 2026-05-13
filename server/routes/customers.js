@@ -65,6 +65,7 @@ router.get('/', async (req, res) => {
                     c.instagram,
                     c.birth_date,
                     c.created_at,
+                    c.store_credit,
                     COALESCE(SUM(v.total_value), 0) as lifetime_value,
                     COUNT(v.id) as total_orders,
                     MAX(v.created_at) as last_purchase_date,
@@ -77,7 +78,7 @@ router.get('/', async (req, res) => {
                 FROM customers c
                 LEFT JOIN vendas v ON v.customer_id = c.id AND v.payment_status != 'cancelled'
                 ${whereClause}
-                GROUP BY c.id, c.name, c.phone, c.email, c.cpf, c.address, c.addresses, c.instagram, c.birth_date, c.created_at
+                GROUP BY c.id, c.name, c.phone, c.email, c.cpf, c.address, c.addresses, c.instagram, c.birth_date, c.created_at, c.store_credit
             )
         `
         const cteWithAvg = `
@@ -199,7 +200,8 @@ router.get('/:id', async (req, res) => {
         res.json({
             ...customer,
             lifetimeValue: parseFloat(customer.lifetimeValue) || 0,
-            totalOrders: parseInt(customer.totalOrders) || 0
+            totalOrders: parseInt(customer.totalOrders) || 0,
+            storeCredit: parseFloat(customer.storeCredit) || 0
         })
     } catch (error) {
         console.error(`❌ Erro ao buscar cliente ${id}:`, error)

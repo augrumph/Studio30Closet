@@ -39,7 +39,6 @@ router.get('/', async (req, res) => {
             FROM vendas v
             LEFT JOIN customers c ON c.id = v.customer_id
             WHERE v.payment_method IN ('fiado', 'fiado_parcelado')
-            AND LOWER(TRIM(COALESCE(c.name, ''))) != 'amor'
             ${statusCondition}
             ORDER BY v.created_at DESC
             LIMIT $1 OFFSET $2
@@ -131,7 +130,6 @@ router.get('/metrics', async (req, res) => {
                 GROUP BY i.venda_id
             ) overdue_check ON overdue_check.venda_id = v.id
             WHERE v.payment_method IN ('fiado', 'fiado_parcelado')
-            AND LOWER(TRIM(COALESCE((SELECT name FROM customers WHERE id = v.customer_id), ''))) != 'amor'
             ${statusCondition}
         `)
 
